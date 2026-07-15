@@ -9,7 +9,8 @@ platform :ios do
       "-workspace ios/Bambuddy.xcworkspace " \
       "-scheme Bambuddy " \
       "-configuration Debug " \
-      "-destination 'generic/platform=iOS Simulator' " \
+      "-sdk iphonesimulator " \
+      "-arch #{`uname -m`.strip} " \
       "CODE_SIGNING_ALLOWED=NO " \
       "build 2>&1 | #{formatter}"
     )
