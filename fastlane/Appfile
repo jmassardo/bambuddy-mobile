@@ -1,0 +1,8 @@
+# iOS
+app_identifier("com.bambuddy.mobile")
+apple_id(ENV["APPLE_ID"])
+team_id(ENV["APPLE_TEAM_ID"])
+
+# Android
+json_key_file(ENV["GOOGLE_SERVICE_ACCOUNT_KEY_PATH"])
+package_name("com.bambuddy.mobile")

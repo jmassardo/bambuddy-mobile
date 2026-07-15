@@ -1,0 +1,88 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build iOS debug (no code signing — for CI verification)"
+  lane :build_debug do
+    formatter = `which xcbeautify`.strip.empty? ? "cat" : "xcbeautify"
+    sh(
+      "cd .. && set -o pipefail && xcodebuild " \
+      "-workspace ios/Bambuddy.xcworkspace " \
+      "-scheme Bambuddy " \
+      "-configuration Debug " \
+      "-destination 'generic/platform=iOS Simulator' " \
+      "CODE_SIGNING_ALLOWED=NO " \
+      "build 2>&1 | #{formatter}"
+    )
+  end
+
+  desc "Build iOS release IPA"
+  lane :build_release do
+    match(type: "appstore", readonly: true)
+    build_ios_app(
+      workspace: "ios/Bambuddy.xcworkspace",
+      scheme: "Bambuddy",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "ios/build",
+      include_symbols: true
+    )
+  end
+
+  desc "Submit to TestFlight"
+  lane :beta do
+    build_release
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Submit to App Store"
+  lane :submit do
+    upload_to_app_store(
+      skip_metadata: true,
+      skip_screenshots: true,
+      ipa: "ios/build/Bambuddy.ipa"
+    )
+  end
+end
+
+platform :android do
+  desc "Build Android debug APK"
+  lane :build_debug do
+    gradle(
+      project_dir: "android",
+      task: "assembleDebug",
+      properties: {
+        "VERSION_CODE" => ENV.fetch("VERSION_CODE", "1")
+      }
+    )
+  end
+
+  desc "Build Android release AAB"
+  lane :build_release do
+    gradle(
+      project_dir: "android",
+      task: "bundleRelease",
+      properties: {
+        "VERSION_CODE" => ENV.fetch("VERSION_CODE", "1")
+      }
+    )
+  end
+
+  desc "Submit to Google Play (internal testing)"
+  lane :beta do
+    build_release
+    upload_to_play_store(
+      track: "internal",
+      aab: "android/app/build/outputs/bundle/release/app-release.aab"
+    )
+  end
+
+  desc "Submit to Google Play (production)"
+  lane :submit do
+    upload_to_play_store(
+      track: "production",
+      aab: "android/app/build/outputs/bundle/release/app-release.aab"
+    )
+  end
+end

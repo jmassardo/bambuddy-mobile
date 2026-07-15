@@ -37,46 +37,51 @@ jobs:
 
       - run: npx expo lint
 
-  build-android:
-    name: Build Android (EAS)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [typecheck, lint]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      - uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-
-      - run: eas build --platform android --non-interactive --no-wait
-
   build-ios:
-    name: Build iOS (EAS)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [typecheck, lint]
+    name: Build iOS (Debug)
+    runs-on: macos-latest
+    needs: [typecheck]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
 
       - run: npm ci
 
-      - uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+      - run: cd ios && pod install
 
-      - run: eas build --platform ios --non-interactive --no-wait
+      - run: bundle exec fastlane ios build_debug
+
+  build-android:
+    name: Build Android (Debug)
+    runs-on: ubuntu-latest
+    needs: [typecheck]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - run: npm ci
+
+      - run: bundle exec fastlane android build_debug

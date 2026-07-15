@@ -7,15 +7,12 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native builds
-ios/
-android/
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-*.orig.*
+# Native build artifacts (native dirs ARE committed)
+ios/build/
+ios/Pods/
+android/build/
+android/app/build/
+android/.gradle/
 
 # Metro
 .metro-health-check*
@@ -45,5 +42,12 @@ yarn-error.*
 # Testing
 coverage/
 
-# EAS
-eas.json
+# Ruby
+vendor/bundle/
+Gemfile.lock
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output

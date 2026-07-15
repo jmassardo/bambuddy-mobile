@@ -1,0 +1,6 @@
+git_url(ENV["MATCH_GIT_URL"])
+storage_mode("git")
+type("appstore")
+app_identifier("com.bambuddy.mobile")
+username(ENV["APPLE_ID"])
+team_id(ENV["APPLE_TEAM_ID"])

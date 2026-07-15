@@ -47,11 +47,19 @@
   },
   "scripts": {
     "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "build:ios:debug": "bundle exec fastlane ios build_debug",
+    "build:ios:release": "bundle exec fastlane ios build_release",
+    "build:android:debug": "bundle exec fastlane android build_debug",
+    "build:android:release": "bundle exec fastlane android build_release",
+    "beta:ios": "bundle exec fastlane ios beta",
+    "beta:android": "bundle exec fastlane android beta",
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "prebuild": "expo prebuild",
+    "prebuild:clean": "expo prebuild --clean"
   },
   "private": true
 }
