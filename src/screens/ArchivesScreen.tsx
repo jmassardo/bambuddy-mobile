@@ -15,6 +15,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { ArchiveCard } from '@/components/archives/ArchiveCard';
+import { CompareArchivesModal } from '@/components/archives/CompareArchivesModal';
 import {
   Chip,
   PrimaryButton,
@@ -23,6 +24,7 @@ import {
   StatCard,
   TextField,
 } from '@/components/common/AppUI';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { Icon } from '@/components/common/TabBarIcon';
 import { useToast } from '@/contexts/ToastContext';
@@ -33,11 +35,14 @@ import {
   fontWeight,
   spacing,
 } from '@/theme/tokens';
-import type { Archive, ArchiveComparison, ArchiveStats, Printer } from '@/types/api';
+import type { Archive, ArchiveStats, Printer } from '@/types/api';
 import {
   formatCurrency,
   formatDuration,
+  pickArray,
+  pickNumber,
 } from '@/utils/data';
+import { shareBlob } from '@/utils/share';
 
 
 type ArchiveStatusFilter =
@@ -67,6 +72,38 @@ function tagsForArchive(archive: Archive) {
     ?.split(',')
     .map(tag => tag.trim())
     .filter(Boolean) ?? [];
+}
+
+function rangeDateFrom(range: RangeFilter) {
+  const cutoff = rangeCutoff(range);
+  return cutoff > 0 ? new Date(cutoff).toISOString() : undefined;
+}
+
+function archiveExportRows(archives: Archive[]) {
+  return archives.map(archive => ({
+    id: archive.id,
+    print_name: archive.print_name ?? '',
+    filename: archive.filename ?? '',
+    printer_name: archive.printer_name ?? '',
+    project_name: archive.project_name ?? '',
+    status: archive.status ?? '',
+    completed_at: archive.completed_at ?? archive.created_at ?? '',
+    filament_type: archive.filament_type ?? '',
+    filament_color: archive.filament_color ?? '',
+    filament_used_grams: archive.filament_used_grams ?? '',
+    cost: archive.cost ?? '',
+    tags: archive.tags ?? '',
+  }));
+}
+
+function toCsv(rows: Array<Record<string, unknown>>) {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  return [
+    headers.join(','),
+    ...rows.map(row => headers.map(header => escape(row[header])).join(',')),
+  ].join('\n');
 }
 
 function SimpleModal({
@@ -105,10 +142,6 @@ function SimpleModal({
 
 export default function ArchivesScreen() {
   const navigation = useNavigation<any>();
-  React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Archives' });
-  }, [navigation]);
-
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -126,6 +159,23 @@ export default function ArchivesScreen() {
   const [tagsArchiveIds, setTagsArchiveIds] = useState<number[]>([]);
   const [tagsDraft, setTagsDraft] = useState('');
   const [showTagSummary, setShowTagSummary] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'json'>('csv');
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
+  const [purgeDays, setPurgeDays] = useState(90);
+  const [purgeStats, setPurgeStats] = useState(false);
+
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      title: 'Archives',
+      headerRight: () => (
+        <Pressable onPress={() => setShowExportModal(true)} style={styles.headerButton} hitSlop={8}>
+          <Icon name="download" size={18} color={colors.text} />
+        </Pressable>
+      ),
+    });
+  }, [colors.text, navigation]);
 
   const archivesQuery = useQuery({
     queryKey: ['archives'],
@@ -143,10 +193,12 @@ export default function ArchivesScreen() {
     queryKey: ['archiveStats'],
     queryFn: () => api.getArchiveStats(),
   });
-  const compareQuery = useQuery({
-    queryKey: ['archiveCompare', compareIds.join(',')],
-    queryFn: () => api.getArchiveComparison(compareIds),
-    enabled: compareIds.length >= 2 && compareIds.length <= 5,
+
+
+  const archivePurgePreviewQuery = useQuery({
+    queryKey: ['archivePurgePreview', purgeDays, purgeStats],
+    queryFn: () => api.previewArchivePurge(purgeDays, purgeStats),
+    enabled: showPurgeModal,
   });
 
   const archives = useMemo(() => toArchives(archivesQuery.data), [archivesQuery.data]);
@@ -249,7 +301,68 @@ export default function ArchivesScreen() {
     });
   }, [archives, printerFilter, rangeFilter, search, statusFilter, tagFilter]);
 
-  const compareData = compareQuery.data as ArchiveComparison | undefined;
+  const compareArchives = useMemo(
+    () =>
+      compareIds
+        .map(id => archives.find(archive => archive.id === id))
+        .filter((archive): archive is Archive => Boolean(archive)),
+    [archives, compareIds],
+  );
+
+  const hasUnsupportedServerExportFilters = Boolean(
+    tagFilter || statusFilter === 'favorite' || statusFilter === 'duplicate',
+  );
+
+  const exportMutation = useMutation({
+    mutationFn: async () => {
+      const filenameBase = `bambuddy-archives-${new Date().toISOString().slice(0, 10)}`;
+      if (exportFormat === 'json') {
+        const blob = new Blob([JSON.stringify(filteredArchives, null, 2)], { type: 'application/json', lastModified: Date.now() } as any);
+        await shareBlob(blob, `${filenameBase}.json`);
+        return;
+      }
+      if (hasUnsupportedServerExportFilters) {
+        const csv = toCsv(archiveExportRows(filteredArchives));
+        const blob = new Blob([csv], { type: 'text/csv', lastModified: Date.now() } as any);
+        await shareBlob(blob, `${filenameBase}.csv`);
+        return;
+      }
+      const blob = await api.exportArchives({
+        format: 'csv',
+        printerId: printerFilter === 'all' ? undefined : printerFilter,
+        status:
+          statusFilter === 'completed'
+            ? 'completed'
+            : statusFilter === 'failed'
+              ? 'failed'
+              : statusFilter === 'cancelled'
+                ? 'cancelled'
+                : undefined,
+        dateFrom: rangeDateFrom(rangeFilter),
+        search: search.trim() || undefined,
+      });
+      await shareBlob(blob, `${filenameBase}.csv`);
+    },
+    onSuccess: () => {
+      showToast(`${exportFormat.toUpperCase()} export ready to share.`, 'success');
+      setShowExportModal(false);
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to export archives.', 'error'),
+  });
+
+  const purgeMutation = useMutation({
+    mutationFn: () => api.purgeArchives({ older_than_days: purgeDays, purge_stats: purgeStats }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['archives'] }),
+        queryClient.invalidateQueries({ queryKey: ['archiveStats'] }),
+      ]);
+      setShowPurgeConfirm(false);
+      setShowPurgeModal(false);
+      showToast('Archive purge complete.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to purge archives.', 'error'),
+  });
 
   const refreshAll = async () => {
     await Promise.all([
@@ -308,6 +421,12 @@ export default function ArchivesScreen() {
               selectionMode={selectionMode}
               onToggleSelect={() => toggleSelected(item.id)}
               onPress={() => navigation.navigate('ArchiveDetail', { id: String(item.id) })}
+              onLongPress={() => {
+                setSelectionMode(true);
+                setSelectedIds(current =>
+                  current.includes(item.id) ? current : [...current, item.id],
+                );
+              }}
               onReprint={() => {
                 reprintMutation.mutate(item.id);
               }}
@@ -420,6 +539,8 @@ export default function ArchivesScreen() {
                     setSelectionMode(current => !current);
                   }}
                 />
+                <PrimaryButton label="Export" variant="secondary" onPress={() => setShowExportModal(true)} />
+                <PrimaryButton label="Purge" variant="secondary" onPress={() => setShowPurgeModal(true)} />
                 <PrimaryButton label="Manage tags" variant="secondary" onPress={() => setShowTagSummary(true)} />
                 {selectedIds.length >= 2 && selectedIds.length <= 5 ? (
                   <PrimaryButton label={`Compare (${selectedIds.length})`} onPress={() => setCompareIds(selectedIds)} />
@@ -478,39 +599,85 @@ export default function ArchivesScreen() {
         </View>
       ) : null}
 
-      <SimpleModal
-        visible={compareIds.length > 0}
-        title="Archive comparison"
-        subtitle="Compare archive metadata, runtime, filament, and print outcomes like the web comparison drawer."
+      <CompareArchivesModal
+        visible={compareArchives.length >= 2 && compareArchives.length <= 5}
+        archives={compareArchives}
         onClose={() => setCompareIds([])}
+      />
+
+      <SimpleModal
+        visible={showExportModal}
+        title="Export archives"
+        subtitle="Share the current archive list as CSV or JSON."
+        onClose={() => setShowExportModal(false)}
       >
-        {compareQuery.isLoading ? (
-          <Text style={[styles.modalBodyText, { color: colors.textSecondary }]}>Loading comparison…</Text>
-        ) : compareData ? (
-          <ScrollView style={styles.modalScroll}>
-            {compareData.differences.length > 0 ? (
-              compareData.differences.map(field => (
-                <View
-                  key={field.field}
-                  style={[styles.compareRow, { borderColor: colors.borderSubtle }]}
-                >
-                  <Text style={[styles.compareLabel, { color: colors.text }]}>{field.label}</Text>
-                  {field.values.map((value, index) => (
-                    <Text key={`${field.field}-${index}`} style={[styles.compareValue, { color: colors.textSecondary }]}>
-                      {compareData.archives[index]?.print_name || compareData.archives[index]?.id}: {String(value ?? '—')}
-                    </Text>
-                  ))}
-                </View>
-              ))
-            ) : (
-              <Text style={[styles.modalBodyText, { color: colors.textSecondary }]}>The selected archives don’t have major differences in the shared comparison fields.</Text>
-            )}
-          </ScrollView>
-        ) : (
-          <Text style={[styles.modalBodyText, { color: colors.textSecondary }]}>Unable to load comparison results.</Text>
-        )}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {(['csv', 'json'] as const).map(format => (
+            <Chip
+              key={format}
+              label={format.toUpperCase()}
+              selected={exportFormat === format}
+              onPress={() => setExportFormat(format)}
+            />
+          ))}
+        </ScrollView>
+        <Text style={[styles.modalBodyText, { color: colors.textSecondary }]}>
+          {exportFormat === 'json'
+            ? 'JSON export mirrors the exact filtered results shown on this screen.'
+            : hasUnsupportedServerExportFilters
+              ? 'CSV export is generated from the currently filtered results to preserve tag, favorite, and duplicate filters.'
+              : 'CSV export uses the archive export endpoint with your current toolbar filters.'}
+        </Text>
         <View style={styles.modalFooter}>
-          <PrimaryButton label="Close" variant="secondary" onPress={() => setCompareIds([])} />
+          <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowExportModal(false)} />
+          <PrimaryButton
+            label={exportMutation.isPending ? 'Preparing…' : `Share ${exportFormat.toUpperCase()}`}
+            onPress={() => void exportMutation.mutateAsync()}
+            disabled={exportMutation.isPending}
+          />
+        </View>
+      </SimpleModal>
+
+      <SimpleModal
+        visible={showPurgeModal}
+        title="Purge archives"
+        subtitle="Preview archived files that match the purge threshold before deleting them."
+        onClose={() => setShowPurgeModal(false)}
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {[30, 60, 90, 180, 365].map(days => (
+            <Chip
+              key={days}
+              label={`${days} days`}
+              selected={purgeDays === days}
+              onPress={() => setPurgeDays(days)}
+            />
+          ))}
+        </ScrollView>
+        <Pressable
+          onPress={() => setPurgeStats(current => !current)}
+          style={[styles.toggleRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+        >
+          <View style={styles.toggleText}>
+            <Text style={[styles.toggleTitle, { color: colors.text }]}>Also purge stats</Text>
+            <Text style={[styles.toggleSubtitle, { color: colors.textSecondary }]}>Hard-delete archived rows and remove them from Quick Stats totals.</Text>
+          </View>
+          <Icon name={purgeStats ? 'check-circle' : 'pause'} size={18} color={purgeStats ? colors.success : colors.textSecondary} />
+        </Pressable>
+        <View style={[styles.previewCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+          <Text style={[styles.previewTitle, { color: colors.text }]}>Preview</Text>
+          <Text style={[styles.previewValue, { color: colors.textSecondary }]}>
+            {archivePurgePreviewQuery.isLoading
+              ? 'Calculating…'
+              : `${pickNumber(archivePurgePreviewQuery.data, ['count'], 0)} archive(s) • ${Math.round(pickNumber(archivePurgePreviewQuery.data, ['total_bytes'], 0) / 1024 / 1024)} MB`}
+          </Text>
+          {pickArray(archivePurgePreviewQuery.data as Record<string, unknown>, ['sample_filenames']).slice(0, 5).map(sample => (
+            <Text key={String(sample)} style={[styles.previewSample, { color: colors.textSecondary }]}>• {String(sample)}</Text>
+          ))}
+        </View>
+        <View style={styles.modalFooter}>
+          <PrimaryButton label="Close" variant="secondary" onPress={() => setShowPurgeModal(false)} />
+          <PrimaryButton label="Confirm purge" variant="danger" onPress={() => setShowPurgeConfirm(true)} />
         </View>
       </SimpleModal>
 
@@ -626,6 +793,18 @@ export default function ArchivesScreen() {
           <PrimaryButton label="Close" variant="secondary" onPress={() => setShowTagSummary(false)} />
         </View>
       </SimpleModal>
+
+      <ConfirmModal
+        visible={showPurgeConfirm}
+        onClose={() => setShowPurgeConfirm(false)}
+        onConfirm={() => {
+          void purgeMutation.mutateAsync();
+        }}
+        title="Purge matching archives?"
+        message={`This will remove archives older than ${purgeDays} days${purgeStats ? ' and purge their stats' : ''}.`}
+        confirmLabel="Purge"
+        loading={purgeMutation.isPending}
+      />
     </View>
   );
 }
@@ -638,6 +817,13 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: 132,
     gap: spacing.lg,
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerStack: {
     gap: spacing.lg,
@@ -759,6 +945,41 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   linkValue: {
+    fontSize: fontSize.sm,
+  },
+  toggleRow: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  toggleText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  toggleTitle: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
+  },
+  toggleSubtitle: {
+    fontSize: fontSize.sm,
+  },
+  previewCard: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  previewTitle: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
+  },
+  previewValue: {
+    fontSize: fontSize.sm,
+  },
+  previewSample: {
     fontSize: fontSize.sm,
   },
 });

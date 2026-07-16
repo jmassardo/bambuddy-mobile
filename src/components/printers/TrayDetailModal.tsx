@@ -253,7 +253,25 @@ export function TrayDetailModal({
   });
 
   const color = useMemo(() => parseFilamentColor(tray?.tray_color), [tray?.tray_color]);
-  const fill = useMemo(() => Math.max(0, Math.min(100, tray?.remain ?? 0)), [tray?.remain]);
+  const fill = useMemo(() => {
+    if (!tray) return 0;
+    const hasFillLevel = tray.remain >= 0;
+    // Inventory spool fill (label_weight - weight_used)
+    const assignment = context
+      ? assignmentsQuery.data?.find(
+          a => a.printer_id === printerId && a.ams_id === context.amsId && a.tray_id === context.trayId,
+        )
+      : undefined;
+    const sp = assignment?.spool;
+    const inventoryFill =
+      sp && sp.label_weight > 0 && sp.weight_used != null
+        ? Math.round(Math.max(0, sp.label_weight - sp.weight_used) / sp.label_weight * 100)
+        : null;
+    const resolvedInventoryFill =
+      inventoryFill === 0 && hasFillLevel && tray.remain > 0 ? null : inventoryFill;
+    const effective = resolvedInventoryFill ?? (hasFillLevel ? tray.remain : null);
+    return Math.max(0, Math.min(100, effective ?? 0));
+  }, [tray, context, printerId, assignmentsQuery.data]);
   const hasFilament = Boolean(
     tray?.tray_type || tray?.tray_sub_brands || tray?.tray_info_idx || (tray?.state ?? 0) >= 10,
   );

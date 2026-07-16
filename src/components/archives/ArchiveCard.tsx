@@ -30,6 +30,7 @@ interface ArchiveCardProps {
   selected?: boolean;
   selectionMode?: boolean;
   onPress?: () => void;
+  onLongPress?: () => void;
   onToggleSelect?: () => void;
   onReprint?: () => void;
   onTimelapse?: () => void;
@@ -90,6 +91,7 @@ export function ArchiveCard({
   selected = false,
   selectionMode = false,
   onPress,
+  onLongPress,
   onToggleSelect,
   onReprint,
   onTimelapse,
@@ -104,6 +106,7 @@ export function ArchiveCard({
   return (
     <Pressable
       onPress={selectionMode ? onToggleSelect : onPress}
+      onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.card,
         isGrid ? styles.gridCard : styles.listCard,

@@ -15,6 +15,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { InlineTabBar, PrimaryButton, ProgressBar, SectionCard, StatCard, StatusBadge, TextField } from '@/components/common/AppUI';
+import {
+  ProjectBatchPrintModal,
+  ProjectPipelineModal,
+  ProjectSliceModal,
+} from '@/components/projects/ProjectActionModals';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -41,6 +46,9 @@ export default function ProjectDetailScreen() {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState('');
   const [showBomModal, setShowBomModal] = useState(false);
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [showPipelineModal, setShowPipelineModal] = useState(false);
+  const [showSliceModal, setShowSliceModal] = useState(false);
   const [editingBom, setEditingBom] = useState<ApiRecord | null>(null);
   const [bomForm, setBomForm] = useState(DEFAULT_BOM);
 
@@ -259,6 +267,9 @@ export default function ProjectDetailScreen() {
           <Text style={[styles.progressMeta, { color: colors.textSecondary }]}>{Math.round(partsProgress)}% • {pickNumber(stats, ['remaining_parts'], 0)} remaining</Text>
         </View>
         <View style={styles.actions}>
+          <PrimaryButton label="Batch Print" variant="secondary" onPress={() => setShowBatchModal(true)} />
+          <PrimaryButton label="Run Pipeline" variant="secondary" onPress={() => setShowPipelineModal(true)} />
+          <PrimaryButton label="Slice" variant="secondary" onPress={() => setShowSliceModal(true)} />
           {pickString(project, ['url']) ? (
             <PrimaryButton label="Open link" variant="secondary" onPress={() => void Linking.openURL(pickString(project, ['url']))} />
           ) : null}
@@ -467,6 +478,24 @@ export default function ProjectDetailScreen() {
           </View>
         </View>
       </Modal>
+      <ProjectBatchPrintModal
+        visible={showBatchModal}
+        onClose={() => setShowBatchModal(false)}
+        projectId={projectId}
+        projectName={pickString(project, ['name'], 'Project')}
+      />
+      <ProjectPipelineModal
+        visible={showPipelineModal}
+        onClose={() => setShowPipelineModal(false)}
+        projectId={projectId}
+        projectName={pickString(project, ['name'], 'Project')}
+      />
+      <ProjectSliceModal
+        visible={showSliceModal}
+        onClose={() => setShowSliceModal(false)}
+        projectId={projectId}
+        projectName={pickString(project, ['name'], 'Project')}
+      />
     </ScrollView>
   );
 }

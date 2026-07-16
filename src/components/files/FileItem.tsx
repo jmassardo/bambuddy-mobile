@@ -33,7 +33,9 @@ interface FileItemProps {
   item: ApiRecord;
   viewMode?: 'grid' | 'list';
   selected?: boolean;
+  showSelection?: boolean;
   onPress: () => void;
+  onLongPress?: () => void;
   onToggleSelect?: () => void;
   onRename?: () => void;
   onDelete?: () => void;
@@ -56,17 +58,21 @@ function ActionPill({
   icon,
   color,
   onPress,
+  onLongPress,
 }: {
   label: string;
   icon: string;
   color: string;
   onPress?: () => void;
+  onLongPress?: () => void;
 }) {
   if (!onPress) return null;
 
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={220}
       style={({ pressed }) => [
         styles.actionPill,
         {
@@ -86,7 +92,9 @@ export function FileItem({
   item,
   viewMode = 'list',
   selected = false,
+  showSelection = false,
   onPress,
+  onLongPress,
   onToggleSelect,
   onRename,
   onDelete,
@@ -127,6 +135,8 @@ export function FileItem({
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={220}
       style={({ pressed }) => [
         styles.card,
         isGrid ? styles.gridCard : styles.listCard,
@@ -137,20 +147,22 @@ export function FileItem({
         },
       ]}
     >
-      <Pressable
-        onPress={onToggleSelect}
-        style={[
-          styles.selectBadge,
-          {
-            backgroundColor: selected ? colors.accent : colors.overlay,
-            borderColor: selected ? colors.accent : colors.border,
-          },
-        ]}
-      >
-        {selected ? (
-          <Icon name="check-circle" size={16} color={colors.textInverse} />
-        ) : null}
-      </Pressable>
+      {showSelection ? (
+        <Pressable
+          onPress={onToggleSelect}
+          style={[
+            styles.selectBadge,
+            {
+              backgroundColor: selected ? colors.accent : colors.overlay,
+              borderColor: selected ? colors.accent : colors.border,
+            },
+          ]}
+        >
+          {selected ? (
+            <Icon name="check-circle" size={16} color={colors.textInverse} />
+          ) : null}
+        </Pressable>
+      ) : null}
 
       <View style={[styles.media, isGrid ? styles.gridMedia : styles.listMedia, { backgroundColor: colors.surfaceElevated }]}> 
         {previewSource ? (

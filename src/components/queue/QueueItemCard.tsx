@@ -31,8 +31,10 @@ interface QueueItemCardProps {
   selected?: boolean;
   showSelection?: boolean;
   onPress?: () => void;
+  onLongPress?: () => void;
   onToggleSelect?: () => void;
   onStart?: () => void;
+  onCancel?: () => void;
   onPause?: () => void;
   onStop?: () => void;
   onDelete?: () => void;
@@ -138,8 +140,10 @@ export function QueueItemCard({
   selected = false,
   showSelection = false,
   onPress,
+  onLongPress,
   onToggleSelect,
   onStart,
+  onCancel,
   onPause,
   onStop,
   onDelete,
@@ -202,10 +206,16 @@ export function QueueItemCard({
         ),
       )
     : 0;
+  const hasPendingActions = !!onStart || !!onReassign || !!onCancel || !!onDelete;
+  const hasPrintingActions = !!onPause || !!onStop;
+  const hasHistoryActions = !!onRetry || !!onDelete;
+  const hasReorderActions = !!onMoveUp || !!onMoveDown;
+  const shouldShowFooter = hasPendingActions || hasPrintingActions || hasHistoryActions || hasReorderActions;
 
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.card,
         {
@@ -397,43 +407,46 @@ export function QueueItemCard({
         </View>
       ) : null}
 
-      <View style={[styles.footerRow, { borderColor: colors.borderSubtle }]}> 
-        <View style={styles.reorderRow}>
-          <QueueActionButton
-            label="Move ↑"
-            onPress={onMoveUp}
-            color={colors.textSecondary}
-            subtle
-          />
-          <QueueActionButton
-            label="Move ↓"
-            onPress={onMoveDown}
-            color={colors.textSecondary}
-            subtle
-          />
+      {shouldShowFooter ? (
+        <View style={[styles.footerRow, { borderColor: colors.borderSubtle }]}> 
+          <View style={styles.reorderRow}>
+            <QueueActionButton
+              label="Move ↑"
+              onPress={onMoveUp}
+              color={colors.textSecondary}
+              subtle
+            />
+            <QueueActionButton
+              label="Move ↓"
+              onPress={onMoveDown}
+              color={colors.textSecondary}
+              subtle
+            />
+          </View>
+          <View style={styles.actionsRow}>
+            {item.status === 'pending' ? (
+              <>
+                <QueueActionButton label="Start" icon="play" onPress={onStart} color={colors.accent} />
+                <QueueActionButton label="Reassign" icon="printer" onPress={onReassign} color={colors.info} />
+                <QueueActionButton label="Cancel" icon="x" onPress={onCancel} color={colors.warning} />
+                <QueueActionButton label="Delete" icon="trash" onPress={onDelete} color={colors.error} />
+              </>
+            ) : null}
+            {item.status === 'printing' ? (
+              <>
+                <QueueActionButton label="Pause" icon="pause" onPress={onPause} color={colors.warning} />
+                <QueueActionButton label="Stop" icon="stop" onPress={onStop} color={colors.error} />
+              </>
+            ) : null}
+            {['completed', 'failed', 'skipped', 'cancelled'].includes(item.status) ? (
+              <>
+                <QueueActionButton label="Retry" icon="refresh" onPress={onRetry} color={colors.accent} />
+                <QueueActionButton label="Delete" icon="trash" onPress={onDelete} color={colors.error} />
+              </>
+            ) : null}
+          </View>
         </View>
-        <View style={styles.actionsRow}>
-          {item.status === 'pending' ? (
-            <>
-              <QueueActionButton label="Start" icon="play" onPress={onStart} color={colors.accent} />
-              <QueueActionButton label="Reassign" icon="printer" onPress={onReassign} color={colors.info} />
-              <QueueActionButton label="Delete" icon="trash" onPress={onDelete} color={colors.error} />
-            </>
-          ) : null}
-          {item.status === 'printing' ? (
-            <>
-              <QueueActionButton label="Pause" icon="pause" onPress={onPause} color={colors.warning} />
-              <QueueActionButton label="Stop" icon="stop" onPress={onStop} color={colors.error} />
-            </>
-          ) : null}
-          {['completed', 'failed', 'skipped', 'cancelled'].includes(item.status) ? (
-            <>
-              <QueueActionButton label="Retry" icon="refresh" onPress={onRetry} color={colors.accent} />
-              <QueueActionButton label="Delete" icon="trash" onPress={onDelete} color={colors.error} />
-            </>
-          ) : null}
-        </View>
-      </View>
+      ) : null}
 
       {(item.print_time_seconds || item.filament_used_grams) && item.status !== 'pending' ? (
         <View style={styles.summaryRow}>

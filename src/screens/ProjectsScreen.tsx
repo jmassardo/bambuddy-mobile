@@ -17,6 +17,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { FloatingActionButton, InlineTabBar, PrimaryButton, SearchBar, StatusBadge, TextField } from '@/components/common/AppUI';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
+import { ProjectBatchPrintModal } from '@/components/projects/ProjectActionModals';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -67,6 +68,7 @@ export default function ProjectsScreen() {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState<ApiRecord | null>(null);
+  const [batchProject, setBatchProject] = useState<ApiRecord | null>(null);
   const [form, setForm] = useState<ProjectFormState>(DEFAULT_FORM);
 
   const projectsQuery = useQuery({
@@ -279,6 +281,7 @@ export default function ProjectsScreen() {
               budget={pickString(item, ['budget'])}
               cover={cover}
               onOpen={() => navigation.navigate('ProjectDetail', { id: pickNumber(item, ['id']) })}
+              onBatchPrint={() => setBatchProject(item)}
               onEdit={() => openEdit(item)}
               onDelete={() =>
                 Alert.alert('Delete project', `Delete ${pickString(item, ['name'])}?`, [
@@ -383,6 +386,12 @@ export default function ProjectsScreen() {
           </View>
         </View>
       </Modal>
+      <ProjectBatchPrintModal
+        visible={batchProject != null}
+        onClose={() => setBatchProject(null)}
+        projectId={pickNumber(batchProject, ['id'])}
+        projectName={pickString(batchProject, ['name'], 'Project')}
+      />
     </View>
   );
 }
@@ -416,6 +425,7 @@ function PressableProjectCard({
   budget,
   cover,
   onOpen,
+  onBatchPrint,
   onEdit,
   onDelete,
 }: {
@@ -429,6 +439,7 @@ function PressableProjectCard({
   budget: string;
   cover: string | null;
   onOpen: () => void;
+  onBatchPrint: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -457,6 +468,7 @@ function PressableProjectCard({
 
         <View style={styles.cardActions}>
           <PrimaryButton label="Open" variant="secondary" onPress={onOpen} />
+          <PrimaryButton label="Batch Print" variant="secondary" onPress={onBatchPrint} />
           <PrimaryButton label="Edit" variant="secondary" onPress={onEdit} />
           <PrimaryButton label="Delete" variant="danger" onPress={onDelete} />
         </View>

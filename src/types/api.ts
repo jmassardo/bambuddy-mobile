@@ -112,6 +112,7 @@ export interface LoginResponse {
   requires_2fa?: boolean;
   pre_auth_token?: string;
   two_fa_methods?: string[];
+  available_methods?: string[];
 }
 
 export interface UserResponse {
@@ -759,6 +760,7 @@ export interface ArchiveDuplicate {
 export interface Archive {
   id: number;
   printer_id: number | null;
+  printer_name?: string | null;
   project_id: number | null;
   project_name: string | null;
   filename: string;
@@ -1057,6 +1059,11 @@ export interface PrintBatch {
   completed_count: number;
   failed_count: number;
   cancelled_count: number;
+}
+
+export interface PrintBatchUngroupResponse {
+  ungrouped_count: number;
+  message: string;
 }
 
 export interface PrintQueueItemCreate {
@@ -2561,6 +2568,7 @@ export interface MaintenanceType {
   default_interval_hours: number;
   interval_type: 'hours' | 'days';  // "hours" = print hours, "days" = calendar days
   icon: string | null;
+  category?: string | null;
   wiki_url: string | null;  // Documentation link
   is_system: boolean;
   created_at: string;
@@ -2572,6 +2580,7 @@ export interface MaintenanceTypeCreate {
   default_interval_hours?: number;
   interval_type?: 'hours' | 'days';
   icon?: string | null;
+  category?: string | null;
   wiki_url?: string | null;
 }
 

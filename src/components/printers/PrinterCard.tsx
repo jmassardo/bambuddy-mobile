@@ -35,6 +35,7 @@ import type {
   NozzleRackSlot,
   Printer,
   PrinterStatus,
+  SpoolAssignment,
 } from '@/types/api';
 import { formatDuration, statusColor, withCacheBuster } from '@/utils/data';
 import {
@@ -112,9 +113,14 @@ interface PrinterCardProps {
   status?: PrinterStatus;
   queueCount?: number;
   maintenance?: MaintenanceSummary;
+  spoolAssignments?: SpoolAssignment[];
   loading?: boolean;
   snapshotSeed?: number | string;
+  selected?: boolean;
+  selectionMode?: boolean;
   onPress?: () => void;
+  onLongPress?: () => void;
+  onToggleSelect?: () => void;
   onCameraPress?: () => void;
   onQueuePress?: () => void;
   onMaintenancePress?: () => void;
@@ -278,10 +284,33 @@ function getTrayLabel(tray: AMSTray) {
   return tray.tray_sub_brands || tray.tray_type || 'Empty';
 }
 
-function getTrayFill(tray: AMSTray) {
+/** Compute effective fill level using the same priority chain as the web UI:
+ *  inventory spool (label_weight - weight_used) → raw AMS remain */
+function getEffectiveTrayFill(
+  tray: AMSTray,
+  printerId: number,
+  amsId: number,
+  slotIdx: number,
+  assignments?: SpoolAssignment[],
+): number | null {
   if (!tray.tray_type) return null;
-  if (tray.remain < 0) return 0; // Unknown fill shown as 0% (matches web)
-  return clamp(tray.remain);
+  const hasFillLevel = tray.remain >= 0;
+
+  // Check inventory spool assignment
+  const assignment = assignments?.find(
+    a => a.printer_id === printerId && a.ams_id === amsId && a.tray_id === slotIdx,
+  );
+  const sp = assignment?.spool;
+  const inventoryFill =
+    sp && sp.label_weight > 0 && sp.weight_used != null
+      ? Math.round(Math.max(0, sp.label_weight - sp.weight_used) / sp.label_weight * 100)
+      : null;
+
+  // If inventory says 0% but AMS reports positive remain, prefer AMS
+  const resolvedInventoryFill =
+    inventoryFill === 0 && hasFillLevel && tray.remain > 0 ? null : inventoryFill;
+
+  return resolvedInventoryFill ?? (hasFillLevel ? clamp(tray.remain) : null);
 }
 
 function getTrayStateLabel(tray: AMSTray) {
@@ -687,9 +716,14 @@ export function PrinterCard({
   status,
   queueCount = 0,
   maintenance,
+  spoolAssignments,
   loading = false,
   snapshotSeed = 0,
+  selected = false,
+  selectionMode = false,
   onPress,
+  onLongPress,
+  onToggleSelect,
   onCameraPress,
   onQueuePress,
   onMaintenancePress,
@@ -1008,7 +1042,10 @@ export function PrinterCard({
     <View
       style={[
         styles.card,
-        { backgroundColor: colors.card, borderColor: colors.cardBorder },
+        {
+          backgroundColor: selected ? colors.accentBg : colors.card,
+          borderColor: selected ? colors.accent : colors.cardBorder,
+        },
       ]}
     >
       <View style={styles.headerRow}>
@@ -1438,7 +1475,7 @@ export function PrinterCard({
                               ? tray.tray_type
                               : undefined
                           }
-                          fill={getTrayFill(tray)}
+                          fill={getEffectiveTrayFill(tray, printer.id, ams.id, index, spoolAssignments)}
                           colorHex={tray.tray_color}
                           active={active}
                           helper={String(index + 1)}
@@ -1492,7 +1529,7 @@ export function PrinterCard({
                         key={`ext-${tray.id ?? index}`}
                         label={tray.tray_sub_brands || getTrayStateLabel(tray)}
                         subtitle={tray.tray_type && tray.tray_sub_brands ? tray.tray_type : 'Virtual tray'}
-                        fill={getTrayFill(tray)}
+                        fill={getEffectiveTrayFill(tray, printer.id, 255, (tray.id ?? 254) - 254, spoolAssignments)}
                         colorHex={tray.tray_color}
                         active={active}
                         helper={helper}
@@ -1797,16 +1834,54 @@ export function PrinterCard({
           },
         ]}
       />
+      {selectionMode ? (
+        <>
+          <Pressable
+            onPress={onToggleSelect}
+            onLongPress={onLongPress}
+            style={styles.selectionCover}
+          />
+          <View
+            style={[
+              styles.selectionBadge,
+              {
+                backgroundColor: selected ? colors.accent : colors.overlay,
+                borderColor: selected ? colors.accent : colors.border,
+              },
+            ]}
+          >
+            {selected ? (
+              <CheckCircle size={16} color={colors.textInverse} strokeWidth={2} />
+            ) : null}
+          </View>
+        </>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    position: 'relative',
     borderWidth: 1,
     borderRadius: borderRadius.xl,
     padding: spacing.md,
     gap: spacing.md,
+  },
+  selectionCover: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: borderRadius.xl,
+  },
+  selectionBadge: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerRow: {
     flexDirection: 'row',

@@ -12,8 +12,11 @@ import {
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Edit2, Plus, Trash2 } from 'lucide-react-native';
 import { api } from '@/api/client';
 import { FloatingActionButton, InlineTabBar, PrimaryButton, StatusBadge, TextField } from '@/components/common/AppUI';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { GroupEditModal } from '@/components/common/GroupEditModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -210,6 +213,21 @@ export default function UsersScreen() {
     }));
   };
 
+  // Group management state
+  const [showGroupEdit, setShowGroupEdit] = useState(false);
+  const [editGroupId, setEditGroupId] = useState<number | null>(null);
+  const [deleteGroupId, setDeleteGroupId] = useState<number | null>(null);
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: (id: number) => api.deleteGroup(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      showToast('Group deleted.', 'success');
+      setDeleteGroupId(null);
+    },
+    onError: (e: Error) => showToast(e.message || 'Failed to delete group.', 'error'),
+  });
+
   if (!isAdmin) {
     return (
       <EmptyState
@@ -303,6 +321,47 @@ export default function UsersScreen() {
           );
         }}
         ListEmptyComponent={<EmptyState icon="👥" title="No users" message="Create the first user to get started." />}
+        ListFooterComponent={
+          <View style={[styles.groupsSection, { borderTopColor: colors.borderSubtle }]}>
+            <View style={styles.groupsSectionHeader}>
+              <Text style={[styles.groupsSectionTitle, { color: colors.text }]}>Groups</Text>
+              <Pressable
+                onPress={() => { setEditGroupId(null); setShowGroupEdit(true); }}
+                style={[styles.groupAddBtn, { backgroundColor: colors.accent }]}
+              >
+                <Plus size={14} color="#fff" strokeWidth={2.5} />
+              </Pressable>
+            </View>
+            {groups.length > 0 ? groups.map(group => {
+              const gId = pickNumber(group, ['id']);
+              const gName = pickString(group, ['name']);
+              const isSystem = pickBoolean(group, ['is_system']);
+              const permCount = (pickArray(group, ['permissions']) as string[]).length;
+              return (
+                <View key={gId} style={[styles.groupRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.groupName, { color: colors.text }]}>{gName}</Text>
+                    <Text style={[styles.groupMeta, { color: colors.textSecondary }]}>
+                      {permCount} permissions{isSystem ? ' • System' : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.groupActions}>
+                    <Pressable onPress={() => { setEditGroupId(gId); setShowGroupEdit(true); }} style={styles.groupActionBtn}>
+                      <Edit2 size={14} color={colors.textSecondary} />
+                    </Pressable>
+                    {!isSystem && (
+                      <Pressable onPress={() => setDeleteGroupId(gId)} style={styles.groupActionBtn}>
+                        <Trash2 size={14} color={colors.error} />
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              );
+            }) : (
+              <Text style={[styles.groupMeta, { color: colors.textSecondary }]}>No groups configured.</Text>
+            )}
+          </View>
+        }
       />
 
       <FloatingActionButton icon="plus" label="Create user" onPress={() => setShowCreate(true)} />
@@ -463,6 +522,23 @@ export default function UsersScreen() {
           </View>
         </View>
       </Modal>
+
+      <GroupEditModal
+        visible={showGroupEdit}
+        onClose={() => setShowGroupEdit(false)}
+        groupId={editGroupId}
+      />
+
+      <ConfirmModal
+        visible={deleteGroupId != null}
+        onClose={() => setDeleteGroupId(null)}
+        onConfirm={() => deleteGroupId && deleteGroupMutation.mutate(deleteGroupId)}
+        title="Delete Group"
+        message="Are you sure you want to delete this group? Users in this group will lose their permissions."
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deleteGroupMutation.isPending}
+      />
     </View>
   );
 }
@@ -544,6 +620,54 @@ const styles = StyleSheet.create({
   groupLabel: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
+  },
+  groupsSection: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.lg,
+    gap: spacing.sm,
+    borderTopWidth: 1,
+  },
+  groupsSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  groupsSectionTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+  },
+  groupAddBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupRow: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  groupName: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.medium,
+  },
+  groupMeta: {
+    fontSize: fontSize.sm,
+    marginTop: spacing.xs / 2,
+  },
+  groupActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  groupActionBtn: {
+    padding: spacing.xs,
   },
   modalActions: {
     flexDirection: 'row',

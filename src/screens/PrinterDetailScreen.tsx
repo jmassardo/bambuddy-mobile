@@ -1,7 +1,9 @@
 import React from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import {
+  ActivityIndicator,
   Image,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -23,6 +25,7 @@ import {
 import { ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import {
   formatDuration,
+  formatDateTime,
   formatPercent,
   pickBoolean,
   pickNumber,
@@ -39,6 +42,17 @@ const SPEED_MODES = [
   { label: 'Ludicrous', value: 4 },
 ] as const;
 
+function stringifyDebugValue(value: unknown) {
+  if (value == null) return '—';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '—';
+  }
+}
+
 export default function PrinterDetailScreen() {
   const navigation = useNavigation<any>();
   React.useLayoutEffect(() => {
@@ -50,6 +64,7 @@ export default function PrinterDetailScreen() {
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const [showDebugModal, setShowDebugModal] = React.useState(false);
 
   const printerQuery = useQuery({
     queryKey: ['printer', printerId],
@@ -62,6 +77,26 @@ export default function PrinterDetailScreen() {
     queryFn: () => api.getPrinterStatus(printerId),
     enabled: Number.isFinite(printerId),
     refetchInterval: 10_000,
+  });
+
+  const mqttLogsQuery = useQuery({
+    queryKey: ['mqttLogs', printerId],
+    queryFn: () => api.getMQTTLogs(printerId),
+    enabled: Number.isFinite(printerId) && showDebugModal,
+    retry: false,
+  });
+
+  const printHistoryQuery = useQuery({
+    queryKey: ['printerArchives', printerId],
+    queryFn: () => api.getArchives({ printerId, limit: 10 }),
+    enabled: Number.isFinite(printerId) && showDebugModal,
+  });
+
+  const amsHistoryQuery = useQuery({
+    queryKey: ['amsHistory', printerId],
+    queryFn: () => api.getAmsHistory(printerId),
+    enabled: Number.isFinite(printerId) && showDebugModal,
+    retry: false,
   });
 
   const refreshAll = async () => {
@@ -142,6 +177,25 @@ export default function PrinterDetailScreen() {
     'ams.slots',
     'filament_slots',
   ]);
+  const activeHmsErrors = pickRecordArray(status, ['hms_errors']);
+  const mqttLogRecord = (mqttLogsQuery.data ?? {}) as ApiRecord;
+  const mqttEntries = pickRecordArray(mqttLogRecord, ['entries', 'messages', 'logs']);
+  const lastMqttEntry = mqttEntries[0] ?? mqttEntries[mqttEntries.length - 1] ?? null;
+  const archives = ((printHistoryQuery.data ?? []) as ApiRecord[])
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(pickString(b, ['created_at', 'archived_at', 'started_at'])).getTime() -
+        new Date(pickString(a, ['created_at', 'archived_at', 'started_at'])).getTime(),
+    )
+    .slice(0, 10);
+  const amsHistory = ((amsHistoryQuery.data ?? []) as ApiRecord[]).slice(0, 10);
+  const hmsHistoryEntries = mqttEntries
+    .filter(entry =>
+      stringifyDebugValue(entry).toLowerCase().includes('hms') ||
+      stringifyDebugValue(entry).toLowerCase().includes('error'),
+    )
+    .slice(0, 10);
 
   return (
     <ScrollView
@@ -408,6 +462,174 @@ export default function PrinterDetailScreen() {
           })}
         </View>
       </SectionCard>
+
+      <SectionCard title="Debug" subtitle="Connection traces, print history, and recent HMS events.">
+        <View style={styles.buttonRow}>
+          <View style={styles.buttonCell}>
+            <PrimaryButton
+              label="Open debug history"
+              variant="secondary"
+              onPress={() => setShowDebugModal(true)}
+            />
+          </View>
+        </View>
+      </SectionCard>
+
+      <Modal visible={showDebugModal} transparent animationType="slide" onRequestClose={() => setShowDebugModal(false)}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
+          <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
+            <View style={styles.modalHeader}>
+              <View style={styles.headerText}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Printer debug</Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                  {pickString(printer, ['name'], 'Printer history')}
+                </Text>
+              </View>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalBody}>
+              <SectionCard title="Connection debug info" subtitle="Live MQTT and connection metadata.">
+                {mqttLogsQuery.isLoading ? (
+                  <ActivityIndicator color={colors.accent} />
+                ) : (
+                  <>
+                    <KeyValueRow
+                      label="Last MQTT message"
+                      value={pickString(
+                        mqttLogRecord,
+                        ['last_message', 'message'],
+                        lastMqttEntry ? stringifyDebugValue(lastMqttEntry) : 'No MQTT messages recorded.',
+                      )}
+                    />
+                    <KeyValueRow
+                      label="Connected"
+                      value={formatDateTime(
+                        pickString(mqttLogRecord, ['connected_at', 'last_connected_at', 'session_started_at']),
+                      )}
+                    />
+                    <KeyValueRow
+                      label="Disconnected"
+                      value={formatDateTime(
+                        pickString(mqttLogRecord, ['disconnected_at', 'last_disconnected_at', 'session_ended_at']),
+                      )}
+                    />
+                    <KeyValueRow
+                      label="Debug entries"
+                      value={String(mqttEntries.length)}
+                    />
+                  </>
+                )}
+              </SectionCard>
+
+              <SectionCard title="Print history" subtitle="Most recent archives for this printer.">
+                {printHistoryQuery.isLoading ? (
+                  <ActivityIndicator color={colors.accent} />
+                ) : archives.length > 0 ? (
+                  archives.map(archive => (
+                    <View
+                      key={pickString(archive, ['id'])}
+                      style={[styles.historyRow, { borderColor: colors.borderSubtle }]}
+                    >
+                      <View style={styles.historyText}>
+                        <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>
+                          {pickString(archive, ['print_name', 'filename', 'name'], 'Archived print')}
+                        </Text>
+                        <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
+                          {formatDateTime(
+                            pickString(archive, ['created_at', 'started_at', 'archived_at']),
+                          )}
+                        </Text>
+                      </View>
+                      <View style={styles.historyMeta}>
+                        <StatusBadge
+                          label={pickString(archive, ['status'], 'unknown')}
+                          color={statusColor(pickString(archive, ['status'], 'unknown'), colors)}
+                        />
+                        <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
+                          {formatDuration(pickNumber(archive, ['duration_seconds', 'print_time_seconds'], 0))}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                    No archive history is available for this printer yet.
+                  </Text>
+                )}
+              </SectionCard>
+
+              <SectionCard title="HMS error history" subtitle="Current printer HMS faults plus matching debug log entries.">
+                {activeHmsErrors.length > 0 ? (
+                  activeHmsErrors.map((error, index) => (
+                    <View
+                      key={`${pickString(error, ['code'])}-${index}`}
+                      style={[styles.historyRow, { borderColor: colors.borderSubtle }]}
+                    >
+                      <View style={styles.historyText}>
+                        <Text style={[styles.rowTitle, { color: colors.text }]}>
+                          {pickString(error, ['code'], 'HMS error')}
+                        </Text>
+                        <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
+                          Severity {pickString(error, ['severity'], '—')} · Attr {pickString(error, ['attr'], '—')}
+                        </Text>
+                      </View>
+                      <StatusBadge label="active" color={colors.warning} />
+                    </View>
+                  ))
+                ) : hmsHistoryEntries.length > 0 ? (
+                  hmsHistoryEntries.map((entry, index) => (
+                    <View
+                      key={`hms-log-${index}`}
+                      style={[styles.historyRow, { borderColor: colors.borderSubtle }]}
+                    >
+                      <View style={styles.historyText}>
+                        <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={2}>
+                          {pickString(entry, ['message', 'payload', 'topic'], 'MQTT log entry')}
+                        </Text>
+                        <Text style={[styles.rowMeta, { color: colors.textSecondary }]} numberOfLines={2}>
+                          {formatDateTime(pickString(entry, ['timestamp', 'created_at']))}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                    No recent HMS history is available from the current status or debug logs.
+                  </Text>
+                )}
+              </SectionCard>
+
+              <SectionCard title="AMS telemetry" subtitle="Recent AMS history samples for troubleshooting.">
+                {amsHistoryQuery.isLoading ? (
+                  <ActivityIndicator color={colors.accent} />
+                ) : amsHistory.length > 0 ? (
+                  amsHistory.map((point, index) => (
+                    <View
+                      key={`${pickString(point, ['recorded_at'])}-${index}`}
+                      style={[styles.historyRow, { borderColor: colors.borderSubtle }]}
+                    >
+                      <View style={styles.historyText}>
+                        <Text style={[styles.rowTitle, { color: colors.text }]}>
+                          {formatDateTime(pickString(point, ['recorded_at']))}
+                        </Text>
+                        <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
+                          Temp {pickString(point, ['temperature'], '—')}° · Humidity {pickString(point, ['humidity'], '—')}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                    No AMS history samples are available for this printer.
+                  </Text>
+                )}
+              </SectionCard>
+            </ScrollView>
+            <View style={styles.modalActions}>
+              <PrimaryButton label="Close" onPress={() => setShowDebugModal(false)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -479,6 +701,13 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: fontSize.sm,
   },
+  rowTitle: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
+  },
+  rowMeta: {
+    fontSize: fontSize.sm,
+  },
   speedRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -493,5 +722,49 @@ const styles = StyleSheet.create({
   speedText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    borderWidth: 1,
+    borderRadius: borderRadius['2xl'],
+    maxHeight: '90%',
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  modalTitle: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
+  },
+  modalBody: {
+    gap: spacing.md,
+  },
+  historyRow: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  historyText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  historyMeta: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
 });

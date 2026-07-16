@@ -2,19 +2,24 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
   FlatList,
+  Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import {
   useQueries,
+  useMutation,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { Plus } from 'lucide-react-native';
 import { api } from '@/api/client';
 import {
   InlineTabBar,
+  PrimaryButton,
   SearchBar,
   StatCard,
 } from '@/components/common/AppUI';
@@ -23,9 +28,11 @@ import {
   ErrorState,
   LoadingScreen,
 } from '@/components/common/StateScreens';
+import { AddPrinterModal } from '@/components/printers/AddPrinterModal';
 import { PrinterCard } from '@/components/printers/PrinterCard';
 import { PrintModal } from '@/components/printers/PrintModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, spacing } from '@/theme/tokens';
@@ -183,12 +190,23 @@ export default function PrintersDashboardScreen() {
 
   const { colors } = useTheme();
   const { hasAnyPermission } = useAuth();
+  const { showToast } = useToast();
   const queryClient = useQueryClient();
   const { isConnected: wsConnected } = useWebSocket();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
   const [snapshotSeed, setSnapshotSeed] = useState(0);
   const [printPrinterId, setPrintPrinterId] = useState<number | null>(null);
+  const [showAddPrinter, setShowAddPrinter] = useState(false);
+  const [selectedPrinterIds, setSelectedPrinterIds] = useState<number[]>([]);
+
+  const addPrinterMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.createPrinter(data),
+    onSuccess: () => {
+      setShowAddPrinter(false);
+      queryClient.invalidateQueries({ queryKey: ['printers'] });
+    },
+  });
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -215,6 +233,14 @@ export default function PrintersDashboardScreen() {
       (await api.getMaintenanceTasks()) as unknown as MaintenanceStatus[],
     enabled: hasAnyPermission('maintenance:read'),
   });
+
+  const assignmentsQuery = useQuery({
+    queryKey: ['spool-assignments'],
+    queryFn: () => api.getAssignments(),
+    staleTime: 30_000,
+  });
+
+  const selectionMode = selectedPrinterIds.length > 0;
 
   const printers = useMemo(() => printersQuery.data ?? [], [printersQuery.data]);
 
@@ -325,6 +351,67 @@ export default function PrintersDashboardScreen() {
     ]);
   };
 
+  const toggleSelectedPrinter = (printerId: number) => {
+    setSelectedPrinterIds(current =>
+      current.includes(printerId)
+        ? current.filter(id => id !== printerId)
+        : [...current, printerId],
+    );
+  };
+
+  const bulkActionMutation = useMutation({
+    mutationFn: async (
+      action: 'pause' | 'resume' | 'stop' | 'light-on' | 'light-off',
+    ) => {
+      if (selectedPrinterIds.length === 0) {
+        throw new Error('Select one or more printers first.');
+      }
+
+      const results = await Promise.allSettled(
+        selectedPrinterIds.map(printerId => {
+          if (action === 'pause') return api.pausePrint(printerId);
+          if (action === 'resume') return api.resumePrint(printerId);
+          if (action === 'stop') return api.stopPrint(printerId);
+          return api.setChamberLight(printerId, action === 'light-on');
+        }),
+      );
+
+      const successCount = results.filter(result => result.status === 'fulfilled').length;
+      const failureCount = results.length - successCount;
+
+      if (successCount === 0) {
+        throw new Error('The selected printer action failed for every printer.');
+      }
+
+      return { action, successCount, failureCount };
+    },
+    onSuccess: async ({ action, successCount, failureCount }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['printers'] }),
+        queryClient.invalidateQueries({ queryKey: ['printerStatus'] }),
+        queryClient.invalidateQueries({ queryKey: ['queue'] }),
+      ]);
+      setSelectedPrinterIds([]);
+      const actionLabel =
+        action === 'pause'
+          ? 'Pause'
+          : action === 'resume'
+            ? 'Resume'
+            : action === 'stop'
+              ? 'Stop'
+              : action === 'light-on'
+                ? 'LED on'
+                : 'LED off';
+      showToast(
+        `${actionLabel} sent to ${successCount} printer${successCount === 1 ? '' : 's'}${failureCount ? ` (${failureCount} failed)` : ''}.`,
+        failureCount ? 'warning' : 'success',
+      );
+    },
+    onError: (error: Error) => {
+      showToast(error.message || 'Bulk printer action failed.', 'error');
+    },
+  });
+
   if (printersQuery.isLoading) {
     return <LoadingScreen message="Loading printer fleet…" />;
   }
@@ -364,40 +451,125 @@ export default function PrintersDashboardScreen() {
           const status = statusByPrinter.get(item.id);
           const maintenance = maintenanceByPrinter.get(item.id);
           const statusQuery = statusQueryByPrinter.get(item.id);
+          const selected = selectedPrinterIds.includes(item.id);
+          const toggleSelection = () => toggleSelectedPrinter(item.id);
 
           return (
-            <PrinterCard
-              printer={item}
-              status={status}
-              queueCount={queueCounts.get(item.id) ?? 0}
-              maintenance={maintenance}
-              snapshotSeed={`${snapshotSeed}-${item.id}-${status?.state ?? 'idle'}-${status?.progress ?? 0}`}
-              loading={Boolean(statusQuery?.isLoading || statusQuery?.isRefetching)}
-              onPress={() =>
-                navigation.navigate('PrinterDetail', { id: String(item.id) })
-              }
-              onCameraPress={() =>
-                navigation.navigate('Camera', { id: String(item.id) })
-              }
-              onQueuePress={() => navigation.navigate('Queue')}
-              onMaintenancePress={() => navigation.navigate('Maintenance')}
-              onPrintPress={() => setPrintPrinterId(item.id)}
-            />
+            <Pressable
+              onLongPress={() => {
+                setSelectedPrinterIds(current =>
+                  current.includes(item.id) ? current : [...current, item.id],
+                );
+              }}
+            >
+              <PrinterCard
+                printer={item}
+                status={status}
+                queueCount={queueCounts.get(item.id) ?? 0}
+                maintenance={maintenance}
+                spoolAssignments={assignmentsQuery.data}
+                snapshotSeed={`${snapshotSeed}-${item.id}-${status?.state ?? 'idle'}-${status?.progress ?? 0}`}
+                loading={Boolean(statusQuery?.isLoading || statusQuery?.isRefetching)}
+                selected={selected}
+                selectionMode={selectionMode}
+                onLongPress={() => {
+                  setSelectedPrinterIds(current =>
+                    current.includes(item.id) ? current : [...current, item.id],
+                  );
+                }}
+                onToggleSelect={toggleSelection}
+                onPress={() =>
+                  selectionMode
+                    ? toggleSelection()
+                    : navigation.navigate('PrinterDetail', { id: String(item.id) })
+                }
+                onCameraPress={() =>
+                  selectionMode
+                    ? toggleSelection()
+                    : navigation.navigate('Camera', { id: String(item.id) })
+                }
+                onQueuePress={() =>
+                  selectionMode ? toggleSelection() : navigation.navigate('Queue')
+                }
+                onMaintenancePress={() =>
+                  selectionMode ? toggleSelection() : navigation.navigate('Maintenance')
+                }
+                onPrintPress={() =>
+                  selectionMode ? toggleSelection() : setPrintPrinterId(item.id)
+                }
+              />
+            </Pressable>
           );
         }}
         ListHeaderComponent={
           <View style={styles.header}>
+            {selectionMode ? (
+              <View
+                style={[
+                  styles.bulkBar,
+                  { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                ]}
+              >
+                <View style={styles.bulkBarHeader}>
+                  <Text style={[styles.bulkTitle, { color: colors.text }]}>
+                    {selectedPrinterIds.length} selected
+                  </Text>
+                  <PrimaryButton
+                    label="Done"
+                    variant="secondary"
+                    onPress={() => setSelectedPrinterIds([])}
+                  />
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.bulkActions}
+                >
+                  <PrimaryButton
+                    label="Pause all"
+                    variant="secondary"
+                    onPress={() => void bulkActionMutation.mutateAsync('pause')}
+                    disabled={bulkActionMutation.isPending}
+                  />
+                  <PrimaryButton
+                    label="Resume all"
+                    variant="secondary"
+                    onPress={() => void bulkActionMutation.mutateAsync('resume')}
+                    disabled={bulkActionMutation.isPending}
+                  />
+                  <PrimaryButton
+                    label="Stop all"
+                    variant="danger"
+                    onPress={() => void bulkActionMutation.mutateAsync('stop')}
+                    disabled={bulkActionMutation.isPending}
+                  />
+                  <PrimaryButton
+                    label="LED on"
+                    variant="secondary"
+                    onPress={() => void bulkActionMutation.mutateAsync('light-on')}
+                    disabled={bulkActionMutation.isPending}
+                  />
+                  <PrimaryButton
+                    label="LED off"
+                    variant="secondary"
+                    onPress={() => void bulkActionMutation.mutateAsync('light-off')}
+                    disabled={bulkActionMutation.isPending}
+                  />
+                </ScrollView>
+              </View>
+            ) : null}
             <View style={styles.headerTopRow}>
               <View style={styles.headerText}>
                 <Text style={[styles.title, { color: colors.text }]}> 
                   Printers
                 </Text>
               </View>
-              <View
-                style={[
-                  styles.liveBadge,
-                  {
-                    backgroundColor: wsConnected ? colors.accentBg : colors.surfaceElevated,
+              <View style={styles.headerActions}>
+                <View
+                  style={[
+                    styles.liveBadge,
+                    {
+                      backgroundColor: wsConnected ? colors.accentBg : colors.surfaceElevated,
                     borderColor: wsConnected ? colors.accent : colors.border,
                   },
                 ]}
@@ -416,6 +588,13 @@ export default function PrintersDashboardScreen() {
                 >
                   {wsConnected ? 'Live' : 'Polling'}
                 </Text>
+              </View>
+              <Pressable
+                onPress={() => setShowAddPrinter(true)}
+                style={[styles.addBtn, { backgroundColor: colors.accent }]}
+              >
+                <Plus size={18} color="#fff" strokeWidth={2.5} />
+              </Pressable>
               </View>
             </View>
 
@@ -460,6 +639,12 @@ export default function PrintersDashboardScreen() {
         initialPrinterId={printPrinterId}
         onClose={() => setPrintPrinterId(null)}
       />
+      <AddPrinterModal
+        visible={showAddPrinter}
+        onClose={() => setShowAddPrinter(false)}
+        onAdd={(data) => addPrinterMutation.mutate(data as Record<string, unknown>)}
+        existingSerials={printers.map(p => p.serial_number ?? '')}
+      />
     </View>
   );
 }
@@ -474,6 +659,25 @@ const styles = StyleSheet.create({
   header: {
     gap: spacing.md,
     marginBottom: spacing.md,
+  },
+  bulkBar: {
+    borderWidth: 1,
+    borderRadius: borderRadius.xl,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  bulkBarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  bulkTitle: {
+    fontSize: fontSize.base,
+    fontWeight: '700',
+  },
+  bulkActions: {
+    gap: spacing.sm,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -511,5 +715,17 @@ const styles = StyleSheet.create({
   summaryGrid: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  addBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -24,6 +24,7 @@ import {
   StatCard,
   TextField,
 } from '@/components/common/AppUI';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { PrintModal } from '@/components/printers/PrintModal';
 import { Icon } from '@/components/common/TabBarIcon';
@@ -139,18 +140,37 @@ export default function FilesScreen() {
   const [renameValue, setRenameValue] = useState('');
   const [previewItem, setPreviewItem] = useState<ApiRecord | null>(null);
   const [moveIds, setMoveIds] = useState<number[]>([]);
+  const [deleteIds, setDeleteIds] = useState<number[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [printFileId, setPrintFileId] = useState<number | null>(null);
+  const [showExternalFolderModal, setShowExternalFolderModal] = useState(false);
+  const [externalFolderName, setExternalFolderName] = useState('');
+  const [externalFolderPath, setExternalFolderPath] = useState('');
+  const [externalFolderReadonly, setExternalFolderReadonly] = useState(true);
+  const [pendingExternalFolderDelete, setPendingExternalFolderDelete] = useState<ApiRecord | null>(null);
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+  const [purgeDays, setPurgeDays] = useState(90);
+  const [includeNeverPrinted, setIncludeNeverPrinted] = useState(true);
+  const [showTagFilterModal, setShowTagFilterModal] = useState(false);
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [tagEditorFileIds, setTagEditorFileIds] = useState<number[]>([]);
+  const [tagEditorSelectedIds, setTagEditorSelectedIds] = useState<number[]>([]);
+  const [tagDraftName, setTagDraftName] = useState('');
+  const [editingTagId, setEditingTagId] = useState<number | null>(null);
+  const [pendingTagDelete, setPendingTagDelete] = useState<ApiRecord | null>(null);
   const currentFolder = folderStack[folderStack.length - 1];
 
   const filesQuery = useQuery({
     queryKey: ['libraryFiles', currentFolder.id ?? 'root'],
-    queryFn: () => api.getLibraryFiles(currentFolder.id ?? undefined),
+    queryFn: () =>
+      currentFolder.id != null
+        ? api.getLibraryFiles(currentFolder.id)
+        : api.getLibraryFiles(undefined, false),
     enabled: !trashMode,
   });
-  const rootFilesQuery = useQuery({
-    queryKey: ['libraryFiles', 'rootForMove'],
-    queryFn: () => api.getLibraryFiles(),
+  const foldersQuery = useQuery({
+    queryKey: ['libraryFolders'],
+    queryFn: () => api.getLibraryFolders(),
     enabled: !trashMode,
   });
   const trashQuery = useQuery({
@@ -162,6 +182,16 @@ export default function FilesScreen() {
     queryKey: ['libraryTags'],
     queryFn: () => api.getLibraryTags(),
   });
+  const externalFoldersQuery = useQuery({
+    queryKey: ['externalFolders'],
+    queryFn: () => api.getExternalFolders(),
+    enabled: !trashMode,
+  });
+  const libraryPurgePreviewQuery = useQuery({
+    queryKey: ['libraryPurgePreview', purgeDays, includeNeverPrinted],
+    queryFn: () => api.previewLibraryPurge(purgeDays, includeNeverPrinted),
+    enabled: showPurgeModal,
+  });
   const pendingUploadsQuery = useQuery({
     queryKey: ['pendingUploads'],
     queryFn: () => api.getPendingUploads(),
@@ -172,16 +202,37 @@ export default function FilesScreen() {
     enabled: previewItem !== null && !isFolderEntry(previewItem),
   });
 
+  // Flatten the recursive folder tree to find children of the current folder
+  const childFolders = useMemo(() => {
+    const tree = foldersQuery.data;
+    if (!Array.isArray(tree)) return [];
+    const parentId = currentFolder.id;
+    // Recursively collect all folders, then filter to children of parentId
+    const flatten = (nodes: Record<string, unknown>[]): Record<string, unknown>[] =>
+      nodes.flatMap(n => [n, ...flatten(pickArray(n, ['children']).filter(isRecord))]);
+    const all = flatten(tree.filter(isRecord));
+    return all.filter(f => {
+      const pid = f.parent_id;
+      return parentId == null ? pid == null : pid === parentId;
+    });
+  }, [foldersQuery.data, currentFolder.id]);
+
   const entries = useMemo(() => {
-    const source = trashMode
-      ? Array.isArray(trashQuery.data)
-        ? trashQuery.data
-        : []
-      : Array.isArray(filesQuery.data)
-      ? filesQuery.data
-      : [];
-    return source.filter(isRecord);
-  }, [filesQuery.data, trashMode, trashQuery.data]);
+    if (trashMode) {
+      const source = Array.isArray(trashQuery.data) ? trashQuery.data : [];
+      return source.filter(isRecord);
+    }
+    const files = Array.isArray(filesQuery.data) ? filesQuery.data.filter(isRecord) : [];
+    // Convert folder tree items into folder entries compatible with the file list
+    const folderEntries: ApiRecord[] = childFolders.map(f => ({
+      ...f,
+      is_folder: true,
+      type: 'folder',
+      filename: pickString(f, ['name'], 'Folder'),
+      name: pickString(f, ['name'], 'Folder'),
+    }));
+    return [...folderEntries, ...files];
+  }, [filesQuery.data, trashMode, trashQuery.data, childFolders]);
 
   const fileTypes = useMemo(() => {
     const values = new Set<string>();
@@ -191,11 +242,32 @@ export default function FilesScreen() {
     return Array.from(values).sort();
   }, [entries]);
 
+  const tagCatalog = useMemo(
+    () => (Array.isArray(tagsQuery.data) ? tagsQuery.data.filter(isRecord) : []),
+    [tagsQuery.data],
+  );
+  const selectedTagNames = useMemo(
+    () => tagCatalog.filter(tag => selectedTagIds.includes(pickNumber(tag, ['id']))),
+    [selectedTagIds, tagCatalog],
+  );
+  const externalFolders = useMemo(
+    () => (Array.isArray(externalFoldersQuery.data) ? externalFoldersQuery.data.filter(isRecord) : []),
+    [externalFoldersQuery.data],
+  );
+
   const filteredEntries = useMemo(() => {
     const term = search.trim().toLowerCase();
     let result = entries.filter(item => {
       if (typeFilter !== 'all' && !isFolderEntry(item)) {
         if (pickString(item, ['file_type', 'type']) !== typeFilter) return false;
+      }
+      if (selectedTagIds.length > 0) {
+        if (isFolderEntry(item)) return false;
+        const itemTagIds = pickArray(item, ['tags'])
+          .filter(isRecord)
+          .map(tag => pickNumber(tag, ['id']))
+          .filter(Boolean);
+        if (!selectedTagIds.every(tagId => itemTagIds.includes(tagId))) return false;
       }
       if (!term) return true;
       const haystack = [
@@ -203,6 +275,7 @@ export default function FilesScreen() {
         pickString(item, ['filename', 'name']),
         pickString(item, ['created_by_username']),
         pickString(item, ['sliced_for_model']),
+        ...pickArray(item, ['tags']).filter(isRecord).map(tag => pickString(tag, ['name'])),
       ]
         .join(' ')
         .toLowerCase();
@@ -212,7 +285,7 @@ export default function FilesScreen() {
     const folders = sortEntries(result.filter(isFolderEntry), sortBy);
     const files = sortEntries(result.filter(item => !isFolderEntry(item)), sortBy);
     return [...folders, ...files];
-  }, [entries, search, sortBy, typeFilter]);
+  }, [entries, search, selectedTagIds, sortBy, typeFilter]);
 
   const visibleFolders = useMemo(
     () => filteredEntries.filter(isFolderEntry),
@@ -230,9 +303,17 @@ export default function FilesScreen() {
   }, [entries]);
 
   const rootFolders = useMemo(() => {
-    const source = Array.isArray(rootFilesQuery.data) ? rootFilesQuery.data.filter(isRecord) : [];
-    return source.filter(isFolderEntry);
-  }, [rootFilesQuery.data]);
+    const tree = foldersQuery.data;
+    if (!Array.isArray(tree)) return [];
+    // Top-level folders (parent_id is null) as folder entries
+    return tree.filter(isRecord).filter(f => f.parent_id == null).map(f => ({
+      ...f,
+      is_folder: true,
+      type: 'folder',
+      filename: pickString(f, ['name'], 'Folder'),
+      name: pickString(f, ['name'], 'Folder'),
+    }));
+  }, [foldersQuery.data]);
 
   const moveTargets = useMemo(() => {
     const targets: Array<{ id: number | null; name: string }> = [{ id: null, name: 'Library root' }];
@@ -257,6 +338,7 @@ export default function FilesScreen() {
   const refreshActive = async () => {
     await Promise.all([
       trashMode ? trashQuery.refetch() : filesQuery.refetch(),
+      foldersQuery.refetch(),
       tagsQuery.refetch(),
       pendingUploadsQuery.refetch(),
     ]);
@@ -265,7 +347,10 @@ export default function FilesScreen() {
   const invalidateFiles = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['libraryFiles'] }),
+      queryClient.invalidateQueries({ queryKey: ['libraryFolders'] }),
       queryClient.invalidateQueries({ queryKey: ['libraryTrash'] }),
+      queryClient.invalidateQueries({ queryKey: ['libraryTags'] }),
+      queryClient.invalidateQueries({ queryKey: ['externalFolders'] }),
       queryClient.invalidateQueries({ queryKey: ['pendingUploads'] }),
     ]);
   };
@@ -308,17 +393,24 @@ export default function FilesScreen() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (ids: number[]) => {
-      for (const id of ids) {
-        await api.deleteLibraryItem(id);
-      }
-    },
+    mutationFn: (ids: number[]) => api.bulkDeleteLibrary(ids, []),
     onSuccess: async () => {
       await invalidateFiles();
+      setDeleteIds([]);
       setSelectedIds([]);
       showToast('Items deleted.', 'success');
     },
     onError: () => showToast('Unable to delete the selected items.', 'error'),
+  });
+
+  const addToQueueMutation = useMutation({
+    mutationFn: (ids: number[]) => api.addLibraryFilesToQueue(ids),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['queue'] });
+      setSelectedIds([]);
+      showToast('Selected files added to the queue.', 'success');
+    },
+    onError: () => showToast('Unable to add the selected files to the queue.', 'error'),
   });
 
   const restoreMutation = useMutation({
@@ -356,6 +448,89 @@ export default function FilesScreen() {
     onError: () => showToast('Unable to empty trash.', 'error'),
   });
 
+  const createExternalFolderMutation = useMutation({
+    mutationFn: () =>
+      api.createExternalFolder({
+        name: externalFolderName.trim(),
+        external_path: externalFolderPath.trim(),
+        readonly: externalFolderReadonly,
+      }),
+    onSuccess: async () => {
+      await invalidateFiles();
+      setShowExternalFolderModal(false);
+      setExternalFolderName('');
+      setExternalFolderPath('');
+      setExternalFolderReadonly(true);
+      showToast('External folder added.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to add the external folder.', 'error'),
+  });
+
+  const deleteExternalFolderMutation = useMutation({
+    mutationFn: (id: number) => api.deleteExternalFolder(id),
+    onSuccess: async () => {
+      await invalidateFiles();
+      setPendingExternalFolderDelete(null);
+      showToast('External folder removed.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to remove the external folder.', 'error'),
+  });
+
+  const scanExternalFolderMutation = useMutation({
+    mutationFn: (id: number) => api.scanExternalFolder(id),
+    onSuccess: async () => {
+      await invalidateFiles();
+      showToast('External folder synced.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to sync the external folder.', 'error'),
+  });
+
+  const purgeOldFilesMutation = useMutation({
+    mutationFn: () => api.purgeLibraryOldFiles({ older_than_days: purgeDays, include_never_printed: includeNeverPrinted }),
+    onSuccess: async () => {
+      await invalidateFiles();
+      setShowPurgeModal(false);
+      showToast('Old files moved to trash.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to purge old files.', 'error'),
+  });
+
+  const saveTagMutation = useMutation({
+    mutationFn: () =>
+      editingTagId != null
+        ? api.updateLibraryTag(editingTagId, tagDraftName.trim())
+        : api.createLibraryTag(tagDraftName.trim()),
+    onSuccess: async () => {
+      await invalidateFiles();
+      setEditingTagId(null);
+      setTagDraftName('');
+      showToast(editingTagId != null ? 'Tag updated.' : 'Tag created.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to save the tag.', 'error'),
+  });
+
+  const deleteTagMutation = useMutation({
+    mutationFn: (id: number) => api.deleteLibraryTag(id),
+    onSuccess: async (_data, id) => {
+      await invalidateFiles();
+      setPendingTagDelete(null);
+      setSelectedTagIds(current => current.filter(tagId => tagId !== id));
+      setTagEditorSelectedIds(current => current.filter(tagId => tagId !== id));
+      showToast('Tag deleted.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to delete the tag.', 'error'),
+  });
+
+  const assignTagsMutation = useMutation({
+    mutationFn: () => api.bulkAssignLibraryTags(tagEditorFileIds, tagEditorSelectedIds, 'replace'),
+    onSuccess: async () => {
+      await invalidateFiles();
+      setTagEditorFileIds([]);
+      showToast('File tags updated.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to update file tags.', 'error'),
+  });
+
   const toggleSelected = (id: number) => {
     setSelectedIds(current =>
       current.includes(id) ? current.filter(value => value !== id) : [...current, id],
@@ -364,14 +539,42 @@ export default function FilesScreen() {
 
   const openEntry = (item: ApiRecord) => {
     if (trashMode) return;
+    const id = Number(pickId(item));
+    if (selectionMode && !isFolderEntry(item)) {
+      toggleSelected(id);
+      return;
+    }
     if (isFolderEntry(item)) {
       setFolderStack(current => [
         ...current,
-        { id: Number(pickId(item)), name: pickString(item, ['name', 'filename'], 'Folder') },
+        { id: id, name: pickString(item, ['name', 'filename'], 'Folder') },
       ]);
       return;
     }
     setPreviewItem(item);
+  };
+
+  const toggleTagFilter = (tagId: number) => {
+    setSelectedTagIds(current =>
+      current.includes(tagId) ? current.filter(value => value !== tagId) : [...current, tagId],
+    );
+  };
+
+  const openTagEditor = (ids: number[]) => {
+    const files = entries.filter(item => ids.includes(Number(pickId(item))) && !isFolderEntry(item));
+    const commonTagIds = tagCatalog
+      .filter(tag =>
+        files.length > 0 &&
+        files.every(file =>
+          pickArray(file, ['tags'])
+            .filter(isRecord)
+            .some(fileTag => pickNumber(fileTag, ['id']) === pickNumber(tag, ['id'])),
+        ),
+      )
+      .map(tag => pickNumber(tag, ['id']))
+      .filter(Boolean);
+    setTagEditorFileIds(ids);
+    setTagEditorSelectedIds(commonTagIds);
   };
 
   if (!trashMode && filesQuery.isLoading && !filesQuery.data) {
@@ -393,6 +596,7 @@ export default function FilesScreen() {
     );
   }
 
+  const selectionMode = !trashMode && selectedIds.length > 0;
   const selectionCount = selectedIds.length;
   const pendingUploads = Array.isArray(pendingUploadsQuery.data)
     ? pendingUploadsQuery.data.filter(isRecord)
@@ -434,14 +638,23 @@ export default function FilesScreen() {
                 item={item}
                 viewMode={viewMode}
                 selected={selectedIds.includes(id)}
+                showSelection={selectionMode && !isFolderEntry(item)}
                 onPress={() => openEntry(item)}
+                onLongPress={() => {
+                  if (isFolderEntry(item)) return;
+                  if (selectionMode) {
+                    toggleSelected(id);
+                    return;
+                  }
+                  setSelectedIds([id]);
+                }}
                 onToggleSelect={() => toggleSelected(id)}
                 onRename={() => {
                   setRenameItem(item);
                   setRenameValue(pickString(item, ['filename', 'name'], ''));
                 }}
                 onDelete={() => {
-                  deleteMutation.mutate([id]);
+                  setDeleteIds([id]);
                 }}
                 onMove={() => setMoveIds([id])}
                 onDownload={() => {
@@ -496,7 +709,21 @@ export default function FilesScreen() {
                 value={search}
                 onChangeText={setSearch}
                 placeholder={trashMode ? 'Search trash by filename' : 'Search files, folders, uploader, or profile'}
+                onFilterPress={trashMode ? undefined : () => setShowTagFilterModal(true)}
               />
+              {!trashMode && selectedTagNames.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                  {selectedTagNames.map(tag => (
+                    <Chip
+                      key={pickNumber(tag, ['id'])}
+                      label={`Tag: ${pickString(tag, ['name'])}`}
+                      selected
+                      onPress={() => toggleTagFilter(pickNumber(tag, ['id']))}
+                    />
+                  ))}
+                  <Chip label="Clear tag filters" selected={false} onPress={() => setSelectedTagIds([])} />
+                </ScrollView>
+              ) : null}
               {!trashMode && visibleFolders.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.folderRow}>
                   {visibleFolders.map(folder => (
@@ -555,6 +782,24 @@ export default function FilesScreen() {
                   disabled={trashMode}
                 />
                 <PrimaryButton
+                  label="Tags"
+                  variant="secondary"
+                  onPress={() => setShowTagFilterModal(true)}
+                  disabled={trashMode}
+                />
+                <PrimaryButton
+                  label="Purge old"
+                  variant="secondary"
+                  onPress={() => setShowPurgeModal(true)}
+                  disabled={trashMode}
+                />
+                <PrimaryButton
+                  label="External folders"
+                  variant="secondary"
+                  onPress={() => setShowExternalFolderModal(true)}
+                  disabled={trashMode}
+                />
+                <PrimaryButton
                   label={trashMode ? 'Back to files' : 'Open trash'}
                   variant="secondary"
                   onPress={() => {
@@ -582,6 +827,47 @@ export default function FilesScreen() {
                 </View>
               ) : null}
             </SectionCard>
+
+            {!trashMode ? (
+              <SectionCard
+                title="External folders"
+                subtitle="Linked folders stay visible in the mobile file manager and can be synced on demand."
+              >
+                {externalFolders.length > 0 ? (
+                  externalFolders.map(folder => (
+                    <View
+                      key={pickId(folder)}
+                      style={[styles.externalFolderRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                    >
+                      <View style={styles.externalFolderText}>
+                        <Text style={[styles.externalFolderTitle, { color: colors.text }]}>{pickString(folder, ['name'], 'External folder')}</Text>
+                        <Text style={[styles.externalFolderMeta, { color: colors.textSecondary }]} numberOfLines={2}>
+                          {pickString(folder, ['external_path'], 'No path')}
+                        </Text>
+                        <Text style={[styles.externalFolderMeta, { color: colors.textSecondary }]}> 
+                          {pickBoolean(folder, ['external_readonly']) ? 'Read only' : 'Writable'}
+                        </Text>
+                      </View>
+                      <View style={styles.rowActionWrap}>
+                        <PrimaryButton
+                          label="Sync"
+                          variant="secondary"
+                          onPress={() => void scanExternalFolderMutation.mutateAsync(Number(pickId(folder)))}
+                          disabled={scanExternalFolderMutation.isPending}
+                        />
+                        <PrimaryButton
+                          label="Delete"
+                          variant="danger"
+                          onPress={() => setPendingExternalFolderDelete(folder)}
+                        />
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={[styles.pendingUploadsText, { color: colors.textSecondary }]}>No external folders added yet.</Text>
+                )}
+              </SectionCard>
+            ) : null}
           </View>
         }
         ListEmptyComponent={
@@ -598,10 +884,16 @@ export default function FilesScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectionActions}>
             <Text style={[styles.selectionText, { color: colors.text }]}>{selectionCount} selected</Text>
             <PrimaryButton label="Move" variant="secondary" onPress={() => setMoveIds(selectedIds)} />
-            <PrimaryButton label="Delete" variant="danger" onPress={() => {
-              deleteMutation.mutate(selectedIds);
-            }} />
-            <PrimaryButton label="Clear" variant="secondary" onPress={() => setSelectedIds([])} />
+            <PrimaryButton label="Tags" variant="secondary" onPress={() => openTagEditor(selectedIds)} />
+            <PrimaryButton
+              label={addToQueueMutation.isPending ? 'Adding…' : 'Add to Queue'}
+              onPress={() => {
+                void addToQueueMutation.mutateAsync(selectedIds);
+              }}
+              disabled={addToQueueMutation.isPending}
+            />
+            <PrimaryButton label="Delete" variant="danger" onPress={() => setDeleteIds(selectedIds)} />
+            <PrimaryButton label="Done" variant="secondary" onPress={() => setSelectedIds([])} />
           </ScrollView>
         </View>
       ) : null}
@@ -697,6 +989,33 @@ export default function FilesScreen() {
               ) : null}
             </SectionCard>
 
+            {!isFolderEntry(previewItem) ? (
+              <SectionCard title="Tags" subtitle="Manage tag assignments for this file.">
+                {pickArray(previewItem, ['tags']).filter(isRecord).length > 0 ? (
+                  <View style={styles.previewTags}>
+                    {pickArray(previewItem, ['tags']).filter(isRecord).map(tag => (
+                      <Chip
+                        key={pickNumber(tag, ['id'])}
+                        label={pickString(tag, ['name'], 'Tag')}
+                        selected={false}
+                        onPress={() => {
+                          setSelectedTagIds([pickNumber(tag, ['id'])]);
+                          setShowTagFilterModal(true);
+                        }}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={[styles.previewLine, { color: colors.textSecondary }]}>No tags assigned yet.</Text>
+                )}
+                <PrimaryButton
+                  label="Edit file tags"
+                  variant="secondary"
+                  onPress={() => openTagEditor([Number(pickId(previewItem))])}
+                />
+              </SectionCard>
+            ) : null}
+
             {previewPlatesQuery.data && isRecord(previewPlatesQuery.data) ? (
               <SectionCard title="Plate previews" subtitle="Multi-plate 3MF and sliced files expose plate metadata similar to web previews.">
                 {pickArray(previewPlatesQuery.data, ['plates']).length > 0 ? (
@@ -748,6 +1067,223 @@ export default function FilesScreen() {
         visible={printFileId != null}
         initialFileId={printFileId}
         onClose={() => setPrintFileId(null)}
+      />
+
+      <ModalShell
+        visible={showExternalFolderModal}
+        title="Add external folder"
+        subtitle="Register a host folder so it appears in the mobile library."
+        onClose={() => setShowExternalFolderModal(false)}
+      >
+        <TextField label="Display name" value={externalFolderName} onChangeText={setExternalFolderName} placeholder="Shared library" />
+        <TextField label="Path" value={externalFolderPath} onChangeText={setExternalFolderPath} placeholder="/Volumes/Prints" />
+        <View style={[styles.toggleRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
+          <View style={styles.toggleText}>
+            <Text style={[styles.toggleTitle, { color: colors.text }]}>Read only</Text>
+            <Text style={[styles.toggleSubtitle, { color: colors.textSecondary }]}>Keep the external mount protected from write operations.</Text>
+          </View>
+          <Pressable onPress={() => setExternalFolderReadonly(current => !current)}>
+            <Icon name={externalFolderReadonly ? 'check-circle' : 'pause'} size={18} color={externalFolderReadonly ? colors.success : colors.textSecondary} />
+          </Pressable>
+        </View>
+        <View style={styles.modalFooter}>
+          <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowExternalFolderModal(false)} />
+          <PrimaryButton
+            label={createExternalFolderMutation.isPending ? 'Saving…' : 'Add folder'}
+            onPress={() => void createExternalFolderMutation.mutateAsync()}
+            disabled={!externalFolderName.trim() || !externalFolderPath.trim() || createExternalFolderMutation.isPending}
+          />
+        </View>
+      </ModalShell>
+
+      <ModalShell
+        visible={showPurgeModal}
+        title="Purge old files"
+        subtitle="Preview old library files before moving them to trash."
+        onClose={() => setShowPurgeModal(false)}
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {[30, 60, 90, 180, 365].map(days => (
+            <Chip key={days} label={`${days} days`} selected={purgeDays === days} onPress={() => setPurgeDays(days)} />
+          ))}
+        </ScrollView>
+        <View style={[styles.toggleRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
+          <View style={styles.toggleText}>
+            <Text style={[styles.toggleTitle, { color: colors.text }]}>Include never printed</Text>
+            <Text style={[styles.toggleSubtitle, { color: colors.textSecondary }]}>Also move files that have not been printed yet.</Text>
+          </View>
+          <Pressable onPress={() => setIncludeNeverPrinted(current => !current)}>
+            <Icon name={includeNeverPrinted ? 'check-circle' : 'pause'} size={18} color={includeNeverPrinted ? colors.success : colors.textSecondary} />
+          </Pressable>
+        </View>
+        <View style={[styles.previewCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
+          <Text style={[styles.pendingUploadsTitle, { color: colors.text }]}>Preview</Text>
+          <Text style={[styles.pendingUploadsText, { color: colors.textSecondary }]}> 
+            {libraryPurgePreviewQuery.isLoading
+              ? 'Calculating…'
+              : `${pickNumber(libraryPurgePreviewQuery.data, ['count'], 0)} file(s) • ${Math.round(pickNumber(libraryPurgePreviewQuery.data, ['total_bytes'], 0) / 1024 / 1024)} MB`}
+          </Text>
+          {pickArray(libraryPurgePreviewQuery.data as Record<string, unknown>, ['sample_filenames']).slice(0, 5).map(sample => (
+            <Text key={String(sample)} style={[styles.previewLine, { color: colors.textSecondary }]}>• {String(sample)}</Text>
+          ))}
+        </View>
+        <View style={styles.modalFooter}>
+          <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowPurgeModal(false)} />
+          <PrimaryButton
+            label={purgeOldFilesMutation.isPending ? 'Purging…' : 'Purge old files'}
+            variant="danger"
+            onPress={() => void purgeOldFilesMutation.mutateAsync()}
+            disabled={purgeOldFilesMutation.isPending}
+          />
+        </View>
+      </ModalShell>
+
+      <ModalShell
+        visible={showTagFilterModal}
+        title="Tags"
+        subtitle="Filter the file list and manage the library tag catalog."
+        onClose={() => setShowTagFilterModal(false)}
+      >
+        <ScrollView style={styles.modalScroll}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            {tagCatalog.map(tag => {
+              const tagId = pickNumber(tag, ['id']);
+              return (
+                <Chip
+                  key={tagId}
+                  label={`${pickString(tag, ['name'], 'Tag')} (${pickNumber(tag, ['file_count', 'count'], 0)})`}
+                  selected={selectedTagIds.includes(tagId)}
+                  onPress={() => toggleTagFilter(tagId)}
+                />
+              );
+            })}
+          </ScrollView>
+          <TextField
+            label={editingTagId != null ? 'Rename tag' : 'Create tag'}
+            value={tagDraftName}
+            onChangeText={setTagDraftName}
+            placeholder="favorite"
+          />
+          <View style={styles.modalFooter}>
+            {editingTagId != null ? (
+              <PrimaryButton
+                label="Cancel edit"
+                variant="secondary"
+                onPress={() => {
+                  setEditingTagId(null);
+                  setTagDraftName('');
+                }}
+              />
+            ) : null}
+            <PrimaryButton
+              label={saveTagMutation.isPending ? 'Saving…' : editingTagId != null ? 'Save tag' : 'Create tag'}
+              onPress={() => void saveTagMutation.mutateAsync()}
+              disabled={!tagDraftName.trim() || saveTagMutation.isPending}
+            />
+          </View>
+          {tagCatalog.map(tag => (
+            <View key={`manage-${pickId(tag)}`} style={[styles.manageRow, { borderColor: colors.borderSubtle }]}> 
+              <View style={styles.externalFolderText}>
+                <Text style={[styles.externalFolderTitle, { color: colors.text }]}>{pickString(tag, ['name'], 'Tag')}</Text>
+                <Text style={[styles.externalFolderMeta, { color: colors.textSecondary }]}> 
+                  {pickNumber(tag, ['file_count', 'count'], 0)} linked file(s)
+                </Text>
+              </View>
+              <View style={styles.rowActionWrap}>
+                <PrimaryButton
+                  label="Edit"
+                  variant="secondary"
+                  onPress={() => {
+                    setEditingTagId(pickNumber(tag, ['id']));
+                    setTagDraftName(pickString(tag, ['name']));
+                  }}
+                />
+                <PrimaryButton
+                  label="Delete"
+                  variant="danger"
+                  onPress={() => setPendingTagDelete(tag)}
+                />
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+        <View style={styles.modalFooter}>
+          <PrimaryButton label="Close" variant="secondary" onPress={() => setShowTagFilterModal(false)} />
+          <PrimaryButton label="Clear filters" variant="secondary" onPress={() => setSelectedTagIds([])} />
+        </View>
+      </ModalShell>
+
+      <ModalShell
+        visible={tagEditorFileIds.length > 0}
+        title="Edit file tags"
+        subtitle={`Apply tags to ${tagEditorFileIds.length} selected file${tagEditorFileIds.length === 1 ? '' : 's'}.`}
+        onClose={() => setTagEditorFileIds([])}
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {tagCatalog.map(tag => {
+            const tagId = pickNumber(tag, ['id']);
+            const selected = tagEditorSelectedIds.includes(tagId);
+            return (
+              <Chip
+                key={`assign-${tagId}`}
+                label={pickString(tag, ['name'], 'Tag')}
+                selected={selected}
+                onPress={() => setTagEditorSelectedIds(current => selected ? current.filter(id => id !== tagId) : [...current, tagId])}
+              />
+            );
+          })}
+        </ScrollView>
+        <Text style={[styles.pendingUploadsText, { color: colors.textSecondary }]}>Open the tags modal to create or rename catalog tags.</Text>
+        <View style={styles.modalFooter}>
+          <PrimaryButton label="Cancel" variant="secondary" onPress={() => setTagEditorFileIds([])} />
+          <PrimaryButton
+            label={assignTagsMutation.isPending ? 'Saving…' : 'Save tags'}
+            onPress={() => void assignTagsMutation.mutateAsync()}
+            disabled={assignTagsMutation.isPending}
+          />
+        </View>
+      </ModalShell>
+
+      <ConfirmModal
+        visible={pendingExternalFolderDelete !== null}
+        onClose={() => setPendingExternalFolderDelete(null)}
+        onConfirm={() => {
+          if (!pendingExternalFolderDelete) return;
+          void deleteExternalFolderMutation.mutateAsync(Number(pickId(pendingExternalFolderDelete)));
+        }}
+        title="Remove external folder?"
+        message={pendingExternalFolderDelete ? `Remove ${pickString(pendingExternalFolderDelete, ['name'])} from the mobile file manager?` : ''}
+        confirmLabel="Delete"
+        loading={deleteExternalFolderMutation.isPending}
+      />
+
+      <ConfirmModal
+        visible={pendingTagDelete !== null}
+        onClose={() => setPendingTagDelete(null)}
+        onConfirm={() => {
+          if (!pendingTagDelete) return;
+          void deleteTagMutation.mutateAsync(pickNumber(pendingTagDelete, ['id']));
+        }}
+        title="Delete tag?"
+        message={pendingTagDelete ? `Delete ${pickString(pendingTagDelete, ['name'])}? Files keep their identity; only the tag link is removed.` : ''}
+        confirmLabel="Delete"
+        loading={deleteTagMutation.isPending}
+      />
+
+      <ConfirmModal
+        visible={deleteIds.length > 0}
+        onClose={() => setDeleteIds([])}
+        onConfirm={() => {
+          void deleteMutation.mutateAsync(deleteIds);
+        }}
+        title={deleteIds.length > 1 ? 'Delete selected files?' : 'Delete this file?'}
+        message={
+          deleteIds.length > 1
+            ? 'The selected library files will be moved to trash.'
+            : 'This library file will be moved to trash.'
+        }
+        confirmLabel="Delete"
+        loading={deleteMutation.isPending}
       />
     </View>
   );
@@ -893,5 +1429,63 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     paddingBottom: spacing.sm,
     marginBottom: spacing.sm,
+  },
+  externalFolderRow: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  externalFolderText: {
+    gap: spacing.xs,
+  },
+  externalFolderTitle: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
+  },
+  externalFolderMeta: {
+    fontSize: fontSize.sm,
+  },
+  rowActionWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  toggleRow: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  toggleText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  toggleTitle: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
+  },
+  toggleSubtitle: {
+    fontSize: fontSize.sm,
+  },
+  previewCard: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  manageRow: {
+    borderBottomWidth: 1,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  previewTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
 });
