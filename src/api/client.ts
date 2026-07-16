@@ -4,8 +4,15 @@
 
 import * as Keychain from 'react-native-keychain';
 import type {
+  InventorySpool,
+  LinkedSpoolsMap,
+  Printer,
+  PrinterStatus,
   SlotPresetMapping,
+  SpoolAssignment,
+  SpoolmanStatus,
   UnifiedPresetsResponse,
+  UnlinkedSpool,
 } from '@/types/api';
 import { apiUrl, useServerStore } from './server';
 
@@ -219,6 +226,83 @@ async function uploadFile<T>(
   return response.json();
 }
 
+async function uploadFileWithProgress<T>(
+  endpoint: string,
+  file: { uri: string; name: string; type: string },
+  onProgress: (progress: number) => void,
+  extraFields?: Record<string, string>,
+): Promise<T> {
+  const serverUrl = getServerUrl();
+
+  return new Promise<T>((resolve, reject) => {
+    const form = new FormData();
+    form.append('file', {
+      uri: file.uri,
+      name: file.name,
+      type: file.type,
+    } as unknown as Blob);
+
+    if (extraFields) {
+      for (const [key, value] of Object.entries(extraFields)) {
+        form.append(key, value);
+      }
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', apiUrl(serverUrl, endpoint));
+
+    if (authToken) {
+      xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+    }
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+    };
+
+    xhr.onerror = () => {
+      reject(new ApiError('Network error', 0));
+    };
+
+    xhr.onload = () => {
+      const status = xhr.status;
+      const responseText = xhr.responseText;
+
+      if (status >= 200 && status < 300) {
+        if (!responseText) {
+          resolve({} as T);
+          return;
+        }
+        try {
+          resolve(JSON.parse(responseText) as T);
+        } catch {
+          resolve({} as T);
+        }
+        return;
+      }
+
+      let errorData: Record<string, unknown> = {};
+      try {
+        errorData = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        errorData = {};
+      }
+
+      const detail = errorData?.detail;
+      const message =
+        typeof detail === 'string'
+          ? detail
+          : typeof detail === 'object' && detail && 'message' in detail
+            ? String((detail as { message?: string }).message ?? `HTTP ${status}`)
+            : `HTTP ${status}`;
+
+      reject(new ApiError(message, status));
+    };
+
+    xhr.send(form);
+  });
+}
+
 async function requestWithFallback<T>(
   primary: { endpoint: string; options?: RequestInit },
   fallback: { endpoint: string; options?: RequestInit },
@@ -407,7 +491,7 @@ export const api = {
   getPrinters: () => request<Record<string, unknown>[]>('/printers/'),
 
   getPrinter: (id: number) =>
-    request<Record<string, unknown>>(`/printers/${id}`),
+    request<Printer>(`/printers/${id}`),
 
   createPrinter: (data: Record<string, unknown>) =>
     request<Record<string, unknown>>('/printers/', {
@@ -425,7 +509,7 @@ export const api = {
     request<void>(`/printers/${id}`, { method: 'DELETE' }),
 
   getPrinterStatus: (id: number) =>
-    request<Record<string, unknown>>(`/printers/${id}/status`),
+    request<PrinterStatus>(`/printers/${id}/status`),
 
   refreshPrinterStatus: (id: number) =>
     request<Record<string, unknown>>(`/printers/${id}/status/refresh`, {
@@ -1027,7 +1111,14 @@ export const api = {
   },
 
   getLibraryFile: (id: number) =>
-    request<Record<string, unknown>>(`/library/${id}`),
+    requestWithFallback<Record<string, unknown>>(
+      {
+        endpoint: `/library/files/${id}`,
+      },
+      {
+        endpoint: `/library/${id}`,
+      },
+    ),
 
   createFolder: (data: { name: string; parent_id?: number }) =>
     request<Record<string, unknown>>('/library/folder', {
@@ -1052,16 +1143,65 @@ export const api = {
 
   uploadLibraryFile: (
     file: { uri: string; name: string; type: string },
-    folderId?: number,
+    folderId?: number | null,
+    onProgress?: (progress: number) => void,
   ) => {
-    const endpoint = folderId
+    const params = new URLSearchParams();
+    if (folderId != null) {
+      params.set('folder_id', String(folderId));
+    }
+    params.set('generate_stl_thumbnails', 'true');
+    const primaryEndpoint = `/library/files${params.toString() ? `?${params}` : ''}`;
+    const fallbackEndpoint = folderId != null
       ? `/library/upload?folder_id=${folderId}`
       : '/library/upload';
-    return uploadFile<Record<string, unknown>>(endpoint, file);
+
+    const performUpload = (endpoint: string) =>
+      onProgress
+        ? uploadFileWithProgress<Record<string, unknown>>(
+            endpoint,
+            file,
+            onProgress,
+          )
+        : uploadFile<Record<string, unknown>>(endpoint, file);
+
+    return performUpload(primaryEndpoint).catch((error) => {
+      if (error instanceof ApiError && error.status === 404) {
+        return performUpload(fallbackEndpoint);
+      }
+      throw error;
+    });
   },
 
   getLibraryFilePlates: (id: number) =>
-    request<Record<string, unknown>>(`/library/${id}/plates`),
+    requestWithFallback<Record<string, unknown>>(
+      {
+        endpoint: `/library/files/${id}/plates`,
+      },
+      {
+        endpoint: `/library/${id}/plates`,
+      },
+    ),
+
+  getLibraryFileFilamentRequirements: (
+    id: number,
+    plateId?: number,
+  ) => {
+    const params = new URLSearchParams();
+    if (plateId !== undefined) {
+      params.set('plate_id', String(plateId));
+    }
+    const query = params.toString();
+
+    return requestWithFallback<Record<string, unknown>>(
+      {
+        endpoint: `/library/files/${id}/filament-requirements${query ? `?${query}` : ''}`,
+      },
+      {
+        endpoint: `/library/${id}/filament-requirements${query ? `?${query}` : ''}`,
+      },
+    );
+  },
 
   getLibraryFilePlateThumbnail: (id: number, plateIndex: number): string => {
     const serverUrl = getServerUrl();
@@ -1073,6 +1213,12 @@ export const api = {
     const serverUrl = getServerUrl();
     const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
     return `${serverUrl}/api/v1/library/files/${id}/thumbnail${token}`;
+  },
+
+  getLibraryFileDownloadUrl: (id: number): string => {
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/library/files/${id}/download${token}`;
   },
 
   getLibraryTags: () =>
@@ -1175,7 +1321,7 @@ export const api = {
 
   // ── Spool Inventory ──────────────────────────────
   getSpools: (includeArchived = false) =>
-    request<Record<string, unknown>[]>(
+    request<InventorySpool[]>(
       `/inventory/spools?include_archived=${includeArchived}`,
     ),
 
@@ -1324,7 +1470,7 @@ export const api = {
     }),
 
   getAssignments: (printerId?: number) =>
-    request<Record<string, unknown>[]>(
+    request<SpoolAssignment[]>(
       `/inventory/assignments${printerId ? `?printer_id=${printerId}` : ''}`,
     ),
 
@@ -1777,10 +1923,40 @@ export const api = {
     request<Record<string, unknown>[]>(`/ams-history/${printerId}`),
 
   // ── Spoolman ─────────────────────────────────────
-  getSpoolmanStatus: () => request<Record<string, unknown>>('/spoolman/status'),
+  getSpoolmanStatus: () => request<SpoolmanStatus>('/spoolman/status'),
 
   getSpoolmanSpools: () =>
     request<Record<string, unknown>[]>('/spoolman/spools'),
+
+  getUnlinkedSpools: () =>
+    request<UnlinkedSpool[]>('/spoolman/spools/unlinked'),
+
+  getLinkedSpools: () =>
+    request<LinkedSpoolsMap>('/spoolman/spools/linked'),
+
+  linkSpool: (
+    spoolId: number,
+    context: {
+      spoolTag: string;
+      printerId: number;
+      amsId: number;
+      trayId: number;
+    },
+  ) =>
+    request<void>(`/spoolman/spools/${spoolId}/link`, {
+      method: 'POST',
+      body: JSON.stringify({
+        spool_tag: context.spoolTag,
+        printer_id: context.printerId,
+        ams_id: context.amsId,
+        tray_id: context.trayId,
+      }),
+    }),
+
+  unlinkSpool: (spoolId: number) =>
+    request<void>(`/spoolman/spools/${spoolId}/unlink`, {
+      method: 'POST',
+    }),
 
   // ── SpoolBuddy ───────────────────────────────────
   getSpoolBuddyDevices: () =>
@@ -1830,15 +2006,37 @@ export const api = {
     }),
 
   printLibraryFile: (fileId: number, data: Record<string, unknown>) =>
-    request<Record<string, unknown>>(`/library/${fileId}/print`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    requestWithFallback<Record<string, unknown>>(
+      {
+        endpoint: `/library/${fileId}/print`,
+        options: {
+          method: 'POST',
+          body: JSON.stringify(data),
+        },
+      },
+      {
+        endpoint: `/library/files/${fileId}/print`,
+        options: {
+          method: 'POST',
+          body: JSON.stringify(data),
+        },
+      },
+    ),
 
   printPrinterFile: (printerId: number, data: Record<string, unknown>) =>
     request<Record<string, unknown>>(`/printers/${printerId}/print`, {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+
+  startPrint: (
+    printerId: number,
+    fileId: number,
+    options: Record<string, unknown> = {},
+  ) =>
+    api.printLibraryFile(fileId, {
+      printer_id: printerId,
+      ...options,
     }),
 
   // ── Discovery ────────────────────────────────────

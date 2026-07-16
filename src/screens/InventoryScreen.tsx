@@ -234,8 +234,14 @@ export default function InventoryScreen() {
     onError: (error: Error) => showToast(error.message || 'Unable to import CSV.', 'error'),
   });
 
-  const spools = useMemo(() => ((spoolsQuery.data ?? []) as ApiRecord[]), [spoolsQuery.data]);
-  const assignments = useMemo(() => ((assignmentsQuery.data ?? []) as ApiRecord[]), [assignmentsQuery.data]);
+  const spools = useMemo(
+    () => ((spoolsQuery.data ?? []) as unknown as ApiRecord[]),
+    [spoolsQuery.data],
+  );
+  const assignments = useMemo(
+    () => ((assignmentsQuery.data ?? []) as unknown as ApiRecord[]),
+    [assignmentsQuery.data],
+  );
   const materials = useMemo(() => ['All', ...new Set(spools.map(spool => pickString(spool, ['material'], 'Unknown')).filter(Boolean))], [spools]);
   const brands = useMemo(() => ['All', ...new Set(spools.map(spool => pickString(spool, ['brand'], 'Unknown')).filter(Boolean))], [spools]);
   const lowStockThreshold = pickNumber(settingsQuery.data, ['low_stock_threshold'], 20);

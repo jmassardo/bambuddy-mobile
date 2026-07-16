@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
   FlatList,
+  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -10,12 +11,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import DocumentPicker, { isCancel } from 'react-native-document-picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
+import { FileUploadModal } from '@/components/files/FileUploadModal';
 import { Breadcrumb, FileItem } from '@/components/files/FileItem';
 import {
   Chip,
+  FloatingActionButton,
   PrimaryButton,
   SearchBar,
   SectionCard,
@@ -23,6 +25,7 @@ import {
   TextField,
 } from '@/components/common/AppUI';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
+import { PrintModal } from '@/components/printers/PrintModal';
 import { Icon } from '@/components/common/TabBarIcon';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -136,6 +139,8 @@ export default function FilesScreen() {
   const [renameValue, setRenameValue] = useState('');
   const [previewItem, setPreviewItem] = useState<ApiRecord | null>(null);
   const [moveIds, setMoveIds] = useState<number[]>([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [printFileId, setPrintFileId] = useState<number | null>(null);
   const currentFolder = folderStack[folderStack.length - 1];
 
   const filesQuery = useQuery({
@@ -265,31 +270,6 @@ export default function FilesScreen() {
     ]);
   };
 
-  const uploadMutation = useMutation({
-    mutationFn: async () => {
-      try {
-        const asset = await DocumentPicker.pickSingle({ type: [DocumentPicker.types.allFiles] });
-        return api.uploadLibraryFile(
-          {
-            uri: asset.fileCopyUri ?? asset.uri,
-            name: asset.name ?? 'upload',
-            type: asset.type ?? 'application/octet-stream',
-          },
-          currentFolder.id ?? undefined,
-        );
-      } catch (error) {
-        if (isCancel(error)) return null;
-        throw error;
-      }
-    },
-    onSuccess: async result => {
-      if (!result) return;
-      await invalidateFiles();
-      showToast('File uploaded.', 'success');
-    },
-    onError: () => showToast('Unable to upload file.', 'error'),
-  });
-
   const createFolderMutation = useMutation({
     mutationFn: (name: string) => api.createFolder({ name, parent_id: currentFolder.id ?? undefined }),
     onSuccess: async () => {
@@ -374,15 +354,6 @@ export default function FilesScreen() {
       showToast('Trash emptied.', 'success');
     },
     onError: () => showToast('Unable to empty trash.', 'error'),
-  });
-
-  const printMutation = useMutation({
-    mutationFn: (id: number) => api.printLibraryFile(id, {}),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['queue'] });
-      showToast('Print started from library.', 'success');
-    },
-    onError: () => showToast('Unable to start the print.', 'error'),
   });
 
   const toggleSelected = (id: number) => {
@@ -475,7 +446,10 @@ export default function FilesScreen() {
                 onMove={() => setMoveIds([id])}
                 onDownload={() => {
                   if (isFolderEntry(item)) return;
-                  showToast('Download links are available in the web app; open the archive or file on web for direct file export.', 'info');
+                  const downloadUrl = api.getLibraryFileDownloadUrl(id);
+                  Linking.openURL(downloadUrl).catch(() => {
+                    showToast('Could not open download link.', 'error');
+                  });
                 }}
                 onPreview={() => setPreviewItem(item)}
                 onSlice={() => showToast('Slicing presets and execution are only available in the web UI for now.', 'warning')}
@@ -568,11 +542,11 @@ export default function FilesScreen() {
                   disabled={trashMode}
                 />
                 <PrimaryButton
-                  label={uploadMutation.isPending ? 'Uploading…' : 'Upload'}
+                  label="Upload"
                   onPress={() => {
-                    uploadMutation.mutate();
+                    setShowUploadModal(true);
                   }}
-                  disabled={trashMode || uploadMutation.isPending}
+                  disabled={trashMode}
                 />
                 <PrimaryButton
                   label="New folder"
@@ -737,13 +711,13 @@ export default function FilesScreen() {
               </SectionCard>
             ) : null}
 
-            {!isFolderEntry(previewItem) && /\.gcode(\.3mf)?$/i.test(pickString(previewItem, ['filename', 'name'])) ? (
+            {!isFolderEntry(previewItem) && /(\.3mf|\.gcode(\.3mf)?)$/i.test(pickString(previewItem, ['filename', 'name'])) ? (
               <PrimaryButton
-                label={printMutation.isPending ? 'Starting print…' : 'Print this file'}
+                label="Print this file"
                 onPress={() => {
-                  printMutation.mutate(Number(pickId(previewItem)));
+                  setPreviewItem(null);
+                  setPrintFileId(Number(pickId(previewItem)));
                 }}
-                disabled={printMutation.isPending}
               />
             ) : null}
           </ScrollView>
@@ -752,6 +726,29 @@ export default function FilesScreen() {
           <PrimaryButton label="Close" variant="secondary" onPress={() => setPreviewItem(null)} />
         </View>
       </ModalShell>
+
+      {!trashMode ? (
+        <FloatingActionButton
+          icon="plus"
+          label="Upload"
+          onPress={() => setShowUploadModal(true)}
+        />
+      ) : null}
+
+      <FileUploadModal
+        visible={showUploadModal}
+        folderId={currentFolder.id}
+        onClose={() => setShowUploadModal(false)}
+        onUploaded={() => {
+          void invalidateFiles();
+        }}
+      />
+
+      <PrintModal
+        visible={printFileId != null}
+        initialFileId={printFileId}
+        onClose={() => setPrintFileId(null)}
+      />
     </View>
   );
 }

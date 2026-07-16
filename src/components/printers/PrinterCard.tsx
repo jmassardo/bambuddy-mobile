@@ -15,11 +15,14 @@ import { ApiError, getAuthToken, api } from '@/api/client';
 import { useServerStore } from '@/api/server';
 import { StatusBadge } from '@/components/common/AppUI';
 import { EditPrinterModal } from '@/components/printers/EditPrinterModal';
+import { HMSErrorModal } from '@/components/printers/HMSErrorModal';
 import { MoveControlsModal } from '@/components/printers/MoveControlsModal';
+import { SkipObjectsModal } from '@/components/printers/SkipObjectsModal';
 import {
   TrayDetailModal,
   type TrayDetailContext,
 } from '@/components/printers/TrayDetailModal';
+import { filterKnownHMSErrors } from '@/components/printers/hmsErrorCatalog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -703,6 +706,8 @@ export function PrinterCard({
   const [calibrateSheetVisible, setCalibrateSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [showHmsModal, setShowHmsModal] = useState(false);
+  const [skipObjectsVisible, setSkipObjectsVisible] = useState(false);
   const [selectedTray, setSelectedTray] = useState<{
     tray: AMSTray;
     context: TrayPressContext;
@@ -715,7 +720,9 @@ export function PrinterCard({
   const isConnected = status?.connected ?? false;
   const isPrinting = status?.state === 'RUNNING' || status?.state === 'PAUSE';
   const isPaused = status?.state === 'PAUSE';
-  const hmsErrors = status?.hms_errors ?? [];
+  const isPrintingWithObjects =
+    isPrinting && (status?.printable_objects_count ?? 0) > 0;
+  const hmsErrors = filterKnownHMSErrors(status?.hms_errors ?? []);
   const badgeLabel = getStatusLabel(status);
   const badgeColor = getBadgeColor(printer, status, colors, hmsErrors);
   const currentPrintName = stripExtension(
@@ -1101,6 +1108,7 @@ export function PrinterCard({
                 strokeWidth={2}
               />
             }
+            onPress={() => setShowHmsModal(true)}
           />
         ) : (
           <InfoPill
@@ -1256,6 +1264,17 @@ export function PrinterCard({
           borderColor={colors.border}
           textColor={colors.text}
         />
+        {isPrintingWithObjects ? (
+          <ControlButton
+            label="Skip objects"
+            icon={<Layers size={15} color={colors.text} strokeWidth={2} />}
+            onPress={() => setSkipObjectsVisible(true)}
+            disabled={!hasPermission('printers:control')}
+            backgroundColor={colors.surfaceElevated}
+            borderColor={colors.border}
+            textColor={colors.text}
+          />
+        ) : null}
       </View>
       <View style={styles.controlActionsRow}>
         <ControlButton
@@ -1668,6 +1687,14 @@ export function PrinterCard({
         onClose={() => setMoveModalVisible(false)}
       />
 
+      <HMSErrorModal
+        visible={showHmsModal}
+        printerId={printer.id}
+        printerName={printer.name}
+        errors={hmsErrors}
+        onClose={() => setShowHmsModal(false)}
+      />
+
       <TrayDetailModal
         visible={selectedTray != null}
         printerId={printer.id}
@@ -1675,6 +1702,12 @@ export function PrinterCard({
         context={selectedTray?.context ?? null}
         isPrinting={isPrinting}
         onClose={() => setSelectedTray(null)}
+      />
+
+      <SkipObjectsModal
+        visible={skipObjectsVisible}
+        printerId={printer.id}
+        onClose={() => setSkipObjectsVisible(false)}
       />
 
       <EditPrinterModal

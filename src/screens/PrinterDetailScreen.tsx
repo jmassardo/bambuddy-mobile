@@ -113,7 +113,7 @@ export default function PrinterDetailScreen() {
     );
   }
 
-  const printer = printerQuery.data as ApiRecord;
+  const printer = (printerQuery.data ?? {}) as unknown as ApiRecord;
   const status = (statusQuery.data ?? {}) as ApiRecord;
   const state = pickString(
     status,

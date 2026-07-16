@@ -24,6 +24,7 @@ import {
   LoadingScreen,
 } from '@/components/common/StateScreens';
 import { PrinterCard } from '@/components/printers/PrinterCard';
+import { PrintModal } from '@/components/printers/PrintModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useTheme } from '@/theme';
@@ -187,6 +188,7 @@ export default function PrintersDashboardScreen() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
   const [snapshotSeed, setSnapshotSeed] = useState(0);
+  const [printPrinterId, setPrintPrinterId] = useState<number | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -379,7 +381,7 @@ export default function PrintersDashboardScreen() {
               }
               onQueuePress={() => navigation.navigate('Queue')}
               onMaintenancePress={() => navigation.navigate('Maintenance')}
-              onPrintPress={() => navigation.navigate('Files')}
+              onPrintPress={() => setPrintPrinterId(item.id)}
             />
           );
         }}
@@ -452,6 +454,11 @@ export default function PrintersDashboardScreen() {
             }
           />
         }
+      />
+      <PrintModal
+        visible={printPrinterId != null}
+        initialPrinterId={printPrinterId}
+        onClose={() => setPrintPrinterId(null)}
       />
     </View>
   );
