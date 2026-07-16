@@ -228,6 +228,36 @@ async function requestBlob(
   return response.blob();
 }
 
+async function requestText(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<string> {
+  const serverUrl = getServerUrl();
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const response = await fetch(apiUrl(serverUrl, endpoint), {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    const detail = error?.detail;
+    const message =
+      typeof detail === 'string'
+        ? detail
+        : detail?.message || `HTTP ${response.status}`;
+    throw new ApiError(message, response.status);
+  }
+
+  return response.text();
+}
+
 async function uploadFile<T>(
   endpoint: string,
   file: { uri: string; name: string; type: string },
@@ -357,6 +387,20 @@ async function requestWithFallback<T>(
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return request<T>(fallback.endpoint, fallback.options);
+    }
+    throw error;
+  }
+}
+
+async function requestTextWithFallback(
+  primary: { endpoint: string; options?: RequestInit },
+  fallback: { endpoint: string; options?: RequestInit },
+): Promise<string> {
+  try {
+    return await requestText(primary.endpoint, primary.options);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return requestText(fallback.endpoint, fallback.options);
     }
     throw error;
   }
@@ -1653,6 +1697,16 @@ export const api = {
     const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
     return `${serverUrl}/api/v1/library/files/${id}/download${token}`;
   },
+
+  getLibraryFileText: (id: number) =>
+    requestTextWithFallback(
+      {
+        endpoint: `/library/files/${id}/download`,
+      },
+      {
+        endpoint: `/library/${id}/download`,
+      },
+    ),
 
   getLibraryTags: () =>
     request<{ name: string; count: number }[]>('/library/tags'),

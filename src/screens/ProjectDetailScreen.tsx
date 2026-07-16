@@ -30,6 +30,11 @@ type DetailTab = 'summary' | 'bom' | 'files' | 'timeline' | 'archives';
 
 const DEFAULT_BOM = { name: '', quantity: '1', price: '', url: '', remarks: '' };
 
+function isProjectModelFile(file: ApiRecord) {
+  const filename = pickString(file, ['filename', 'name']);
+  return /\.(stl|3mf)$/i.test(filename) && !/\.gcode(\.3mf)?$/i.test(filename);
+}
+
 export default function ProjectDetailScreen() {
   const navigation = useNavigation<any>();
   React.useLayoutEffect(() => {
@@ -172,6 +177,10 @@ export default function ProjectDetailScreen() {
   const timeline = useMemo(() => ((timelineQuery.data ?? []) as ApiRecord[]), [timelineQuery.data]);
   const linkedFolders = useMemo(() => ((linkedFoldersQuery.data ?? []) as ApiRecord[]), [linkedFoldersQuery.data]);
   const projectFiles = useMemo(() => ((projectFilesQuery.data ?? []) as ApiRecord[]), [projectFilesQuery.data]);
+  const modelFiles = useMemo(
+    () => projectFiles.filter(isProjectModelFile),
+    [projectFiles],
+  );
 
   const filesByFolder = useMemo(() => {
     const map = new Map<number, ApiRecord[]>();
@@ -385,32 +394,65 @@ export default function ProjectDetailScreen() {
       ) : null}
 
       {tab === 'files' ? (
-        <SectionCard title="Linked files" subtitle="Library folders and printable files connected to this project.">
-          {linkedFolders.length > 0 ? (
-            linkedFolders.map(folder => (
-              <View key={pickString(folder, ['id'])} style={[styles.rowCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
-                <Text style={[styles.rowTitle, { color: colors.text }]}>{pickString(folder, ['name'], 'Folder')}</Text>
-                <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>Files: {pickNumber(folder, ['file_count'], 0)}</Text>
-                {(filesByFolder.get(pickNumber(folder, ['id'])) ?? []).map(file => (
-                  <View key={pickString(file, ['id'])} style={styles.fileRow}>
-                    {pickString(file, ['thumbnail_path']) ? (
-                      <Image source={{ uri: api.getLibraryFileThumbnailUrl(pickNumber(file, ['id'])) }} style={styles.fileThumb} />
-                    ) : (
-                      <View style={[styles.fileThumb, { backgroundColor: colors.surfaceHover }]} />
-                    )}
-                    <View style={styles.rowText}>
-                      <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>{pickString(file, ['print_name', 'filename'], 'Library file')}</Text>
-                      <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>{pickString(file, ['file_type'], 'file').toUpperCase()}</Text>
-                    </View>
-                    <StatusBadge label={pickString(file, ['file_type'], 'file')} color={colors.accent} />
+        <>
+          {modelFiles.length > 0 ? (
+            <SectionCard title="3D model files" subtitle="Open STL and 3MF models in the device browser when you need a richer viewer.">
+              {modelFiles.map(file => (
+                <View key={pickString(file, ['id'])} style={[styles.rowCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  {pickString(file, ['thumbnail_path']) ? (
+                    <Image source={{ uri: api.getLibraryFileThumbnailUrl(pickNumber(file, ['id'])) }} style={styles.modelThumb} />
+                  ) : (
+                    <View style={[styles.modelThumb, { backgroundColor: colors.surfaceHover }]} />
+                  )}
+                  <View style={styles.rowText}>
+                    <Text style={[styles.rowTitle, { color: colors.text }]}>{pickString(file, ['print_name', 'filename'], 'Model file')}</Text>
+                    <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
+                      {pickString(file, ['filename'], 'Unknown file')}
+                    </Text>
                   </View>
-                ))}
-              </View>
-            ))
-          ) : (
-            <EmptyState icon="📁" title="No linked folders" message="Link File Manager folders on the web to surface them here." />
-          )}
-        </SectionCard>
+                  <View style={styles.actions}>
+                    <PrimaryButton
+                      label="View in browser"
+                      variant="secondary"
+                      onPress={() =>
+                        void Linking.openURL(api.getLibraryFileDownloadUrl(pickNumber(file, ['id']))).catch(() => {
+                          showToast('Unable to open this model file.', 'error');
+                        })
+                      }
+                    />
+                  </View>
+                </View>
+              ))}
+            </SectionCard>
+          ) : null}
+
+          <SectionCard title="Linked files" subtitle="Library folders and printable files connected to this project.">
+            {linkedFolders.length > 0 ? (
+              linkedFolders.map(folder => (
+                <View key={pickString(folder, ['id'])} style={[styles.rowCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
+                  <Text style={[styles.rowTitle, { color: colors.text }]}>{pickString(folder, ['name'], 'Folder')}</Text>
+                  <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>Files: {pickNumber(folder, ['file_count'], 0)}</Text>
+                  {(filesByFolder.get(pickNumber(folder, ['id'])) ?? []).map(file => (
+                    <View key={pickString(file, ['id'])} style={styles.fileRow}>
+                      {pickString(file, ['thumbnail_path']) ? (
+                        <Image source={{ uri: api.getLibraryFileThumbnailUrl(pickNumber(file, ['id'])) }} style={styles.fileThumb} />
+                      ) : (
+                        <View style={[styles.fileThumb, { backgroundColor: colors.surfaceHover }]} />
+                      )}
+                      <View style={styles.rowText}>
+                        <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>{pickString(file, ['print_name', 'filename'], 'Library file')}</Text>
+                        <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>{pickString(file, ['file_type'], 'file').toUpperCase()}</Text>
+                      </View>
+                      <StatusBadge label={pickString(file, ['file_type'], 'file')} color={colors.accent} />
+                    </View>
+                  ))}
+                </View>
+              ))
+            ) : (
+              <EmptyState icon="📁" title="No linked folders" message="Link File Manager folders on the web to surface them here." />
+            )}
+          </SectionCard>
+        </>
       ) : null}
 
       {tab === 'timeline' ? (
@@ -569,6 +611,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: borderRadius.md,
+  },
+  modelThumb: {
+    width: '100%',
+    height: 180,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm,
   },
   archiveGrid: {
     flexDirection: 'row',

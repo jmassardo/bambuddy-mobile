@@ -22,6 +22,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDate, formatCurrency, pickNumber, pickString, statusColor, type ApiRecord } from '@/utils/data';
+import { proxyThumbnailUrl } from '@/utils/media';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'archived';
 
@@ -54,6 +55,15 @@ const DEFAULT_FORM: ProjectFormState = {
   budget: '',
   status: 'active',
 };
+
+function projectCoverUrl(project: ApiRecord): string | null {
+  const projectId = pickNumber(project, ['id']);
+  if (pickString(project, ['cover_image_filename'])) {
+    return api.getProjectCoverImageUrl(projectId);
+  }
+
+  return proxyThumbnailUrl(pickString(project, ['cover_url', 'thumbnail_url']));
+}
 
 export default function ProjectsScreen() {
   const navigation = useNavigation<any>();
@@ -266,9 +276,7 @@ export default function ProjectsScreen() {
               ? (pickNumber(item, ['completed_count'], 0) / Math.max(pickNumber(item, ['target_parts_count'], 1), 1)) * 100
               : 0,
           );
-          const cover = pickString(item, ['cover_image_filename'])
-            ? api.getProjectCoverImageUrl(pickNumber(item, ['id']))
-            : null;
+          const cover = projectCoverUrl(item);
           return (
             <PressableProjectCard
               colors={colors}
@@ -348,8 +356,8 @@ export default function ProjectsScreen() {
                   <Text style={[styles.coverTitle, { color: colors.textSecondary }]}>Cover image</Text>
                   <View style={styles.coverRow}>
                     <View style={[styles.coverPreview, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
-                      {pickString(editingProject, ['cover_image_filename']) ? (
-                        <Image source={{ uri: api.getProjectCoverImageUrl(pickNumber(editingProject, ['id'])) }} style={styles.coverImage} />
+                      {projectCoverUrl(editingProject) ? (
+                        <Image source={{ uri: projectCoverUrl(editingProject) ?? api.getProjectCoverImageUrl(pickNumber(editingProject, ['id'])) }} style={styles.coverImage} />
                       ) : (
                         <Text style={[styles.coverPlaceholder, { color: colors.textTertiary }]}>No cover</Text>
                       )}

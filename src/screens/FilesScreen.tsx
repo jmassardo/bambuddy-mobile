@@ -99,6 +99,10 @@ function isFolderEntry(item: ApiRecord) {
   return pickBoolean(item, ['is_folder'], pickString(item, ['type', 'kind']) === 'folder');
 }
 
+function isReadmeFile(item: ApiRecord) {
+  return !isFolderEntry(item) && /^readme\.md$/i.test(pickString(item, ['filename', 'name']));
+}
+
 function sortEntries(entries: ApiRecord[], sort: FileSort) {
   const copy = [...entries];
   copy.sort((a, b) => {
@@ -158,6 +162,7 @@ export default function FilesScreen() {
   const [tagDraftName, setTagDraftName] = useState('');
   const [editingTagId, setEditingTagId] = useState<number | null>(null);
   const [pendingTagDelete, setPendingTagDelete] = useState<ApiRecord | null>(null);
+  const [readmeExpanded, setReadmeExpanded] = useState(true);
   const currentFolder = folderStack[folderStack.length - 1];
 
   const filesQuery = useQuery({
@@ -234,6 +239,18 @@ export default function FilesScreen() {
     return [...folderEntries, ...files];
   }, [filesQuery.data, trashMode, trashQuery.data, childFolders]);
 
+  const readmeFile = useMemo(
+    () => entries.find(isReadmeFile) ?? null,
+    [entries],
+  );
+  const readmeFileId = readmeFile ? Number(pickId(readmeFile)) : null;
+
+  const readmeQuery = useQuery({
+    queryKey: ['libraryReadme', readmeFileId],
+    queryFn: () => api.getLibraryFileText(readmeFileId as number),
+    enabled: !trashMode && readmeFileId != null,
+  });
+
   const fileTypes = useMemo(() => {
     const values = new Set<string>();
     entries.forEach(item => {
@@ -254,6 +271,10 @@ export default function FilesScreen() {
     () => (Array.isArray(externalFoldersQuery.data) ? externalFoldersQuery.data.filter(isRecord) : []),
     [externalFoldersQuery.data],
   );
+
+  React.useEffect(() => {
+    setReadmeExpanded(true);
+  }, [currentFolder.id, readmeFileId]);
 
   const filteredEntries = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -877,6 +898,38 @@ export default function FilesScreen() {
             message={trashMode ? 'Deleted files will appear here until you restore or purge them.' : 'Upload files, create a new folder, or browse into a different folder.'}
           />
         }
+        ListFooterComponent={
+          !trashMode && readmeFile ? (
+            <SectionCard
+              title="README"
+              subtitle={pickString(readmeFile, ['filename', 'name'], 'README.md')}
+              right={(
+                <Pressable style={styles.readmeToggle} onPress={() => setReadmeExpanded(current => !current)}>
+                  <Text style={[styles.previewLine, { color: colors.accentLight }]}>
+                    {readmeExpanded ? 'Hide' : 'Show'}
+                  </Text>
+                  <Icon
+                    name={readmeExpanded ? 'chevron-down' : 'chevron-right'}
+                    size={18}
+                    color={colors.accentLight}
+                  />
+                </Pressable>
+              )}
+            >
+              {readmeExpanded ? (
+                readmeQuery.isLoading ? (
+                  <Text style={[styles.readmeText, { color: colors.textSecondary }]}>Loading README…</Text>
+                ) : readmeQuery.isError ? (
+                  <Text style={[styles.readmeText, { color: colors.error }]}>Unable to load this README.</Text>
+                ) : (
+                  <Text style={[styles.readmeText, { color: colors.text }]}>
+                    {(readmeQuery.data ?? '').trim() || 'This README is empty.'}
+                  </Text>
+                )
+              ) : null}
+            </SectionCard>
+          ) : null
+        }
       />
 
       {!trashMode && selectionCount > 0 ? (
@@ -1487,5 +1540,14 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
     marginBottom: spacing.md,
+  },
+  readmeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  readmeText: {
+    fontSize: fontSize.sm,
+    lineHeight: 20,
   },
 });

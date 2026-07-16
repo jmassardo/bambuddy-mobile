@@ -13,8 +13,10 @@ import {
 } from 'react-native';
 import { Pencil } from 'lucide-react-native';
 import { launchCamera, launchImageLibrary, type Asset } from 'react-native-image-picker';
+import QRCode from 'react-native-qrcode-svg';
 import { WebView } from 'react-native-webview';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useServerStore } from '@/api/server';
 import { api } from '@/api/client';
 import { EditArchiveModal } from '@/components/archives/EditArchiveModal';
 import { PrintLogModal } from '@/components/archives/PrintLogModal';
@@ -54,10 +56,13 @@ export default function ArchiveDetailScreen() {
   const { id } = (route.params ?? {}) as { id: string };
   const archiveId = Number(id);
   const { colors } = useTheme();
+  const serverUrl = useServerStore(state => state.serverUrl);
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPrintLog, setShowPrintLog] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [showProjectPageModal, setShowProjectPageModal] = useState(false);
   const [fullscreenPhoto, setFullscreenPhoto] = useState<string | null>(null);
   const [pendingPhotoDelete, setPendingPhotoDelete] = useState<string | null>(null);
   const [showTimelapseFullscreen, setShowTimelapseFullscreen] = useState(false);
@@ -85,6 +90,11 @@ export default function ArchiveDetailScreen() {
   const isSoftDeleted = Boolean(
     pickString(archive as unknown as ApiRecord, ['deleted_at']) || archive?.status === 'deleted',
   );
+  const archiveUrl = serverUrl ? `${serverUrl}/archives/${archiveId}` : null;
+  const archiveProjectPageUrl = pickString(
+    archive as unknown as ApiRecord,
+    ['external_url', 'makerworld_url'],
+  ) || (archive?.project_id && serverUrl ? `${serverUrl}/projects/${archive.project_id}` : null);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
@@ -254,6 +264,22 @@ export default function ArchiveDetailScreen() {
           </View>
           <View style={styles.actionCell}>
             <PrimaryButton
+              label="QR code"
+              variant="secondary"
+              onPress={() => setShowQrModal(true)}
+              disabled={!archiveUrl}
+            />
+          </View>
+          <View style={styles.actionCell}>
+            <PrimaryButton
+              label="Project page"
+              variant="secondary"
+              onPress={() => setShowProjectPageModal(true)}
+              disabled={!archiveProjectPageUrl}
+            />
+          </View>
+          <View style={styles.actionCell}>
+            <PrimaryButton
               label="Share"
               variant="secondary"
               onPress={() =>
@@ -372,6 +398,49 @@ export default function ArchiveDetailScreen() {
         archiveName={archive.print_name || archive.filename}
         onClose={() => setShowPrintLog(false)}
       />
+
+      <Modal visible={showQrModal} transparent animationType="fade" onRequestClose={() => setShowQrModal(false)}>
+        <View style={[styles.centeredBackdrop, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.qrCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.qrTitle, { color: colors.text }]}>Archive QR code</Text>
+            <Text style={[styles.qrSubtitle, { color: colors.textSecondary }]}>
+              Scan to open this archive in Bambuddy.
+            </Text>
+            {archiveUrl ? (
+              <View style={[styles.qrFrame, { backgroundColor: colors.surface }]}>
+                <QRCode
+                  value={archiveUrl}
+                  size={220}
+                  color={colors.text}
+                  backgroundColor={colors.surface}
+                />
+              </View>
+            ) : (
+              <Text style={[styles.note, { color: colors.error }]}>The server URL is not configured.</Text>
+            )}
+            {archiveUrl ? (
+              <Text style={[styles.qrUrl, { color: colors.textSecondary }]}>{archiveUrl}</Text>
+            ) : null}
+            <PrimaryButton label="Close" variant="secondary" onPress={() => setShowQrModal(false)} />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showProjectPageModal} animationType="slide" onRequestClose={() => setShowProjectPageModal(false)}>
+        <View style={[styles.fullscreenContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.fullscreenHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.fullscreenTitle, { color: colors.text }]}>Project page</Text>
+            <PrimaryButton label="Close" variant="secondary" onPress={() => setShowProjectPageModal(false)} />
+          </View>
+          {archiveProjectPageUrl ? (
+            <WebView source={{ uri: archiveProjectPageUrl }} />
+          ) : (
+            <View style={styles.emptyWebView}>
+              <Text style={[styles.note, { color: colors.textSecondary }]}>No project page is available for this archive.</Text>
+            </View>
+          )}
+        </View>
+      </Modal>
 
       <Modal visible={fullscreenPhoto !== null} transparent animationType="fade" onRequestClose={() => setFullscreenPhoto(null)}>
         <View style={[styles.fullscreenBackdrop, { backgroundColor: colors.overlay }]}> 
@@ -513,6 +582,36 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     lineHeight: 22,
   },
+  centeredBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  qrCard: {
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
+    alignItems: 'center',
+  },
+  qrTitle: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+  },
+  qrSubtitle: {
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+  },
+  qrFrame: {
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+  },
+  qrUrl: {
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+  },
   fullscreenBackdrop: {
     flex: 1,
     justifyContent: 'center',
@@ -546,5 +645,11 @@ const styles = StyleSheet.create({
   fullscreenTitle: {
     fontSize: fontSize.xl,
     fontWeight: fontWeight.semibold,
+  },
+  emptyWebView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
   },
 });
