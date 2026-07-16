@@ -1,5 +1,5 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
 import { api } from '../../api/client';
@@ -12,7 +12,7 @@ interface ArchiveCardProps {
 
 export function ArchiveCard({ archive }: ArchiveCardProps) {
   const { colors } = useTheme();
-  const router = useRouter();
+  const navigation = useNavigation<any>();
   const id = archive.id as number;
 
   const name = (archive.name as string) || 'Untitled';
@@ -35,7 +35,7 @@ export function ArchiveCard({ archive }: ArchiveCardProps) {
 
   return (
     <Pressable
-      onPress={() => router.push(`/archive/${id}`)}
+      onPress={() => navigation.navigate('ArchiveDetail', { id })}
       style={({ pressed }) => [
         styles.card,
         {

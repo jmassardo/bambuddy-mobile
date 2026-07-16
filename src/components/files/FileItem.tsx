@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../../theme';
-import { borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
+import { fontSize, fontWeight, spacing } from '../../theme/tokens';
 import { formatFileSize, formatDate } from '../../utils/formatters';
 
 interface FileItemProps {
@@ -12,7 +12,8 @@ export function FileItem({ item, onPress }: FileItemProps) {
   const { colors } = useTheme();
 
   const name = (item.name as string) || 'Untitled';
-  const isFolder = (item.type as string) === 'folder' || (item.is_folder as boolean);
+  const isFolder =
+    (item.type as string) === 'folder' || (item.is_folder as boolean);
   const size = item.size as number;
   const modifiedAt = item.modified_at as string;
   const fileType = (item.file_type as string) || '';
@@ -77,19 +78,32 @@ export function Breadcrumb({ path, onNavigate }: BreadcrumbProps) {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.breadcrumb, { borderBottomColor: colors.borderSubtle }]}>
+    <View
+      style={[styles.breadcrumb, { borderBottomColor: colors.borderSubtle }]}
+    >
       {path.map((segment, index) => (
         <View key={index} style={styles.breadcrumbItem}>
           {index > 0 && (
-            <Text style={[styles.breadcrumbSeparator, { color: colors.textTertiary }]}>/</Text>
+            <Text
+              style={[
+                styles.breadcrumbSeparator,
+                { color: colors.textTertiary },
+              ]}
+            >
+              /
+            </Text>
           )}
           <Pressable onPress={() => onNavigate(index)}>
             <Text
               style={[
                 styles.breadcrumbText,
                 {
-                  color: index === path.length - 1 ? colors.text : colors.accent,
-                  fontWeight: index === path.length - 1 ? fontWeight.semibold : fontWeight.normal,
+                  color:
+                    index === path.length - 1 ? colors.text : colors.accent,
+                  fontWeight:
+                    index === path.length - 1
+                      ? fontWeight.semibold
+                      : fontWeight.normal,
                 },
               ]}
               numberOfLines={1}

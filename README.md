@@ -1,112 +1,97 @@
-<p align="center">
-  <h1 align="center">Bambuddy Mobile</h1>
-</p>
+This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
 
-<p align="center">
-  <strong>Your printers. No cloud. Your rules. Now on mobile.</strong><br>
-  Android & iOS companion app for <a href="https://github.com/maziggy/bambuddy">Bambuddy</a> — the self-hosted command center for Bambu Lab printers.
-</p>
+# Getting Started
 
-<p align="center">
-  <a href="https://github.com/jmassardo/bambuddy-mobile/releases"><img src="https://img.shields.io/github/v/release/jmassardo/bambuddy-mobile?style=flat-square&color=blue" alt="Release"></a>
-  <a href="https://github.com/jmassardo/bambuddy-mobile/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jmassardo/bambuddy-mobile?style=flat-square" alt="License"></a>
-</p>
+> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
 
----
+## Step 1: Start Metro
 
-## 📱 Features
+First, you will need to run **Metro**, the JavaScript build tool for React Native.
 
-Every feature from the Bambuddy web UI, in your pocket:
+To start the Metro dev server, run the following command from the root of your React Native project:
 
-- **🖨️ Real-time Printer Dashboard** — Live status, camera snapshots, temperatures, AMS filament slots
-- **📦 Print Archives** — Browse, search, reprint, view 3D thumbnails
-- **📋 Print Queue** — Queue management, history, timeline, slicer pipelines
-- **📁 File Manager** — Upload, browse, and print files from your library
-- **📊 Statistics** — Print analytics, success rates, filament usage, costs
-- **🧵 Spool Inventory** — Track filament with QR code label scanning
-- **🔧 Maintenance** — Task scheduling and tracking
-- **📷 Camera Streaming** — Live MJPEG camera views
-- **🌍 MakerWorld** — Import models directly
-- **🔔 Push Notifications** — Native iOS/Android push via FCM/APNs
-- **📱 QR Code Scanner** — Scan spool labels and server setup codes
-- **📡 NFC Support** — Read/write SpoolBuddy tags natively
-- **🔐 Authentication** — JWT auth, 2FA, OIDC SSO support
-- **🌙 Dark Theme** — Matching the web UI's polished dark design
+```sh
+# Using npm
+npm start
 
-## 🚀 Quick Start
+# OR using Yarn
+yarn start
+```
 
-### Prerequisites
+## Step 2: Build and run your app
 
-- A running [Bambuddy](https://github.com/maziggy/bambuddy) server (v0.1.7+)
-- Node.js 18+
-- iOS: Xcode 15+ (for iOS development)
-- Android: Android Studio (for Android development)
+With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
 
-### Development
+### Android
 
-```bash
-# Install dependencies
-npm install
-
-# Start the development server
-npx expo start
-
-# Run on specific platform
-npm run ios
+```sh
+# Using npm
 npm run android
+
+# OR using Yarn
+yarn android
 ```
 
-### Building for Production
+### iOS
 
-```bash
-# Install EAS CLI
-npm install -g eas-cli
+For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
 
-# Configure EAS
-eas build:configure
+The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
 
-# Build for stores
-eas build --platform ios
-eas build --platform android
+```sh
+bundle install
 ```
 
-## 🏗️ Architecture
+Then, and every time you update your native dependencies, run:
 
-- **Framework**: React Native with Expo (managed workflow + dev client)
-- **Navigation**: Expo Router (file-based routing)
-- **State Management**: TanStack React Query + Zustand
-- **Real-time**: WebSocket for live printer status
-- **Auth**: JWT via expo-secure-store
-- **Theme**: Custom dark/light theme matching web UI
-
-### Project Structure
-
-```
-src/
-├── app/              # Expo Router screens (file-based routing)
-│   ├── (tabs)/       # Bottom tab screens (Printers, Archives, Queue, Files, More)
-│   ├── printer/      # Printer detail screen
-│   ├── archive/      # Archive detail screen
-│   ├── login/        # Login screen
-│   ├── server/       # Server URL configuration
-│   └── ...           # Other screens
-├── api/              # API client and server configuration
-├── components/       # Reusable components
-│   ├── common/       # Shared UI components
-│   ├── printers/     # Printer-specific components
-│   ├── archives/     # Archive-specific components
-│   └── ...
-├── contexts/         # React contexts (Auth, Toast)
-├── hooks/            # Custom hooks (WebSocket, etc.)
-├── theme/            # Theme tokens and provider
-├── types/            # TypeScript type definitions
-└── utils/            # Utility functions
+```sh
+bundle exec pod install
 ```
 
-## 📄 License
+For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+```sh
+# Using npm
+npm run ios
 
-## 🙏 Credits
+# OR using Yarn
+yarn ios
+```
 
-Built as the official mobile companion for [Bambuddy](https://github.com/maziggy/bambuddy) by [@maziggy](https://github.com/maziggy).
+If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+
+This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+
+## Step 3: Modify your app
+
+Now that you have successfully run the app, let's make changes!
+
+Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+
+When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+
+- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
+- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+
+## Congratulations! :tada:
+
+You've successfully run and modified your React Native App. :partying_face:
+
+### Now what?
+
+- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
+- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+
+# Troubleshooting
+
+If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+
+# Learn More
+
+To learn more about React Native, take a look at the following resources:
+
+- [React Native Website](https://reactnative.dev) - learn more about React Native.
+- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
+- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
+- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
+- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.

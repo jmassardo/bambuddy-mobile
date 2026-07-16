@@ -2,7 +2,7 @@
 // Uses react-native-nfc-manager
 
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
 
 export interface NfcState {
@@ -42,18 +42,21 @@ export function useNfc() {
     data: string | null;
   } | null> => {
     if (!state.supported || !state.enabled) {
-      Alert.alert('NFC Not Available', 'Please enable NFC in your device settings.');
+      Alert.alert(
+        'NFC Not Available',
+        'Please enable NFC in your device settings.',
+      );
       return null;
     }
 
     try {
-      setState((prev) => ({ ...prev, reading: true }));
+      setState(prev => ({ ...prev, reading: true }));
 
       await NfcManager.requestTechnology(NfcTech.Ndef);
 
       const tag = await NfcManager.getTag();
       if (!tag) {
-        setState((prev) => ({ ...prev, reading: false }));
+        setState(prev => ({ ...prev, reading: false }));
         return null;
       }
 
@@ -71,10 +74,10 @@ export function useNfc() {
         }
       }
 
-      setState((prev) => ({ ...prev, reading: false }));
+      setState(prev => ({ ...prev, reading: false }));
       return { uid, data };
     } catch (error) {
-      setState((prev) => ({ ...prev, reading: false }));
+      setState(prev => ({ ...prev, reading: false }));
       console.warn('[NFC] Read error:', error);
       return null;
     } finally {
@@ -85,12 +88,15 @@ export function useNfc() {
   const writeTag = useCallback(
     async (data: string): Promise<boolean> => {
       if (!state.supported || !state.enabled) {
-        Alert.alert('NFC Not Available', 'Please enable NFC in your device settings.');
+        Alert.alert(
+          'NFC Not Available',
+          'Please enable NFC in your device settings.',
+        );
         return false;
       }
 
       try {
-        setState((prev) => ({ ...prev, reading: true }));
+        setState(prev => ({ ...prev, reading: true }));
 
         await NfcManager.requestTechnology(NfcTech.Ndef);
 
@@ -99,12 +105,15 @@ export function useNfc() {
           await NfcManager.ndefHandler.writeNdefMessage(bytes);
         }
 
-        setState((prev) => ({ ...prev, reading: false }));
+        setState(prev => ({ ...prev, reading: false }));
         return true;
       } catch (error) {
-        setState((prev) => ({ ...prev, reading: false }));
+        setState(prev => ({ ...prev, reading: false }));
         console.warn('[NFC] Write error:', error);
-        Alert.alert('Write Failed', 'Could not write to NFC tag. Please try again.');
+        Alert.alert(
+          'Write Failed',
+          'Could not write to NFC tag. Please try again.',
+        );
         return false;
       } finally {
         NfcManager.cancelTechnologyRequest().catch(() => {});
@@ -116,7 +125,7 @@ export function useNfc() {
   const cancelRead = useCallback(async () => {
     try {
       await NfcManager.cancelTechnologyRequest();
-      setState((prev) => ({ ...prev, reading: false }));
+      setState(prev => ({ ...prev, reading: false }));
     } catch {
       // Ignore
     }

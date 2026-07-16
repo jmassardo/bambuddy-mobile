@@ -1,8 +1,8 @@
 // Biometric authentication for app unlock
-// Uses expo-local-authentication for Face ID / Touch ID / Fingerprint
+// Uses react-native-keychain for Face ID / Touch ID / Fingerprint
 
 import { useCallback, useEffect, useState } from 'react';
-import * as LocalAuthentication from 'expo-local-authentication';
+import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BIOMETRIC_ENABLED_KEY = 'bambuddy-biometric-enabled';
@@ -28,20 +28,18 @@ export function useBiometricAuth() {
 
   const checkBiometrics = async () => {
     try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-      const available = hasHardware && isEnrolled;
+      const biometryType = await Keychain.getSupportedBiometryType();
+      const available = biometryType !== null;
 
       let biometricType: 'fingerprint' | 'facial' | 'iris' | null = null;
-      if (available) {
-        const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-        if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-          biometricType = 'facial';
-        } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-          biometricType = 'fingerprint';
-        } else if (types.includes(LocalAuthentication.AuthenticationType.IRIS)) {
-          biometricType = 'iris';
-        }
+      if (biometryType === Keychain.BIOMETRY_TYPE.FACE_ID ||
+          biometryType === Keychain.BIOMETRY_TYPE.FACE) {
+        biometricType = 'facial';
+      } else if (biometryType === Keychain.BIOMETRY_TYPE.TOUCH_ID ||
+                 biometryType === Keychain.BIOMETRY_TYPE.FINGERPRINT) {
+        biometricType = 'fingerprint';
+      } else if (biometryType === Keychain.BIOMETRY_TYPE.IRIS) {
+        biometricType = 'iris';
       }
 
       const enabledStr = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
@@ -55,12 +53,32 @@ export function useBiometricAuth() {
 
   const authenticate = useCallback(async (): Promise<boolean> => {
     try {
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock Bambuddy',
-        cancelLabel: 'Use Password',
-        disableDeviceFallback: false,
+      // Use Keychain with biometric access control to trigger auth prompt
+      const creds = await Keychain.getGenericPassword({
+        service: 'bambuddy-biometric-check',
+        authenticationPrompt: {
+          title: 'Unlock Bambuddy',
+          cancel: 'Use Password',
+        },
       });
-      return result.success;
+      // If no credential stored yet, set one first
+      if (!creds) {
+        await Keychain.setGenericPassword('biometric', 'check', {
+          service: 'bambuddy-biometric-check',
+          accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
+          accessible: Keychain.ACCESSIBLE.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY,
+        });
+        // Try reading it back with biometric
+        const result = await Keychain.getGenericPassword({
+          service: 'bambuddy-biometric-check',
+          authenticationPrompt: {
+            title: 'Unlock Bambuddy',
+            cancel: 'Use Password',
+          },
+        });
+        return !!result;
+      }
+      return true;
     } catch {
       return false;
     }
@@ -68,7 +86,6 @@ export function useBiometricAuth() {
 
   const setEnabled = useCallback(async (enabled: boolean) => {
     if (enabled) {
-      // Verify biometrics work before enabling
       const success = await authenticate();
       if (!success) return false;
     }

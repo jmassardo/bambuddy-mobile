@@ -35,7 +35,7 @@ jobs:
 
       - run: npm ci
 
-      - run: npx expo lint
+      - run: npm run lint
 
   build-ios:
     name: Build iOS (Debug)
