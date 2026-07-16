@@ -3,6 +3,10 @@
 // Uses the server URL from ServerStore instead of relative paths
 
 import * as Keychain from 'react-native-keychain';
+import type {
+  SlotPresetMapping,
+  UnifiedPresetsResponse,
+} from '@/types/api';
 import { apiUrl, useServerStore } from './server';
 
 const AUTH_TOKEN_KEY = 'bambuddy-auth-token';
@@ -215,6 +219,20 @@ async function uploadFile<T>(
   return response.json();
 }
 
+async function requestWithFallback<T>(
+  primary: { endpoint: string; options?: RequestInit },
+  fallback: { endpoint: string; options?: RequestInit },
+): Promise<T> {
+  try {
+    return await request<T>(primary.endpoint, primary.options);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return request<T>(fallback.endpoint, fallback.options);
+    }
+    throw error;
+  }
+}
+
 // --- API Methods ---
 // Organized by domain, matching the web frontend's api object
 
@@ -421,22 +439,58 @@ export const api = {
     request<void>(`/printers/${id}/disconnect`, { method: 'POST' }),
 
   stopPrint: (printerId: number) =>
-    request<void>(`/printers/${printerId}/stop`, { method: 'POST' }),
+    requestWithFallback<void>(
+      {
+        endpoint: `/printers/${printerId}/print/stop`,
+        options: { method: 'POST' },
+      },
+      {
+        endpoint: `/printers/${printerId}/stop`,
+        options: { method: 'POST' },
+      },
+    ),
 
   pausePrint: (printerId: number) =>
-    request<void>(`/printers/${printerId}/pause`, { method: 'POST' }),
+    requestWithFallback<void>(
+      {
+        endpoint: `/printers/${printerId}/print/pause`,
+        options: { method: 'POST' },
+      },
+      {
+        endpoint: `/printers/${printerId}/pause`,
+        options: { method: 'POST' },
+      },
+    ),
 
   resumePrint: (printerId: number) =>
-    request<void>(`/printers/${printerId}/resume`, { method: 'POST' }),
+    requestWithFallback<void>(
+      {
+        endpoint: `/printers/${printerId}/print/resume`,
+        options: { method: 'POST' },
+      },
+      {
+        endpoint: `/printers/${printerId}/resume`,
+        options: { method: 'POST' },
+      },
+    ),
 
   clearPlate: (printerId: number) =>
     request<void>(`/printers/${printerId}/clear-plate`, { method: 'POST' }),
 
   setPrintSpeed: (printerId: number, mode: number) =>
-    request<void>(`/printers/${printerId}/speed`, {
-      method: 'POST',
-      body: JSON.stringify({ mode }),
-    }),
+    requestWithFallback<void>(
+      {
+        endpoint: `/printers/${printerId}/print-speed?mode=${mode}`,
+        options: { method: 'POST' },
+      },
+      {
+        endpoint: `/printers/${printerId}/speed`,
+        options: {
+          method: 'POST',
+          body: JSON.stringify({ mode }),
+        },
+      },
+    ),
 
   setNozzleTemperature: (
     printerId: number,
@@ -465,40 +519,100 @@ export const api = {
     fan: 'part' | 'aux' | 'chamber',
     speed: number,
   ) =>
-    request<void>(`/printers/${printerId}/fan`, {
-      method: 'POST',
-      body: JSON.stringify({ fan, speed }),
-    }),
+    requestWithFallback<void>(
+      {
+        endpoint: `/printers/${printerId}/fan-speed?fan=${fan}&speed=${speed}`,
+        options: { method: 'POST' },
+      },
+      {
+        endpoint: `/printers/${printerId}/fan`,
+        options: {
+          method: 'POST',
+          body: JSON.stringify({ fan, speed }),
+        },
+      },
+    ),
 
   setChamberLight: (printerId: number, on: boolean) =>
-    request<void>(`/printers/${printerId}/light`, {
-      method: 'POST',
-      body: JSON.stringify({ on }),
-    }),
+    requestWithFallback<void>(
+      {
+        endpoint: `/printers/${printerId}/chamber-light?on=${on}`,
+        options: { method: 'POST' },
+      },
+      {
+        endpoint: `/printers/${printerId}/light`,
+        options: {
+          method: 'POST',
+          body: JSON.stringify({ on }),
+        },
+      },
+    ),
 
   setAirductMode: (printerId: number, mode: 'cooling' | 'heating') =>
-    request<void>(`/printers/${printerId}/airduct`, {
-      method: 'POST',
-      body: JSON.stringify({ mode }),
-    }),
+    requestWithFallback<void>(
+      {
+        endpoint: `/printers/${printerId}/airduct-mode?mode=${mode}`,
+        options: { method: 'POST' },
+      },
+      {
+        endpoint: `/printers/${printerId}/airduct`,
+        options: {
+          method: 'POST',
+          body: JSON.stringify({ mode }),
+        },
+      },
+    ),
+
+  bedJog: (printerId: number, distance: number, force: boolean = false) =>
+    request<void>(
+      `/printers/${printerId}/bed-jog?distance=${distance}&force=${force}`,
+      { method: 'POST' },
+    ),
 
   xyJog: (printerId: number, x: number, y: number) =>
-    request<void>(`/printers/${printerId}/jog/xy`, {
-      method: 'POST',
-      body: JSON.stringify({ x, y }),
-    }),
+    requestWithFallback<void>(
+      {
+        endpoint: `/printers/${printerId}/xy-jog?x=${x}&y=${y}`,
+        options: { method: 'POST' },
+      },
+      {
+        endpoint: `/printers/${printerId}/jog/xy`,
+        options: {
+          method: 'POST',
+          body: JSON.stringify({ x, y }),
+        },
+      },
+    ),
 
   extruderJog: (printerId: number, distance: number) =>
-    request<void>(`/printers/${printerId}/jog/extruder`, {
-      method: 'POST',
-      body: JSON.stringify({ distance }),
-    }),
+    requestWithFallback<void>(
+      {
+        endpoint: `/printers/${printerId}/extruder-jog?distance=${distance}`,
+        options: { method: 'POST' },
+      },
+      {
+        endpoint: `/printers/${printerId}/jog/extruder`,
+        options: {
+          method: 'POST',
+          body: JSON.stringify({ distance }),
+        },
+      },
+    ),
 
   homeAxes: (printerId: number, axes: 'z' | 'xy' | 'all' = 'z') =>
-    request<void>(`/printers/${printerId}/home`, {
-      method: 'POST',
-      body: JSON.stringify({ axes }),
-    }),
+    requestWithFallback<void>(
+      {
+        endpoint: `/printers/${printerId}/home-axes?axes=${axes}`,
+        options: { method: 'POST' },
+      },
+      {
+        endpoint: `/printers/${printerId}/home`,
+        options: {
+          method: 'POST',
+          body: JSON.stringify({ axes }),
+        },
+      },
+    ),
 
   startDrying: (
     printerId: number,
@@ -543,6 +657,54 @@ export const api = {
 
   unloadAms: (printerId: number) =>
     request<void>(`/printers/${printerId}/ams/unload`, { method: 'POST' }),
+
+  loadFilament: (printerId: number, amsId: number, trayId: number) => {
+    const legacyTrayId = amsId === 255 ? trayId : amsId * 4 + trayId;
+
+    return requestWithFallback<void>(
+      {
+        endpoint: `/printers/${printerId}/filament/load`,
+        options: {
+          method: 'POST',
+          body: JSON.stringify({ ams_id: amsId, tray_id: trayId }),
+        },
+      },
+      {
+        endpoint: `/printers/${printerId}/ams/load?tray_id=${legacyTrayId}`,
+        options: { method: 'POST' },
+      },
+    );
+  },
+
+  unloadFilament: (printerId: number) =>
+    requestWithFallback<void>(
+      {
+        endpoint: `/printers/${printerId}/filament/unload`,
+        options: { method: 'POST' },
+      },
+      {
+        endpoint: `/printers/${printerId}/ams/unload`,
+        options: { method: 'POST' },
+      },
+    ),
+
+  getSlotPresets: (printerId: number) =>
+    request<Record<number, SlotPresetMapping>>(
+      `/printers/${printerId}/slot-presets`,
+    ),
+
+  saveSlotPreset: (
+    printerId: number,
+    amsId: number,
+    trayId: number,
+    presetId: string,
+    presetName: string,
+    presetSource = 'cloud',
+  ) =>
+    request<SlotPresetMapping>(
+      `/printers/${printerId}/slot-presets/${amsId}/${trayId}?preset_id=${encodeURIComponent(presetId)}&preset_name=${encodeURIComponent(presetName)}&preset_source=${encodeURIComponent(presetSource)}`,
+      { method: 'PUT' },
+    ),
 
   selectExtruder: (printerId: number, extruder: number) =>
     request<void>(`/printers/${printerId}/extruder`, {
@@ -1403,7 +1565,10 @@ export const api = {
     request<void>(`/virtual-printers/${id}/stop`, { method: 'POST' }),
 
   // ── Slicer ───────────────────────────────────────
-  getSlicerPresets: () => request<Record<string, unknown>[]>('/slicer/presets'),
+  getSlicerPresets: (options?: { refresh?: boolean }) =>
+    request<UnifiedPresetsResponse>(
+      options?.refresh ? '/slicer/presets?refresh=true' : '/slicer/presets',
+    ),
 
   startSliceJob: (data: Record<string, unknown>) =>
     request<Record<string, unknown>>('/slicer/slice', {

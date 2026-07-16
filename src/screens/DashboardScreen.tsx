@@ -7,7 +7,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   useQueries,
   useQuery,
@@ -182,7 +181,6 @@ export default function PrintersDashboardScreen() {
   }, [navigation]);
 
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const { hasAnyPermission } = useAuth();
   const queryClient = useQueryClient();
   const { isConnected: wsConnected } = useWebSocket();
@@ -341,7 +339,7 @@ export default function PrintersDashboardScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}> 
+    <View style={[styles.container, { backgroundColor: colors.background }]}> 
       <FlatList
         data={filteredPrinters}
         keyExtractor={item => String(item.id)}

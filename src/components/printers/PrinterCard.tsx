@@ -1,9 +1,25 @@
-import React, { useCallback, useMemo } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getAuthToken, api } from '@/api/client';
+import { ApiError, getAuthToken, api } from '@/api/client';
 import { useServerStore } from '@/api/server';
 import { StatusBadge } from '@/components/common/AppUI';
+import { EditPrinterModal } from '@/components/printers/EditPrinterModal';
+import { MoveControlsModal } from '@/components/printers/MoveControlsModal';
+import {
+  TrayDetailModal,
+  type TrayDetailContext,
+} from '@/components/printers/TrayDetailModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -31,14 +47,17 @@ import {
   MoreVertical,
   Move,
   Pause,
+  Pencil,
   Play,
   Printer as PrinterIcon,
   RefreshCw,
   RotateCcw,
   Square,
+  Trash2,
   Wifi,
   WifiOff,
   Wrench,
+  X,
 } from 'lucide-react-native';
 
 const DOOR_SENSOR_MODELS = new Set([
@@ -83,12 +102,7 @@ interface MaintenanceSummary {
   items: MaintenanceStatus[];
 }
 
-interface TrayPressContext {
-  amsId?: number | null;
-  slotIndex: number;
-  isExternal: boolean;
-  label: string;
-}
+type TrayPressContext = TrayDetailContext;
 
 interface PrinterCardProps {
   printer: Printer;
@@ -251,6 +265,10 @@ function getAmsStatusLabel(ams: AMSUnit) {
   if (ams.is_ams_ht || ams.module_type === 'n3s') return 'AMS HT';
   if (ams.module_type === 'n3f') return 'AMS Pro';
   return 'AMS';
+}
+
+function getAmsTitle(ams: AMSUnit) {
+  return `AMS ${String.fromCharCode(65 + ((ams.id >= 128 ? ams.id - 128 : ams.id) % 26))}`;
 }
 
 function getTrayLabel(tray: AMSTray) {
@@ -559,6 +577,107 @@ function ControlButton({
   );
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof ApiError ? error.message : fallback;
+}
+
+interface ActionSheetAction {
+  label: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+  disabled?: boolean;
+  destructive?: boolean;
+  loading?: boolean;
+}
+
+function ActionSheetModal({
+  visible,
+  title,
+  subtitle,
+  actions,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  subtitle?: string;
+  actions: ActionSheetAction[];
+  onClose: () => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={[styles.actionSheetBackdrop, { backgroundColor: colors.overlay }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View
+          style={[
+            styles.actionSheetCard,
+            { backgroundColor: colors.modalBg, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.actionSheetHeader}>
+            <View style={styles.actionSheetTitleWrap}>
+              <Text style={[styles.actionSheetTitle, { color: colors.text }]}>
+                {title}
+              </Text>
+              {subtitle ? (
+                <Text
+                  style={[styles.actionSheetSubtitle, { color: colors.textSecondary }]}
+                >
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
+            <Pressable
+              onPress={onClose}
+              style={[
+                styles.actionSheetClose,
+                { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+              ]}
+            >
+              <X size={18} color={colors.text} strokeWidth={2} />
+            </Pressable>
+          </View>
+
+          <View style={styles.actionSheetActions}>
+            {actions.map(action => (
+              <Pressable
+                key={action.label}
+                onPress={action.onPress}
+                disabled={action.disabled || action.loading}
+                style={[
+                  styles.actionSheetRow,
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: action.destructive ? `${colors.error}66` : colors.border,
+                  },
+                  (action.disabled || action.loading) && styles.disabledAction,
+                ]}
+              >
+                <View style={styles.actionSheetRowIcon}>{action.icon}</View>
+                <Text
+                  style={[
+                    styles.actionSheetRowLabel,
+                    { color: action.destructive ? colors.error : colors.text },
+                  ]}
+                >
+                  {action.label}
+                </Text>
+                {action.loading ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={action.destructive ? colors.error : colors.accent}
+                  />
+                ) : null}
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export function PrinterCard({
   printer,
   status,
@@ -573,12 +692,21 @@ export function PrinterCard({
   onPrintPress,
   onTrayPress,
 }: PrinterCardProps) {
+  const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const serverUrl = useServerStore(state => state.serverUrl);
   const authToken = getAuthToken();
+  const [moveModalVisible, setMoveModalVisible] = useState(false);
+  const [calibrateSheetVisible, setCalibrateSheetVisible] = useState(false);
+  const [moreSheetVisible, setMoreSheetVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedTray, setSelectedTray] = useState<{
+    tray: AMSTray;
+    context: TrayPressContext;
+  } | null>(null);
   const authHeaders = useMemo(
     () => (authToken ? { Authorization: `Bearer ${authToken}` } : undefined),
     [authToken],
@@ -604,6 +732,8 @@ export function PrinterCard({
     isPrinting && hasPermission('printers:control');
   const canControlPrinter = isConnected && hasPermission('printers:control');
   const canBrowse = !!onPrintPress;
+  const canEditPrinter = hasPermission('printers:update');
+  const canDeletePrinter = hasPermission('printers:delete');
   const canClearPlate =
     Boolean(status?.awaiting_plate_clear) &&
     !isPrinting &&
@@ -672,7 +802,8 @@ export function PrinterCard({
       await invalidatePrinterQueries();
       showToast(`Printer ${action} command sent.`, 'success');
     },
-    onError: () => showToast('Printer command failed.', 'error'),
+    onError: error =>
+      showToast(getErrorMessage(error, 'Printer command failed.'), 'error'),
   });
 
   const lightMutation = useMutation({
@@ -684,7 +815,8 @@ export function PrinterCard({
         'success',
       );
     },
-    onError: () => showToast('Could not update chamber light.', 'error'),
+    onError: error =>
+      showToast(getErrorMessage(error, 'Could not update chamber light.'), 'error'),
   });
 
   const speedMutation = useMutation({
@@ -693,7 +825,8 @@ export function PrinterCard({
       await invalidatePrinterQueries();
       showToast('Print speed updated.', 'success');
     },
-    onError: () => showToast('Failed to update print speed.', 'error'),
+    onError: error =>
+      showToast(getErrorMessage(error, 'Failed to update print speed.'), 'error'),
   });
 
   const clearPlateMutation = useMutation({
@@ -702,7 +835,57 @@ export function PrinterCard({
       await invalidatePrinterQueries();
       showToast('Plate marked as cleared.', 'success');
     },
-    onError: () => showToast('Could not update plate status.', 'error'),
+    onError: error =>
+      showToast(getErrorMessage(error, 'Could not update plate status.'), 'error'),
+  });
+
+  const calibrateMutation = useMutation({
+    mutationFn: (axes: 'z' | 'xy' | 'all') => api.homeAxes(printer.id, axes),
+    onSuccess: async (_, axes) => {
+      await invalidatePrinterQueries();
+      showToast(
+        axes === 'z'
+          ? 'Auto-level bed started.'
+          : axes === 'all'
+            ? 'Homing all axes started.'
+            : 'Homing XY started.',
+        'success',
+      );
+    },
+    onError: error =>
+      showToast(getErrorMessage(error, 'Calibration command failed.'), 'error'),
+  });
+
+  const maintenanceMutation = useMutation({
+    mutationFn: (nextIsActive: boolean) =>
+      api.updatePrinter(printer.id, { is_active: nextIsActive }),
+    onSuccess: async (_, nextIsActive) => {
+      await invalidatePrinterQueries();
+      showToast(
+        nextIsActive
+          ? `${printer.name} is back online.`
+          : `${printer.name} is now in maintenance mode.`,
+        'success',
+      );
+    },
+    onError: error =>
+      showToast(getErrorMessage(error, 'Could not update maintenance mode.'), 'error'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deletePrinter(printer.id),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['printers'] }),
+        invalidatePrinterQueries(),
+      ]);
+      showToast(`${printer.name} deleted.`, 'success');
+      if (typeof navigation.canGoBack === 'function' && navigation.canGoBack()) {
+        navigation.goBack();
+      }
+    },
+    onError: error =>
+      showToast(getErrorMessage(error, 'Could not delete printer.'), 'error'),
   });
 
   const handleRefresh = useCallback(async () => {
@@ -717,20 +900,50 @@ export function PrinterCard({
         return;
       }
 
-      Alert.alert(
-        `Tray ${context.label}`,
-        tray.tray_sub_brands || tray.tray_type || 'No filament details available.',
-      );
+      setSelectedTray({ tray, context });
     },
     [onTrayPress],
   );
 
+  const handleToggleMaintenance = useCallback(() => {
+    const nextIsActive = !printer.is_active;
+    Alert.alert(
+      nextIsActive ? 'Disable maintenance mode' : 'Enable maintenance mode',
+      nextIsActive
+        ? `${printer.name} will return to active service.`
+        : `${printer.name} will stop accepting normal printer actions until maintenance mode is disabled.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: nextIsActive ? 'Disable' : 'Enable',
+          style: nextIsActive ? 'default' : 'destructive',
+          onPress: () => maintenanceMutation.mutate(nextIsActive),
+        },
+      ],
+    );
+  }, [maintenanceMutation, printer.is_active, printer.name]);
+
+  const handleDeletePrinter = useCallback(() => {
+    Alert.alert(
+      'Delete printer',
+      `Delete ${printer.name}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteMutation.mutate(),
+        },
+      ],
+    );
+  }, [deleteMutation, printer.name]);
+
   const showMoveMenu = useCallback(() => {
-    Alert.alert('Move controls', 'XY/Z move controls will be wired up next.');
+    setMoveModalVisible(true);
   }, []);
 
   const showCalibrateMenu = useCallback(() => {
-    Alert.alert('Calibration', 'Calibration controls will be wired up next.');
+    setCalibrateSheetVisible(true);
   }, []);
 
   const showSpeedMenu = useCallback(() => {
@@ -746,16 +959,8 @@ export function PrinterCard({
   }, [speedMutation]);
 
   const showMoreMenu = useCallback(() => {
-    Alert.alert('Printer options', printer.name, [
-      { text: 'Edit', onPress: () => Alert.alert('Edit', 'Edit flow coming soon.') },
-      {
-        text: printer.is_active === false ? 'Disable maintenance mode' : 'Enable maintenance mode',
-        onPress: () => Alert.alert('Maintenance mode', 'Maintenance mode controls coming soon.'),
-      },
-      { text: 'Delete', style: 'destructive', onPress: () => Alert.alert('Delete', 'Delete flow coming soon.') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [printer.is_active, printer.name]);
+    setMoreSheetVisible(true);
+  }, []);
 
   const cameraPreview = canCamera ? (
     <Pressable
@@ -1220,9 +1425,12 @@ export function PrinterCard({
                           onPress={() =>
                             handleTrayPress(tray, {
                               amsId: ams.id,
+                              trayId: tray.id,
                               slotIndex: index,
                               isExternal: false,
                               label: String(index + 1),
+                              amsLabel: getAmsTitle(ams),
+                              temperature: ams.temp,
                             })
                           }
                           compact={trayCount < 4}
@@ -1270,10 +1478,13 @@ export function PrinterCard({
                         helper={helper}
                         onPress={() =>
                           handleTrayPress(tray, {
-                            amsId: null,
+                            amsId: 255,
+                            trayId: tray.id ?? 254,
                             slotIndex: index,
                             isExternal: true,
                             label: helper,
+                            amsLabel: 'External spool',
+                            temperature: null,
                           })
                         }
                         compact
@@ -1448,6 +1659,110 @@ export function PrinterCard({
           </Pressable>
         </View>
       </View>
+
+      <MoveControlsModal
+        visible={moveModalVisible}
+        printerId={printer.id}
+        printerName={printer.name}
+        isPrinting={isPrinting}
+        onClose={() => setMoveModalVisible(false)}
+      />
+
+      <TrayDetailModal
+        visible={selectedTray != null}
+        printerId={printer.id}
+        tray={selectedTray?.tray ?? null}
+        context={selectedTray?.context ?? null}
+        isPrinting={isPrinting}
+        onClose={() => setSelectedTray(null)}
+      />
+
+      <EditPrinterModal
+        visible={editModalVisible}
+        printer={editModalVisible ? printer : null}
+        onClose={() => setEditModalVisible(false)}
+      />
+
+      <ActionSheetModal
+        visible={calibrateSheetVisible}
+        title="Calibration"
+        subtitle="Choose a printer homing action."
+        onClose={() => setCalibrateSheetVisible(false)}
+        actions={[
+          {
+            label: 'Auto-level bed',
+            icon: <RotateCcw size={18} color={colors.text} strokeWidth={2} />,
+            onPress: () => {
+              setCalibrateSheetVisible(false);
+              calibrateMutation.mutate('z');
+            },
+            disabled: !canControlPrinter || calibrateMutation.isPending,
+            loading: calibrateMutation.isPending,
+          },
+          {
+            label: 'Home all axes',
+            icon: <Move size={18} color={colors.text} strokeWidth={2} />,
+            onPress: () => {
+              setCalibrateSheetVisible(false);
+              calibrateMutation.mutate('all');
+            },
+            disabled: !canControlPrinter || calibrateMutation.isPending,
+            loading: calibrateMutation.isPending,
+          },
+          {
+            label: 'Home XY',
+            icon: <Move size={18} color={colors.text} strokeWidth={2} />,
+            onPress: () => {
+              setCalibrateSheetVisible(false);
+              calibrateMutation.mutate('xy');
+            },
+            disabled: !canControlPrinter || calibrateMutation.isPending,
+            loading: calibrateMutation.isPending,
+          },
+        ]}
+      />
+
+      <ActionSheetModal
+        visible={moreSheetVisible}
+        title={printer.name}
+        subtitle={printer.model || 'Printer options'}
+        onClose={() => setMoreSheetVisible(false)}
+        actions={[
+          {
+            label: 'Edit',
+            icon: <Pencil size={18} color={colors.text} strokeWidth={2} />,
+            onPress: () => {
+              setMoreSheetVisible(false);
+              setEditModalVisible(true);
+            },
+            disabled: !canEditPrinter,
+          },
+          {
+            label:
+              printer.is_active === false
+                ? 'Disable maintenance mode'
+                : 'Enable maintenance mode',
+            icon: <Wrench size={18} color={colors.text} strokeWidth={2} />,
+            onPress: () => {
+              setMoreSheetVisible(false);
+              handleToggleMaintenance();
+            },
+            disabled: !canEditPrinter || maintenanceMutation.isPending,
+            loading: maintenanceMutation.isPending,
+          },
+          {
+            label: 'Delete',
+            icon: <Trash2 size={18} color={colors.error} strokeWidth={2} />,
+            onPress: () => {
+              setMoreSheetVisible(false);
+              handleDeletePrinter();
+            },
+            destructive: true,
+            disabled: !canDeletePrinter || deleteMutation.isPending,
+            loading: deleteMutation.isPending,
+          },
+        ]}
+      />
     </View>
   );
 }
@@ -1914,6 +2229,65 @@ const styles = StyleSheet.create({
   footerPrintText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
+  },
+  actionSheetBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  actionSheetCard: {
+    borderTopLeftRadius: borderRadius['2xl'],
+    borderTopRightRadius: borderRadius['2xl'],
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  actionSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  actionSheetTitleWrap: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  actionSheetTitle: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+  },
+  actionSheetSubtitle: {
+    fontSize: fontSize.sm,
+  },
+  actionSheetClose: {
+    width: 38,
+    height: 38,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionSheetActions: {
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  actionSheetRow: {
+    minHeight: 52,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  actionSheetRowIcon: {
+    width: 20,
+    alignItems: 'center',
+  },
+  actionSheetRowLabel: {
+    flex: 1,
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.medium,
   },
   disabledAction: {
     opacity: 0.45,

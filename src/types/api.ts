@@ -428,6 +428,7 @@ export interface Printer {
   access_code?: string;
   model: string | null;
   location: string | null;  // Group/location name
+  notes?: string | null;
   nozzle_count: number;  // 1 or 2, auto-detected from MQTT
   is_active: boolean;
   auto_archive: boolean;

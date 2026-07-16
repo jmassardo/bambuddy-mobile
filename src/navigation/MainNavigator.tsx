@@ -29,7 +29,9 @@ export default function MainNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerShown: false,
+        headerStyle: { backgroundColor: theme.colors.surface },
+        headerTintColor: theme.colors.text,
+        headerTitleStyle: { color: theme.colors.text, fontWeight: '700' },
         tabBarIcon: ({ color }) => {
           const IconComponent = TAB_ICONS[route.name] || Menu;
           return <IconComponent size={22} color={color} />;

@@ -49,7 +49,7 @@ export default function MoreScreen() {
 
   const logoutMutation = useMutation({
     mutationFn: logout,
-    onSuccess: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }),
+    // RootNavigator automatically switches to Login when user is cleared
   });
 
   return (
