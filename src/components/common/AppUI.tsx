@@ -529,3 +529,28 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.medium,
   },
 });
+
+export function ProgressBar({
+  progress,
+  color,
+  trackColor,
+  height = 6,
+}: {
+  progress: number;
+  color: string;
+  trackColor?: string;
+  height?: number;
+}) {
+  return (
+    <View style={{ height, backgroundColor: trackColor || '#333', borderRadius: height / 2, overflow: 'hidden' }}>
+      <View
+        style={{
+          width: `${Math.max(0, Math.min(100, progress))}%`,
+          height: '100%',
+          backgroundColor: color,
+          borderRadius: height / 2,
+        }}
+      />
+    </View>
+  );
+}

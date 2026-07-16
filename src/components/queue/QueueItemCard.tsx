@@ -1,40 +1,207 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useTheme } from '../../theme';
-import { borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
-import { Badge, ProgressBar } from '../common/UIComponents';
-import { formatDate } from '../../utils/formatters';
+import React, { useMemo } from 'react';
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { api, getAuthToken } from '@/api/client';
+import { apiUrl, useServerStore } from '@/api/server';
+import { Icon } from '@/components/common/TabBarIcon';
+import { StatusBadge } from '@/components/common/AppUI';
+import { useTheme } from '@/theme';
+import {
+  borderRadius,
+  fontSize,
+  fontWeight,
+  spacing,
+} from '@/theme/tokens';
+import type { PrintQueueItem } from '@/types/api';
+import {
+  formatCurrency,
+  formatDateTime,
+  formatDuration,
+  formatWeight,
+} from '@/utils/data';
 
 interface QueueItemCardProps {
-  item: Record<string, unknown>;
+  item: PrintQueueItem;
+  printerState?: string | null;
+  selected?: boolean;
+  showSelection?: boolean;
   onPress?: () => void;
+  onToggleSelect?: () => void;
+  onStart?: () => void;
+  onPause?: () => void;
+  onStop?: () => void;
+  onDelete?: () => void;
+  onRetry?: () => void;
+  onReassign?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
-export function QueueItemCard({ item, onPress }: QueueItemCardProps) {
+function statusPresentation(
+  item: PrintQueueItem,
+  printerState: string | null | undefined,
+  colors: ReturnType<typeof useTheme>['colors'],
+) {
+  if (item.status === 'pending' && item.waiting_reason) {
+    return { label: 'Waiting', color: '#a855f7' };
+  }
+  if (item.status === 'printing' && printerState === 'PAUSE') {
+    return { label: 'Paused', color: colors.statusPaused };
+  }
+
+  switch (item.status) {
+    case 'pending':
+      return { label: 'Pending', color: colors.warning };
+    case 'printing':
+      return { label: 'Printing', color: colors.statusPrinting };
+    case 'completed':
+      return { label: 'Completed', color: colors.success };
+    case 'failed':
+      return { label: 'Failed', color: colors.error };
+    case 'skipped':
+      return { label: 'Skipped', color: '#f97316' };
+    case 'cancelled':
+      return { label: 'Cancelled', color: colors.textTertiary };
+    default:
+      return { label: item.status, color: colors.info };
+  }
+}
+
+function libraryThumbnailUrl(fileId: number | null | undefined): string | null {
+  const serverUrl = useServerStore.getState().serverUrl;
+  if (!serverUrl || !fileId) return null;
+  const token = getAuthToken();
+  const suffix = token ? `?token=${encodeURIComponent(token)}` : '';
+  return apiUrl(serverUrl, `/library/${fileId}/thumbnail${suffix}`);
+}
+
+function QueueActionButton({
+  label,
+  icon,
+  onPress,
+  color,
+  subtle = false,
+}: {
+  label: string;
+  icon?: string;
+  onPress?: () => void;
+  color: string;
+  subtle?: boolean;
+}) {
+  if (!onPress) return null;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.actionButton,
+        {
+          backgroundColor: subtle ? `${color}18` : `${color}22`,
+          borderColor: `${color}55`,
+          opacity: pressed ? 0.8 : 1,
+        },
+      ]}
+    >
+      {icon ? <Icon name={icon} size={14} color={color} /> : null}
+      <Text style={[styles.actionText, { color }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function OptionChip({
+  label,
+  color,
+}: {
+  label: string;
+  color: string;
+}) {
+  return (
+    <View
+      style={[
+        styles.optionChip,
+        { backgroundColor: `${color}18`, borderColor: `${color}55` },
+      ]}
+    >
+      <Text style={[styles.optionChipText, { color }]}>{label}</Text>
+    </View>
+  );
+}
+
+export function QueueItemCard({
+  item,
+  printerState,
+  selected = false,
+  showSelection = false,
+  onPress,
+  onToggleSelect,
+  onStart,
+  onPause,
+  onStop,
+  onDelete,
+  onRetry,
+  onReassign,
+  onMoveUp,
+  onMoveDown,
+}: QueueItemCardProps) {
   const { colors } = useTheme();
+  const thumbnailSource = useMemo(() => {
+    if (item.archive_id && !item.archive_deleted) {
+      return api.getArchiveThumbnail(item.archive_id);
+    }
+    return libraryThumbnailUrl(item.library_file_id);
+  }, [item.archive_deleted, item.archive_id, item.library_file_id]);
 
-  const name = (item.filename as string) || (item.name as string) || 'Untitled';
-  const status = (item.status as string) || 'pending';
-  const printerName = item.printer_name as string;
-  const position = item.position as number;
-  const progress = item.progress as number;
-  const createdAt = item.created_at as string;
-  const scheduledAt = item.scheduled_at as string;
-  const userName = item.user_name as string;
+  const status = statusPresentation(item, printerState, colors);
+  const title =
+    item.archive_name ||
+    item.library_file_name ||
+    `Queue item #${item.id}`;
+  const printerLabel = item.target_model && !item.printer_id
+    ? `Any ${item.target_model}${item.target_location ? ` • ${item.target_location}` : ''}`
+    : item.printer_name || (item.printer_id ? `Printer #${item.printer_id}` : 'Unassigned');
 
-  const statusColorMap: Record<string, string> = {
-    pending: colors.textTertiary,
-    queued: colors.warning,
-    waiting: colors.warning,
-    uploading: colors.info,
-    printing: colors.statusPrinting,
-    in_progress: colors.statusPrinting,
-    completed: colors.success,
-    failed: colors.error,
-    cancelled: colors.error,
-    skipped: colors.textTertiary,
-  };
+  const options = [
+    item.manual_start ? { label: 'Staged', color: '#a855f7' } : null,
+    item.require_previous_success
+      ? { label: 'Requires previous success', color: '#f97316' }
+      : null,
+    item.auto_off_after ? { label: 'Auto power off', color: colors.info } : null,
+    item.gcode_injection ? { label: 'G-code injection', color: colors.accent } : null,
+    item.bed_levelling ? { label: 'Bed levelling', color: colors.accent } : null,
+    item.flow_cali ? { label: 'Flow cali', color: colors.accent } : null,
+    item.vibration_cali ? { label: 'Vibration cali', color: colors.accent } : null,
+    item.layer_inspect ? { label: 'Layer inspect', color: colors.accent } : null,
+    item.timelapse ? { label: 'Timelapse', color: colors.accent } : null,
+    item.use_ams ? { label: 'AMS', color: colors.accent } : null,
+    item.nozzle_offset_cali ? { label: 'Nozzle offset', color: colors.accent } : null,
+    item.preheat_override && item.preheat_override !== 'inherit'
+      ? {
+          label:
+            item.preheat_override === 'on'
+              ? 'Preheat on'
+              : 'Preheat off',
+          color: colors.warning,
+        }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; color: string }>;
 
-  const statusColor = statusColorMap[status] || colors.textTertiary;
+  const progressBar = item.status === 'printing';
+  const approximateProgress = item.started_at && item.print_time_seconds
+    ? Math.min(
+        100,
+        Math.max(
+          4,
+          ((Date.now() - new Date(item.started_at).getTime()) /
+            (item.print_time_seconds * 1000)) *
+            100,
+        ),
+      )
+    : 0;
 
   return (
     <Pressable
@@ -42,54 +209,259 @@ export function QueueItemCard({ item, onPress }: QueueItemCardProps) {
       style={({ pressed }) => [
         styles.card,
         {
-          backgroundColor: colors.card,
-          borderColor: colors.cardBorder,
-          opacity: pressed ? 0.9 : 1,
+          backgroundColor: selected ? colors.accentBg : colors.card,
+          borderColor: selected ? colors.accent : colors.cardBorder,
+          opacity: pressed ? 0.96 : 1,
         },
       ]}
     >
-      <View style={styles.header}>
-        <View style={styles.nameContainer}>
-          {position && (
-            <Text style={[styles.position, { color: colors.textTertiary }]}>#{position}</Text>
-          )}
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-            {name.replace(/\.gcode\.3mf$|\.3mf$/i, '')}
-          </Text>
+      <View style={styles.headerRow}>
+        <View style={styles.headerLeft}>
+          {showSelection ? (
+            <Pressable
+              onPress={onToggleSelect}
+              style={[
+                styles.selectBox,
+                {
+                  backgroundColor: selected ? colors.accent : 'transparent',
+                  borderColor: selected ? colors.accent : colors.border,
+                },
+              ]}
+            >
+              {selected ? (
+                <Icon name="check-circle" size={16} color={colors.textInverse} />
+              ) : null}
+            </Pressable>
+          ) : null}
+          <View
+            style={[
+              styles.thumbnailWrap,
+              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+            ]}
+          >
+            {thumbnailSource ? (
+              <Image source={{ uri: thumbnailSource }} style={styles.thumbnail} />
+            ) : (
+              <Icon name="layers" size={20} color={colors.textTertiary} />
+            )}
+          </View>
+          <View style={styles.titleGroup}>
+            <View style={styles.titleRow}>
+              <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
+                {title}
+              </Text>
+              {item.batch_name ? (
+                <View
+                  style={[
+                    styles.batchBadge,
+                    { backgroundColor: '#0891b222', borderColor: '#0891b277' },
+                  ]}
+                >
+                  <Text style={[styles.batchBadgeText, { color: '#67e8f9' }]}>Batch</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={2}>
+              {printerLabel}
+            </Text>
+          </View>
         </View>
-        <Badge
-          label={status.replace(/_/g, ' ')}
-          color={statusColor}
-          backgroundColor={`${statusColor}20`}
-        />
+        <View style={styles.headerRight}>
+          <StatusBadge label={status.label} color={status.color} />
+          {item.position ? (
+            <Text style={[styles.position, { color: colors.textTertiary }]}>#{item.position}</Text>
+          ) : null}
+        </View>
       </View>
 
-      {(status === 'printing' || status === 'in_progress' || status === 'uploading') && progress != null && (
-        <View style={styles.progressContainer}>
-          <ProgressBar progress={progress} color={statusColor} />
-          <Text style={[styles.progressText, { color: statusColor }]}>
-            {Math.round(progress)}%
+      <View style={styles.metaGrid}>
+        <View style={styles.metaItem}>
+          <Icon name="printer" size={14} color={colors.textTertiary} />
+          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Printer</Text>
+          <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
+            {printerLabel}
           </Text>
         </View>
-      )}
-
-      <View style={styles.footer}>
-        <View style={styles.footerLeft}>
-          {printerName && (
-            <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-              🖨️ {printerName}
-            </Text>
-          )}
-          {userName && (
-            <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-              👤 {userName}
-            </Text>
-          )}
+        <View style={styles.metaItem}>
+          <Icon name="layers" size={14} color={colors.textTertiary} />
+          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Plate</Text>
+          <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
+            {item.bed_type || 'Unknown'}
+          </Text>
         </View>
-        <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-          {scheduledAt ? `📅 ${formatDate(scheduledAt)}` : createdAt ? formatDate(createdAt) : ''}
-        </Text>
+        <View style={styles.metaItem}>
+          <Icon name="clock" size={14} color={colors.textTertiary} />
+          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Estimate</Text>
+          <Text style={[styles.metaValue, { color: colors.text }]}>
+            {formatDuration(item.print_time_seconds)}
+          </Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Icon name="tag" size={14} color={colors.textTertiary} />
+          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Filament</Text>
+          <View style={styles.filamentRow}>
+            {item.filament_color ? (
+              <View
+                style={[
+                  styles.colorDot,
+                  {
+                    backgroundColor: item.filament_color,
+                    borderColor: colors.border,
+                  },
+                ]}
+              />
+            ) : null}
+            <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
+              {item.filament_type || 'Unknown'}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.metaItem}>
+          <Icon name="package" size={14} color={colors.textTertiary} />
+          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Weight</Text>
+          <Text style={[styles.metaValue, { color: colors.text }]}> 
+            {formatWeight(item.filament_used_grams)}
+          </Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Icon name="clock" size={14} color={colors.textTertiary} />
+          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Created</Text>
+          <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
+            {formatDateTime(item.created_at)}
+          </Text>
+        </View>
       </View>
+
+      {(item.started_at || item.completed_at || item.scheduled_time || item.created_by_username) ? (
+        <View style={[styles.timelineStrip, { borderColor: colors.borderSubtle }]}> 
+          {item.scheduled_time ? (
+            <Text style={[styles.timelineText, { color: colors.textSecondary }]}>
+              Scheduled {formatDateTime(item.scheduled_time)}
+            </Text>
+          ) : null}
+          {item.started_at ? (
+            <Text style={[styles.timelineText, { color: colors.textSecondary }]}>
+              Started {formatDateTime(item.started_at)}
+            </Text>
+          ) : null}
+          {item.completed_at ? (
+            <Text style={[styles.timelineText, { color: colors.textSecondary }]}>
+              Completed {formatDateTime(item.completed_at)}
+            </Text>
+          ) : null}
+          {item.created_by_username ? (
+            <Text style={[styles.timelineText, { color: colors.textSecondary }]}>By {item.created_by_username}</Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {progressBar ? (
+        <View style={styles.progressSection}>
+          <View
+            style={[
+              styles.progressTrack,
+              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+            ]}
+          >
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  backgroundColor: colors.statusPrinting,
+                  width: `${approximateProgress}%`,
+                },
+              ]}
+            />
+          </View>
+          <Text style={[styles.progressText, { color: colors.statusPrinting }]}>
+            {Math.round(approximateProgress)}%
+          </Text>
+        </View>
+      ) : null}
+
+      {item.waiting_reason ? (
+        <Text style={[styles.notice, { color: '#c084fc' }]}>{item.waiting_reason}</Text>
+      ) : null}
+      {item.filament_short ? (
+        <Text style={[styles.notice, { color: colors.warning }]}>Filament short on assigned spool</Text>
+      ) : null}
+      {item.error_message ? (
+        <Text style={[styles.notice, { color: colors.error }]}>{item.error_message}</Text>
+      ) : null}
+
+      {options.length > 0 ? (
+        <View style={styles.optionsRow}>
+          {options.map(option => (
+            <OptionChip key={option.label} label={option.label} color={option.color} />
+          ))}
+        </View>
+      ) : null}
+
+      <View style={[styles.footerRow, { borderColor: colors.borderSubtle }]}> 
+        <View style={styles.reorderRow}>
+          <QueueActionButton
+            label="Move ↑"
+            onPress={onMoveUp}
+            color={colors.textSecondary}
+            subtle
+          />
+          <QueueActionButton
+            label="Move ↓"
+            onPress={onMoveDown}
+            color={colors.textSecondary}
+            subtle
+          />
+        </View>
+        <View style={styles.actionsRow}>
+          {item.status === 'pending' ? (
+            <>
+              <QueueActionButton label="Start" icon="play" onPress={onStart} color={colors.accent} />
+              <QueueActionButton label="Reassign" icon="printer" onPress={onReassign} color={colors.info} />
+              <QueueActionButton label="Delete" icon="trash" onPress={onDelete} color={colors.error} />
+            </>
+          ) : null}
+          {item.status === 'printing' ? (
+            <>
+              <QueueActionButton label="Pause" icon="pause" onPress={onPause} color={colors.warning} />
+              <QueueActionButton label="Stop" icon="stop" onPress={onStop} color={colors.error} />
+            </>
+          ) : null}
+          {['completed', 'failed', 'skipped', 'cancelled'].includes(item.status) ? (
+            <>
+              <QueueActionButton label="Retry" icon="refresh" onPress={onRetry} color={colors.accent} />
+              <QueueActionButton label="Delete" icon="trash" onPress={onDelete} color={colors.error} />
+            </>
+          ) : null}
+        </View>
+      </View>
+
+      {(item.print_time_seconds || item.filament_used_grams) && item.status !== 'pending' ? (
+        <View style={styles.summaryRow}>
+          <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
+            {formatDuration(item.print_time_seconds)}
+          </Text>
+          <Text style={[styles.summaryDivider, { color: colors.textTertiary }]}>•</Text>
+          <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
+            {formatWeight(item.filament_used_grams)}
+          </Text>
+          {item.preheat_chamber_target_override ? (
+            <>
+              <Text style={[styles.summaryDivider, { color: colors.textTertiary }]}>•</Text>
+              <Text style={[styles.summaryText, { color: colors.textSecondary }]}>Preheat {item.preheat_chamber_target_override}°</Text>
+            </>
+          ) : null}
+          {item.archive_id ? (
+            <>
+              <Text style={[styles.summaryDivider, { color: colors.textTertiary }]}>•</Text>
+              <Text style={[styles.summaryText, { color: colors.textSecondary }]}>Archive #{item.archive_id}</Text>
+            </>
+          ) : null}
+        </View>
+      ) : null}
+
+      {item.status === 'completed' && item.filament_used_grams ? (
+        <Text style={[styles.costHint, { color: colors.textTertiary }]}>Estimated material cost {formatCurrency((item.filament_used_grams / 1000) * 24)}</Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -97,55 +469,194 @@ export function QueueItemCard({ item, onPress }: QueueItemCardProps) {
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    marginHorizontal: spacing.lg,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
   },
-  header: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: spacing.md,
   },
-  nameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  headerLeft: {
     flex: 1,
-    marginRight: spacing.sm,
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  headerRight: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+  },
+  selectBox: {
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  thumbnailWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  titleGroup: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  title: {
+    flex: 1,
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
+  },
+  subtitle: {
+    fontSize: fontSize.sm,
+  },
+  batchBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+  },
+  batchBadgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
   },
   position: {
+    fontSize: fontSize.xs,
+  },
+  metaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  metaItem: {
+    minWidth: '30%',
+    flexGrow: 1,
+    gap: 2,
+  },
+  metaLabel: {
+    fontSize: fontSize.xs,
+  },
+  metaValue: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
-    marginRight: spacing.sm,
-    minWidth: 24,
   },
-  name: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.medium,
-    flex: 1,
-  },
-  progressContainer: {
+  filamentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  colorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+  },
+  timelineStrip: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
+    borderTopWidth: 1,
+    paddingTop: spacing.sm,
+  },
+  timelineText: {
+    fontSize: fontSize.xs,
+  },
+  progressSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: borderRadius.full,
   },
   progressText: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.semibold,
-    minWidth: 36,
+    width: 38,
     textAlign: 'right',
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
+  notice: {
+    fontSize: fontSize.sm,
   },
-  footerLeft: {
+  optionsRow: {
     flexDirection: 'row',
-    gap: spacing.md,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
-  footerText: {
+  optionChip: {
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  optionChipText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+  },
+  footerRow: {
+    borderTopWidth: 1,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
+  },
+  reorderRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  actionButton: {
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  actionText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  summaryText: {
+    fontSize: fontSize.xs,
+  },
+  summaryDivider: {
+    fontSize: fontSize.xs,
+  },
+  costHint: {
     fontSize: fontSize.xs,
   },
 });

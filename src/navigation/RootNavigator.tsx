@@ -31,7 +31,7 @@ import UsersScreen from '@/screens/UsersScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
-  const { user, authEnabled, loading, requiresSetup, serverConnected } = useAuth();
+  const { user, authEnabled, loading, requiresSetup } = useAuth();
   const serverUrl = useServerStore((s) => s.serverUrl);
   const theme = useTheme();
 

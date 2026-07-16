@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
   RefreshControl,
@@ -10,84 +10,138 @@ import {
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
+import { Button, Card, SectionHeader } from '@/components/common/UIComponents';
+import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
-import { SectionCard, StatusBadge } from '@/components/common/AppUI';
-import {
-  EmptyState,
-  ErrorState,
-  LoadingScreen,
-} from '@/components/common/StateScreens';
-import {
-  formatDateTime,
-  pickArray,
-  pickBoolean,
-  pickId,
-  pickString,
-  statusColor,
-  type ApiRecord,
-} from '@/utils/data';
+import { pickBoolean } from '@/utils/data';
 
-function extractLogEntries(data: unknown): ApiRecord[] {
-  if (Array.isArray(data))
-    return data.filter(
-      (item): item is ApiRecord => typeof item === 'object' && item !== null,
-    );
-  return pickArray(data, ['items', 'entries', 'results']).filter(
-    (item): item is ApiRecord => typeof item === 'object' && item !== null,
-  );
-}
+const PREFERENCE_ROWS = [
+  {
+    key: 'notify_print_start',
+    title: 'Print started',
+    description: 'Get an email when a print begins.',
+  },
+  {
+    key: 'notify_print_complete',
+    title: 'Print completed',
+    description: 'Get an email when a print finishes successfully.',
+  },
+  {
+    key: 'notify_print_failed',
+    title: 'Print failed',
+    description: 'Get an email when a print fails or errors.',
+  },
+  {
+    key: 'notify_print_stopped',
+    title: 'Print stopped',
+    description: 'Get an email when a print is stopped manually.',
+  },
+] as const;
+
+type PreferenceKey = (typeof PREFERENCE_ROWS)[number]['key'];
+type PreferenceState = Record<PreferenceKey, boolean>;
+
+const DEFAULT_PREFERENCES: PreferenceState = {
+  notify_print_start: false,
+  notify_print_complete: false,
+  notify_print_failed: true,
+  notify_print_stopped: true,
+};
 
 export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Notifications' });
   }, [navigation]);
+
   const { colors } = useTheme();
+  const { user } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
+  const [preferences, setPreferences] = useState<PreferenceState>(DEFAULT_PREFERENCES);
+  const [dirty, setDirty] = useState(false);
 
-  const providersQuery = useQuery({
-    queryKey: ['notificationProviders'],
-    queryFn: () => api.getNotificationProviders(),
+  const advancedAuthQuery = useQuery({
+    queryKey: ['advancedAuthStatus'],
+    queryFn: () => api.getAdvancedAuthStatus(),
   });
-  const logQuery = useQuery({
-    queryKey: ['notificationLog'],
-    queryFn: () => api.getNotificationLog({ limit: 20 }),
+  const settingsQuery = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.getSettings(),
+  });
+  const preferencesQuery = useQuery({
+    queryKey: ['userEmailPreferences'],
+    queryFn: () => api.getUserEmailPreferences(),
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
-      api.updateNotificationProvider(id, { enabled }),
+  useEffect(() => {
+    if (!preferencesQuery.data) return;
+    setPreferences({
+      notify_print_start: pickBoolean(preferencesQuery.data, ['notify_print_start']),
+      notify_print_complete: pickBoolean(preferencesQuery.data, ['notify_print_complete']),
+      notify_print_failed: pickBoolean(preferencesQuery.data, ['notify_print_failed']),
+      notify_print_stopped: pickBoolean(preferencesQuery.data, ['notify_print_stopped']),
+    });
+    setDirty(false);
+  }, [preferencesQuery.data]);
+
+  const saveMutation = useMutation({
+    mutationFn: () => api.updateUserEmailPreferences(preferences),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ['notificationProviders'],
-      });
-      showToast('Notification provider updated.', 'success');
+      await queryClient.invalidateQueries({ queryKey: ['userEmailPreferences'] });
+      setDirty(false);
+      showToast('Email notification preferences saved.', 'success');
     },
-    onError: () => showToast('Unable to update provider.', 'error'),
+    onError: (error: Error) => showToast(error.message || 'Could not save preferences.', 'error'),
   });
 
   const refreshAll = async () => {
-    await Promise.all([providersQuery.refetch(), logQuery.refetch()]);
+    await Promise.all([
+      advancedAuthQuery.refetch(),
+      settingsQuery.refetch(),
+      preferencesQuery.refetch(),
+    ]);
   };
 
-  if (providersQuery.isLoading) {
-    return <LoadingScreen message="Loading notification settings…" />;
+  const notificationsEnabled = useMemo(
+    () => pickBoolean(settingsQuery.data, ['user_notifications_enabled'], false),
+    [settingsQuery.data],
+  );
+  const advancedAuthEnabled = useMemo(
+    () => pickBoolean(advancedAuthQuery.data, ['advanced_auth_enabled'], false),
+    [advancedAuthQuery.data],
+  );
+
+  if (advancedAuthQuery.isLoading || settingsQuery.isLoading || preferencesQuery.isLoading) {
+    return <LoadingScreen message="Loading notification preferences…" />;
   }
 
-  if (providersQuery.isError) {
+  if (advancedAuthQuery.isError || settingsQuery.isError || preferencesQuery.isError) {
     return (
       <ErrorState
-        message="Unable to load notification settings."
+        message="Unable to load notification preferences."
         onRetry={() => void refreshAll()}
       />
     );
   }
 
-  const providers = (providersQuery.data ?? []) as ApiRecord[];
-  const logEntries = extractLogEntries(logQuery.data);
+  if (!advancedAuthEnabled || !notificationsEnabled) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}> 
+        <EmptyState
+          icon="🔔"
+          title="Email notifications are unavailable"
+          message="Enable advanced authentication and user email notifications in Settings to use this screen."
+        />
+        <View style={styles.emptyActions}>
+          <Button title="Open Settings" onPress={() => navigation.navigate('Settings')} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -95,132 +149,81 @@ export default function NotificationsScreen() {
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
-          refreshing={providersQuery.isRefetching || logQuery.isRefetching}
+          refreshing={
+            advancedAuthQuery.isRefetching ||
+            settingsQuery.isRefetching ||
+            preferencesQuery.isRefetching
+          }
           onRefresh={() => void refreshAll()}
           tintColor={colors.accent}
         />
       }
     >
-      <SectionCard
-        title="Providers"
-        subtitle="Manage delivery targets for Bambuddy notifications."
-      >
-        {providers.length > 0 ? (
-          providers.map(provider => {
-            const enabled = pickBoolean(
-              provider,
-              ['enabled', 'is_enabled'],
-              false,
-            );
-            const status = enabled ? 'enabled' : 'disabled';
-            return (
-              <View
-                key={pickId(provider)}
-                style={[
-                  styles.providerRow,
-                  { borderBottomColor: colors.borderSubtle },
-                ]}
-              >
-                <View style={styles.providerText}>
-                  <Text style={[styles.providerTitle, { color: colors.text }]}>
-                    {pickString(provider, ['name', 'type'], 'Provider')}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.providerMeta,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {pickString(
-                      provider,
-                      ['type', 'provider_type'],
-                      'Unknown type',
-                    )}
-                  </Text>
-                </View>
-                <View style={styles.providerActions}>
-                  <StatusBadge
-                    label={status}
-                    color={statusColor(status, colors)}
-                  />
-                  <Switch
-                    value={enabled}
-                    onValueChange={value =>
-                      void toggleMutation.mutateAsync({
-                        id: Number(pickId(provider)),
-                        enabled: value,
-                      })
-                    }
-                    trackColor={{
-                      false: colors.surfaceHover,
-                      true: colors.accent,
-                    }}
-                    thumbColor={colors.text}
-                  />
-                </View>
-              </View>
-            );
-          })
-        ) : (
-          <EmptyState
-            icon="🔔"
-            title="No providers configured"
-            message="Add a provider from the Bambuddy web app to receive alerts here."
-          />
-        )}
-      </SectionCard>
+      <Card style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+        <SectionHeader title="Recipient" />
+        <View style={styles.infoRow}>
+          <View style={[styles.infoIcon, { backgroundColor: colors.accentBg }]}> 
+            <Text style={[styles.infoEmoji, { color: colors.accent }]}>✉️</Text>
+          </View>
+          <View style={styles.infoText}>
+            <Text style={[styles.infoTitle, { color: colors.text }]}>Email destination</Text>
+            <Text style={[styles.infoDescription, { color: colors.textSecondary }]}> 
+              {user?.email
+                ? `Notifications will be sent to ${user.email}.`
+                : 'Add an email address to your account to receive notification emails.'}
+            </Text>
+          </View>
+        </View>
+      </Card>
 
-      <SectionCard title="Recent Notification Log">
-        {logEntries.length > 0 ? (
-          logEntries.map(entry => {
-            const state = pickString(entry, ['status', 'result'], 'sent');
-            return (
-              <View
-                key={pickId(entry)}
-                style={[
-                  styles.logRow,
-                  {
-                    backgroundColor: colors.surfaceElevated,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <View style={styles.logHeader}>
-                  <Text style={[styles.providerTitle, { color: colors.text }]}>
-                    {pickString(
-                      entry,
-                      ['provider_name', 'provider', 'type'],
-                      'Notification',
-                    )}
-                  </Text>
-                  <StatusBadge
-                    label={state}
-                    color={statusColor(state, colors)}
-                  />
-                </View>
-                <Text
-                  style={[styles.providerMeta, { color: colors.textSecondary }]}
-                >
-                  {pickString(
-                    entry,
-                    ['message', 'subject'],
-                    'No message content',
-                  )}
-                </Text>
-                <Text
-                  style={[styles.providerMeta, { color: colors.textTertiary }]}
-                >
-                  {formatDateTime(pickString(entry, ['created_at', 'sent_at']))}
-                </Text>
-              </View>
-            );
-          })
-        ) : (
-          <Text style={[styles.providerMeta, { color: colors.textSecondary }]}>
-            No notification events have been recorded yet.
-          </Text>
-        )}
-      </SectionCard>
+      <Card style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+        <SectionHeader title="Print job notifications" />
+        {PREFERENCE_ROWS.map((row, index) => (
+          <View
+            key={row.key}
+            style={[
+              styles.preferenceRow,
+              index < PREFERENCE_ROWS.length - 1 && {
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: colors.borderSubtle,
+              },
+            ]}
+          >
+            <View style={styles.preferenceText}>
+              <Text style={[styles.preferenceTitle, { color: colors.text }]}>{row.title}</Text>
+              <Text style={[styles.preferenceDescription, { color: colors.textSecondary }]}>
+                {row.description}
+              </Text>
+            </View>
+            <Switch
+              value={preferences[row.key]}
+              onValueChange={(value) => {
+                setPreferences(current => ({ ...current, [row.key]: value }));
+                setDirty(true);
+              }}
+              trackColor={{ false: colors.surfaceHover, true: colors.accent }}
+              thumbColor={colors.text}
+              disabled={!user?.email}
+            />
+          </View>
+        ))}
+      </Card>
+
+      <Card style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+        <SectionHeader title="Summary" />
+        <Text style={[styles.summaryText, { color: colors.textSecondary }]}> 
+          {Object.values(preferences).filter(Boolean).length} of {PREFERENCE_ROWS.length} email alerts enabled.
+        </Text>
+      </Card>
+
+      <View style={styles.saveButtonWrap}>
+        <Button
+          title={saveMutation.isPending ? 'Saving…' : 'Save preferences'}
+          onPress={() => void saveMutation.mutateAsync()}
+          disabled={!dirty || !user?.email || saveMutation.isPending}
+          loading={saveMutation.isPending}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -232,28 +235,61 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     paddingBottom: spacing['3xl'],
   },
-  providerRow: {
+  emptyActions: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing['3xl'],
+  },
+  infoRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  infoIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoEmoji: {
+    fontSize: 20,
+  },
+  infoText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  infoTitle: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
+  },
+  infoDescription: {
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+  },
+  preferenceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
     paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  providerText: { flex: 1, gap: spacing.xs },
-  providerTitle: { fontSize: fontSize.base, fontWeight: fontWeight.semibold },
-  providerMeta: { fontSize: fontSize.sm },
-  providerActions: { alignItems: 'flex-end', gap: spacing.sm },
-  logRow: {
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+  preferenceText: {
+    flex: 1,
+    gap: spacing.xs,
   },
-  logHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.md,
+  preferenceTitle: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
+  },
+  preferenceDescription: {
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+  },
+  summaryText: {
+    marginTop: spacing.md,
+    fontSize: fontSize.sm,
+  },
+  saveButtonWrap: {
+    marginTop: spacing.sm,
   },
 });

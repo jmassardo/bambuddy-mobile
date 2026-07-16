@@ -281,6 +281,37 @@ export const api = {
       backup_codes_remaining: number;
     }>('/auth/2fa/status'),
 
+  getAdvancedAuthStatus: () =>
+    request<Record<string, unknown>>('/auth/advanced-auth/status'),
+
+  getLDAPStatus: () => request<Record<string, unknown>>('/auth/ldap/status'),
+
+  searchLDAPDirectory: (query: string) =>
+    request<Record<string, unknown>[]>(
+      `/auth/ldap/search?q=${encodeURIComponent(query)}`,
+    ),
+
+  provisionLDAPUser: (username: string) =>
+    request<Record<string, unknown>>('/auth/ldap/provision', {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    }),
+
+  resetUserPassword: (data: { user_id: number }) =>
+    request<Record<string, unknown>>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getUserEmailPreferences: () =>
+    request<Record<string, unknown>>('/user-notifications/preferences'),
+
+  updateUserEmailPreferences: (data: Record<string, unknown>) =>
+    request<Record<string, unknown>>('/user-notifications/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
   // ── Users & Groups ───────────────────────────────
   getUsers: () =>
     request<
@@ -801,9 +832,30 @@ export const api = {
   getQueueTimeline: () => request<Record<string, unknown>[]>('/queue/timeline'),
 
   // ── File Manager (Library) ───────────────────────
-  getLibraryFiles: (folderId?: number) => {
-    const p = folderId ? `?folder_id=${folderId}` : '';
-    return request<Record<string, unknown>[]>(`/library/${p}`);
+  getLibraryFolders: () => request<Record<string, unknown>[]>('/library/folders'),
+
+  getLibraryFoldersByProject: (projectId: number) =>
+    request<Record<string, unknown>[]>(
+      `/library/folders/by-project/${projectId}`,
+    ),
+
+  getLibraryFiles: (
+    folderId?: number | null,
+    includeRoot = true,
+    projectId?: number,
+  ) => {
+    const p = new URLSearchParams();
+    if (folderId !== undefined && folderId !== null) {
+      p.set('folder_id', String(folderId));
+    }
+    if (!includeRoot) {
+      p.set('include_root', 'false');
+    }
+    if (projectId !== undefined) {
+      p.set('project_id', String(projectId));
+    }
+    const query = p.toString();
+    return request<Record<string, unknown>[]>(`/library/${query ? `?${query}` : ''}`);
   },
 
   getLibraryFile: (id: number) =>
@@ -849,8 +901,16 @@ export const api = {
     return `${serverUrl}/api/v1/library/${id}/plates/${plateIndex}/thumbnail${token}`;
   },
 
+  getLibraryFileThumbnailUrl: (id: number): string => {
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/library/files/${id}/thumbnail${token}`;
+  },
+
   getLibraryTags: () =>
     request<{ name: string; count: number }[]>('/library/tags'),
+
+  getLibraryStats: () => request<Record<string, unknown>>('/library/stats'),
 
   // Library trash
   getLibraryTrash: () => request<Record<string, unknown>[]>('/library/trash'),
@@ -885,8 +945,71 @@ export const api = {
   deleteProject: (id: number) =>
     request<void>(`/projects/${id}`, { method: 'DELETE' }),
 
+  getProjectArchives: (id: number, limit = 100, offset = 0) =>
+    request<Record<string, unknown>[]>(
+      `/projects/${id}/archives?limit=${limit}&offset=${offset}`,
+    ),
+
+  getProjectBOM: (projectId: number) =>
+    request<Record<string, unknown>[]>(`/projects/${projectId}/bom`),
+
+  createBOMItem: (projectId: number, data: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/projects/${projectId}/bom`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateBOMItem: (
+    projectId: number,
+    itemId: number,
+    data: Record<string, unknown>,
+  ) =>
+    request<Record<string, unknown>>(
+      `/projects/${projectId}/bom/${itemId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      },
+    ),
+
+  deleteBOMItem: (projectId: number, itemId: number) =>
+    request<void>(`/projects/${projectId}/bom/${itemId}`, {
+      method: 'DELETE',
+    }),
+
+  getProjectTimeline: (projectId: number, limit = 50) =>
+    request<Record<string, unknown>[]>(
+      `/projects/${projectId}/timeline?limit=${limit}`,
+    ),
+
+  getProjectCoverImageUrl: (projectId: number): string => {
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/projects/${projectId}/cover-image${token}`;
+  },
+
+  uploadProjectCoverImage: (
+    projectId: number,
+    file: { uri: string; name: string; type: string },
+  ) =>
+    uploadFile<Record<string, unknown>>(
+      `/projects/${projectId}/cover-image`,
+      file,
+    ),
+
+  deleteProjectCoverImage: (projectId: number) =>
+    request<void>(`/projects/${projectId}/cover-image`, {
+      method: 'DELETE',
+    }),
+
+  exportProjectZip: (projectId: number) =>
+    requestBlob(`/projects/${projectId}/export`),
+
   // ── Spool Inventory ──────────────────────────────
-  getSpools: () => request<Record<string, unknown>[]>('/inventory/spools'),
+  getSpools: (includeArchived = false) =>
+    request<Record<string, unknown>[]>(
+      `/inventory/spools?include_archived=${includeArchived}`,
+    ),
 
   getSpool: (id: number) =>
     request<Record<string, unknown>>(`/inventory/spools/${id}`),
@@ -899,7 +1022,7 @@ export const api = {
 
   updateSpool: (id: number, data: Record<string, unknown>) =>
     request<Record<string, unknown>>(`/inventory/spools/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(data),
     }),
 
@@ -980,6 +1103,63 @@ export const api = {
   getLocations: () =>
     request<Record<string, unknown>[]>('/inventory/locations'),
 
+  importSpoolsCsvPreview: (
+    file: { uri: string; name: string; type: string },
+  ) =>
+    uploadFile<Record<string, unknown>>(
+      '/inventory/spools/import?dry_run=true',
+      file,
+    ),
+
+  importSpoolsCsv: (file: { uri: string; name: string; type: string }) =>
+    uploadFile<Record<string, unknown>>('/inventory/spools/import', file),
+
+  exportSpoolsCsv: () => requestBlob('/inventory/spools/export'),
+
+  resetSpoolConsumedCounter: (id: number) =>
+    request<Record<string, unknown>>(
+      `/inventory/spools/${id}/reset-consumed-counter`,
+      { method: 'POST' },
+    ),
+
+  bulkResetSpoolConsumedCounter: (spoolIds: number[]) =>
+    request<Record<string, unknown>>(
+      '/inventory/spools/reset-consumed-counter-bulk',
+      {
+        method: 'POST',
+        body: JSON.stringify({ spool_ids: spoolIds }),
+      },
+    ),
+
+  bulkUpdateSpools: (ids: number[], update: Record<string, unknown>) =>
+    request<Record<string, unknown>>('/inventory/spools/bulk-update', {
+      method: 'POST',
+      body: JSON.stringify({ ids, update }),
+    }),
+
+  bulkDeleteSpools: (ids: number[]) =>
+    request<Record<string, unknown>>('/inventory/spools/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
+
+  bulkArchiveSpools: (ids: number[]) =>
+    request<Record<string, unknown>>('/inventory/spools/bulk-archive', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
+
+  bulkRestoreSpools: (ids: number[]) =>
+    request<Record<string, unknown>>('/inventory/spools/bulk-restore', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
+
+  getAssignments: (printerId?: number) =>
+    request<Record<string, unknown>[]>(
+      `/inventory/assignments${printerId ? `?printer_id=${printerId}` : ''}`,
+    ),
+
   // ── Maintenance ──────────────────────────────────
   getMaintenanceTasks: () =>
     request<Record<string, unknown>[]>('/maintenance/'),
@@ -1006,6 +1186,34 @@ export const api = {
     request<Record<string, unknown>>(`/maintenance/${id}/complete`, {
       method: 'POST',
     }),
+
+  getMaintenanceOverview: () =>
+    request<Record<string, unknown>[]>('/maintenance/overview'),
+
+  updateMaintenanceItem: (
+    itemId: number,
+    data: {
+      custom_interval_hours?: number | null;
+      custom_interval_type?: 'hours' | 'days' | null;
+      enabled?: boolean;
+    },
+  ) =>
+    request<Record<string, unknown>>(`/maintenance/items/${itemId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  performMaintenance: (itemId: number, notes?: string) =>
+    request<Record<string, unknown>>(`/maintenance/items/${itemId}/perform`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    }),
+
+  setPrinterHours: (printerId: number, totalHours: number) =>
+    request<Record<string, unknown>>(
+      `/maintenance/printers/${printerId}/hours?total_hours=${totalHours}`,
+      { method: 'PATCH' },
+    ),
 
   // ── Settings ─────────────────────────────────────
   getSettings: () => request<Record<string, unknown>>('/settings/'),
@@ -1063,7 +1271,62 @@ export const api = {
     }),
 
   // ── Profiles ─────────────────────────────────────
+  getCloudStatus: () => request<Record<string, unknown>>('/cloud/status'),
+
+  cloudLogin: (email: string, password: string, region = 'global') =>
+    request<Record<string, unknown>>('/cloud/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, region }),
+    }),
+
+  cloudVerify: (
+    email: string,
+    code: string,
+    tfaKey?: string,
+    region = 'global',
+  ) =>
+    request<Record<string, unknown>>('/cloud/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, tfa_key: tfaKey, region }),
+    }),
+
+  cloudSetToken: (accessToken: string, region = 'global') =>
+    request<Record<string, unknown>>('/cloud/token', {
+      method: 'POST',
+      body: JSON.stringify({ access_token: accessToken, region }),
+    }),
+
+  cloudLogout: () => request<Record<string, unknown>>('/cloud/logout', {
+    method: 'POST',
+  }),
+
   getCloudProfiles: () => request<Record<string, unknown>[]>('/cloud/profiles'),
+
+  orcaCloudStartAuth: (provider: 'google' | 'apple' | 'github' = 'google') =>
+    request<Record<string, unknown>>('/orca-cloud/auth/start', {
+      method: 'POST',
+      body: JSON.stringify({ provider }),
+    }),
+
+  orcaCloudFinishAuth: (callbackUrl: string) =>
+    request<Record<string, unknown>>('/orca-cloud/auth/finish', {
+      method: 'POST',
+      body: JSON.stringify({ callback_url: callbackUrl }),
+    }),
+
+  orcaCloudPasswordLogin: (email: string, password: string) =>
+    request<Record<string, unknown>>('/orca-cloud/auth/password', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  orcaCloudStatus: () =>
+    request<Record<string, unknown>>('/orca-cloud/status'),
+
+  orcaCloudLogout: () =>
+    request<Record<string, unknown>>('/orca-cloud/logout', {
+      method: 'POST',
+    }),
 
   getOrcaCloudProfiles: () =>
     request<Record<string, unknown>>('/orca-cloud/profiles'),
@@ -1246,6 +1509,14 @@ export const api = {
       method: 'DELETE',
     }),
 
+  getLocalBackupStatus: () =>
+    request<Record<string, unknown>>('/local-backup/status'),
+
+  triggerLocalBackup: () =>
+    request<Record<string, unknown>>('/local-backup/run', {
+      method: 'POST',
+    }),
+
   // GitHub backup
   getGitHubBackupStatus: () =>
     request<Record<string, unknown>>('/github-backup/status'),
@@ -1259,6 +1530,14 @@ export const api = {
   getSystemInfo: () => request<Record<string, unknown>>('/system/info'),
 
   getSystemHealth: () => request<Record<string, unknown>>('/system/health'),
+
+  getStorageUsage: (options?: { refresh?: boolean }) => {
+    const p = new URLSearchParams();
+    if (options?.refresh) p.set('refresh', 'true');
+    return request<Record<string, unknown>>(
+      `/system/storage-usage${p.toString() ? `?${p}` : ''}`,
+    );
+  },
 
   getUpdateInfo: () => request<Record<string, unknown>>('/updates/check'),
 
@@ -1275,6 +1554,29 @@ export const api = {
     if (params?.lines) p.set('lines', String(params.lines));
     return request<Record<string, unknown>>(`/system/logs?${p}`);
   },
+
+  getDebugLoggingState: () =>
+    request<Record<string, unknown>>('/support/debug-logging'),
+
+  setDebugLogging: (enabled: boolean) =>
+    request<Record<string, unknown>>('/support/debug-logging', {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    }),
+
+  downloadSupportBundle: () => requestBlob('/support/bundle'),
+
+  getSupportLogs: (params?: { limit?: number; level?: string; search?: string }) => {
+    const p = new URLSearchParams();
+    if (params?.limit) p.set('limit', String(params.limit));
+    if (params?.level) p.set('level', params.level);
+    if (params?.search) p.set('search', params.search);
+    return request<Record<string, unknown>>(
+      `/support/logs${p.toString() ? `?${p}` : ''}`,
+    );
+  },
+
+  clearSupportLogs: () => request<void>('/support/logs', { method: 'DELETE' }),
 
   // ── External Links ───────────────────────────────
   getExternalLinks: () =>

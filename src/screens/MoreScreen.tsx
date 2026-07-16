@@ -3,40 +3,36 @@ import { useNavigation } from '@react-navigation/native';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { useMutation } from '@tanstack/react-query';
+import { MenuItem, SectionHeader } from '@/components/common/UIComponents';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
 import { fontSize, fontWeight, spacing } from '@/theme/tokens';
-import {
-  PrimaryButton,
-  SectionCard,
-  SettingRow,
-} from '@/components/common/AppUI';
 
-const GROUPS = [
+const MENU_GROUPS = [
   {
-    title: 'Monitoring',
+    title: 'Configuration',
     items: [
-      { icon: 'bar-chart', label: 'Stats', route: 'Stats' },
-      { icon: 'package', label: 'Inventory', route: 'Inventory' },
-      { icon: 'wrench', label: 'Maintenance', route: 'Maintenance' },
+      { icon: 'settings', label: 'Settings', subtitle: 'Server, integrations, backup, API keys', route: 'Settings' },
+      { icon: 'users', label: 'Users', subtitle: 'Accounts, roles, LDAP, password reset', route: 'Users' },
+      { icon: 'bell', label: 'Notifications', subtitle: 'Email delivery preferences', route: 'Notifications' },
     ],
   },
   {
-    title: 'Management',
+    title: 'Operations',
     items: [
-      { icon: 'layers', label: 'Projects', route: 'Projects' },
-      { icon: 'copy', label: 'Profiles', route: 'Profiles' },
-      { icon: 'bell', label: 'Notifications', route: 'Notifications' },
-      { icon: 'globe', label: 'MakerWorld', route: 'MakerWorld' },
+      { icon: 'package', label: 'Inventory', subtitle: 'Spools, locations, bulk edits, forecast', route: 'Inventory' },
+      { icon: 'wrench', label: 'Maintenance', subtitle: 'Per-printer tasks and service intervals', route: 'Maintenance' },
+      { icon: 'layers', label: 'Projects', subtitle: 'Project plans, BOMs, print progress', route: 'Projects' },
+      { icon: 'copy', label: 'Profiles', subtitle: 'Cloud, Orca, local, and K profiles', route: 'Profiles' },
+      { icon: 'globe', label: 'MakerWorld', subtitle: 'Resolve, import, and browse recent models', route: 'MakerWorld' },
     ],
   },
   {
-    title: 'System',
+    title: 'Insights & tools',
     items: [
-      { icon: 'settings', label: 'Settings', route: 'Settings' },
-      { icon: 'users', label: 'Users & Groups', route: 'Users' },
-      { icon: 'cpu', label: 'System Info', route: 'System' },
-      { icon: 'qr-code', label: 'Scanner', route: 'Scanner' },
+      { icon: 'bar-chart', label: 'Stats', subtitle: 'Print activity, filament trends, breakdowns', route: 'Stats' },
+      { icon: 'cpu', label: 'System', subtitle: 'Health, resources, logs, support tools', route: 'System' },
+      { icon: 'qr-code', label: 'Scanner', subtitle: 'Scan QR and NFC related data', route: 'Scanner' },
     ],
   },
 ] as const;
@@ -46,16 +42,15 @@ export default function MoreScreen() {
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'More' });
   }, [navigation]);
+
   const { colors } = useTheme();
   const { user, logout } = useAuth();
+  const version = DeviceInfo.getVersion() || 'dev';
 
   const logoutMutation = useMutation({
     mutationFn: logout,
-    onSuccess: () =>
-      navigation.reset({ index: 0, routes: [{ name: 'Login' }] }),
+    onSuccess: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }),
   });
-
-  const version = DeviceInfo.getVersion() || 'dev';
 
   return (
     <ScrollView
@@ -64,49 +59,39 @@ export default function MoreScreen() {
     >
       <View style={styles.hero}>
         <Text style={[styles.heroTitle, { color: colors.text }]}>More</Text>
-        <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+        <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}> 
           Signed in as {user?.username ?? 'Guest'}
         </Text>
       </View>
 
-      {GROUPS.map(group => (
+      {MENU_GROUPS.map(group => (
         <View key={group.title} style={styles.group}>
-          <Text style={[styles.groupTitle, { color: colors.textTertiary }]}>
-            {group.title}
-          </Text>
-          <SectionCard>
-            {group.items.map((item, index) => (
-              <View
+          <SectionHeader title={group.title} />
+          <View>
+            {group.items.map(item => (
+              <MenuItem
                 key={item.label}
-                style={
-                  index === group.items.length - 1 ? styles.lastRow : undefined
-                }
-              >
-                <SettingRow
-                  icon={item.icon}
-                  label={item.label}
-                  onPress={() => navigation.navigate(item.route as never)}
-                />
-              </View>
+                icon={item.icon}
+                label={item.label}
+                subtitle={item.subtitle}
+                onPress={() => navigation.navigate(item.route as never)}
+              />
             ))}
-          </SectionCard>
+          </View>
         </View>
       ))}
 
-      <SectionCard
-        title="Account"
-        subtitle="Manage your session and connected server."
-      >
-        <PrimaryButton
+      <View style={styles.accountCard}>
+        <MenuItem
+          icon="power"
           label={logoutMutation.isPending ? 'Signing out…' : 'Sign out'}
+          subtitle="Disconnect this mobile session"
           onPress={() => void logoutMutation.mutateAsync()}
-          variant="secondary"
+          destructive
         />
-      </SectionCard>
+      </View>
 
-      <Text style={[styles.version, { color: colors.textTertiary }]}>
-        Bambuddy Mobile v{version}
-      </Text>
+      <Text style={[styles.version, { color: colors.textTertiary }]}>Bambuddy Mobile v{version}</Text>
     </ScrollView>
   );
 }
@@ -131,14 +116,8 @@ const styles = StyleSheet.create({
   group: {
     gap: spacing.sm,
   },
-  groupTitle: {
-    fontSize: fontSize.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginLeft: spacing.xs,
-  },
-  lastRow: {
-    marginBottom: -spacing.md,
+  accountCard: {
+    marginTop: spacing.sm,
   },
   version: {
     textAlign: 'center',
