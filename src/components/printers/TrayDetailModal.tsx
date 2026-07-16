@@ -298,7 +298,7 @@ export function TrayDetailModal({
   }, [currentPreset?.preset_name, presets, search, tray?.tray_type]);
 
   const currentAms = useMemo(
-    () => statusQuery.data?.ams.find(ams => ams.id === context?.amsId) ?? null,
+    () => (statusQuery.data?.ams ?? []).find(ams => ams.id === context?.amsId) ?? null,
     [context?.amsId, statusQuery.data?.ams],
   );
   const dryingSupported = Boolean(
