@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -83,9 +84,11 @@ export default function ServerConfigScreen() {
           { backgroundColor: colors.card, borderColor: colors.cardBorder },
         ]}
       >
-        <Text style={[styles.logo, { color: colors.accentLight }]}>
-          Bambuddy
-        </Text>
+        <Image
+          source={require('../../assets/images/bambuddy-logo.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
         <Text style={[styles.title, { color: colors.text }]}>
           Connect to your server
         </Text>
@@ -137,6 +140,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize['3xl'],
     fontWeight: fontWeight.bold,
     textAlign: 'center',
+  },
+  logoImage: {
+    width: 120,
+    height: 120,
+    alignSelf: 'center',
   },
   title: {
     fontSize: fontSize['2xl'],

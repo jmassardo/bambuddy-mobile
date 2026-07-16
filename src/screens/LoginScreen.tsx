@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -90,9 +91,11 @@ export default function LoginScreen() {
           { backgroundColor: colors.card, borderColor: colors.cardBorder },
         ]}
       >
-        <Text style={[styles.logo, { color: colors.accentLight }]}>
-          Bambuddy
-        </Text>
+        <Image
+          source={require('../../assets/images/bambuddy-logo.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           Sign in to manage your printers, queue, and library.
         </Text>
@@ -163,6 +166,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize['3xl'],
     fontWeight: fontWeight.bold,
     textAlign: 'center',
+  },
+  logoImage: {
+    width: 120,
+    height: 120,
+    alignSelf: 'center',
   },
   subtitle: {
     fontSize: fontSize.base,
