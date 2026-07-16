@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import RootNavigator from '@/navigation/RootNavigator';
 import { ThemeProvider, useTheme } from '@/theme';
+import { useServerStore } from '@/api/server';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +53,16 @@ function AppContent() {
 }
 
 export default function App() {
+  const serverLoading = useServerStore((s) => s.loading);
+  const loadServerUrl = useServerStore((s) => s.loadServerUrl);
+
+  useEffect(() => {
+    loadServerUrl();
+  }, [loadServerUrl]);
+
+  // Don't render until server URL is hydrated from AsyncStorage
+  if (serverLoading) return null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

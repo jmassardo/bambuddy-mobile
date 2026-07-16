@@ -33,6 +33,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
   const { user, authEnabled, loading, requiresSetup } = useAuth();
   const serverUrl = useServerStore((s) => s.serverUrl);
+  const serverLoading = useServerStore((s) => s.loading);
   const theme = useTheme();
 
   const screenOptions = {
@@ -41,6 +42,9 @@ export default function RootNavigator() {
     headerTitleStyle: { color: theme.colors.text },
     contentStyle: { backgroundColor: theme.colors.background },
   };
+
+  // Still hydrating server URL from storage
+  if (serverLoading) return null;
 
   // No server configured yet
   if (!serverUrl) {
