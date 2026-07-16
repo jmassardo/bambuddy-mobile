@@ -1616,19 +1616,42 @@ export function PrinterCard({
         </>
       ) : null}
 
-      {(maintenance?.items?.length ?? 0) > 0 ? (
+      {(maintenance?.items?.length ?? 0) > 0 ? (() => {
+        const neededItems = maintenance!.items.filter(item => item.is_due || item.is_warning);
+        if (neededItems.length === 0) return null;
+        return (
         <>
-          <SectionLabel label="Maintenance" />
+          <SectionLabel label="Maintenance needed" />
           <View style={styles.maintenanceList}>
-            {maintenance?.items.slice(0, 3).map(item => {
+            {neededItems.slice(0, 5).map(item => {
               const tone = item.is_due
                 ? colors.error
-                : item.is_warning
-                  ? colors.warning
-                  : colors.success;
+                : colors.warning;
               return (
-                <View
+                <Pressable
                   key={item.id}
+                  onPress={() => {
+                    Alert.alert(
+                      item.maintenance_type_name,
+                      item.is_due
+                        ? `This task is overdue. Mark as completed?`
+                        : `This task is due soon (${item.interval_type === 'days' ? `${item.days_until_due ?? 0} days left` : `${Math.round(item.hours_until_due)}h left`}). Mark as completed?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Mark complete',
+                          onPress: () => {
+                            api.performMaintenance(item.id).then(() => {
+                              queryClient.invalidateQueries({ queryKey: ['maintenanceTasks'] });
+                              showToast(`${item.maintenance_type_name} marked complete`, 'success');
+                            }).catch(err => {
+                              showToast(getErrorMessage(err, 'Could not complete task'), 'error');
+                            });
+                          },
+                        },
+                      ],
+                    );
+                  }}
                   style={[
                     styles.maintenanceItem,
                     {
@@ -1643,17 +1666,21 @@ export function PrinterCard({
                       {item.maintenance_type_name}
                     </Text>
                     <Text style={[styles.maintenanceSubtitle, { color: colors.textSecondary }]}> 
-                      {item.interval_type === 'days'
-                        ? `${item.days_until_due ?? 0} day${(item.days_until_due ?? 0) === 1 ? '' : 's'} left`
-                        : `${Math.round(item.hours_until_due)}h left`}
+                      {item.is_due
+                        ? 'Overdue'
+                        : item.interval_type === 'days'
+                          ? `${item.days_until_due ?? 0} day${(item.days_until_due ?? 0) === 1 ? '' : 's'} left`
+                          : `${Math.round(item.hours_until_due)}h left`}
                     </Text>
                   </View>
-                </View>
+                  <CheckCircle size={16} color={colors.textTertiary} strokeWidth={1.5} />
+                </Pressable>
               );
             })}
           </View>
         </>
-      ) : null}
+        );
+      })() : null}
 
       <View style={styles.footerRow}>
         <View style={styles.footerLeft}>
