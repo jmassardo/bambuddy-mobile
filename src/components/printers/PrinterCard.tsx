@@ -279,7 +279,8 @@ function getTrayLabel(tray: AMSTray) {
 }
 
 function getTrayFill(tray: AMSTray) {
-  if (!tray.tray_type || tray.remain < 0) return null;
+  if (!tray.tray_type) return null;
+  if (tray.remain < 0) return 0; // Unknown fill shown as 0% (matches web)
   return clamp(tray.remain);
 }
 
@@ -2100,7 +2101,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: borderRadius.md,
     padding: spacing.sm,
-    gap: spacing.xs,
+    gap: 4,
   },
   trayCardCompact: {
     maxWidth: 140,
