@@ -69,7 +69,7 @@ export default function LoginScreen() {
         return;
       }
       showToast('Signed in successfully.', 'success');
-      navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+      // RootNavigator will automatically switch to Main stack when user is set
     },
     onError: (mutationError: Error) => {
       setError(mutationError.message || 'Login failed.');

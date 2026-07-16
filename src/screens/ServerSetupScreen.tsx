@@ -55,17 +55,9 @@ export default function ServerConfigScreen() {
         throw mutationError;
       }
     },
-    onSuccess: status => {
+    onSuccess: () => {
       showToast('Connected to Bambuddy server.', 'success');
-      if (status.requires_setup) {
-        navigation.reset({ index: 0, routes: [{ name: 'Setup' }] });
-        return;
-      }
-      if (status.auth_enabled) {
-        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-        return;
-      }
-      navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+      // RootNavigator automatically handles navigation based on auth state
     },
     onError: (mutationError: Error) => {
       setError(mutationError.message || 'Could not connect to that server.');
