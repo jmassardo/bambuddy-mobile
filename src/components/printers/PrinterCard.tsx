@@ -1,18 +1,13 @@
-import React, { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo } from 'react';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
-import { Icon } from '@/components/common/TabBarIcon';
+import { getAuthToken, api } from '@/api/client';
+import { useServerStore } from '@/api/server';
 import { StatusBadge } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
-import {
-  borderRadius,
-  fontSize,
-  fontWeight,
-  spacing,
-} from '@/theme/tokens';
+import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type {
   AMSUnit,
   AMSTray,
@@ -23,6 +18,28 @@ import type {
   PrinterStatus,
 } from '@/types/api';
 import { formatDuration, statusColor, withCacheBuster } from '@/utils/data';
+import {
+  AlertCircle,
+  Camera,
+  CheckCircle,
+  ChevronDown,
+  FolderOpen,
+  Gauge,
+  Layers,
+  Lightbulb,
+  Link,
+  MoreVertical,
+  Move,
+  Pause,
+  Play,
+  Printer as PrinterIcon,
+  RefreshCw,
+  RotateCcw,
+  Square,
+  Wifi,
+  WifiOff,
+  Wrench,
+} from 'lucide-react-native';
 
 const DOOR_SENSOR_MODELS = new Set([
   'X1C',
@@ -56,10 +73,21 @@ const SPEED_LEVELS: Record<number, { label: string; percent: string }> = {
   4: { label: 'Ludicrous', percent: '166%' },
 };
 
+const PRINT_GREEN = '#10b981';
+const PAUSE_AMBER = '#f59e0b';
+const STOP_RED = '#ef4444';
+
 interface MaintenanceSummary {
   dueCount: number;
   warningCount: number;
   items: MaintenanceStatus[];
+}
+
+interface TrayPressContext {
+  amsId?: number | null;
+  slotIndex: number;
+  isExternal: boolean;
+  label: string;
 }
 
 interface PrinterCardProps {
@@ -74,6 +102,7 @@ interface PrinterCardProps {
   onQueuePress?: () => void;
   onMaintenancePress?: () => void;
   onPrintPress?: () => void;
+  onTrayPress?: (tray: AMSTray, context: TrayPressContext) => void;
 }
 
 function clamp(value: number, min = 0, max = 100) {
@@ -245,9 +274,7 @@ function getTrayGlobalId(amsId: number, trayId: number) {
 
 function getNozzleName(slot: NozzleRackSlot) {
   const diameter = slot.nozzle_diameter ? `${slot.nozzle_diameter}mm` : 'Nozzle';
-  const type = slot.nozzle_type
-    ? slot.nozzle_type.replace(/_/g, ' ')
-    : '';
+  const type = slot.nozzle_type ? slot.nozzle_type.replace(/_/g, ' ') : '';
   return type ? `${diameter} ${type}` : diameter;
 }
 
@@ -305,19 +332,18 @@ function InfoPill({
 }: {
   label: string;
   color: string;
-  icon?: string;
+  icon?: React.ReactNode;
   onPress?: () => void;
 }) {
-  const { colors } = useTheme();
   const content = (
     <View
       style={[
         styles.infoPill,
-        { backgroundColor: `${color}22`, borderColor: `${color}55` },
+        { backgroundColor: `${color}18`, borderColor: `${color}45` },
       ]}
     >
-      {icon ? <Icon name={icon} size={14} color={color} /> : null}
-      <Text style={[styles.infoPillText, { color: label ? color : colors.text }]}>
+      {icon}
+      <Text style={[styles.infoPillText, { color }]} numberOfLines={1}>
         {label}
       </Text>
     </View>
@@ -345,25 +371,33 @@ function SectionLabel({ label }: { label: string }) {
 
 function TrayCard({
   label,
+  subtitle,
   fill,
   colorHex,
   active,
   helper,
+  onPress,
+  compact,
 }: {
   label: string;
+  subtitle?: string;
   fill: number | null;
   colorHex: string | null | undefined;
   active: boolean;
   helper: string;
+  onPress?: () => void;
+  compact?: boolean;
 }) {
   const { colors } = useTheme();
   const color = parseFilamentColor(colorHex);
   const lightColor = isLightColor(colorHex);
+  const textColor = color && lightColor ? colors.textInverse : colors.text;
 
-  return (
+  const content = (
     <View
       style={[
         styles.trayCard,
+        compact && styles.trayCardCompact,
         {
           backgroundColor: colors.surfaceElevated,
           borderColor: active ? colors.accent : colors.border,
@@ -380,22 +414,18 @@ function TrayCard({
             },
           ]}
         >
-          <Text
-            style={[
-              styles.trayColorText,
-              { color: color && lightColor ? colors.textInverse : colors.text },
-            ]}
-          >
-            {helper}
-          </Text>
+          <Text style={[styles.trayColorText, { color: textColor }]}>{helper}</Text>
         </View>
-        {active ? (
-          <View style={[styles.activeDot, { backgroundColor: colors.accent }]} />
-        ) : null}
+        {active ? <View style={[styles.activeDot, { backgroundColor: colors.accent }]} /> : null}
       </View>
       <Text style={[styles.trayLabel, { color: colors.text }]} numberOfLines={1}>
         {label}
       </Text>
+      {subtitle ? (
+        <Text style={[styles.traySubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      ) : null}
       <View style={[styles.fillTrack, { backgroundColor: colors.surfaceHover }]}>
         <View
           style={[
@@ -411,6 +441,14 @@ function TrayCard({
         {fill == null ? '—' : `${fill}% remaining`}
       </Text>
     </View>
+  );
+
+  if (!onPress) return content;
+
+  return (
+    <Pressable onPress={onPress} style={styles.trayPressable}>
+      {content}
+    </Pressable>
   );
 }
 
@@ -467,8 +505,7 @@ function NozzleRackView({
               style={[
                 styles.rackSlotText,
                 {
-                  color:
-                    color && lightColor ? colors.textInverse : colors.text,
+                  color: color && lightColor ? colors.textInverse : colors.text,
                 },
               ]}
             >
@@ -478,6 +515,47 @@ function NozzleRackView({
         );
       })}
     </View>
+  );
+}
+
+function ControlButton({
+  label,
+  icon,
+  trailingIcon,
+  onPress,
+  disabled,
+  backgroundColor,
+  borderColor,
+  textColor,
+  outline,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  trailingIcon?: React.ReactNode;
+  onPress: () => void;
+  disabled?: boolean;
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+  outline?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={[
+        styles.controlButton,
+        { backgroundColor, borderColor },
+        outline && styles.controlButtonOutline,
+        disabled && styles.disabledAction,
+      ]}
+    >
+      {icon}
+      <Text style={[styles.controlButtonText, { color: textColor }]} numberOfLines={1}>
+        {label}
+      </Text>
+      {trailingIcon}
+    </Pressable>
   );
 }
 
@@ -493,11 +571,18 @@ export function PrinterCard({
   onQueuePress,
   onMaintenancePress,
   onPrintPress,
+  onTrayPress,
 }: PrinterCardProps) {
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
+  const serverUrl = useServerStore(state => state.serverUrl);
+  const authToken = getAuthToken();
+  const authHeaders = useMemo(
+    () => (authToken ? { Authorization: `Bearer ${authToken}` } : undefined),
+    [authToken],
+  );
 
   const isConnected = status?.connected ?? false;
   const isPrinting = status?.state === 'RUNNING' || status?.state === 'PAUSE';
@@ -515,10 +600,59 @@ export function PrinterCard({
   const maintenanceCount =
     (maintenance?.dueCount ?? 0) + (maintenance?.warningCount ?? 0);
   const canCamera = hasPermission('camera:view') && !!onCameraPress;
+  const canPrintControl =
+    isPrinting && hasPermission('printers:control');
+  const canControlPrinter = isConnected && hasPermission('printers:control');
+  const canBrowse = !!onPrintPress;
+  const canClearPlate =
+    Boolean(status?.awaiting_plate_clear) &&
+    !isPrinting &&
+    hasPermission('printers:clear_plate');
+
+  const invalidatePrinterQueries = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['printerStatus', printer.id] }),
+      queryClient.invalidateQueries({ queryKey: ['printer', printer.id] }),
+      queryClient.invalidateQueries({ queryKey: ['queue'] }),
+      queryClient.invalidateQueries({ queryKey: ['maintenanceTasks'] }),
+      queryClient.invalidateQueries({ queryKey: ['currentPrintUser', printer.id] }),
+    ]);
+  }, [printer.id, queryClient]);
+
   const cameraUri = useMemo(() => {
     if (!canCamera) return null;
     return withCacheBuster(api.getCameraSnapshotUrl(printer.id), snapshotSeed);
   }, [canCamera, printer.id, snapshotSeed]);
+
+  const cameraSource = useMemo(() => {
+    if (!cameraUri) return null;
+    return {
+      uri: cameraUri,
+      headers: authHeaders,
+    };
+  }, [authHeaders, cameraUri]);
+
+  const printerImageUrl = useMemo(() => {
+    const apiWithImage = api as typeof api & {
+      getPrinterImageUrl?: (printerId: number) => string;
+    };
+
+    if (typeof apiWithImage.getPrinterImageUrl === 'function') {
+      return apiWithImage.getPrinterImageUrl(printer.id);
+    }
+
+    if (!serverUrl) return null;
+    const tokenParam = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/printers/${printer.id}/image${tokenParam}`;
+  }, [authToken, printer.id, serverUrl]);
+
+  const printerImageSource = useMemo(() => {
+    if (!printerImageUrl) return null;
+    return {
+      uri: printerImageUrl,
+      headers: authHeaders,
+    };
+  }, [authHeaders, printerImageUrl]);
 
   const currentPrintUserQuery = useQuery({
     queryKey: ['currentPrintUser', printer.id],
@@ -535,30 +669,93 @@ export function PrinterCard({
       return api.stopPrint(printer.id);
     },
     onSuccess: async (_, action) => {
-      await queryClient.invalidateQueries({ queryKey: ['printerStatus', printer.id] });
-      await queryClient.invalidateQueries({ queryKey: ['queue'] });
+      await invalidatePrinterQueries();
       showToast(`Printer ${action} command sent.`, 'success');
     },
     onError: () => showToast('Printer command failed.', 'error'),
   });
 
+  const lightMutation = useMutation({
+    mutationFn: () => api.setChamberLight(printer.id, !status?.chamber_light),
+    onSuccess: async () => {
+      await invalidatePrinterQueries();
+      showToast(
+        status?.chamber_light ? 'Chamber light turned off.' : 'Chamber light turned on.',
+        'success',
+      );
+    },
+    onError: () => showToast('Could not update chamber light.', 'error'),
+  });
+
+  const speedMutation = useMutation({
+    mutationFn: (mode: number) => api.setPrintSpeed(printer.id, mode),
+    onSuccess: async () => {
+      await invalidatePrinterQueries();
+      showToast('Print speed updated.', 'success');
+    },
+    onError: () => showToast('Failed to update print speed.', 'error'),
+  });
+
   const clearPlateMutation = useMutation({
     mutationFn: () => api.clearPlate(printer.id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['printerStatus', printer.id] });
+      await invalidatePrinterQueries();
       showToast('Plate marked as cleared.', 'success');
     },
     onError: () => showToast('Could not update plate status.', 'error'),
   });
 
-  const canClearPlate =
-    Boolean(status?.awaiting_plate_clear) &&
-    !isPrinting &&
-    hasPermission('printers:clear_plate');
-  const canControlPrint =
-    isPrinting &&
-    !actionMutation.isPending &&
-    hasPermission('printers:control');
+  const handleRefresh = useCallback(async () => {
+    await invalidatePrinterQueries();
+    showToast('Refreshing printer status…', 'success');
+  }, [invalidatePrinterQueries, showToast]);
+
+  const handleTrayPress = useCallback(
+    (tray: AMSTray, context: TrayPressContext) => {
+      if (onTrayPress) {
+        onTrayPress(tray, context);
+        return;
+      }
+
+      Alert.alert(
+        `Tray ${context.label}`,
+        tray.tray_sub_brands || tray.tray_type || 'No filament details available.',
+      );
+    },
+    [onTrayPress],
+  );
+
+  const showMoveMenu = useCallback(() => {
+    Alert.alert('Move controls', 'XY/Z move controls will be wired up next.');
+  }, []);
+
+  const showCalibrateMenu = useCallback(() => {
+    Alert.alert('Calibration', 'Calibration controls will be wired up next.');
+  }, []);
+
+  const showSpeedMenu = useCallback(() => {
+    Alert.alert('Print speed', 'Choose a print speed.', [
+      ...Object.entries(SPEED_LEVELS).map(([value, info]) => ({
+        text: `${info.label} (${info.percent})`,
+        onPress: () => {
+          speedMutation.mutate(Number(value));
+        },
+      })),
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [speedMutation]);
+
+  const showMoreMenu = useCallback(() => {
+    Alert.alert('Printer options', printer.name, [
+      { text: 'Edit', onPress: () => Alert.alert('Edit', 'Edit flow coming soon.') },
+      {
+        text: printer.is_active === false ? 'Disable maintenance mode' : 'Enable maintenance mode',
+        onPress: () => Alert.alert('Maintenance mode', 'Maintenance mode controls coming soon.'),
+      },
+      { text: 'Delete', style: 'destructive', onPress: () => Alert.alert('Delete', 'Delete flow coming soon.') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [printer.is_active, printer.name]);
 
   const cameraPreview = canCamera ? (
     <Pressable
@@ -571,14 +768,10 @@ export function PrinterCard({
         },
       ]}
     >
-      {cameraUri ? (
-        <Image source={{ uri: cameraUri }} style={styles.previewImage} />
-      ) : null}
-      <View style={[styles.previewOverlay, { backgroundColor: colors.overlay }]}>
-        <Icon name="camera" size={16} color={colors.text} />
-        <Text style={[styles.previewOverlayText, { color: colors.text }]}> 
-          Live view
-        </Text>
+      {cameraSource ? <Image source={cameraSource} style={styles.previewImage} /> : null}
+      <View style={[styles.previewOverlay, { backgroundColor: colors.overlay }]}> 
+        <Camera size={14} color={colors.text} strokeWidth={2} />
+        <Text style={[styles.previewOverlayText, { color: colors.text }]}>Live view</Text>
       </View>
     </Pressable>
   ) : (
@@ -591,8 +784,8 @@ export function PrinterCard({
         },
       ]}
     >
-      <Icon name="camera" size={22} color={colors.textTertiary} />
-      <Text style={[styles.previewPlaceholderText, { color: colors.textSecondary }]}>
+      <Camera size={20} color={colors.textTertiary} strokeWidth={2} />
+      <Text style={[styles.previewPlaceholderText, { color: colors.textSecondary }]}> 
         Camera unavailable
       </Text>
     </View>
@@ -607,8 +800,20 @@ export function PrinterCard({
     >
       <View style={styles.headerRow}>
         <Pressable onPress={onPress} style={styles.titleArea}>
-          <View style={[styles.printerIconWrap, { backgroundColor: colors.accentBg }]}>
-            <Icon name="printer" size={18} color={colors.accentLight} />
+          <View
+            style={[
+              styles.printerImageWrap,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            {printerImageSource ? (
+              <Image source={printerImageSource} style={styles.printerImage} />
+            ) : (
+              <PrinterIcon size={18} color={colors.textSecondary} strokeWidth={2} />
+            )}
           </View>
           <View style={styles.titleText}>
             <View style={styles.titleLine}>
@@ -635,18 +840,48 @@ export function PrinterCard({
 
       <View style={styles.badgesWrap}>
         <InfoPill
-          label={printer.is_active === false ? 'Maintenance mode' : isConnected ? 'Online' : 'Offline'}
-          color={printer.is_active === false ? colors.warning : isConnected ? colors.success : colors.error}
-          icon={isConnected ? 'link' : 'wifi-off'}
+          label={
+            printer.is_active === false
+              ? 'Maintenance mode'
+              : isConnected
+                ? 'Online'
+                : 'Offline'
+          }
+          color={
+            printer.is_active === false
+              ? colors.warning
+              : isConnected
+                ? colors.success
+                : colors.error
+          }
+          icon={
+            printer.is_active === false ? (
+              <Wrench size={12} color={colors.warning} strokeWidth={2} />
+            ) : isConnected ? (
+              <Link size={12} color={colors.success} strokeWidth={2} />
+            ) : (
+              <WifiOff size={12} color={colors.error} strokeWidth={2} />
+            )
+          }
         />
         {isConnected ? (
           status?.wired_network ? (
-            <InfoPill label="LAN" color={colors.success} icon="link" />
+            <InfoPill
+              label="LAN"
+              color={colors.success}
+              icon={<Link size={12} color={colors.success} strokeWidth={2} />}
+            />
           ) : status?.wifi_signal != null ? (
             <InfoPill
               label={`${status.wifi_signal} dBm`}
               color={getWifiTone(status.wifi_signal, colors)}
-              icon="wifi"
+              icon={
+                <Wifi
+                  size={12}
+                  color={getWifiTone(status.wifi_signal, colors)}
+                  strokeWidth={2}
+                />
+              }
             />
           ) : null
         ) : null}
@@ -654,16 +889,26 @@ export function PrinterCard({
           <InfoPill
             label={`${hmsErrors.length} HMS`}
             color={getSeverityColor(hmsErrors, colors)}
-            icon="alert-circle"
+            icon={
+              <AlertCircle
+                size={12}
+                color={getSeverityColor(hmsErrors, colors)}
+                strokeWidth={2}
+              />
+            }
           />
         ) : (
-          <InfoPill label="HMS OK" color={colors.success} icon="check-circle" />
+          <InfoPill
+            label="HMS OK"
+            color={colors.success}
+            icon={<CheckCircle size={12} color={colors.success} strokeWidth={2} />}
+          />
         )}
         {queueCount > 0 ? (
           <InfoPill
             label={`${queueCount} queued`}
             color={colors.info}
-            icon="layers"
+            icon={<Layers size={12} color={colors.info} strokeWidth={2} />}
             onPress={onQueuePress}
           />
         ) : null}
@@ -671,11 +916,21 @@ export function PrinterCard({
           <InfoPill
             label={`${maintenanceCount} maintenance`}
             color={maintenance?.dueCount ? colors.error : colors.warning}
-            icon="wrench"
+            icon={
+              <Wrench
+                size={12}
+                color={maintenance?.dueCount ? colors.error : colors.warning}
+                strokeWidth={2}
+              />
+            }
             onPress={onMaintenancePress}
           />
         ) : (
-          <InfoPill label="Maintenance OK" color={colors.success} icon="wrench" />
+          <InfoPill
+            label="Maintenance OK"
+            color={colors.success}
+            icon={<Wrench size={12} color={colors.success} strokeWidth={2} />}
+          />
         )}
         {status?.firmware_version ? (
           <InfoPill label={status.firmware_version} color={colors.textSecondary} />
@@ -697,9 +952,7 @@ export function PrinterCard({
               {badgeLabel}
             </Text>
             {loading ? (
-              <Text style={[styles.refreshText, { color: colors.textTertiary }]}> 
-                Refreshing…
-              </Text>
+              <Text style={[styles.refreshText, { color: colors.textTertiary }]}>Refreshing…</Text>
             ) : null}
           </View>
           <Text style={[styles.printName, { color: colors.text }]} numberOfLines={2}>
@@ -720,7 +973,7 @@ export function PrinterCard({
             <Text style={[styles.progressText, { color: colors.text }]}> 
               {`${Math.round(progress)}%`}
             </Text>
-            <Text style={[styles.progressMeta, { color: colors.textSecondary }]}>
+            <Text style={[styles.progressMeta, { color: colors.textSecondary }]}> 
               Layer{' '}
               {status?.layer_num != null && status?.total_layers != null
                 ? `${status.layer_num}/${status.total_layers}`
@@ -749,6 +1002,93 @@ export function PrinterCard({
             </Text>
           ) : null}
         </View>
+      </View>
+
+      <SectionLabel label="Controls" />
+      <View style={styles.controlsGrid}>
+        <ControlButton
+          label={status?.chamber_light ? 'Light on' : 'Light off'}
+          icon={<Lightbulb size={15} color={colors.text} strokeWidth={2} />}
+          onPress={() => lightMutation.mutate()}
+          disabled={!canControlPrinter || lightMutation.isPending}
+          backgroundColor={colors.surfaceElevated}
+          borderColor={colors.border}
+          textColor={colors.text}
+        />
+        <ControlButton
+          label="Move"
+          icon={<Move size={15} color={colors.text} strokeWidth={2} />}
+          onPress={showMoveMenu}
+          disabled={!canControlPrinter}
+          backgroundColor={colors.surfaceElevated}
+          borderColor={colors.border}
+          textColor={colors.text}
+        />
+        <ControlButton
+          label="Calibrate"
+          icon={<RotateCcw size={15} color={colors.text} strokeWidth={2} />}
+          onPress={showCalibrateMenu}
+          disabled={!canControlPrinter}
+          backgroundColor={colors.surfaceElevated}
+          borderColor={colors.border}
+          textColor={colors.text}
+        />
+        <ControlButton
+          label={speedInfo.label}
+          icon={<Gauge size={15} color={colors.text} strokeWidth={2} />}
+          trailingIcon={<ChevronDown size={14} color={colors.textSecondary} strokeWidth={2} />}
+          onPress={showSpeedMenu}
+          disabled={!canControlPrinter || speedMutation.isPending}
+          backgroundColor={colors.surfaceElevated}
+          borderColor={colors.border}
+          textColor={colors.text}
+        />
+        <ControlButton
+          label="Refresh"
+          icon={<RefreshCw size={15} color={colors.text} strokeWidth={2} />}
+          onPress={handleRefresh}
+          backgroundColor={colors.surfaceElevated}
+          borderColor={colors.border}
+          textColor={colors.text}
+        />
+      </View>
+      <View style={styles.controlActionsRow}>
+        <ControlButton
+          label={isPaused ? 'Resume' : 'Pause'}
+          icon={
+            isPaused ? (
+              <Play size={15} color={colors.textInverse} strokeWidth={2} />
+            ) : (
+              <Pause size={15} color={colors.textInverse} strokeWidth={2} />
+            )
+          }
+          onPress={() => actionMutation.mutate(isPaused ? 'resume' : 'pause')}
+          disabled={!canPrintControl || actionMutation.isPending}
+          backgroundColor={isPaused ? PRINT_GREEN : PAUSE_AMBER}
+          borderColor={isPaused ? PRINT_GREEN : PAUSE_AMBER}
+          textColor={colors.textInverse}
+        />
+        <ControlButton
+          label="Stop"
+          icon={<Square size={15} color={colors.textInverse} strokeWidth={2} />}
+          onPress={() => actionMutation.mutate('stop')}
+          disabled={!canPrintControl || actionMutation.isPending}
+          backgroundColor={STOP_RED}
+          borderColor={STOP_RED}
+          textColor={colors.textInverse}
+        />
+        {status?.awaiting_plate_clear ? (
+          <ControlButton
+            label="Clear plate"
+            icon={<Wrench size={15} color={PAUSE_AMBER} strokeWidth={2} />}
+            onPress={() => clearPlateMutation.mutate()}
+            disabled={!canClearPlate || clearPlateMutation.isPending}
+            backgroundColor="transparent"
+            borderColor={PAUSE_AMBER}
+            textColor={PAUSE_AMBER}
+            outline
+          />
+        ) : null}
       </View>
 
       <SectionLabel label="Temperatures & fans" />
@@ -814,68 +1154,85 @@ export function PrinterCard({
         <>
           <SectionLabel label="Filament systems" />
           <View style={styles.amsList}>
-            {(status?.ams ?? []).map(ams => (
-              <View
-                key={ams.id}
-                style={[
-                  styles.amsCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <View style={styles.amsHeader}>
-                  <View style={styles.amsHeaderText}>
-                    <Text style={[styles.amsTitle, { color: colors.text }]}>
-                      {`AMS ${String.fromCharCode(65 + ((ams.id >= 128 ? ams.id - 128 : ams.id) % 26))}`}
-                    </Text>
-                    <Text style={[styles.amsSubtitle, { color: colors.textSecondary }]}>
-                      {getAmsStatusLabel(ams)}
-                    </Text>
+            {(status?.ams ?? []).map(ams => {
+              const trayCount = ams.tray.length;
+              return (
+                <View
+                  key={ams.id}
+                  style={[
+                    styles.amsCard,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.amsHeader}>
+                    <View style={styles.amsHeaderText}>
+                      <Text style={[styles.amsTitle, { color: colors.text }]}> 
+                        {`AMS ${String.fromCharCode(65 + ((ams.id >= 128 ? ams.id - 128 : ams.id) % 26))}`}
+                      </Text>
+                      <Text style={[styles.amsSubtitle, { color: colors.textSecondary }]}> 
+                        {getAmsStatusLabel(ams)}
+                      </Text>
+                    </View>
+                    <View style={styles.amsIndicators}>
+                      {ams.temp != null ? (
+                        <Text style={[styles.amsIndicatorText, { color: getFillColor(100 - ams.temp, colors) }]}> 
+                          {ams.temp}°C
+                        </Text>
+                      ) : null}
+                      {ams.humidity != null ? (
+                        <Text
+                          style={[
+                            styles.amsIndicatorText,
+                            {
+                              color:
+                                ams.humidity <= 40
+                                  ? colors.success
+                                  : ams.humidity <= 60
+                                    ? colors.warning
+                                    : colors.error,
+                            },
+                          ]}
+                        >
+                          {ams.humidity}% RH
+                        </Text>
+                      ) : null}
+                    </View>
                   </View>
-                  <View style={styles.amsIndicators}>
-                    {ams.temp != null ? (
-                      <Text style={[styles.amsIndicatorText, { color: getFillColor(100 - ams.temp, colors) }]}>
-                        🌡 {ams.temp}°C
-                      </Text>
-                    ) : null}
-                    {ams.humidity != null ? (
-                      <Text
-                        style={[
-                          styles.amsIndicatorText,
-                          {
-                            color:
-                              ams.humidity <= 40
-                                ? colors.success
-                                : ams.humidity <= 60
-                                  ? colors.warning
-                                  : colors.error,
-                          },
-                        ]}
-                      >
-                        💧 {ams.humidity}%
-                      </Text>
-                    ) : null}
+                  <View style={styles.trayGrid}>
+                    {ams.tray.map((tray, index) => {
+                      const active = status?.tray_now === getTrayGlobalId(ams.id, tray.id);
+                      return (
+                        <TrayCard
+                          key={`${ams.id}-${tray.id}-${index}`}
+                          label={getTrayLabel(tray)}
+                          subtitle={
+                            tray.tray_sub_brands && tray.tray_type && tray.tray_sub_brands !== tray.tray_type
+                              ? tray.tray_type
+                              : undefined
+                          }
+                          fill={getTrayFill(tray)}
+                          colorHex={tray.tray_color}
+                          active={active}
+                          helper={String(index + 1)}
+                          onPress={() =>
+                            handleTrayPress(tray, {
+                              amsId: ams.id,
+                              slotIndex: index,
+                              isExternal: false,
+                              label: String(index + 1),
+                            })
+                          }
+                          compact={trayCount < 4}
+                        />
+                      );
+                    })}
                   </View>
                 </View>
-                <View style={styles.trayGrid}>
-                  {ams.tray.map((tray, index) => {
-                    const active = status?.tray_now === getTrayGlobalId(ams.id, tray.id);
-                    return (
-                      <TrayCard
-                        key={`${ams.id}-${tray.id}-${index}`}
-                        label={getTrayLabel(tray)}
-                        fill={getTrayFill(tray)}
-                        colorHex={tray.tray_color}
-                        active={active}
-                        helper={String(index + 1)}
-                      />
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
+              );
+            })}
 
             {(status?.vt_tray ?? []).length > 0 ? (
               <View
@@ -905,11 +1262,21 @@ export function PrinterCard({
                     return (
                       <TrayCard
                         key={`ext-${tray.id ?? index}`}
-                        label={getTrayStateLabel(tray)}
+                        label={tray.tray_sub_brands || getTrayStateLabel(tray)}
+                        subtitle={tray.tray_type && tray.tray_sub_brands ? tray.tray_type : 'Virtual tray'}
                         fill={getTrayFill(tray)}
                         colorHex={tray.tray_color}
                         active={active}
                         helper={helper}
+                        onPress={() =>
+                          handleTrayPress(tray, {
+                            amsId: null,
+                            slotIndex: index,
+                            isExternal: true,
+                            label: helper,
+                          })
+                        }
+                        compact
                       />
                     );
                   })}
@@ -967,10 +1334,10 @@ export function PrinterCard({
                   ]}
                 />
                 <View style={styles.hmsText}>
-                  <Text style={[styles.hmsTitle, { color: colors.text }]}>
+                  <Text style={[styles.hmsTitle, { color: colors.text }]}> 
                     {error.full_code || error.code}
                   </Text>
-                  <Text style={[styles.hmsSubtitle, { color: colors.textSecondary }]}>
+                  <Text style={[styles.hmsSubtitle, { color: colors.textSecondary }]}> 
                     Severity {error.severity}
                     {error.actions?.length ? ` • ${error.actions.join(', ')}` : ''}
                   </Text>
@@ -1004,10 +1371,10 @@ export function PrinterCard({
                 >
                   <View style={[styles.maintenanceDot, { backgroundColor: tone }]} />
                   <View style={styles.maintenanceText}>
-                    <Text style={[styles.maintenanceTitle, { color: colors.text }]}>
+                    <Text style={[styles.maintenanceTitle, { color: colors.text }]}> 
                       {item.maintenance_type_name}
                     </Text>
-                    <Text style={[styles.maintenanceSubtitle, { color: colors.textSecondary }]}>
+                    <Text style={[styles.maintenanceSubtitle, { color: colors.textSecondary }]}> 
                       {item.interval_type === 'days'
                         ? `${item.days_until_due ?? 0} day${(item.days_until_due ?? 0) === 1 ? '' : 's'} left`
                         : `${Math.round(item.hours_until_due)}h left`}
@@ -1022,41 +1389,18 @@ export function PrinterCard({
 
       <View style={styles.footerRow}>
         <View style={styles.footerLeft}>
-          {status?.awaiting_plate_clear && !isPrinting ? (
-            <Pressable
-              onPress={() => {
-                clearPlateMutation.mutate();
-              }}
-              disabled={!canClearPlate || clearPlateMutation.isPending}
-              style={[
-                styles.actionButton,
-                {
-                  backgroundColor: colors.warning,
-                  borderColor: colors.warning,
-                },
-                (!canClearPlate || clearPlateMutation.isPending) && styles.disabledAction,
-              ]}
-            >
-              <Text style={[styles.actionButtonText, { color: colors.textInverse }]}> 
-                Clear plate
-              </Text>
-            </Pressable>
-          ) : null}
-          {onPrintPress ? (
-            <Pressable
-              onPress={onPrintPress}
-              style={[
-                styles.actionButton,
-                {
-                  backgroundColor: colors.surfaceElevated,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Icon name="printer" size={14} color={colors.text} />
-              <Text style={[styles.actionButtonText, { color: colors.text }]}>Print</Text>
-            </Pressable>
-          ) : null}
+          <Pressable
+            onPress={showMoreMenu}
+            style={[
+              styles.iconButton,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <MoreVertical size={18} color={colors.text} strokeWidth={2} />
+          </Pressable>
         </View>
         <View style={styles.footerRight}>
           <Pressable
@@ -1071,47 +1415,36 @@ export function PrinterCard({
               !canCamera && styles.disabledAction,
             ]}
           >
-            <Icon name="camera" size={16} color={colors.text} />
+            <Camera size={16} color={colors.text} strokeWidth={2} />
           </Pressable>
           <Pressable
-            onPress={() => {
-              actionMutation.mutate(isPaused ? 'resume' : 'pause');
-            }}
-            disabled={!canControlPrint}
+            onPress={onPrintPress}
+            disabled={!canBrowse}
             style={[
-              styles.actionButton,
+              styles.iconButton,
               {
-                backgroundColor: isPaused ? colors.success : colors.warning,
-                borderColor: isPaused ? colors.success : colors.warning,
+                backgroundColor: colors.surfaceElevated,
+                borderColor: colors.border,
               },
-              !canControlPrint && styles.disabledAction,
+              !canBrowse && styles.disabledAction,
             ]}
           >
-            <Icon
-              name={isPaused ? 'play' : 'pause'}
-              size={14}
-              color={colors.textInverse}
-            />
-            <Text style={[styles.actionButtonText, { color: colors.textInverse }]}> 
-              {isPaused ? 'Resume' : 'Pause'}
-            </Text>
+            <FolderOpen size={16} color={colors.text} strokeWidth={2} />
           </Pressable>
           <Pressable
-            onPress={() => {
-              actionMutation.mutate('stop');
-            }}
-            disabled={!canControlPrint}
+            onPress={onPrintPress}
+            disabled={!canBrowse}
             style={[
-              styles.actionButton,
+              styles.footerPrintButton,
               {
-                backgroundColor: colors.error,
-                borderColor: colors.error,
+                backgroundColor: PRINT_GREEN,
+                borderColor: PRINT_GREEN,
               },
-              !canControlPrint && styles.disabledAction,
+              !canBrowse && styles.disabledAction,
             ]}
           >
-            <Icon name="stop" size={14} color={colors.text} />
-            <Text style={[styles.actionButtonText, { color: colors.text }]}>Stop</Text>
+            <Play size={14} color={colors.textInverse} strokeWidth={2} />
+            <Text style={[styles.footerPrintText, { color: colors.textInverse }]}>Print</Text>
           </Pressable>
         </View>
       </View>
@@ -1123,31 +1456,38 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
     borderRadius: borderRadius.xl,
-    padding: spacing.lg,
+    padding: spacing.md,
     gap: spacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   titleArea: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
-  printerIconWrap: {
+  printerImageWrap: {
     width: 40,
     height: 40,
     borderRadius: borderRadius.lg,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  printerImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: borderRadius.lg,
   },
   titleText: {
     flex: 1,
-    gap: spacing.xs,
+    gap: 2,
   },
   titleLine: {
     flexDirection: 'row',
@@ -1170,19 +1510,19 @@ const styles = StyleSheet.create({
   badgesWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: 6,
   },
   infoPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 4,
     borderRadius: borderRadius.full,
     borderWidth: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   infoPillText: {
-    fontSize: fontSize.xs,
+    fontSize: 10,
     fontWeight: fontWeight.semibold,
   },
   sectionLabelRow: {
@@ -1206,8 +1546,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   previewFrame: {
-    width: 116,
-    height: 116,
+    width: 108,
+    height: 108,
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
     borderWidth: 1,
@@ -1232,8 +1572,8 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
   },
   previewPlaceholder: {
-    width: 116,
-    height: 116,
+    width: 108,
+    height: 108,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     alignItems: 'center',
@@ -1299,6 +1639,34 @@ const styles = StyleSheet.create({
   },
   userText: {
     fontSize: fontSize.xs,
+  },
+  controlsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  controlActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  controlButton: {
+    minHeight: 38,
+    minWidth: 96,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  controlButtonOutline: {
+    backgroundColor: 'transparent',
+  },
+  controlButtonText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
   },
   metricGrid: {
     flexDirection: 'row',
@@ -1372,16 +1740,22 @@ const styles = StyleSheet.create({
   },
   trayGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
   },
+  trayPressable: {
+    flex: 1,
+    minWidth: 0,
+  },
   trayCard: {
-    width: '23%',
-    minWidth: 72,
+    flex: 1,
+    minWidth: 0,
     borderWidth: 1,
     borderRadius: borderRadius.md,
     padding: spacing.sm,
     gap: spacing.xs,
+  },
+  trayCardCompact: {
+    maxWidth: 140,
   },
   trayTopRow: {
     flexDirection: 'row',
@@ -1408,7 +1782,10 @@ const styles = StyleSheet.create({
   },
   trayLabel: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
+    fontWeight: fontWeight.semibold,
+  },
+  traySubtitle: {
+    fontSize: 10,
   },
   fillTrack: {
     height: 6,
@@ -1507,17 +1884,14 @@ const styles = StyleSheet.create({
   footerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
     gap: spacing.sm,
-    flex: 1,
   },
   footerRight: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    flexWrap: 'wrap',
     gap: spacing.sm,
-    flex: 1,
   },
   iconButton: {
     width: 38,
@@ -1527,7 +1901,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionButton: {
+  footerPrintButton: {
     minHeight: 38,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
@@ -1537,7 +1911,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xs,
   },
-  actionButtonText: {
+  footerPrintText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
   },

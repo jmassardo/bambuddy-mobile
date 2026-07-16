@@ -3,9 +3,9 @@
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
 import type { MainTabParamList } from './types';
 import { useTheme } from '@/theme';
+import { Printer, ListOrdered, Archive, FolderOpen, Menu } from 'lucide-react-native';
 
 import DashboardScreen from '@/screens/DashboardScreen';
 import QueueScreen from '@/screens/QueueScreen';
@@ -15,17 +15,13 @@ import MoreScreen from '@/screens/MoreScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-function TabIcon({ name, color }: { name: string; color: string }) {
-  // Simple text-based icons — replace with vector icons later
-  const icons: Record<string, string> = {
-    Dashboard: '🖨',
-    Queue: '📋',
-    Archives: '📦',
-    Files: '📁',
-    More: '⋯',
-  };
-  return <Text style={{ fontSize: 20, color }}>{icons[name] || '•'}</Text>;
-}
+const TAB_ICONS: Record<string, React.ComponentType<{ size: number; color: string }>> = {
+  Dashboard: Printer,
+  Queue: ListOrdered,
+  Archives: Archive,
+  Files: FolderOpen,
+  More: Menu,
+};
 
 export default function MainNavigator() {
   const theme = useTheme();
@@ -34,7 +30,10 @@ export default function MainNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ color }) => <TabIcon name={route.name} color={color} />,
+        tabBarIcon: ({ color }) => {
+          const IconComponent = TAB_ICONS[route.name] || Menu;
+          return <IconComponent size={22} color={color} />;
+        },
         tabBarActiveTintColor: theme.colors.accent,
         tabBarInactiveTintColor: theme.colors.textSecondary,
         tabBarStyle: {

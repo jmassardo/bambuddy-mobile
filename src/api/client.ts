@@ -587,6 +587,12 @@ export const api = {
   },
 
   // Camera
+  getPrinterImageUrl: (printerId: number): string => {
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/printers/${printerId}/image${token}`;
+  },
+
   getCameraSnapshotUrl: (printerId: number): string => {
     const serverUrl = getServerUrl();
     const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';

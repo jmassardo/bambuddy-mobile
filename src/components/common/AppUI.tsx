@@ -204,20 +204,26 @@ export function StatCard({
   label,
   value,
   helper,
+  onPress,
 }: {
   label: string;
   value: string;
   helper?: string;
+  onPress?: () => void;
 }) {
   const { colors } = useTheme();
 
-  return (
+  const content = (
     <View style={[styles.statCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
       <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
-      {helper ? <Text style={[styles.statHelper, { color: colors.textTertiary }]}>{helper}</Text> : null}
+      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
     </View>
   );
+
+  if (onPress) {
+    return <Pressable onPress={onPress} style={{ flex: 1 }}>{content}</Pressable>;
+  }
+  return content;
 }
 
 export function PrimaryButton({
@@ -448,17 +454,18 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    minWidth: 140,
-    borderRadius: borderRadius.lg,
+    minWidth: 70,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
-    padding: spacing.md,
-    gap: spacing.sm,
+    padding: spacing.sm,
+    alignItems: 'center',
+    gap: 2,
   },
   statLabel: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
   },
   statValue: {
-    fontSize: fontSize['2xl'],
+    fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
   },
   statHelper: {

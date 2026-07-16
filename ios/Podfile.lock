@@ -2220,6 +2220,51 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - RNSVG (15.15.5):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - RNSVG/common (= 15.15.5)
+    - Yoga
+  - RNSVG/common (15.15.5):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - RNWorklets (0.10.0):
     - hermes-engine
     - RCTRequired
@@ -2389,6 +2434,7 @@ DEPENDENCIES:
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNShare (from `../node_modules/react-native-share`)
+  - RNSVG (from `../node_modules/react-native-svg`)
   - RNWorklets (from `../node_modules/react-native-worklets`)
   - VisionCamera (from `../node_modules/react-native-vision-camera`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
@@ -2571,6 +2617,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-screens"
   RNShare:
     :path: "../node_modules/react-native-share"
+  RNSVG:
+    :path: "../node_modules/react-native-svg"
   RNWorklets:
     :path: "../node_modules/react-native-worklets"
   VisionCamera:
@@ -2667,6 +2715,7 @@ SPEC CHECKSUMS:
   RNReanimated: fcf6a8cdd698fb09a811a8d6c5bcfe36575d965d
   RNScreens: 212ac060b343693570a7fc86cefa026732b0d6d8
   RNShare: 7344a3a7d4e5df58c356ad0f79e4a3ef1325c635
+  RNSVG: 6cae8d4082913be2eb43eaec2a456222c42195ed
   RNWorklets: ae7f2b95d75b903387e6359583f2fd67bc9a93ff
   VisionCamera: 7187b3dac1ff3071234ead959ce311875748e14f
   Yoga: fe50ab299e578f397fef753cf309c6703a4db29b

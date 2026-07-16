@@ -3,17 +3,17 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import {
   Image,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { withCacheBuster, pickString } from '@/utils/data';
-import { Icon } from '@/components/common/TabBarIcon';
+import { X } from 'lucide-react-native';
 
 export default function CameraScreen() {
   const navigation = useNavigation<any>();
@@ -24,6 +24,7 @@ export default function CameraScreen() {
   const { id } = (route.params ?? {}) as { id: string };
   const printerId = Number(id);
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [tick, setTick] = useState(0);
 
   const printerQuery = useQuery({
@@ -49,21 +50,27 @@ export default function CameraScreen() {
   );
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Image
         source={{ uri: imageUri }}
         style={styles.image}
-        resizeMode="cover"
+        resizeMode="contain"
       />
       <Pressable
         onPress={() => navigation.goBack()}
-        style={[styles.closeButton, { backgroundColor: colors.overlay }]}
+        style={[
+          styles.closeButton,
+          { backgroundColor: colors.overlay, top: insets.top + spacing.md },
+        ]}
       >
-        <Icon name="x" size={20} color={colors.text} />
+        <X size={20} color={colors.text} />
       </Pressable>
-      <View style={[styles.overlayCard, { backgroundColor: colors.overlay }]}>
+      <View
+        style={[
+          styles.overlayCard,
+          { backgroundColor: colors.overlay, bottom: insets.bottom + spacing.lg },
+        ]}
+      >
         <Text style={[styles.title, { color: colors.text }]}>
           {pickString(printerQuery.data, ['name'], 'Camera')}
         </Text>
@@ -81,7 +88,7 @@ export default function CameraScreen() {
           )}
         </Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -90,19 +97,18 @@ const styles = StyleSheet.create({
   image: { flex: 1, width: '100%' },
   closeButton: {
     position: 'absolute',
-    top: spacing.xl,
     right: spacing.lg,
     width: 44,
     height: 44,
     borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 10,
   },
   overlayCard: {
     position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
-    bottom: spacing.xl,
+    left: spacing.md,
+    right: spacing.md,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     gap: spacing.xs,

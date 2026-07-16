@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   useQueries,
   useQuery,
@@ -181,6 +182,7 @@ export default function PrintersDashboardScreen() {
   }, [navigation]);
 
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { hasAnyPermission } = useAuth();
   const queryClient = useQueryClient();
   const { isConnected: wsConnected } = useWebSocket();
@@ -339,7 +341,7 @@ export default function PrintersDashboardScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}> 
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}> 
       <FlatList
         data={filteredPrinters}
         keyExtractor={item => String(item.id)}
@@ -388,10 +390,7 @@ export default function PrintersDashboardScreen() {
             <View style={styles.headerTopRow}>
               <View style={styles.headerText}>
                 <Text style={[styles.title, { color: colors.text }]}> 
-                  Printer Fleet
-                </Text>
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]}> 
-                  Detailed live printer dashboard styled after the web fleet view.
+                  Printers
                 </Text>
               </View>
               <View
@@ -421,10 +420,10 @@ export default function PrintersDashboardScreen() {
             </View>
 
             <View style={styles.summaryGrid}>
-              <StatCard label="Total" value={String(summary.total)} />
-              <StatCard label="Printing" value={String(summary.printing)} helper={`${summary.paused} paused`} />
-              <StatCard label="Idle" value={String(summary.idle)} helper={`${summary.offline} offline`} />
-              <StatCard label="Issues" value={String(summary.issues)} helper={`${summary.offline} offline`} />
+              <StatCard label="Total" value={String(summary.total)} onPress={() => setFilter('all')} />
+              <StatCard label="Printing" value={String(summary.printing)} onPress={() => setFilter('printing')} />
+              <StatCard label="Idle" value={String(summary.idle)} onPress={() => setFilter('idle')} />
+              <StatCard label="Issues" value={String(summary.issues)} onPress={() => setFilter('issues')} />
             </View>
 
             <SearchBar
@@ -463,31 +462,26 @@ export default function PrintersDashboardScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
-    padding: spacing.lg,
+    padding: spacing.md,
     paddingBottom: spacing['3xl'],
   },
   separator: { height: spacing.md },
   header: {
     gap: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   headerTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
   },
   headerText: {
     flex: 1,
-    gap: spacing.xs,
   },
   title: {
     fontSize: fontSize['2xl'],
     fontWeight: '700',
-  },
-  subtitle: {
-    fontSize: fontSize.sm,
-    lineHeight: 18,
   },
   liveBadge: {
     flexDirection: 'row',
@@ -511,7 +505,6 @@ const styles = StyleSheet.create({
   },
   summaryGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
   },
 });
