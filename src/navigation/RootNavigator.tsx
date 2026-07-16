@@ -47,6 +47,7 @@ export default function RootNavigator() {
     return (
       <Stack.Navigator screenOptions={{ ...screenOptions, headerShown: false }}>
         <Stack.Screen name="ServerSetup" component={ServerSetupScreen} />
+        <Stack.Screen name="Scanner" component={ScannerScreen} />
       </Stack.Navigator>
     );
   }

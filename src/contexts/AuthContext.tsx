@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError, getAuthToken, loadAuthToken, setAuthToken } from '../api/client';
+import { useServerStore } from '../api/server';
 
 export type Permission = string;
 
@@ -36,6 +37,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const serverUrl = useServerStore((s) => s.serverUrl);
   const [user, setUser] = useState<UserResponse | null>(null);
   const [authEnabled, setAuthEnabled] = useState(false);
   const [requiresSetup, setRequiresSetup] = useState(false);
@@ -77,11 +79,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     mountedRef.current = true;
-    checkAuthStatus();
+    if (serverUrl) {
+      setLoading(true);
+      checkAuthStatus();
+    } else {
+      setLoading(false);
+      setUser(null);
+      setAuthEnabled(false);
+      setRequiresSetup(false);
+      setServerConnected(false);
+    }
     return () => {
       mountedRef.current = false;
     };
-  }, [checkAuthStatus]);
+  }, [checkAuthStatus, serverUrl]);
 
   const login = useCallback(async (username: string, password: string) => {
     const response = await api.login({ username, password });
