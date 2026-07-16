@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import RootNavigator from '@/navigation/RootNavigator';
-import { useTheme } from '@/theme';
+import { ThemeProvider, useTheme } from '@/theme';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,13 +55,15 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <ToastProvider>
-            <AuthProvider>
-              <AppContent />
-            </AuthProvider>
-          </ToastProvider>
-        </QueryClientProvider>
+        <ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <ToastProvider>
+              <AuthProvider>
+                <AppContent />
+              </AuthProvider>
+            </ToastProvider>
+          </QueryClientProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

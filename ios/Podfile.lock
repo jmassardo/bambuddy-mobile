@@ -22,69 +22,9 @@ PODS:
     - ReactNativeDependencies
     - Yoga
   - FBLazyVector (0.86.0)
-  - Firebase/CoreOnly (11.15.0):
-    - FirebaseCore (~> 11.15.0)
-  - Firebase/Messaging (11.15.0):
-    - Firebase/CoreOnly
-    - FirebaseMessaging (~> 11.15.0)
-  - FirebaseCore (11.15.0):
-    - FirebaseCoreInternal (~> 11.15.0)
-    - GoogleUtilities/Environment (~> 8.1)
-    - GoogleUtilities/Logger (~> 8.1)
-  - FirebaseCoreExtension (11.15.0):
-    - FirebaseCore (~> 11.15.0)
-  - FirebaseCoreInternal (11.15.0):
-    - "GoogleUtilities/NSData+zlib (~> 8.1)"
-  - FirebaseInstallations (11.15.0):
-    - FirebaseCore (~> 11.15.0)
-    - GoogleUtilities/Environment (~> 8.1)
-    - GoogleUtilities/UserDefaults (~> 8.1)
-    - PromisesObjC (~> 2.4)
-  - FirebaseMessaging (11.15.0):
-    - FirebaseCore (~> 11.15.0)
-    - FirebaseInstallations (~> 11.0)
-    - GoogleDataTransport (~> 10.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 8.1)
-    - GoogleUtilities/Environment (~> 8.1)
-    - GoogleUtilities/Reachability (~> 8.1)
-    - GoogleUtilities/UserDefaults (~> 8.1)
-    - nanopb (~> 3.30910.0)
-  - GoogleDataTransport (10.1.0):
-    - nanopb (~> 3.30910.0)
-    - PromisesObjC (~> 2.4)
-  - GoogleUtilities/AppDelegateSwizzler (8.1.2):
-    - GoogleUtilities/Environment
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Network
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/Environment (8.1.2):
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/Logger (8.1.2):
-    - GoogleUtilities/Environment
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/Network (8.1.2):
-    - GoogleUtilities/Logger
-    - "GoogleUtilities/NSData+zlib"
-    - GoogleUtilities/Privacy
-    - GoogleUtilities/Reachability
-  - "GoogleUtilities/NSData+zlib (8.1.2)":
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/Privacy (8.1.2)
-  - GoogleUtilities/Reachability (8.1.2):
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/UserDefaults (8.1.2):
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Privacy
   - hermes-engine (250829098.0.14):
     - hermes-engine/Pre-built (= 250829098.0.14)
   - hermes-engine/Pre-built (250829098.0.14)
-  - nanopb (3.30910.0):
-    - nanopb/decode (= 3.30910.0)
-    - nanopb/encode (= 3.30910.0)
-  - nanopb/decode (3.30910.0)
-  - nanopb/encode (3.30910.0)
-  - PromisesObjC (2.4.1)
   - RCTDeprecation (0.86.0)
   - RCTRequired (0.86.0)
   - RCTSwiftUI (0.86.0)
@@ -2046,14 +1986,6 @@ PODS:
     - Yoga
   - RNDeviceInfo (14.1.1):
     - React-Core
-  - RNFBApp (22.4.0):
-    - Firebase/CoreOnly (= 11.15.0)
-    - React-Core
-  - RNFBMessaging (22.4.0):
-    - Firebase/Messaging (= 11.15.0)
-    - FirebaseCoreExtension
-    - React-Core
-    - RNFBApp
   - RNGestureHandler (2.32.0):
     - hermes-engine
     - RCTRequired
@@ -2451,8 +2383,6 @@ DEPENDENCIES:
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - "RNCClipboard (from `../node_modules/@react-native-clipboard/clipboard`)"
   - RNDeviceInfo (from `../node_modules/react-native-device-info`)
-  - "RNFBApp (from `../node_modules/@react-native-firebase/app`)"
-  - "RNFBMessaging (from `../node_modules/@react-native-firebase/messaging`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNKeychain (from `../node_modules/react-native-keychain`)
   - RNReactNativeHapticFeedback (from `../node_modules/react-native-haptic-feedback`)
@@ -2462,19 +2392,6 @@ DEPENDENCIES:
   - RNWorklets (from `../node_modules/react-native-worklets`)
   - VisionCamera (from `../node_modules/react-native-vision-camera`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
-
-SPEC REPOS:
-  trunk:
-    - Firebase
-    - FirebaseCore
-    - FirebaseCoreExtension
-    - FirebaseCoreInternal
-    - FirebaseInstallations
-    - FirebaseMessaging
-    - GoogleDataTransport
-    - GoogleUtilities
-    - nanopb
-    - PromisesObjC
 
 EXTERNAL SOURCES:
   AsyncStorage:
@@ -2642,10 +2559,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-clipboard/clipboard"
   RNDeviceInfo:
     :path: "../node_modules/react-native-device-info"
-  RNFBApp:
-    :path: "../node_modules/@react-native-firebase/app"
-  RNFBMessaging:
-    :path: "../node_modules/@react-native-firebase/messaging"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
   RNKeychain:
@@ -2668,17 +2581,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   AsyncStorage: 163ab23f6aa37a58b7f2379d0b4ee7ac84d6655c
   FBLazyVector: b3e7ad108f0d882e30445c5527d774e3fd432f3d
-  Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
-  FirebaseCore: efb3893e5b94f32b86e331e3bd6dadf18b66568e
-  FirebaseCoreExtension: edbd30474b5ccf04e5f001470bdf6ea616af2435
-  FirebaseCoreInternal: 9afa45b1159304c963da48addb78275ef701c6b4
-  FirebaseInstallations: 317270fec08a5d418fdbc8429282238cab3ac843
-  FirebaseMessaging: 3b26e2cee503815e01c3701236b020aa9b576f09
-  GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
-  GoogleUtilities: 766ace00c6b10d8148408f329d10c4f051931850
   hermes-engine: 51adc37cd5f297b2e33f5ea8617f072ad185fd3d
-  nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
-  PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
   RCTDeprecation: 2a74a2c57675e64419bd89078efde81f7c1de90b
   RCTRequired: 30451112e6fef4e6f31b4e7eee0845156e35e4b0
   RCTSwiftUI: 5aaf0b07e747ba749dc6acc94d8bd41eea4b570f
@@ -2758,8 +2661,6 @@ SPEC CHECKSUMS:
   ReactNativeDependencies: fa0a54b3f5319ae0e3b9aff32bfee7a424b88e66
   RNCClipboard: 715fa7c6c8366f17d00f05a439ee7488f390fa5f
   RNDeviceInfo: bcce8752b5043a623fe3c26789679b473f705d3c
-  RNFBApp: 12884d3bf9b3a0223efe4a0adce516edf72c4102
-  RNFBMessaging: e954bfb053a5c6bb10b26bae4bbc58a4edd41131
   RNGestureHandler: 92172e79df6e88e0e93b6341f9dcd8b5a02746ba
   RNKeychain: 8955c9c09edf7dbfd708538ae0f40f3799f2e21e
   RNReactNativeHapticFeedback: 576e23c1ad2d800ded4502be3f66b767308b63a1
