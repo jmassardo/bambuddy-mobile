@@ -725,6 +725,9 @@ export function PrinterCard({
   }, [authHeaders, printerImageUrl]);
 
   const partPreviewSource = useMemo(() => {
+    // Only show a part thumbnail when actively printing
+    if (!isPrinting) return null;
+
     const directThumbnailUrl = taskThumbnailUrl ?? status?.cover_url ?? null;
 
     const resolveServerUrl = (url: string) => {
@@ -753,9 +756,11 @@ export function PrinterCard({
       };
     }
 
+    // Printing but no thumbnail available — show model image as fallback
     return printerImageSource;
   }, [
     authHeaders,
+    isPrinting,
     printerImageSource,
     serverUrl,
     snapshotSeed,
@@ -959,6 +964,8 @@ export function PrinterCard({
     >
       {partPreviewSource ? (
         <Image source={partPreviewSource} style={styles.previewImage} resizeMode="cover" />
+      ) : printerImageSource ? (
+        <Image source={printerImageSource} style={styles.previewImage} resizeMode="contain" />
       ) : (
         <View style={styles.previewPlaceholder}>
           <PrinterIcon size={24} color={colors.textTertiary} strokeWidth={2} />
