@@ -37,7 +37,7 @@ import type {
   PrinterStatus,
   SpoolAssignment,
 } from '@/types/api';
-import { formatDuration, statusColor, withCacheBuster } from '@/utils/data';
+import { formatDuration, getPrinterModelImagePath, statusColor, withCacheBuster } from '@/utils/data';
 import {
   AlertCircle,
   Camera,
@@ -805,18 +805,11 @@ export function PrinterCard({
   }, [authHeaders, cameraUri]);
 
   const printerImageUrl = useMemo(() => {
-    const apiWithImage = api as typeof api & {
-      getPrinterImageUrl?: (printerId: number) => string;
-    };
-
-    if (typeof apiWithImage.getPrinterImageUrl === 'function') {
-      return apiWithImage.getPrinterImageUrl(printer.id);
-    }
-
     if (!serverUrl) return null;
-    const tokenParam = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/printers/${printer.id}/image${tokenParam}`;
-  }, [authToken, printer.id, serverUrl]);
+    // Use the model-based static image from the server (same as web UI)
+    const imagePath = getPrinterModelImagePath(printer.model);
+    return `${serverUrl}${imagePath}`;
+  }, [printer.model, serverUrl]);
 
   const printerImageSource = useMemo(() => {
     if (!printerImageUrl) return null;
