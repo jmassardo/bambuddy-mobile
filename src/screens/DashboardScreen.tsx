@@ -21,7 +21,6 @@ import {
   InlineTabBar,
   PrimaryButton,
   SearchBar,
-  StatCard,
 } from '@/components/common/AppUI';
 import {
   EmptyState,
@@ -558,18 +557,20 @@ export default function PrintersDashboardScreen() {
                 </ScrollView>
               </View>
             ) : null}
-            <View style={styles.headerTopRow}>
-              <View style={styles.headerText}>
-                <Text style={[styles.title, { color: colors.text }]}> 
-                  Printers
-                </Text>
+
+            <View style={styles.toolbarRow}>
+              <View style={{ flex: 1 }}>
+                <SearchBar
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Search printers…"
+                />
               </View>
-              <View style={styles.headerActions}>
-                <View
-                  style={[
-                    styles.liveBadge,
-                    {
-                      backgroundColor: wsConnected ? colors.accentBg : colors.surfaceElevated,
+              <View
+                style={[
+                  styles.liveBadge,
+                  {
+                    backgroundColor: wsConnected ? colors.accentBg : colors.surfaceElevated,
                     borderColor: wsConnected ? colors.accent : colors.border,
                   },
                 ]}
@@ -595,21 +596,7 @@ export default function PrintersDashboardScreen() {
               >
                 <Plus size={18} color="#fff" strokeWidth={2.5} />
               </Pressable>
-              </View>
             </View>
-
-            <View style={styles.summaryGrid}>
-              <StatCard label="Total" value={String(summary.total)} onPress={() => setFilter('all')} />
-              <StatCard label="Printing" value={String(summary.printing)} onPress={() => setFilter('printing')} />
-              <StatCard label="Idle" value={String(summary.idle)} onPress={() => setFilter('idle')} />
-              <StatCard label="Issues" value={String(summary.issues)} onPress={() => setFilter('issues')} />
-            </View>
-
-            <SearchBar
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search by printer, model, or location"
-            />
 
             <InlineTabBar
               value={filter}
@@ -692,18 +679,23 @@ const styles = StyleSheet.create({
     fontSize: fontSize['2xl'],
     fontWeight: '700',
   },
+  toolbarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
     borderWidth: 1,
     borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   liveDot: {
-    width: 8,
-    height: 8,
+    width: 6,
+    height: 6,
     borderRadius: borderRadius.full,
   },
   liveLabel: {
@@ -711,15 +703,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
   },
   addBtn: {
     width: 32,
