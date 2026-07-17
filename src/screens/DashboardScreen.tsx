@@ -15,7 +15,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { Plus } from 'lucide-react-native';
+import { Grid2x2, List, Plus } from 'lucide-react-native';
 import { api } from '@/api/client';
 import {
   InlineTabBar,
@@ -194,6 +194,7 @@ export default function PrintersDashboardScreen() {
   const { isConnected: wsConnected } = useWebSocket();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
+  const [viewMode, setViewMode] = useState<'normal' | 'compact'>('normal');
   const [snapshotSeed, setSnapshotSeed] = useState(0);
   const [printPrinterId, setPrintPrinterId] = useState<number | null>(null);
   const [showAddPrinter, setShowAddPrinter] = useState(false);
@@ -471,6 +472,7 @@ export default function PrintersDashboardScreen() {
                 loading={Boolean(statusQuery?.isLoading || statusQuery?.isRefetching)}
                 selected={selected}
                 selectionMode={selectionMode}
+                compact={viewMode === 'compact'}
                 onLongPress={() => {
                   setSelectedPrinterIds(current =>
                     current.includes(item.id) ? current : [...current, item.id],
@@ -591,6 +593,15 @@ export default function PrintersDashboardScreen() {
                 </Text>
               </View>
               <Pressable
+                onPress={() => setViewMode(m => m === 'normal' ? 'compact' : 'normal')}
+                style={[styles.viewToggle, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              >
+                {viewMode === 'normal'
+                  ? <Grid2x2 size={16} color={colors.text} strokeWidth={2} />
+                  : <List size={16} color={colors.text} strokeWidth={2} />
+                }
+              </Pressable>
+              <Pressable
                 onPress={() => setShowAddPrinter(true)}
                 style={[styles.addBtn, { backgroundColor: colors.accent }]}
               >
@@ -703,6 +714,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+  },
+  viewToggle: {
+    width: 32,
+    height: 32,
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addBtn: {
     width: 32,

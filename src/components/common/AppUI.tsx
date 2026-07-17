@@ -9,6 +9,7 @@ import {
   TextInputProps,
   View,
 } from 'react-native';
+import { Search } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
 import { Icon } from './TabBarIcon';
@@ -29,7 +30,7 @@ export function SearchBar({
   return (
     <View style={styles.searchRow}>
       <View style={[styles.searchContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-        <Icon name="search" size={18} color={colors.textTertiary} />
+        <Search size={16} color={colors.textTertiary} strokeWidth={2} />
         <TextInput
           value={value}
           onChangeText={onChangeText}
@@ -339,14 +340,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
   },
   searchInput: {
     flex: 1,
-    fontSize: fontSize.base,
-    paddingVertical: 0,
+    fontSize: fontSize.sm,
+    paddingVertical: 2,
   },
   filterButton: {
     width: 44,

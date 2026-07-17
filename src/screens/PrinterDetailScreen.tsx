@@ -12,10 +12,24 @@ import {
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  Home,
+  MoveVertical,
+} from 'lucide-react-native';
+import { ApiError, api } from '@/api/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
-import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
+import {
+  borderRadius,
+  fontSize,
+  fontWeight,
+  spacing,
+  type ThemeColors,
+} from '@/theme/tokens';
 import {
   KeyValueRow,
   PrimaryButton,
@@ -42,6 +56,16 @@ const SPEED_MODES = [
   { label: 'Ludicrous', value: 4 },
 ] as const;
 
+const JOG_STEP_SIZES = [0.1, 1, 10, 100] as const;
+
+const JOG_SPEED_OPTIONS = [
+  { label: 'Slow', value: 'slow' },
+  { label: 'Normal', value: 'normal' },
+  { label: 'Fast', value: 'fast' },
+] as const;
+
+type JogSpeed = (typeof JOG_SPEED_OPTIONS)[number]['value'];
+
 function stringifyDebugValue(value: unknown) {
   if (value == null) return '—';
   if (typeof value === 'string') return value;
@@ -53,11 +77,53 @@ function stringifyDebugValue(value: unknown) {
   }
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof ApiError ? error.message : fallback;
+}
+
+function JogButton({
+  icon,
+  label,
+  onPress,
+  disabled,
+  highlighted,
+  colors,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onPress?: () => void;
+  disabled?: boolean;
+  highlighted?: boolean;
+  colors: ThemeColors;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled || !onPress}
+      style={[
+        styles.jogButton,
+        {
+          backgroundColor: highlighted ? colors.accentBg : colors.surfaceElevated,
+          borderColor: highlighted ? colors.accent : colors.border,
+        },
+        (disabled || !onPress) && styles.disabledButton,
+      ]}
+    >
+      {icon}
+      <Text
+        style={[
+          styles.jogButtonLabel,
+          { color: highlighted ? colors.accentLight : colors.textSecondary },
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function PrinterDetailScreen() {
   const navigation = useNavigation<any>();
-  React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Printer' });
-  }, [navigation]);
   const route = useRoute<any>();
   const { id } = (route.params ?? {}) as { id: string };
   const printerId = Number(id);
@@ -65,6 +131,10 @@ export default function PrinterDetailScreen() {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const [showDebugModal, setShowDebugModal] = React.useState(false);
+  const [jogStepSize, setJogStepSize] = React.useState<(typeof JOG_STEP_SIZES)[number]>(
+    1,
+  );
+  const [jogSpeed, setJogSpeed] = React.useState<JogSpeed>('normal');
 
   const printerQuery = useQuery({
     queryKey: ['printer', printerId],
@@ -99,9 +169,23 @@ export default function PrinterDetailScreen() {
     retry: false,
   });
 
+  const printerName = pickString(
+    (printerQuery.data ?? {}) as ApiRecord,
+    ['name'],
+    'Printer',
+  );
+
+  React.useEffect(() => {
+    navigation.setOptions({ title: printerName });
+  }, [navigation, printerName]);
+
   const refreshAll = async () => {
     await Promise.all([printerQuery.refetch(), statusQuery.refetch()]);
   };
+
+  const invalidatePrinterStatus = React.useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] });
+  }, [printerId, queryClient]);
 
   const actionMutation = useMutation({
     mutationFn: async (action: 'pause' | 'resume' | 'stop' | 'light') => {
@@ -155,6 +239,7 @@ export default function PrinterDetailScreen() {
     ['state', 'status', 'print_status'],
     'Unknown',
   );
+  const isPrinting = ['RUNNING', 'PAUSE'].includes(state.toUpperCase());
   const badgeColor = statusColor(state, colors);
   const progressRaw = pickNumber(
     status,
@@ -196,6 +281,42 @@ export default function PrinterDetailScreen() {
       stringifyDebugValue(entry).toLowerCase().includes('error'),
     )
     .slice(0, 10);
+  const movementDelta = jogStepSize;
+
+  const xyJogMutation = useMutation({
+    mutationFn: ({ x, y }: { x: number; y: number }) => api.xyJog(printerId, x, y),
+    onSuccess: () => {
+      void invalidatePrinterStatus();
+    },
+    onError: error =>
+      showToast(getErrorMessage(error, 'Unable to move the print head.'), 'error'),
+  });
+
+  const zJogMutation = useMutation({
+    mutationFn: (distance: number) => api.bedJog(printerId, distance),
+    onSuccess: () => {
+      void invalidatePrinterStatus();
+    },
+    onError: error =>
+      showToast(getErrorMessage(error, 'Unable to move the Z axis.'), 'error'),
+  });
+
+  const homeMutation = useMutation({
+    mutationFn: ({ axes }: { axes: 'all' | 'xy' | 'z'; label: string }) =>
+      api.homeAxes(printerId, axes),
+    onSuccess: async (_, { label }) => {
+      await invalidatePrinterStatus();
+      showToast(`${label} started.`, 'success');
+    },
+    onError: error =>
+      showToast(getErrorMessage(error, 'Unable to home the printer.'), 'error'),
+  });
+
+  const movementDisabled =
+    isPrinting ||
+    xyJogMutation.isPending ||
+    zJogMutation.isPending ||
+    homeMutation.isPending;
 
   return (
     <ScrollView
@@ -210,14 +331,9 @@ export default function PrinterDetailScreen() {
       }
     >
       <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            {pickString(printer, ['name'], 'Unnamed printer')}
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {pickString(printer, ['model', 'printer_model'], 'Unknown model')}
-          </Text>
-        </View>
+        <Text style={[styles.subtitle, styles.headerSubtitle, { color: colors.textSecondary }]}>
+          {pickString(printer, ['model', 'printer_model'], 'Unknown model')}
+        </Text>
         <StatusBadge label={state} color={badgeColor} />
       </View>
 
@@ -305,6 +421,213 @@ export default function PrinterDetailScreen() {
               variant="secondary"
               loading={actionMutation.isPending}
             />
+          </View>
+        </View>
+      </SectionCard>
+
+      <SectionCard title="Movement" subtitle="Jog the axes and home the printer.">
+        {isPrinting ? (
+          <View
+            style={[
+              styles.movementBanner,
+              {
+                backgroundColor: colors.warning + '18',
+                borderColor: colors.warning + '55',
+              },
+            ]}
+          >
+            <Text style={[styles.movementBannerText, { color: colors.warning }]}>
+              Movement controls are disabled while printing.
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={styles.movementPanel}>
+          <View style={styles.xySection}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+              X / Y
+            </Text>
+            <View style={styles.xyGrid}>
+              <View style={styles.gridSpacer} />
+              <JogButton
+                label="Y+"
+                disabled={movementDisabled}
+                onPress={() =>
+                  xyJogMutation.mutate({ x: 0, y: movementDelta })
+                }
+                icon={<ArrowUp size={20} color={colors.text} strokeWidth={2} />}
+                colors={colors}
+              />
+              <View style={styles.gridSpacer} />
+              <JogButton
+                label="X−"
+                disabled={movementDisabled}
+                onPress={() =>
+                  xyJogMutation.mutate({ x: -movementDelta, y: 0 })
+                }
+                icon={<ArrowLeft size={20} color={colors.text} strokeWidth={2} />}
+                colors={colors}
+              />
+              <JogButton
+                label={homeMutation.isPending ? 'Homing' : 'Home'}
+                disabled={movementDisabled}
+                highlighted
+                onPress={() => homeMutation.mutate({ axes: 'all', label: 'Home all' })}
+                icon={<Home size={20} color={colors.accentLight} strokeWidth={2} />}
+                colors={colors}
+              />
+              <JogButton
+                label="X+"
+                disabled={movementDisabled}
+                onPress={() =>
+                  xyJogMutation.mutate({ x: movementDelta, y: 0 })
+                }
+                icon={<ArrowRight size={20} color={colors.text} strokeWidth={2} />}
+                colors={colors}
+              />
+              <View style={styles.gridSpacer} />
+              <JogButton
+                label="Y−"
+                disabled={movementDisabled}
+                onPress={() =>
+                  xyJogMutation.mutate({ x: 0, y: -movementDelta })
+                }
+                icon={<ArrowDown size={20} color={colors.text} strokeWidth={2} />}
+                colors={colors}
+              />
+              <View style={styles.gridSpacer} />
+            </View>
+          </View>
+
+          <View style={styles.zSection}>
+            <View style={styles.zHeader}>
+              <MoveVertical size={16} color={colors.textSecondary} strokeWidth={2} />
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+                Z
+              </Text>
+            </View>
+            <View style={styles.zButtons}>
+              <JogButton
+                label="Z+"
+                disabled={movementDisabled}
+                onPress={() => zJogMutation.mutate(-movementDelta)}
+                icon={<ArrowUp size={20} color={colors.text} strokeWidth={2} />}
+                colors={colors}
+              />
+              <JogButton
+                label="Z−"
+                disabled={movementDisabled}
+                onPress={() => zJogMutation.mutate(movementDelta)}
+                icon={<ArrowDown size={20} color={colors.text} strokeWidth={2} />}
+                colors={colors}
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.homeButtonRow}>
+          {[
+            { label: 'Home All', axes: 'all' as const },
+            { label: 'Home X', axes: 'xy' as const },
+            { label: 'Home Y', axes: 'xy' as const },
+            { label: 'Home Z', axes: 'z' as const },
+          ].map(action => (
+            <Pressable
+              key={action.label}
+              onPress={() => homeMutation.mutate(action)}
+              disabled={movementDisabled}
+              style={[
+                styles.homeChip,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                },
+                movementDisabled && styles.disabledButton,
+              ]}
+            >
+              <Home size={14} color={colors.textSecondary} strokeWidth={2} />
+              <Text style={[styles.homeChipText, { color: colors.textSecondary }]}>
+                {action.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={styles.selectorGroup}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+            Step size
+          </Text>
+          <View style={styles.selectorRow}>
+            {JOG_STEP_SIZES.map(step => {
+              const selected = step === jogStepSize;
+              return (
+                <Pressable
+                  key={step}
+                  onPress={() => setJogStepSize(step)}
+                  disabled={movementDisabled}
+                  style={[
+                    styles.selectorChip,
+                    {
+                      backgroundColor: selected
+                        ? colors.accentBg
+                        : colors.surfaceElevated,
+                      borderColor: selected ? colors.accent : colors.border,
+                    },
+                    movementDisabled && styles.disabledButton,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.selectorChipText,
+                      {
+                        color: selected ? colors.accentLight : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {step}mm
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.selectorGroup}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+            Speed
+          </Text>
+          <View style={styles.selectorRow}>
+            {JOG_SPEED_OPTIONS.map(option => {
+              const selected = option.value === jogSpeed;
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => setJogSpeed(option.value)}
+                  disabled={movementDisabled}
+                  style={[
+                    styles.selectorChip,
+                    {
+                      backgroundColor: selected
+                        ? colors.accentBg
+                        : colors.surfaceElevated,
+                      borderColor: selected ? colors.accent : colors.border,
+                    },
+                    movementDisabled && styles.disabledButton,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.selectorChipText,
+                      {
+                        color: selected ? colors.accentLight : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
       </SectionCard>
@@ -648,7 +971,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   headerText: { flex: 1, gap: spacing.xs },
-  title: { fontSize: fontSize['2xl'], fontWeight: fontWeight.bold },
+  headerSubtitle: { flex: 1 },
   subtitle: { fontSize: fontSize.base },
   snapshot: {
     width: '100%',
@@ -722,6 +1045,107 @@ const styles = StyleSheet.create({
   speedText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
+  },
+  movementBanner: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  movementBannerText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  movementPanel: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.lg,
+  },
+  xySection: {
+    flex: 1,
+    minWidth: 220,
+    gap: spacing.md,
+  },
+  zSection: {
+    minWidth: 84,
+    gap: spacing.md,
+  },
+  zHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sectionLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+  },
+  xyGrid: {
+    alignSelf: 'center',
+    width: 228,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  gridSpacer: {
+    width: 68,
+    height: 68,
+  },
+  jogButton: {
+    width: 68,
+    height: 68,
+    borderWidth: 1,
+    borderRadius: borderRadius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  jogButtonLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+  },
+  zButtons: {
+    gap: spacing.sm,
+  },
+  homeButtonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  homeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  homeChipText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+  },
+  selectorGroup: {
+    gap: spacing.sm,
+  },
+  selectorRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  selectorChip: {
+    minWidth: 72,
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  selectorChipText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
   modalOverlay: {
     flex: 1,

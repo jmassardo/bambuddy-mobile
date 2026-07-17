@@ -118,6 +118,7 @@ interface PrinterCardProps {
   snapshotSeed?: number | string;
   selected?: boolean;
   selectionMode?: boolean;
+  compact?: boolean;
   onPress?: () => void;
   onLongPress?: () => void;
   onToggleSelect?: () => void;
@@ -579,6 +580,7 @@ function ControlButton({
   borderColor,
   textColor,
   outline,
+  iconOnly,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -589,22 +591,26 @@ function ControlButton({
   borderColor: string;
   textColor: string;
   outline?: boolean;
+  iconOnly?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
       style={[
-        styles.controlButton,
+        iconOnly ? styles.controlIconButton : styles.controlButton,
         { backgroundColor, borderColor },
         outline && styles.controlButtonOutline,
         disabled && styles.disabledAction,
       ]}
+      accessibilityLabel={label}
     >
       {icon}
-      <Text style={[styles.controlButtonText, { color: textColor }]} numberOfLines={1}>
-        {label}
-      </Text>
+      {!iconOnly && (
+        <Text style={[styles.controlButtonText, { color: textColor }]} numberOfLines={1}>
+          {label}
+        </Text>
+      )}
       {trailingIcon}
     </Pressable>
   );
@@ -721,6 +727,7 @@ export function PrinterCard({
   snapshotSeed = 0,
   selected = false,
   selectionMode = false,
+  compact = false,
   onPress,
   onLongPress,
   onToggleSelect,
@@ -1011,7 +1018,9 @@ export function PrinterCard({
       {cameraSource ? <Image source={cameraSource} style={styles.previewImage} /> : null}
       <View style={[styles.previewOverlay, { backgroundColor: colors.overlay }]}> 
         <Camera size={14} color={colors.text} strokeWidth={2} />
-        <Text style={[styles.previewOverlayText, { color: colors.text }]}>Live view</Text>
+        <Text style={[styles.previewOverlayText, { color: colors.text }]} numberOfLines={1}>
+          {currentPrintName || 'Live view'}
+        </Text>
       </View>
     </Pressable>
   ) : (
@@ -1248,39 +1257,44 @@ export function PrinterCard({
         </View>
       </View>
 
+      {!compact && (
+      <>
       <SectionLabel label="Controls" />
       <View style={styles.controlsGrid}>
         <ControlButton
           label={status?.chamber_light ? 'Light on' : 'Light off'}
-          icon={<Lightbulb size={15} color={colors.text} strokeWidth={2} />}
+          icon={<Lightbulb size={16} color={status?.chamber_light ? colors.warning : colors.text} strokeWidth={2} />}
           onPress={() => lightMutation.mutate()}
           disabled={!canControlPrinter || lightMutation.isPending}
           backgroundColor={colors.surfaceElevated}
           borderColor={colors.border}
           textColor={colors.text}
+          iconOnly
         />
         <ControlButton
           label="Move"
-          icon={<Move size={15} color={colors.text} strokeWidth={2} />}
+          icon={<Move size={16} color={colors.text} strokeWidth={2} />}
           onPress={showMoveMenu}
           disabled={!canControlPrinter}
           backgroundColor={colors.surfaceElevated}
           borderColor={colors.border}
           textColor={colors.text}
+          iconOnly
         />
         <ControlButton
           label="Calibrate"
-          icon={<RotateCcw size={15} color={colors.text} strokeWidth={2} />}
+          icon={<RotateCcw size={16} color={colors.text} strokeWidth={2} />}
           onPress={showCalibrateMenu}
           disabled={!canControlPrinter}
           backgroundColor={colors.surfaceElevated}
           borderColor={colors.border}
           textColor={colors.text}
+          iconOnly
         />
         <ControlButton
           label={speedInfo.label}
-          icon={<Gauge size={15} color={colors.text} strokeWidth={2} />}
-          trailingIcon={<ChevronDown size={14} color={colors.textSecondary} strokeWidth={2} />}
+          icon={<Gauge size={16} color={colors.text} strokeWidth={2} />}
+          trailingIcon={<ChevronDown size={12} color={colors.textSecondary} strokeWidth={2} />}
           onPress={showSpeedMenu}
           disabled={!canControlPrinter || speedMutation.isPending}
           backgroundColor={colors.surfaceElevated}
@@ -1289,21 +1303,23 @@ export function PrinterCard({
         />
         <ControlButton
           label="Refresh"
-          icon={<RefreshCw size={15} color={colors.text} strokeWidth={2} />}
+          icon={<RefreshCw size={16} color={colors.text} strokeWidth={2} />}
           onPress={handleRefresh}
           backgroundColor={colors.surfaceElevated}
           borderColor={colors.border}
           textColor={colors.text}
+          iconOnly
         />
         {isPrintingWithObjects ? (
           <ControlButton
             label="Skip objects"
-            icon={<Layers size={15} color={colors.text} strokeWidth={2} />}
+            icon={<Layers size={16} color={colors.text} strokeWidth={2} />}
             onPress={() => setSkipObjectsVisible(true)}
             disabled={!hasPermission('printers:control')}
             backgroundColor={colors.surfaceElevated}
             borderColor={colors.border}
             textColor={colors.text}
+            iconOnly
           />
         ) : null}
       </View>
@@ -1312,9 +1328,9 @@ export function PrinterCard({
           label={isPaused ? 'Resume' : 'Pause'}
           icon={
             isPaused ? (
-              <Play size={15} color={colors.textInverse} strokeWidth={2} />
+              <Play size={16} color={colors.textInverse} strokeWidth={2} />
             ) : (
-              <Pause size={15} color={colors.textInverse} strokeWidth={2} />
+              <Pause size={16} color={colors.textInverse} strokeWidth={2} />
             )
           }
           onPress={() => actionMutation.mutate(isPaused ? 'resume' : 'pause')}
@@ -1322,15 +1338,17 @@ export function PrinterCard({
           backgroundColor={isPaused ? PRINT_GREEN : PAUSE_AMBER}
           borderColor={isPaused ? PRINT_GREEN : PAUSE_AMBER}
           textColor={colors.textInverse}
+          iconOnly
         />
         <ControlButton
           label="Stop"
-          icon={<Square size={15} color={colors.textInverse} strokeWidth={2} />}
+          icon={<Square size={16} color={colors.textInverse} strokeWidth={2} />}
           onPress={() => actionMutation.mutate('stop')}
           disabled={!canPrintControl || actionMutation.isPending}
           backgroundColor={STOP_RED}
           borderColor={STOP_RED}
           textColor={colors.textInverse}
+          iconOnly
         />
         {status?.awaiting_plate_clear ? (
           <ControlButton
@@ -1674,6 +1692,8 @@ export function PrinterCard({
         </>
         );
       })() : null}
+      </>
+      )}
 
       <View style={styles.footerRow}>
         <View style={styles.footerLeft}>
@@ -2105,6 +2125,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xs,
   },
+  controlIconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   controlButtonOutline: {
     backgroundColor: 'transparent',
   },
@@ -2118,7 +2146,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   metricCard: {
-    minWidth: '31%',
+    width: '31%',
     flexGrow: 1,
     borderWidth: 1,
     borderRadius: borderRadius.lg,
