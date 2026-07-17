@@ -431,9 +431,12 @@ export default function PrintersDashboardScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}> 
       <FlatList
         data={filteredPrinters}
+        key={viewMode}
+        numColumns={viewMode === 'compact' ? 2 : 1}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={styles.content}
-        ItemSeparatorComponent={ListSeparator}
+        columnWrapperStyle={viewMode === 'compact' ? styles.gridRow : undefined}
+        ItemSeparatorComponent={viewMode === 'compact' ? undefined : ListSeparator}
         refreshControl={
           <RefreshControl
             refreshing={
@@ -654,6 +657,10 @@ const styles = StyleSheet.create({
     paddingBottom: spacing['3xl'],
   },
   separator: { height: spacing.md },
+  gridRow: {
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
   header: {
     gap: spacing.md,
     marginBottom: spacing.md,

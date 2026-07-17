@@ -990,6 +990,69 @@ export function PrinterCard({
     </View>
   );
 
+  if (compact) {
+    const statusDotColor = isPrinting
+      ? PRINT_GREEN
+      : isConnected
+        ? colors.success
+        : colors.error;
+    return (
+      <Pressable
+        onPress={onPress}
+        onLongPress={onLongPress}
+        style={[
+          styles.compactCard,
+          {
+            backgroundColor: selected ? colors.accentBg : colors.card,
+            borderColor: selected ? colors.accent : colors.cardBorder,
+          },
+        ]}
+      >
+        <View style={styles.compactHeader}>
+          <View
+            style={[
+              styles.compactImageWrap,
+              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+            ]}
+          >
+            {printerImageSource ? (
+              <Image source={printerImageSource} style={styles.compactImage} />
+            ) : (
+              <PrinterIcon size={16} color={colors.textSecondary} strokeWidth={2} />
+            )}
+          </View>
+          <View style={styles.compactInfo}>
+            <View style={styles.compactNameRow}>
+              <Text style={[styles.compactName, { color: colors.text }]} numberOfLines={1}>
+                {printer.name}
+              </Text>
+              <View style={[styles.compactDot, { backgroundColor: statusDotColor }]} />
+            </View>
+            <Text style={[styles.compactModel, { color: colors.textSecondary }]} numberOfLines={1}>
+              {printer.model ?? 'Unknown'}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.compactProgressRow}>
+          <View style={[styles.compactProgressTrack, { backgroundColor: colors.border }]}>
+            <View
+              style={[
+                styles.compactProgressFill,
+                {
+                  width: isPrinting ? `${progress}%` : '0%',
+                  backgroundColor: isPrinting ? PRINT_GREEN : colors.border,
+                },
+              ]}
+            />
+          </View>
+          <Text style={[styles.compactPercent, { color: colors.textSecondary }]}>
+            {isPrinting ? `${progress}%` : '----%'}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }
+
   return (
     <View
       style={[
@@ -1941,6 +2004,73 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     padding: spacing.md,
     gap: spacing.md,
+  },
+  compactCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: borderRadius.xl,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  compactHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  compactImageWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  compactImage: {
+    width: 36,
+    height: 36,
+    resizeMode: 'contain',
+  },
+  compactInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  compactNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  compactName: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.bold,
+  },
+  compactDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  compactModel: {
+    fontSize: fontSize.xs,
+  },
+  compactProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  compactProgressTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  compactProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  compactPercent: {
+    fontSize: fontSize.xs,
+    minWidth: 36,
+    textAlign: 'right',
   },
   selectionCover: {
     ...StyleSheet.absoluteFill,
