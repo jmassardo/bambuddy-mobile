@@ -1,72 +1,81 @@
-// Simple icon component using Unicode/Emoji as fallback
-// In a production app, you'd use @expo/vector-icons or lucide-react-native
-import { Text, StyleSheet, type ColorValue } from 'react-native';
+import React from 'react';
+import type { ColorValue } from 'react-native';
+import * as LucideIcons from 'lucide-react-native';
+
+type LucideIconComponent = React.ComponentType<{
+  size?: number;
+  color?: string;
+  strokeWidth?: number;
+}>;
+
+const lucideIconMap = LucideIcons as unknown as Record<string, LucideIconComponent>;
 
 const iconMap: Record<string, string> = {
-  // Tab icons
-  'printer': '🖨️',
-  'archive': '📦',
-  'list-ordered': '📋',
-  'folder': '📁',
-  'menu': '☰',
-  // Status
-  'check-circle': '✅',
-  'x-circle': '❌',
-  'alert-circle': '⚠️',
-  'info': 'ℹ️',
-  'clock': '🕐',
-  'pause': '⏸',
-  'play': '▶️',
-  'stop': '⏹',
-  'loader': '⏳',
-  // Navigation
-  'chevron-right': '›',
-  'chevron-left': '‹',
-  'chevron-down': '⌄',
-  'x': '✕',
-  'plus': '+',
-  'search': '🔍',
-  'filter': '⚙',
-  // Features
-  'camera': '📷',
-  'settings': '⚙️',
-  'user': '👤',
-  'users': '👥',
-  'bell': '🔔',
-  'globe': '🌍',
-  'bar-chart': '📊',
-  'wrench': '🔧',
-  'package': '📦',
-  'layers': '🗂',
-  'link': '🔗',
-  'qr-code': '📱',
-  'nfc': '📡',
-  'upload': '⬆️',
-  'download': '⬇️',
-  'trash': '🗑',
-  'edit': '✏️',
-  'copy': '📋',
-  'share': '🔗',
-  'refresh': '🔄',
-  'power': '⏻',
-  'thermometer': '🌡',
-  'wind': '💨',
-  'lightbulb': '💡',
-  'zap': '⚡',
-  'cpu': '💻',
-  'hard-drive': '💾',
-  'shield': '🛡',
-  'key': '🔑',
-  'tag': '🏷',
-  'star': '⭐',
-  'heart': '❤️',
-  'file': '📄',
-  'file-text': '📝',
-  'image': '🖼',
-  'video': '🎬',
-  'wifi': '📶',
-  'wifi-off': '📵',
+  printer: 'Printer',
+  archive: 'Archive',
+  'list-ordered': 'ListOrdered',
+  folder: 'Folder',
+  menu: 'Menu',
+  'check-circle': 'CheckCircle',
+  'x-circle': 'CircleX',
+  'alert-circle': 'AlertCircle',
+  info: 'Info',
+  clock: 'Clock3',
+  pause: 'Pause',
+  play: 'Play',
+  stop: 'Square',
+  loader: 'LoaderCircle',
+  'chevron-right': 'ChevronRight',
+  'chevron-left': 'ChevronLeft',
+  'chevron-down': 'ChevronDown',
+  x: 'X',
+  plus: 'Plus',
+  search: 'Search',
+  filter: 'Filter',
+  camera: 'Camera',
+  settings: 'Settings',
+  user: 'User',
+  users: 'Users',
+  bell: 'Bell',
+  globe: 'Globe',
+  'bar-chart': 'BarChart3',
+  wrench: 'Wrench',
+  package: 'Package',
+  layers: 'Layers',
+  link: 'Link2',
+  'qr-code': 'QrCode',
+  nfc: 'Radio',
+  upload: 'Upload',
+  download: 'Download',
+  trash: 'Trash2',
+  edit: 'Pencil',
+  copy: 'Copy',
+  share: 'Share2',
+  refresh: 'RefreshCw',
+  power: 'Power',
+  thermometer: 'Thermometer',
+  wind: 'Wind',
+  lightbulb: 'Lightbulb',
+  zap: 'Zap',
+  cpu: 'Cpu',
+  'hard-drive': 'HardDrive',
+  shield: 'Shield',
+  key: 'KeyRound',
+  tag: 'Tag',
+  star: 'Star',
+  heart: 'Heart',
+  file: 'File',
+  'file-text': 'FileText',
+  image: 'Image',
+  video: 'Video',
+  wifi: 'Wifi',
+  'wifi-off': 'WifiOff',
 };
+
+function getIconComponent(name: string): LucideIconComponent {
+  const iconName = iconMap[name] ?? 'Circle';
+  return lucideIconMap[iconName] ?? lucideIconMap.Circle;
+}
 
 interface TabBarIconProps {
   name: string;
@@ -75,12 +84,8 @@ interface TabBarIconProps {
 }
 
 export function TabBarIcon({ name, color, size }: TabBarIconProps) {
-  const icon = iconMap[name] || '•';
-  return (
-    <Text style={[styles.icon, { fontSize: size - 4, color }]}>
-      {icon}
-    </Text>
-  );
+  const IconComponent = getIconComponent(name);
+  return <IconComponent size={size} color={String(color)} strokeWidth={2} />;
 }
 
 interface IconProps {
@@ -90,16 +95,6 @@ interface IconProps {
 }
 
 export function Icon({ name, size = 20, color }: IconProps) {
-  const icon = iconMap[name] || '•';
-  return (
-    <Text style={[styles.icon, { fontSize: size - 2, color }]}>
-      {icon}
-    </Text>
-  );
+  const IconComponent = getIconComponent(name);
+  return <IconComponent size={size} color={color ? String(color) : undefined} strokeWidth={2} />;
 }
-
-const styles = StyleSheet.create({
-  icon: {
-    textAlign: 'center',
-  },
-});

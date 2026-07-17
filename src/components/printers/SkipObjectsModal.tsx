@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Boxes, X } from 'lucide-react-native';
+import { ActionSheetModal } from '@/components/common/ActionSheetModal';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { api, ApiError } from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -85,50 +85,39 @@ export function SkipObjectsModal({
 
   const requestSkip = (object: PrintableObject) => {
     setPendingObject(object);
-    Alert.alert(
-      'Skip object',
-      `Skip "${object.name}" for the rest of this print?`,
-      [
-        { text: 'Cancel', style: 'cancel', onPress: () => setPendingObject(null) },
-        {
-          text: 'Skip',
-          style: 'destructive',
-          onPress: () => skipMutation.mutate([object.id]),
-        },
-      ],
-    );
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.modalBg, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.header}>
-            <View style={styles.headerTitle}>
-              <Boxes size={18} color={colors.accentLight} strokeWidth={2} />
-              <Text style={[styles.title, { color: colors.text }]}>Skip objects</Text>
+    <>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={onClose}
+      >
+        <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: colors.modalBg, borderColor: colors.border },
+            ]}
+          >
+            <View style={styles.header}>
+              <View style={styles.headerTitle}>
+                <Boxes size={18} color={colors.accentLight} strokeWidth={2} />
+                <Text style={[styles.title, { color: colors.text }]}>Skip objects</Text>
+              </View>
+              <Pressable
+                onPress={onClose}
+                style={[
+                  styles.iconButton,
+                  { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                ]}
+              >
+                <X size={18} color={colors.text} strokeWidth={2} />
+              </Pressable>
             </View>
-            <Pressable
-              onPress={onClose}
-              style={[
-                styles.iconButton,
-                { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-              ]}
-            >
-              <X size={18} color={colors.text} strokeWidth={2} />
-            </Pressable>
-          </View>
 
           <View
             style={[
@@ -244,10 +233,38 @@ export function SkipObjectsModal({
             })}
           </ScrollView>
 
-          <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
+            <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      <ActionSheetModal
+        visible={pendingObject != null}
+        title="Skip object"
+        subtitle={
+          pendingObject
+            ? `Skip "${pendingObject.name}" for the rest of this print?`
+            : undefined
+        }
+        onClose={() => setPendingObject(null)}
+        actions={[
+          {
+            label: 'Cancel',
+            onPress: () => setPendingObject(null),
+          },
+          {
+            label: 'Skip',
+            onPress: () => {
+              if (!pendingObject) return;
+              const objectId = pendingObject.id;
+              setPendingObject(null);
+              skipMutation.mutate([objectId]);
+            },
+            destructive: true,
+          },
+        ]}
+      />
+    </>
   );
 }
 

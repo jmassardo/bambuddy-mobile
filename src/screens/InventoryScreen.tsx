@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
-  Alert,
   FlatList,
   Modal,
   Pressable,
@@ -13,7 +12,9 @@ import {
 } from 'react-native';
 import DocumentPicker, { isCancel } from 'react-native-document-picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Check } from 'lucide-react-native';
 import { api } from '@/api/client';
+import { ActionSheetModal } from '@/components/common/ActionSheetModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { InlineTabBar, PrimaryButton, ProgressBar, SearchBar, SectionCard, StatusBadge, TextField } from '@/components/common/AppUI';
@@ -96,6 +97,7 @@ export default function InventoryScreen() {
   const [showLocationsModal, setShowLocationsModal] = useState(false);
   const [labelTargetIds, setLabelTargetIds] = useState<number[]>([]);
   const [selectedLabelTemplate, setSelectedLabelTemplate] = useState<SpoolLabelTemplate>('ams_holder_74x33');
+  const [pendingDeleteSpool, setPendingDeleteSpool] = useState<ApiRecord | null>(null);
 
   const spoolsQuery = useQuery({
     queryKey: ['inventorySpools'],
@@ -716,20 +718,7 @@ export default function InventoryScreen() {
                     showToast('Spool archived.', 'success');
                   })
             }
-            onDelete={() =>
-              Alert.alert('Delete spool', `Delete ${pickString(item, ['brand'], 'this spool')}?`, [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: () =>
-                    void api.deleteSpool(pickNumber(item, ['id'])).then(async () => {
-                      await invalidateInventory();
-                      showToast('Spool deleted.', 'success');
-                    }),
-                },
-              ])
-            }
+            onDelete={() => setPendingDeleteSpool(item)}
           />
         )}
         ListEmptyComponent={
@@ -737,6 +726,41 @@ export default function InventoryScreen() {
             <EmptyState icon="🧵" title="No spools found" message="Adjust filters or add a new spool to your inventory." />
           ) : null
         }
+      />
+
+      <ActionSheetModal
+        visible={pendingDeleteSpool != null}
+        title="Delete spool"
+        subtitle={
+          pendingDeleteSpool
+            ? `Delete ${pickString(pendingDeleteSpool, ['brand'], 'this spool')}?`
+            : undefined
+        }
+        onClose={() => setPendingDeleteSpool(null)}
+        actions={[
+          {
+            label: 'Cancel',
+            onPress: () => setPendingDeleteSpool(null),
+          },
+          {
+            label: 'Delete',
+            onPress: () => {
+              if (!pendingDeleteSpool) return;
+              const spoolId = pickNumber(pendingDeleteSpool, ['id']);
+              setPendingDeleteSpool(null);
+              void api
+                .deleteSpool(spoolId)
+                .then(async () => {
+                  await invalidateInventory();
+                  showToast('Spool deleted.', 'success');
+                })
+                .catch(() => {
+                  showToast('Could not delete spool.', 'error');
+                });
+            },
+            destructive: true,
+          },
+        ]}
       />
 
       <FloatingActionButton icon="plus" label="Spool" onPress={() => { setEditingSpool(null); setForm(DEFAULT_FORM); setShowFormModal(true); }} />
@@ -1149,7 +1173,7 @@ function InventoryCard({
     <Pressable onPress={onPress} style={[styles.card, { backgroundColor: colors.card, borderColor: selected ? colors.accent : colors.cardBorder }]}> 
       <View style={styles.cardHeader}>
         <Pressable onPress={onToggleSelected} style={[styles.checkCircle, { borderColor: selected ? colors.accent : colors.border, backgroundColor: selected ? colors.accentBg : 'transparent' }]}> 
-          {selected ? <Text style={[styles.checkMark, { color: colors.accentLight }]}>✓</Text> : null}
+          {selected ? <Check size={14} color={colors.accentLight} strokeWidth={2.5} /> : null}
         </Pressable>
         <View style={[styles.swatch, { backgroundColor: swatchColor || colors.surfaceHover }]} />
         <View style={styles.cardText}>
@@ -1239,10 +1263,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  checkMark: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.bold,
   },
   swatch: {
     width: 34,

@@ -72,7 +72,7 @@ function ModalShell({
 }) {
   const { colors } = useTheme();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}> 
         <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
           <View style={styles.modalHeader}>
@@ -1426,15 +1426,19 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    justifyContent: 'center',
-    padding: spacing.lg,
+    justifyContent: 'flex-end',
+    paddingTop: spacing['4xl'],
   },
   modalCard: {
     borderWidth: 1,
-    borderRadius: borderRadius.xl,
+    borderTopLeftRadius: borderRadius['2xl'],
+    borderTopRightRadius: borderRadius['2xl'],
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
     padding: spacing.lg,
     gap: spacing.md,
-    maxHeight: '85%',
+    maxHeight: '88%',
   },
   modalHeader: {
     flexDirection: 'row',

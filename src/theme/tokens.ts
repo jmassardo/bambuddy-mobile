@@ -1,61 +1,51 @@
-// Bambuddy dark theme — matches the web UI's zinc/emerald palette
-// Supports light mode too but defaults to dark
+// Bambuddy theme tokens aligned with the web UI palette.
 
 export const colors = {
   dark: {
-    // Backgrounds
-    background: '#09090b',       // zinc-950
-    surface: '#18181b',          // zinc-900
-    surfaceElevated: '#27272a',  // zinc-800
-    surfaceHover: '#3f3f46',     // zinc-700
-    border: '#3f3f46',           // zinc-700
-    borderSubtle: '#27272a',     // zinc-800
+    background: '#1a1a1a',
+    surface: '#2d2d2d',
+    surfaceElevated: '#3d3d3d',
+    surfaceHover: '#4a4a4a',
+    border: '#3d3d3d',
+    borderSubtle: '#353535',
 
-    // Text
-    text: '#fafafa',             // zinc-50
-    textSecondary: '#a1a1aa',    // zinc-400
-    textTertiary: '#71717a',     // zinc-500
-    textInverse: '#09090b',      // zinc-950
+    text: '#ffffff',
+    textSecondary: '#a0a0a0',
+    textTertiary: '#808080',
+    textInverse: '#ffffff',
 
-    // Accent (emerald)
-    accent: '#10b981',           // emerald-500
-    accentDark: '#059669',       // emerald-600
-    accentLight: '#34d399',      // emerald-400
-    accentBg: 'rgba(16, 185, 129, 0.1)',
+    accent: '#00AE42',
+    accentDark: '#009438',
+    accentLight: '#00C64D',
+    accentBg: 'rgba(0, 174, 66, 0.18)',
 
-    // Status colors
-    success: '#22c55e',          // green-500
-    warning: '#f59e0b',          // amber-500
-    error: '#ef4444',            // red-500
-    info: '#3b82f6',             // blue-500
+    success: '#16a34a',
+    warning: '#f59e0b',
+    error: '#ef4444',
+    info: '#3b82f6',
 
-    // Printer status
-    statusIdle: '#22c55e',
+    statusIdle: '#16a34a',
     statusPrinting: '#3b82f6',
     statusPaused: '#f59e0b',
     statusError: '#ef4444',
-    statusOffline: '#71717a',
+    statusOffline: '#808080',
     statusMaintenance: '#f59e0b',
 
-    // Card
-    card: '#18181b',
-    cardBorder: '#27272a',
+    card: '#2d2d2d',
+    cardBorder: '#3d3d3d',
 
-    // Input
-    inputBg: '#27272a',
-    inputBorder: '#3f3f46',
-    inputText: '#fafafa',
-    inputPlaceholder: '#71717a',
+    inputBg: '#3d3d3d',
+    inputBorder: '#4a4a4a',
+    inputText: '#ffffff',
+    inputPlaceholder: '#808080',
 
-    // Tab bar
-    tabBar: '#18181b',
-    tabBarBorder: '#27272a',
-    tabActive: '#10b981',
-    tabInactive: '#71717a',
+    tabBar: '#1a1a1a',
+    tabBarBorder: '#2d2d2d',
+    tabActive: '#00AE42',
+    tabInactive: '#808080',
 
-    // Modal
     overlay: 'rgba(0, 0, 0, 0.7)',
-    modalBg: '#18181b',
+    modalBg: '#2d2d2d',
   },
   light: {
     background: '#ffffff',
@@ -68,12 +58,12 @@ export const colors = {
     text: '#09090b',
     textSecondary: '#52525b',    // zinc-600
     textTertiary: '#a1a1aa',     // zinc-400
-    textInverse: '#fafafa',
+    textInverse: '#ffffff',
 
-    accent: '#10b981',
-    accentDark: '#059669',
-    accentLight: '#34d399',
-    accentBg: 'rgba(16, 185, 129, 0.1)',
+    accent: '#00AE42',
+    accentDark: '#009438',
+    accentLight: '#00C64D',
+    accentBg: 'rgba(0, 174, 66, 0.12)',
 
     success: '#22c55e',
     warning: '#f59e0b',
@@ -97,7 +87,7 @@ export const colors = {
 
     tabBar: '#ffffff',
     tabBarBorder: '#e4e4e7',
-    tabActive: '#10b981',
+    tabActive: '#00AE42',
     tabInactive: '#a1a1aa',
 
     overlay: 'rgba(0, 0, 0, 0.5)',

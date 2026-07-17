@@ -1,9 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   Image,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -14,6 +11,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, getAuthToken, api } from '@/api/client';
 import { useServerStore } from '@/api/server';
 import { StatusBadge } from '@/components/common/AppUI';
+import {
+  ActionSheetModal,
+  type ActionSheetAction,
+} from '@/components/common/ActionSheetModal';
 import { EditPrinterModal } from '@/components/printers/EditPrinterModal';
 import { HMSErrorModal } from '@/components/printers/HMSErrorModal';
 import { MoveControlsModal } from '@/components/printers/MoveControlsModal';
@@ -42,7 +43,6 @@ import {
   AlertCircle,
   Camera,
   CheckCircle,
-  ChevronDown,
   FolderOpen,
   Gauge,
   Layers,
@@ -96,7 +96,7 @@ const SPEED_LEVELS: Record<number, { label: string; percent: string }> = {
   4: { label: 'Ludicrous', percent: '166%' },
 };
 
-const PRINT_GREEN = '#10b981';
+const PRINT_GREEN = '#00AE42';
 const PAUSE_AMBER = '#f59e0b';
 const STOP_RED = '#ef4444';
 
@@ -620,103 +620,6 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
-interface ActionSheetAction {
-  label: string;
-  icon: React.ReactNode;
-  onPress: () => void;
-  disabled?: boolean;
-  destructive?: boolean;
-  loading?: boolean;
-}
-
-function ActionSheetModal({
-  visible,
-  title,
-  subtitle,
-  actions,
-  onClose,
-}: {
-  visible: boolean;
-  title: string;
-  subtitle?: string;
-  actions: ActionSheetAction[];
-  onClose: () => void;
-}) {
-  const { colors } = useTheme();
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.actionSheetBackdrop, { backgroundColor: colors.overlay }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View
-          style={[
-            styles.actionSheetCard,
-            { backgroundColor: colors.modalBg, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.actionSheetHeader}>
-            <View style={styles.actionSheetTitleWrap}>
-              <Text style={[styles.actionSheetTitle, { color: colors.text }]}>
-                {title}
-              </Text>
-              {subtitle ? (
-                <Text
-                  style={[styles.actionSheetSubtitle, { color: colors.textSecondary }]}
-                >
-                  {subtitle}
-                </Text>
-              ) : null}
-            </View>
-            <Pressable
-              onPress={onClose}
-              style={[
-                styles.actionSheetClose,
-                { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-              ]}
-            >
-              <X size={18} color={colors.text} strokeWidth={2} />
-            </Pressable>
-          </View>
-
-          <View style={styles.actionSheetActions}>
-            {actions.map(action => (
-              <Pressable
-                key={action.label}
-                onPress={action.onPress}
-                disabled={action.disabled || action.loading}
-                style={[
-                  styles.actionSheetRow,
-                  {
-                    backgroundColor: colors.surfaceElevated,
-                    borderColor: action.destructive ? `${colors.error}66` : colors.border,
-                  },
-                  (action.disabled || action.loading) && styles.disabledAction,
-                ]}
-              >
-                <View style={styles.actionSheetRowIcon}>{action.icon}</View>
-                <Text
-                  style={[
-                    styles.actionSheetRowLabel,
-                    { color: action.destructive ? colors.error : colors.text },
-                  ]}
-                >
-                  {action.label}
-                </Text>
-                {action.loading ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={action.destructive ? colors.error : colors.accent}
-                  />
-                ) : null}
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
 export function PrinterCard({
   printer,
   status,
@@ -750,6 +653,11 @@ export function PrinterCard({
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [showHmsModal, setShowHmsModal] = useState(false);
   const [skipObjectsVisible, setSkipObjectsVisible] = useState(false);
+  const [showSpeedSheet, setShowSpeedSheet] = useState(false);
+  const [maintenanceModeTarget, setMaintenanceModeTarget] = useState<boolean | null>(null);
+  const [deleteSheetVisible, setDeleteSheetVisible] = useState(false);
+  const [selectedMaintenanceItem, setSelectedMaintenanceItem] =
+    useState<MaintenanceStatus | null>(null);
   const [selectedTray, setSelectedTray] = useState<{
     tray: AMSTray;
     context: TrayPressContext;
@@ -764,6 +672,9 @@ export function PrinterCard({
   const isPaused = status?.state === 'PAUSE';
   const isPrintingWithObjects =
     isPrinting && (status?.printable_objects_count ?? 0) > 0;
+  const taskThumbnailUrl =
+    (status as PrinterStatus & { task_thumbnail_url?: string | null } | undefined)
+      ?.task_thumbnail_url ?? null;
   const hmsErrors = filterKnownHMSErrors(status?.hms_errors ?? []);
   const badgeLabel = getStatusLabel(status);
   const badgeColor = getBadgeColor(printer, status, colors, hmsErrors);
@@ -798,19 +709,6 @@ export function PrinterCard({
     ]);
   }, [printer.id, queryClient]);
 
-  const cameraUri = useMemo(() => {
-    if (!canCamera) return null;
-    return withCacheBuster(api.getCameraSnapshotUrl(printer.id), snapshotSeed);
-  }, [canCamera, printer.id, snapshotSeed]);
-
-  const cameraSource = useMemo(() => {
-    if (!cameraUri) return null;
-    return {
-      uri: cameraUri,
-      headers: authHeaders,
-    };
-  }, [authHeaders, cameraUri]);
-
   const printerImageUrl = useMemo(() => {
     if (!serverUrl) return null;
     // Use the model-based static image from the server (same as web UI)
@@ -825,6 +723,47 @@ export function PrinterCard({
       headers: authHeaders,
     };
   }, [authHeaders, printerImageUrl]);
+
+  const partPreviewSource = useMemo(() => {
+    const directThumbnailUrl = taskThumbnailUrl ?? status?.cover_url ?? null;
+
+    const resolveServerUrl = (url: string) => {
+      if (/^https?:\/\//i.test(url)) return url;
+      if (!serverUrl) return null;
+      return `${serverUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+    };
+
+    const resolvedDirectUrl =
+      directThumbnailUrl != null ? resolveServerUrl(directThumbnailUrl) : null;
+    if (resolvedDirectUrl) {
+      return {
+        uri: withCacheBuster(resolvedDirectUrl, snapshotSeed),
+        headers: authHeaders,
+      };
+    }
+
+    if (status?.current_archive_id != null) {
+      const archiveThumbnailUrl =
+        status.current_plate_id != null
+          ? api.getArchivePlateThumbnail(status.current_archive_id, status.current_plate_id)
+          : api.getArchiveThumbnail(status.current_archive_id);
+      return {
+        uri: withCacheBuster(archiveThumbnailUrl, snapshotSeed),
+        headers: authHeaders,
+      };
+    }
+
+    return printerImageSource;
+  }, [
+    authHeaders,
+    printerImageSource,
+    serverUrl,
+    snapshotSeed,
+    status?.cover_url,
+    status?.current_archive_id,
+    status?.current_plate_id,
+    taskThumbnailUrl,
+  ]);
 
   const currentPrintUserQuery = useQuery({
     queryKey: ['currentPrintUser', printer.id],
@@ -948,37 +887,12 @@ export function PrinterCard({
   );
 
   const handleToggleMaintenance = useCallback(() => {
-    const nextIsActive = !printer.is_active;
-    Alert.alert(
-      nextIsActive ? 'Disable maintenance mode' : 'Enable maintenance mode',
-      nextIsActive
-        ? `${printer.name} will return to active service.`
-        : `${printer.name} will stop accepting normal printer actions until maintenance mode is disabled.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: nextIsActive ? 'Disable' : 'Enable',
-          style: nextIsActive ? 'default' : 'destructive',
-          onPress: () => maintenanceMutation.mutate(nextIsActive),
-        },
-      ],
-    );
-  }, [maintenanceMutation, printer.is_active, printer.name]);
+    setMaintenanceModeTarget(!printer.is_active);
+  }, [printer.is_active]);
 
   const handleDeletePrinter = useCallback(() => {
-    Alert.alert(
-      'Delete printer',
-      `Delete ${printer.name}? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deleteMutation.mutate(),
-        },
-      ],
-    );
-  }, [deleteMutation, printer.name]);
+    setDeleteSheetVisible(true);
+  }, []);
 
   const showMoveMenu = useCallback(() => {
     setMoveModalVisible(true);
@@ -989,24 +903,52 @@ export function PrinterCard({
   }, []);
 
   const showSpeedMenu = useCallback(() => {
-    Alert.alert('Print speed', 'Choose a print speed.', [
-      ...Object.entries(SPEED_LEVELS).map(([value, info]) => ({
-        text: `${info.label} (${info.percent})`,
-        onPress: () => {
-          speedMutation.mutate(Number(value));
-        },
-      })),
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [speedMutation]);
+    setShowSpeedSheet(true);
+  }, []);
 
   const showMoreMenu = useCallback(() => {
     setMoreSheetVisible(true);
   }, []);
 
-  const cameraPreview = canCamera ? (
-    <Pressable
-      onPress={onCameraPress}
+  const speedActions = useMemo<ActionSheetAction[]>(
+    () => [
+      ...Object.entries(SPEED_LEVELS).map(([value, info]) => {
+        const selected = Number(value) === (status?.speed_level ?? 2);
+        return {
+          label: `${info.label} (${info.percent})`,
+          icon: (
+            <Gauge
+              size={18}
+              color={selected ? colors.accent : colors.text}
+              strokeWidth={2}
+            />
+          ),
+          onPress: () => {
+            setShowSpeedSheet(false);
+            speedMutation.mutate(Number(value));
+          },
+          disabled: !canControlPrinter || speedMutation.isPending,
+          loading: speedMutation.isPending && selected,
+        };
+      }),
+      {
+        label: 'Cancel',
+        icon: <X size={18} color={colors.textSecondary} strokeWidth={2} />,
+        onPress: () => setShowSpeedSheet(false),
+      },
+    ],
+    [
+      canControlPrinter,
+      colors.accent,
+      colors.text,
+      colors.textSecondary,
+      speedMutation,
+      status?.speed_level,
+    ],
+  );
+
+  const partPreview = (
+    <View
       style={[
         styles.previewFrame,
         {
@@ -1015,28 +957,30 @@ export function PrinterCard({
         },
       ]}
     >
-      {cameraSource ? <Image source={cameraSource} style={styles.previewImage} /> : null}
-      <View style={[styles.previewOverlay, { backgroundColor: colors.overlay }]}> 
-        <Camera size={14} color={colors.text} strokeWidth={2} />
-        <Text style={[styles.previewOverlayText, { color: colors.text }]} numberOfLines={1}>
-          {currentPrintName || 'Live view'}
-        </Text>
-      </View>
-    </Pressable>
-  ) : (
-    <View
-      style={[
-        styles.previewPlaceholder,
-        {
-          backgroundColor: colors.surfaceElevated,
-          borderColor: colors.border,
-        },
-      ]}
-    >
-      <Camera size={20} color={colors.textTertiary} strokeWidth={2} />
-      <Text style={[styles.previewPlaceholderText, { color: colors.textSecondary }]}> 
-        Camera unavailable
-      </Text>
+      {partPreviewSource ? (
+        <Image source={partPreviewSource} style={styles.previewImage} resizeMode="cover" />
+      ) : (
+        <View style={styles.previewPlaceholder}>
+          <PrinterIcon size={24} color={colors.textTertiary} strokeWidth={2} />
+        </View>
+      )}
+      {isPrinting ? (
+        <View style={styles.previewProgressWrap}>
+          <View
+            style={[
+              styles.previewProgressTrack,
+              { backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+            ]}
+          >
+            <View
+              style={[
+                styles.previewProgressFill,
+                { width: `${progress}%`, backgroundColor: PRINT_GREEN },
+              ]}
+            />
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 
@@ -1198,7 +1142,7 @@ export function PrinterCard({
 
       <SectionLabel label="Status" />
       <View style={styles.statusRow}>
-        {cameraPreview}
+        {partPreview}
         <View style={styles.statusContent}>
           <View style={styles.statusTopRow}>
             <Text style={[styles.stateText, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -1294,12 +1238,12 @@ export function PrinterCard({
         <ControlButton
           label={speedInfo.label}
           icon={<Gauge size={16} color={colors.text} strokeWidth={2} />}
-          trailingIcon={<ChevronDown size={12} color={colors.textSecondary} strokeWidth={2} />}
           onPress={showSpeedMenu}
           disabled={!canControlPrinter || speedMutation.isPending}
           backgroundColor={colors.surfaceElevated}
           borderColor={colors.border}
           textColor={colors.text}
+          iconOnly
         />
         <ControlButton
           label="Refresh"
@@ -1641,28 +1585,7 @@ export function PrinterCard({
               return (
                 <Pressable
                   key={item.id}
-                  onPress={() => {
-                    Alert.alert(
-                      item.maintenance_type_name,
-                      item.is_due
-                        ? `This task is overdue. Mark as completed?`
-                        : `This task is due soon (${item.interval_type === 'days' ? `${item.days_until_due ?? 0} days left` : `${Math.round(item.hours_until_due)}h left`}). Mark as completed?`,
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Mark complete',
-                          onPress: () => {
-                            api.performMaintenance(item.id).then(() => {
-                              queryClient.invalidateQueries({ queryKey: ['maintenanceTasks'] });
-                              showToast(`${item.maintenance_type_name} marked complete`, 'success');
-                            }).catch(err => {
-                              showToast(getErrorMessage(err, 'Could not complete task'), 'error');
-                            });
-                          },
-                        },
-                      ],
-                    );
-                  }}
+                  onPress={() => setSelectedMaintenanceItem(item)}
                   style={[
                     styles.maintenanceItem,
                     {
@@ -1792,6 +1715,111 @@ export function PrinterCard({
         visible={editModalVisible}
         printer={editModalVisible ? printer : null}
         onClose={() => setEditModalVisible(false)}
+      />
+
+      <ActionSheetModal
+        visible={showSpeedSheet}
+        title="Print speed"
+        subtitle="Choose a print speed."
+        onClose={() => setShowSpeedSheet(false)}
+        actions={speedActions}
+      />
+
+      <ActionSheetModal
+        visible={maintenanceModeTarget != null}
+        title={
+          maintenanceModeTarget
+            ? 'Disable maintenance mode'
+            : 'Enable maintenance mode'
+        }
+        subtitle={
+          maintenanceModeTarget
+            ? `${printer.name} will return to active service.`
+            : `${printer.name} will stop accepting normal printer actions until maintenance mode is disabled.`
+        }
+        onClose={() => setMaintenanceModeTarget(null)}
+        actions={[
+          {
+            label: 'Cancel',
+            icon: <X size={18} color={colors.textSecondary} strokeWidth={2} />,
+            onPress: () => setMaintenanceModeTarget(null),
+          },
+          {
+            label: maintenanceModeTarget ? 'Disable' : 'Enable',
+            icon: <Wrench size={18} color={colors.text} strokeWidth={2} />,
+            onPress: () => {
+              if (maintenanceModeTarget == null) return;
+              setMaintenanceModeTarget(null);
+              maintenanceMutation.mutate(maintenanceModeTarget);
+            },
+            destructive: maintenanceModeTarget === false,
+            disabled: maintenanceModeTarget == null || maintenanceMutation.isPending,
+            loading: maintenanceMutation.isPending,
+          },
+        ]}
+      />
+
+      <ActionSheetModal
+        visible={deleteSheetVisible}
+        title="Delete printer"
+        subtitle={`Delete ${printer.name}? This cannot be undone.`}
+        onClose={() => setDeleteSheetVisible(false)}
+        actions={[
+          {
+            label: 'Cancel',
+            icon: <X size={18} color={colors.textSecondary} strokeWidth={2} />,
+            onPress: () => setDeleteSheetVisible(false),
+          },
+          {
+            label: 'Delete',
+            icon: <Trash2 size={18} color={colors.error} strokeWidth={2} />,
+            onPress: () => {
+              setDeleteSheetVisible(false);
+              deleteMutation.mutate();
+            },
+            destructive: true,
+            disabled: deleteMutation.isPending,
+            loading: deleteMutation.isPending,
+          },
+        ]}
+      />
+
+      <ActionSheetModal
+        visible={selectedMaintenanceItem != null}
+        title={selectedMaintenanceItem?.maintenance_type_name ?? 'Maintenance'}
+        subtitle={
+          selectedMaintenanceItem == null
+            ? undefined
+            : selectedMaintenanceItem.is_due
+              ? 'This task is overdue. Mark as completed?'
+              : `This task is due soon (${selectedMaintenanceItem.interval_type === 'days' ? `${selectedMaintenanceItem.days_until_due ?? 0} days left` : `${Math.round(selectedMaintenanceItem.hours_until_due)}h left`}). Mark as completed?`
+        }
+        onClose={() => setSelectedMaintenanceItem(null)}
+        actions={[
+          {
+            label: 'Cancel',
+            icon: <X size={18} color={colors.textSecondary} strokeWidth={2} />,
+            onPress: () => setSelectedMaintenanceItem(null),
+          },
+          {
+            label: 'Mark complete',
+            icon: <CheckCircle size={18} color={colors.text} strokeWidth={2} />,
+            onPress: () => {
+              if (!selectedMaintenanceItem) return;
+              const item = selectedMaintenanceItem;
+              setSelectedMaintenanceItem(null);
+              api
+                .performMaintenance(item.id)
+                .then(() => {
+                  queryClient.invalidateQueries({ queryKey: ['maintenanceTasks'] });
+                  showToast(`${item.maintenance_type_name} marked complete`, 'success');
+                })
+                .catch(err => {
+                  showToast(getErrorMessage(err, 'Could not complete task'), 'error');
+                });
+            },
+          },
+        ]}
       />
 
       <ActionSheetModal
@@ -2020,34 +2048,26 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  previewOverlay: {
+  previewProgressWrap: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: spacing.sm,
+    right: spacing.sm,
     bottom: 0,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
   },
-  previewOverlayText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
+  previewProgressTrack: {
+    height: 6,
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
   },
   previewPlaceholder: {
     width: 108,
     height: 108,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.md,
-    gap: spacing.sm,
   },
-  previewPlaceholderText: {
-    fontSize: fontSize.xs,
-    textAlign: 'center',
+  previewProgressFill: {
+    height: '100%',
+    borderRadius: borderRadius.full,
   },
   statusContent: {
     flex: 1,
@@ -2126,8 +2146,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   controlIconButton: {
-    width: 38,
-    height: 38,
+    width: 42,
+    height: 42,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     alignItems: 'center',
@@ -2386,65 +2406,6 @@ const styles = StyleSheet.create({
   footerPrintText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
-  },
-  actionSheetBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  actionSheetCard: {
-    borderTopLeftRadius: borderRadius['2xl'],
-    borderTopRightRadius: borderRadius['2xl'],
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  actionSheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  actionSheetTitleWrap: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  actionSheetTitle: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.semibold,
-  },
-  actionSheetSubtitle: {
-    fontSize: fontSize.sm,
-  },
-  actionSheetClose: {
-    width: 38,
-    height: 38,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionSheetActions: {
-    gap: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  actionSheetRow: {
-    minHeight: 52,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  actionSheetRowIcon: {
-    width: 20,
-    alignItems: 'center',
-  },
-  actionSheetRowLabel: {
-    flex: 1,
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.medium,
   },
   disabledAction: {
     opacity: 0.45,

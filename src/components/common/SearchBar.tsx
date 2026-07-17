@@ -1,4 +1,5 @@
-import { StyleSheet, TextInput, View, Pressable, Text } from 'react-native';
+import { StyleSheet, TextInput, View, Pressable } from 'react-native';
+import { Search, X } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { borderRadius, fontSize, spacing } from '../../theme/tokens';
 
@@ -13,7 +14,7 @@ export function SearchBar({ value, onChangeText, placeholder = 'Search...' }: Se
 
   return (
     <View style={[styles.container, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-      <Text style={styles.icon}>🔍</Text>
+      <Search size={16} color={colors.textTertiary} strokeWidth={2} style={styles.icon} />
       <TextInput
         style={[styles.input, { color: colors.inputText }]}
         value={value}
@@ -26,7 +27,7 @@ export function SearchBar({ value, onChangeText, placeholder = 'Search...' }: Se
       />
       {value.length > 0 && (
         <Pressable onPress={() => onChangeText('')} style={styles.clearButton}>
-          <Text style={[styles.clearText, { color: colors.textTertiary }]}>✕</Text>
+          <X size={14} color={colors.textTertiary} strokeWidth={2} />
         </Pressable>
       )}
     </View>
@@ -45,7 +46,6 @@ const styles = StyleSheet.create({
     marginVertical: spacing.sm,
   },
   icon: {
-    fontSize: 16,
     marginRight: spacing.sm,
   },
   input: {
@@ -55,8 +55,5 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: spacing.xs,
-  },
-  clearText: {
-    fontSize: 14,
   },
 });

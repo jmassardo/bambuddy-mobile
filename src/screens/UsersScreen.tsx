@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
-  Alert,
   FlatList,
   Modal,
   Pressable,
@@ -14,6 +13,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Edit2, Plus, Trash2 } from 'lucide-react-native';
 import { api } from '@/api/client';
+import { ActionSheetModal } from '@/components/common/ActionSheetModal';
 import { FloatingActionButton, InlineTabBar, PrimaryButton, StatusBadge, TextField } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { GroupEditModal } from '@/components/common/GroupEditModal';
@@ -56,6 +56,7 @@ export default function UsersScreen() {
   const [showEdit, setShowEdit] = useState(false);
   const [createMode, setCreateMode] = useState<CreateMode>('local');
   const [editingUser, setEditingUser] = useState<ApiRecord | null>(null);
+  const [pendingDeleteUser, setPendingDeleteUser] = useState<ApiRecord | null>(null);
   const [form, setForm] = useState<UserFormState>(DEFAULT_FORM);
   const [ldapQuery, setLdapQuery] = useState('');
   const [selectedLdap, setSelectedLdap] = useState<ApiRecord | null>(null);
@@ -300,20 +301,7 @@ export default function UsersScreen() {
                   <PrimaryButton
                     label="Delete"
                     variant="danger"
-                    onPress={() =>
-                      Alert.alert(
-                        'Delete user',
-                        `Delete ${pickString(item, ['username'])}?`,
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Delete',
-                            style: 'destructive',
-                            onPress: () => void deleteMutation.mutateAsync(pickNumber(item, ['id'])),
-                          },
-                        ],
-                      )
-                    }
+                    onPress={() => setPendingDeleteUser(item)}
                   />
                 ) : null}
               </View>
@@ -362,6 +350,33 @@ export default function UsersScreen() {
             )}
           </View>
         }
+      />
+
+      <ActionSheetModal
+        visible={pendingDeleteUser != null}
+        title="Delete user"
+        subtitle={
+          pendingDeleteUser
+            ? `Delete ${pickString(pendingDeleteUser, ['username'])}?`
+            : undefined
+        }
+        onClose={() => setPendingDeleteUser(null)}
+        actions={[
+          {
+            label: 'Cancel',
+            onPress: () => setPendingDeleteUser(null),
+          },
+          {
+            label: 'Delete',
+            onPress: () => {
+              if (!pendingDeleteUser) return;
+              const userId = pickNumber(pendingDeleteUser, ['id']);
+              setPendingDeleteUser(null);
+              void deleteMutation.mutateAsync(userId);
+            },
+            destructive: true,
+          },
+        ]}
       />
 
       <FloatingActionButton icon="plus" label="Create user" onPress={() => setShowCreate(true)} />

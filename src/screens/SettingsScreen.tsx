@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { X } from 'lucide-react-native';
 import { api } from '@/api/client';
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
@@ -2395,7 +2396,7 @@ function SimpleModal({
   const { colors } = useTheme();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}> 
         <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
           <View style={styles.modalHeader}>
@@ -2404,7 +2405,7 @@ function SimpleModal({
               {subtitle ? <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
             </View>
             <Pressable onPress={onClose} style={styles.closeButton}>
-              <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
+              <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
           {children}
@@ -2601,16 +2602,18 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
+    justifyContent: 'flex-end',
+    paddingTop: spacing['4xl'],
   },
   modalCard: {
     width: '100%',
-    maxWidth: 420,
     maxHeight: '90%',
-    borderRadius: borderRadius.xl,
+    borderTopLeftRadius: borderRadius['2xl'],
+    borderTopRightRadius: borderRadius['2xl'],
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     borderWidth: 1,
+    borderBottomWidth: 0,
     overflow: 'hidden',
   },
   modalHeader: {
@@ -2636,10 +2639,6 @@ const styles = StyleSheet.create({
   closeButton: {
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xs,
-  },
-  closeButtonText: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
   },
   modalBody: {
     padding: spacing.lg,

@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
-  Alert,
   FlatList,
   Image,
   Modal,
@@ -15,6 +14,7 @@ import {
 import DocumentPicker, { isCancel } from 'react-native-document-picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
+import { ActionSheetModal } from '@/components/common/ActionSheetModal';
 import { FloatingActionButton, InlineTabBar, PrimaryButton, SearchBar, StatusBadge, TextField } from '@/components/common/AppUI';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { ProjectBatchPrintModal } from '@/components/projects/ProjectActionModals';
@@ -79,6 +79,7 @@ export default function ProjectsScreen() {
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState<ApiRecord | null>(null);
   const [batchProject, setBatchProject] = useState<ApiRecord | null>(null);
+  const [pendingDeleteProject, setPendingDeleteProject] = useState<ApiRecord | null>(null);
   const [form, setForm] = useState<ProjectFormState>(DEFAULT_FORM);
 
   const projectsQuery = useQuery({
@@ -291,16 +292,7 @@ export default function ProjectsScreen() {
               onOpen={() => navigation.navigate('ProjectDetail', { id: pickNumber(item, ['id']) })}
               onBatchPrint={() => setBatchProject(item)}
               onEdit={() => openEdit(item)}
-              onDelete={() =>
-                Alert.alert('Delete project', `Delete ${pickString(item, ['name'])}?`, [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: () => void deleteMutation.mutateAsync(pickNumber(item, ['id'])),
-                  },
-                ])
-              }
+              onDelete={() => setPendingDeleteProject(item)}
             />
           );
         }}
@@ -311,6 +303,33 @@ export default function ProjectsScreen() {
             message="Try a different filter or create a new project."
           />
         }
+      />
+
+      <ActionSheetModal
+        visible={pendingDeleteProject != null}
+        title="Delete project"
+        subtitle={
+          pendingDeleteProject
+            ? `Delete ${pickString(pendingDeleteProject, ['name'])}?`
+            : undefined
+        }
+        onClose={() => setPendingDeleteProject(null)}
+        actions={[
+          {
+            label: 'Cancel',
+            onPress: () => setPendingDeleteProject(null),
+          },
+          {
+            label: 'Delete',
+            onPress: () => {
+              if (!pendingDeleteProject) return;
+              const projectId = pickNumber(pendingDeleteProject, ['id']);
+              setPendingDeleteProject(null);
+              void deleteMutation.mutateAsync(projectId);
+            },
+            destructive: true,
+          },
+        ]}
       />
 
       <FloatingActionButton icon="plus" label="Project" onPress={openCreate} />

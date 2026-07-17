@@ -1,4 +1,5 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Icon } from './TabBarIcon';
 import { useTheme } from '../../theme';
 import { fontSize, spacing } from '../../theme/tokens';
 
@@ -23,12 +24,46 @@ interface EmptyStateProps {
   message?: string;
 }
 
+const EMPTY_STATE_ICON_MAP: Record<string, string> = {
+  '📭': 'archive',
+  '📦': 'package',
+  '🖨️': 'printer',
+  '🖨': 'printer',
+  '📋': 'list-ordered',
+  '🕘': 'clock',
+  '🕒': 'clock',
+  '🗓': 'clock',
+  '🗓️': 'clock',
+  '📁': 'folder',
+  '🗑️': 'trash',
+  '🗂': 'layers',
+  '📉': 'bar-chart',
+  '🧵': 'package',
+  '📍': 'globe',
+  '👥': 'users',
+  '📜': 'file-text',
+  '📝': 'file-text',
+  '🧾': 'file-text',
+  '📡': 'nfc',
+  '🌐': 'globe',
+  '🔔': 'bell',
+  '🔗': 'link',
+  '⏻': 'power',
+  '🧰': 'wrench',
+  '🧱': 'layers',
+  '📨': 'bell',
+  '🛡': 'shield',
+};
+
 export function EmptyState({ icon = '📭', title, message }: EmptyStateProps) {
   const { colors } = useTheme();
+  const iconName = EMPTY_STATE_ICON_MAP[icon] ?? icon;
 
   return (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>{icon}</Text>
+      <View style={[styles.emptyIconWrap, { backgroundColor: colors.surfaceElevated }]}>
+        <Icon name={iconName} size={28} color={colors.textTertiary} />
+      </View>
       <Text style={[styles.emptyTitle, { color: colors.text }]}>{title}</Text>
       {message && (
         <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>
@@ -47,7 +82,9 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
 
   return (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>⚠️</Text>
+      <View style={[styles.emptyIconWrap, { backgroundColor: `${colors.error}18` }]}>
+        <Icon name="alert-circle" size={28} color={colors.error} />
+      </View>
       <Text style={[styles.emptyTitle, { color: colors.error }]}>Error</Text>
       <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>
       {onRetry && (
@@ -78,8 +115,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing['3xl'],
   },
-  emptyIcon: {
-    fontSize: 48,
+  emptyIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: spacing.lg,
   },
   emptyTitle: {
