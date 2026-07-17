@@ -41,6 +41,7 @@ import type {
 import { formatDuration, getPrinterModelImagePath, statusColor, withCacheBuster } from '@/utils/data';
 import {
   AlertCircle,
+  Box,
   Camera,
   CheckCircle,
   FolderOpen,
@@ -964,11 +965,9 @@ export function PrinterCard({
     >
       {partPreviewSource ? (
         <Image source={partPreviewSource} style={styles.previewImage} resizeMode="cover" />
-      ) : printerImageSource ? (
-        <Image source={printerImageSource} style={styles.previewImage} resizeMode="contain" />
       ) : (
         <View style={styles.previewPlaceholder}>
-          <PrinterIcon size={24} color={colors.textTertiary} strokeWidth={2} />
+          <Box size={32} color={colors.textTertiary} strokeWidth={1.5} />
         </View>
       )}
       {isPrinting ? (
