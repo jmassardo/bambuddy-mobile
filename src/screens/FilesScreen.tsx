@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { CheckCircle, ChevronDown, ChevronRight, Pause, X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { FileUploadModal } from '@/components/files/FileUploadModal';
@@ -27,7 +28,6 @@ import {
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { PrintModal } from '@/components/printers/PrintModal';
-import { Icon } from '@/components/common/TabBarIcon';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import {
@@ -81,7 +81,7 @@ function ModalShell({
               {subtitle ? <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
             </View>
             <Pressable onPress={onClose}>
-              <Icon name="x" size={18} color={colors.textSecondary} />
+              <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
           {children}
@@ -908,11 +908,11 @@ export default function FilesScreen() {
                   <Text style={[styles.previewLine, { color: colors.accentLight }]}>
                     {readmeExpanded ? 'Hide' : 'Show'}
                   </Text>
-                  <Icon
-                    name={readmeExpanded ? 'chevron-down' : 'chevron-right'}
-                    size={18}
-                    color={colors.accentLight}
-                  />
+                  {readmeExpanded ? (
+                    <ChevronDown size={18} color={colors.accentLight} strokeWidth={2} />
+                  ) : (
+                    <ChevronRight size={18} color={colors.accentLight} strokeWidth={2} />
+                  )}
                 </Pressable>
               )}
             >
@@ -1136,7 +1136,11 @@ export default function FilesScreen() {
             <Text style={[styles.toggleSubtitle, { color: colors.textSecondary }]}>Keep the external mount protected from write operations.</Text>
           </View>
           <Pressable onPress={() => setExternalFolderReadonly(current => !current)}>
-            <Icon name={externalFolderReadonly ? 'check-circle' : 'pause'} size={18} color={externalFolderReadonly ? colors.success : colors.textSecondary} />
+            {externalFolderReadonly ? (
+              <CheckCircle size={18} color={colors.success} strokeWidth={2} />
+            ) : (
+              <Pause size={18} color={colors.textSecondary} strokeWidth={2} />
+            )}
           </Pressable>
         </View>
         <View style={styles.modalFooter}>
@@ -1166,7 +1170,11 @@ export default function FilesScreen() {
             <Text style={[styles.toggleSubtitle, { color: colors.textSecondary }]}>Also move files that have not been printed yet.</Text>
           </View>
           <Pressable onPress={() => setIncludeNeverPrinted(current => !current)}>
-            <Icon name={includeNeverPrinted ? 'check-circle' : 'pause'} size={18} color={includeNeverPrinted ? colors.success : colors.textSecondary} />
+            {includeNeverPrinted ? (
+              <CheckCircle size={18} color={colors.success} strokeWidth={2} />
+            ) : (
+              <Pause size={18} color={colors.textSecondary} strokeWidth={2} />
+            )}
           </Pressable>
         </View>
         <View style={[styles.previewCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 

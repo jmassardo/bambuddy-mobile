@@ -6,9 +6,22 @@ import {
   Text,
   View,
 } from 'react-native';
+import {
+  CheckCircle,
+  Clock3,
+  Layers,
+  Package,
+  Pause,
+  Play,
+  Printer,
+  RefreshCw,
+  Square,
+  Tag,
+  Trash2,
+  X,
+} from 'lucide-react-native';
 import { api, getAuthToken } from '@/api/client';
 import { apiUrl, useServerStore } from '@/api/server';
-import { Icon } from '@/components/common/TabBarIcon';
 import { StatusBadge } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import {
@@ -24,6 +37,18 @@ import {
   formatDuration,
   formatWeight,
 } from '@/utils/data';
+
+type QueueActionIconName = 'play' | 'printer' | 'x' | 'trash' | 'pause' | 'stop' | 'refresh';
+
+const QUEUE_ACTION_ICONS = {
+  play: Play,
+  printer: Printer,
+  x: X,
+  trash: Trash2,
+  pause: Pause,
+  stop: Square,
+  refresh: RefreshCw,
+} satisfies Record<QueueActionIconName, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>>;
 
 interface QueueItemCardProps {
   item: PrintQueueItem;
@@ -90,12 +115,13 @@ function QueueActionButton({
   subtle = false,
 }: {
   label: string;
-  icon?: string;
+  icon?: QueueActionIconName;
   onPress?: () => void;
   color: string;
   subtle?: boolean;
 }) {
   if (!onPress) return null;
+  const IconComponent = icon ? QUEUE_ACTION_ICONS[icon] : null;
 
   return (
     <Pressable
@@ -109,7 +135,7 @@ function QueueActionButton({
         },
       ]}
     >
-      {icon ? <Icon name={icon} size={14} color={color} /> : null}
+      {IconComponent ? <IconComponent size={14} color={color} strokeWidth={2} /> : null}
       <Text style={[styles.actionText, { color }]}>{label}</Text>
     </Pressable>
   );
@@ -239,7 +265,7 @@ export function QueueItemCard({
               ]}
             >
               {selected ? (
-                <Icon name="check-circle" size={16} color={colors.textInverse} />
+                <CheckCircle size={16} color={colors.textInverse} strokeWidth={2} />
               ) : null}
             </Pressable>
           ) : null}
@@ -252,7 +278,7 @@ export function QueueItemCard({
             {thumbnailSource ? (
               <Image source={{ uri: thumbnailSource }} style={styles.thumbnail} />
             ) : (
-              <Icon name="layers" size={20} color={colors.textTertiary} />
+              <Layers size={20} color={colors.textTertiary} strokeWidth={2} />
             )}
           </View>
           <View style={styles.titleGroup}>
@@ -286,28 +312,28 @@ export function QueueItemCard({
 
       <View style={styles.metaGrid}>
         <View style={styles.metaItem}>
-          <Icon name="printer" size={14} color={colors.textTertiary} />
+          <Printer size={14} color={colors.textTertiary} strokeWidth={2} />
           <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Printer</Text>
           <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
             {printerLabel}
           </Text>
         </View>
         <View style={styles.metaItem}>
-          <Icon name="layers" size={14} color={colors.textTertiary} />
+          <Layers size={14} color={colors.textTertiary} strokeWidth={2} />
           <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Plate</Text>
           <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
             {item.bed_type || 'Unknown'}
           </Text>
         </View>
         <View style={styles.metaItem}>
-          <Icon name="clock" size={14} color={colors.textTertiary} />
+          <Clock3 size={14} color={colors.textTertiary} strokeWidth={2} />
           <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Estimate</Text>
           <Text style={[styles.metaValue, { color: colors.text }]}>
             {formatDuration(item.print_time_seconds)}
           </Text>
         </View>
         <View style={styles.metaItem}>
-          <Icon name="tag" size={14} color={colors.textTertiary} />
+          <Tag size={14} color={colors.textTertiary} strokeWidth={2} />
           <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Filament</Text>
           <View style={styles.filamentRow}>
             {item.filament_color ? (
@@ -327,14 +353,14 @@ export function QueueItemCard({
           </View>
         </View>
         <View style={styles.metaItem}>
-          <Icon name="package" size={14} color={colors.textTertiary} />
+          <Package size={14} color={colors.textTertiary} strokeWidth={2} />
           <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Weight</Text>
           <Text style={[styles.metaValue, { color: colors.text }]}> 
             {formatWeight(item.filament_used_grams)}
           </Text>
         </View>
         <View style={styles.metaItem}>
-          <Icon name="clock" size={14} color={colors.textTertiary} />
+          <Clock3 size={14} color={colors.textTertiary} strokeWidth={2} />
           <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Created</Text>
           <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
             {formatDateTime(item.created_at)}

@@ -1,5 +1,26 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { Icon } from './TabBarIcon';
+import {
+  AlertCircle,
+  Archive,
+  BarChart3,
+  Bell,
+  Clock3,
+  FileText,
+  Folder,
+  Globe,
+  Layers,
+  Link2,
+  ListOrdered,
+  MapPin,
+  Package,
+  Power,
+  Printer,
+  Radio,
+  Shield,
+  Trash2,
+  Users,
+  Wrench,
+} from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { fontSize, spacing } from '../../theme/tokens';
 
@@ -39,7 +60,7 @@ const EMPTY_STATE_ICON_MAP: Record<string, string> = {
   '🗂': 'layers',
   '📉': 'bar-chart',
   '🧵': 'package',
-  '📍': 'globe',
+  '📍': 'map-pin',
   '👥': 'users',
   '📜': 'file-text',
   '📝': 'file-text',
@@ -55,14 +76,40 @@ const EMPTY_STATE_ICON_MAP: Record<string, string> = {
   '🛡': 'shield',
 };
 
+const EMPTY_STATE_ICONS: Record<
+  string,
+  React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>
+> = {
+  archive: Archive,
+  package: Package,
+  printer: Printer,
+  'list-ordered': ListOrdered,
+  clock: Clock3,
+  folder: Folder,
+  trash: Trash2,
+  layers: Layers,
+  'bar-chart': BarChart3,
+  globe: Globe,
+  'map-pin': MapPin,
+  users: Users,
+  'file-text': FileText,
+  nfc: Radio,
+  bell: Bell,
+  link: Link2,
+  power: Power,
+  wrench: Wrench,
+  shield: Shield,
+};
+
 export function EmptyState({ icon = '📭', title, message }: EmptyStateProps) {
   const { colors } = useTheme();
   const iconName = EMPTY_STATE_ICON_MAP[icon] ?? icon;
+  const IconComponent = EMPTY_STATE_ICONS[iconName] ?? Archive;
 
   return (
     <View style={styles.emptyContainer}>
       <View style={[styles.emptyIconWrap, { backgroundColor: colors.surfaceElevated }]}>
-        <Icon name={iconName} size={28} color={colors.textTertiary} />
+        <IconComponent size={28} color={colors.textTertiary} strokeWidth={2} />
       </View>
       <Text style={[styles.emptyTitle, { color: colors.text }]}>{title}</Text>
       {message && (
@@ -83,7 +130,7 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
     <View style={styles.emptyContainer}>
       <View style={[styles.emptyIconWrap, { backgroundColor: `${colors.error}18` }]}>
-        <Icon name="alert-circle" size={28} color={colors.error} />
+        <AlertCircle size={28} color={colors.error} strokeWidth={2} />
       </View>
       <Text style={[styles.emptyTitle, { color: colors.error }]}>Error</Text>
       <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>

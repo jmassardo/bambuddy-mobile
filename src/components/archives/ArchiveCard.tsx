@@ -6,8 +6,8 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Camera, CheckCircle, Printer, QrCode, Star, Trash2, Video } from 'lucide-react-native';
 import { api } from '@/api/client';
-import { Icon } from '@/components/common/TabBarIcon';
 import { StatusBadge } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import {
@@ -23,6 +23,16 @@ import {
   formatDuration,
   formatWeight,
 } from '@/utils/data';
+
+type ArchiveActionIconName = 'printer' | 'video' | 'camera' | 'qr-code' | 'trash';
+
+const ARCHIVE_ACTION_ICONS = {
+  printer: Printer,
+  video: Video,
+  camera: Camera,
+  'qr-code': QrCode,
+  trash: Trash2,
+} satisfies Record<ArchiveActionIconName, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>>;
 
 interface ArchiveCardProps {
   archive: Archive;
@@ -61,11 +71,12 @@ function ArchiveAction({
   onPress,
 }: {
   label: string;
-  icon: string;
+  icon: ArchiveActionIconName;
   color: string;
   onPress?: () => void;
 }) {
   if (!onPress) return null;
+  const IconComponent = ARCHIVE_ACTION_ICONS[icon];
 
   return (
     <Pressable
@@ -79,7 +90,7 @@ function ArchiveAction({
         },
       ]}
     >
-      <Icon name={icon} size={14} color={color} />
+      <IconComponent size={14} color={color} strokeWidth={2} />
       <Text style={[styles.actionText, { color }]}>{label}</Text>
     </Pressable>
   );
@@ -134,18 +145,18 @@ export function ArchiveCard({
             ]}
           >
             {selected ? (
-              <Icon name="check-circle" size={16} color={colors.textInverse} />
+              <CheckCircle size={16} color={colors.textInverse} strokeWidth={2} />
             ) : null}
           </Pressable>
         ) : null}
         {archive.is_favorite ? (
           <View style={[styles.favoriteBadge, { backgroundColor: colors.overlay }]}> 
-            <Icon name="star" size={14} color="#facc15" />
+            <Star size={14} color="#facc15" strokeWidth={2} />
           </View>
         ) : null}
         {archive.timelapse_path ? (
           <View style={[styles.mediaBadge, { backgroundColor: colors.overlay }]}> 
-            <Icon name="video" size={14} color={colors.accentLight} />
+            <Video size={14} color={colors.accentLight} strokeWidth={2} />
           </View>
         ) : null}
       </View>

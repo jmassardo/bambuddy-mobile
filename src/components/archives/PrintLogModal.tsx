@@ -8,11 +8,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import { X } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { EmptyState, ErrorState } from '@/components/common/StateScreens';
 import { PrimaryButton } from '@/components/common/AppUI';
-import { Icon } from '@/components/common/TabBarIcon';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDateTime, pickString, type ApiRecord } from '@/utils/data';
@@ -107,7 +107,7 @@ export function PrintLogModal({
               </Text>
             </View>
             <Pressable onPress={onClose} hitSlop={8}>
-              <Icon name="x" size={18} color={colors.textSecondary} />
+              <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
 

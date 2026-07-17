@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Camera, CheckCircle, Download, Pause, X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { ArchiveCard } from '@/components/archives/ArchiveCard';
@@ -26,7 +27,6 @@ import {
 } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
-import { Icon } from '@/components/common/TabBarIcon';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import {
@@ -130,7 +130,7 @@ function SimpleModal({
               {subtitle ? <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
             </View>
             <Pressable onPress={onClose}>
-              <Icon name="x" size={18} color={colors.textSecondary} />
+              <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
           {children}
@@ -171,7 +171,7 @@ export default function ArchivesScreen() {
       title: 'Archives',
       headerRight: () => (
         <Pressable onPress={() => setShowExportModal(true)} style={styles.headerButton} hitSlop={8}>
-          <Icon name="download" size={18} color={colors.text} />
+          <Download size={18} color={colors.text} strokeWidth={2} />
         </Pressable>
       ),
     });
@@ -662,7 +662,11 @@ export default function ArchivesScreen() {
             <Text style={[styles.toggleTitle, { color: colors.text }]}>Also purge stats</Text>
             <Text style={[styles.toggleSubtitle, { color: colors.textSecondary }]}>Hard-delete archived rows and remove them from Quick Stats totals.</Text>
           </View>
-          <Icon name={purgeStats ? 'check-circle' : 'pause'} size={18} color={purgeStats ? colors.success : colors.textSecondary} />
+          {purgeStats ? (
+            <CheckCircle size={18} color={colors.success} strokeWidth={2} />
+          ) : (
+            <Pause size={18} color={colors.textSecondary} strokeWidth={2} />
+          )}
         </Pressable>
         <View style={[styles.previewCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
           <Text style={[styles.previewTitle, { color: colors.text }]}>Preview</Text>
@@ -690,7 +694,7 @@ export default function ArchivesScreen() {
         <ScrollView style={styles.modalScroll}>
           {photosArchive?.photos?.map(photo => (
             <View key={photo} style={[styles.simpleListItem, { borderColor: colors.borderSubtle }]}> 
-              <Icon name="camera" size={16} color={colors.info} />
+              <Camera size={16} color={colors.info} strokeWidth={2} />
               <Text style={[styles.simpleListText, { color: colors.text }]}>{photo}</Text>
             </View>
           ))}

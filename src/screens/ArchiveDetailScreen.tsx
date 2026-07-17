@@ -11,7 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Pencil } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, Pencil, Trash2, X } from 'lucide-react-native';
 import { launchCamera, launchImageLibrary, type Asset } from 'react-native-image-picker';
 import QRCode from 'react-native-qrcode-svg';
 import { WebView } from 'react-native-webview';
@@ -30,7 +30,6 @@ import {
   SectionCard,
 } from '@/components/common/AppUI';
 import { ErrorState, LoadingScreen } from '@/components/common/StateScreens';
-import { Icon } from '@/components/common/TabBarIcon';
 import type { Archive } from '@/types/api';
 import {
   formatCurrency,
@@ -325,7 +324,7 @@ export default function ArchiveDetailScreen() {
                   onPress={() => setPendingPhotoDelete(photo)}
                   style={[styles.photoDelete, { backgroundColor: colors.error }]}
                 >
-                  <Icon name="trash" size={14} color={colors.textInverse} />
+                  <Trash2 size={14} color={colors.textInverse} strokeWidth={2} />
                 </Pressable>
               </View>
             ))}
@@ -333,14 +332,14 @@ export default function ArchiveDetailScreen() {
               onPress={() => void pickPhoto('camera')}
               style={[styles.photoActionCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
             >
-              <Icon name="camera" size={18} color={colors.accent} />
+              <Camera size={18} color={colors.accent} strokeWidth={2} />
               <Text style={[styles.photoActionText, { color: colors.textSecondary }]}>Camera</Text>
             </Pressable>
             <Pressable
               onPress={() => void pickPhoto('gallery')}
               style={[styles.photoActionCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
             >
-              <Icon name="image" size={18} color={colors.accent} />
+              <ImageIcon size={18} color={colors.accent} strokeWidth={2} />
               <Text style={[styles.photoActionText, { color: colors.textSecondary }]}>Gallery</Text>
             </Pressable>
           </ScrollView>
@@ -445,7 +444,7 @@ export default function ArchiveDetailScreen() {
       <Modal visible={fullscreenPhoto !== null} transparent animationType="fade" onRequestClose={() => setFullscreenPhoto(null)}>
         <View style={[styles.fullscreenBackdrop, { backgroundColor: colors.overlay }]}> 
           <Pressable style={styles.fullscreenClose} onPress={() => setFullscreenPhoto(null)}>
-            <Icon name="x" size={20} color={colors.textInverse} />
+            <X size={20} color={colors.textInverse} strokeWidth={2} />
           </Pressable>
           {fullscreenPhoto ? (
             <Image source={{ uri: api.getArchivePhotoUrl(archiveId, fullscreenPhoto) }} style={styles.fullscreenImage} resizeMode="contain" />

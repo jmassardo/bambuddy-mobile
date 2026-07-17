@@ -6,9 +6,20 @@ import {
   Text,
   View,
 } from 'react-native';
+import {
+  CheckCircle,
+  Download,
+  File,
+  FileText,
+  Folder,
+  Image as ImageIcon,
+  Layers,
+  Pencil,
+  Trash2,
+  Video,
+} from 'lucide-react-native';
 import { getAuthToken } from '@/api/client';
 import { apiUrl, useServerStore } from '@/api/server';
-import { Icon } from '@/components/common/TabBarIcon';
 import { useTheme } from '@/theme';
 import {
   borderRadius,
@@ -28,6 +39,29 @@ import {
   type ApiRecord,
 } from '@/utils/data';
 import { formatFileSize } from '@/utils/formatters';
+
+type FileItemIconName =
+  | 'image'
+  | 'layers'
+  | 'folder'
+  | 'edit'
+  | 'download'
+  | 'trash'
+  | 'video'
+  | 'file-text'
+  | 'file';
+
+const FILE_ITEM_ICONS = {
+  image: ImageIcon,
+  layers: Layers,
+  folder: Folder,
+  edit: Pencil,
+  download: Download,
+  trash: Trash2,
+  video: Video,
+  'file-text': FileText,
+  file: File,
+} satisfies Record<FileItemIconName, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>>;
 
 interface FileItemProps {
   item: ApiRecord;
@@ -61,12 +95,13 @@ function ActionPill({
   onLongPress,
 }: {
   label: string;
-  icon: string;
+  icon: FileItemIconName;
   color: string;
   onPress?: () => void;
   onLongPress?: () => void;
 }) {
   if (!onPress) return null;
+  const IconComponent = FILE_ITEM_ICONS[icon];
 
   return (
     <Pressable
@@ -82,7 +117,7 @@ function ActionPill({
         },
       ]}
     >
-      <Icon name={icon} size={14} color={color} />
+      <IconComponent size={14} color={color} strokeWidth={2} />
       <Text style={[styles.actionPillText, { color }]}>{label}</Text>
     </Pressable>
   );
@@ -126,7 +161,8 @@ export function FileItem({
     if (!hasThumb || !id || isFolder) return null;
     return thumbnailUrl(id);
   }, [id, isFolder, item]);
-  const iconName = fileIconName(rawFilename, isFolder);
+  const iconName = fileIconName(rawFilename, isFolder) as FileItemIconName;
+  const FileTypeIcon = FILE_ITEM_ICONS[iconName];
   const isGrid = viewMode === 'grid';
   const isSliceable = /\.(3mf|stl|step|stp)$/i.test(rawFilename) && !/\.gcode(\.3mf)?$/i.test(rawFilename);
   const isPreviewable = /\.(3mf|stl|gcode|gcode\.3mf)$/i.test(rawFilename);
@@ -159,7 +195,7 @@ export function FileItem({
           ]}
         >
           {selected ? (
-            <Icon name="check-circle" size={16} color={colors.textInverse} />
+            <CheckCircle size={16} color={colors.textInverse} strokeWidth={2} />
           ) : null}
         </Pressable>
       ) : null}
@@ -168,7 +204,7 @@ export function FileItem({
         {previewSource ? (
           <Image source={{ uri: previewSource }} style={styles.thumbnail} resizeMode="cover" />
         ) : (
-          <Icon name={iconName} size={28} color={isFolder ? colors.accentLight : colors.textTertiary} />
+          <FileTypeIcon size={28} color={isFolder ? colors.accentLight : colors.textTertiary} strokeWidth={2} />
         )}
         <View
           style={[

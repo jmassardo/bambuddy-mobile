@@ -7,12 +7,12 @@ import {
   Text,
   View,
 } from 'react-native';
+import { X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { EmptyState } from '@/components/common/StateScreens';
-import { Icon } from '@/components/common/TabBarIcon';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -124,7 +124,7 @@ export function LocationsModal({
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Create, rename, delete, and assign spool storage locations.</Text>
               </View>
               <Pressable onPress={onClose} hitSlop={8}>
-                <Icon name="x" size={18} color={colors.textSecondary} />
+                <X size={18} color={colors.textSecondary} strokeWidth={2} />
               </Pressable>
             </View>
 

@@ -9,10 +9,46 @@ import {
   TextInputProps,
   View,
 } from 'react-native';
-import { Search } from 'lucide-react-native';
+import {
+  Bell,
+  ChevronRight,
+  Circle,
+  Download,
+  Filter,
+  Globe,
+  KeyRound,
+  ListOrdered,
+  Package,
+  Plus,
+  Power,
+  Printer,
+  Radio,
+  Search,
+  Settings,
+  Shield,
+  Users,
+} from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
-import { Icon } from './TabBarIcon';
+
+const APP_UI_ICONS: Record<
+  string,
+  React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>
+> = {
+  settings: Settings,
+  power: Power,
+  bell: Bell,
+  'list-ordered': ListOrdered,
+  package: Package,
+  globe: Globe,
+  key: KeyRound,
+  printer: Printer,
+  nfc: Radio,
+  shield: Shield,
+  users: Users,
+  download: Download,
+  plus: Plus,
+};
 
 export function SearchBar({
   value,
@@ -46,7 +82,7 @@ export function SearchBar({
           onPress={onFilterPress}
           style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
         >
-          <Icon name="filter" size={18} color={colors.text} />
+          <Filter size={18} color={colors.text} strokeWidth={2} />
         </Pressable>
       ) : null}
     </View>
@@ -172,10 +208,11 @@ export function SettingRow({
   right?: React.ReactNode;
 }) {
   const { colors } = useTheme();
+  const IconComponent = APP_UI_ICONS[icon] ?? Circle;
   const content = (
     <View style={styles.settingRow}>
       <View style={[styles.settingIcon, { backgroundColor: colors.accentBg }]}>
-        <Icon name={icon} size={18} color={colors.accentLight} />
+        <IconComponent size={18} color={colors.accentLight} strokeWidth={2} />
       </View>
       <View style={styles.settingContent}>
         <Text style={[styles.settingLabel, { color: colors.text }]}>{label}</Text>
@@ -184,7 +221,7 @@ export function SettingRow({
       {right ?? (
         <View style={styles.settingRight}>
           {value ? <Text style={[styles.settingValue, { color: colors.textSecondary }]}>{value}</Text> : null}
-          {onPress ? <Icon name="chevron-right" size={20} color={colors.textTertiary} /> : null}
+          {onPress ? <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} /> : null}
         </View>
       )}
     </View>
@@ -308,10 +345,11 @@ export function FloatingActionButton({
   onPress: () => void;
 }) {
   const { colors } = useTheme();
+  const IconComponent = APP_UI_ICONS[icon] ?? Circle;
 
   return (
     <Pressable onPress={onPress} style={[styles.fab, { backgroundColor: colors.accent }]}> 
-      <Icon name={icon} size={18} color={colors.textInverse} />
+      <IconComponent size={18} color={colors.textInverse} strokeWidth={2} />
       <Text style={[styles.fabText, { color: colors.textInverse }]}>{label}</Text>
     </Pressable>
   );
