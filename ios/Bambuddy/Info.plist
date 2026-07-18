@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Bambuddy</string>
+	<string>Bambuddy Companion</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -34,12 +34,20 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>Bambuddy may use your location to identify nearby printers on your local network.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Bambuddy uses the camera to scan QR codes for printer setup and to view your printer's live camera feed.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Bambuddy uses Face ID to quickly and securely unlock the app.</string>
+	<key>NFCReaderUsageDescription</key>
+	<string>Bambuddy uses NFC to read and write spool tags for filament tracking.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Bambuddy accesses your photo library to attach photos to print archives.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.bambuddy.mobile</string>
+			<string>com.dxrf.bambuddy</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>bambuddy</string>
