@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Layers, Scissors, Settings2, Workflow, X } from 'lucide-react-native';
+import { Check, Layers, Scissors, Workflow, X } from 'lucide-react-native';
 import { api } from '@/api/client';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { useToast } from '@/contexts/ToastContext';

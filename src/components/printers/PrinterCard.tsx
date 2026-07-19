@@ -29,16 +29,37 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type {
-  AMSUnit,
   AMSTray,
-  HMSError,
   MaintenanceStatus,
   NozzleRackSlot,
   Printer,
   PrinterStatus,
   SpoolAssignment,
 } from '@/types/api';
-import { formatDuration, getPrinterModelImagePath, statusColor, withCacheBuster } from '@/utils/data';
+import { formatDuration, getPrinterModelImagePath, withCacheBuster } from '@/utils/data';
+import {
+  clamp,
+  estimateElapsedSeconds,
+  formatDualNozzleTemperature,
+  formatEta,
+  formatTemperature,
+  getAmsStatusLabel,
+  getAmsTitle,
+  getBadgeColor,
+  getEffectiveTrayFill,
+  getFillColor,
+  getNozzleName,
+  getSeverityColor,
+  getStatusLabel,
+  getTrayGlobalId,
+  getTrayLabel,
+  getTrayStateLabel,
+  getWifiTone,
+  isLightColor,
+  parseFilamentColor,
+  stripExtension,
+  temperatureTone,
+} from './printerCardUtils';
 import {
   AlertCircle,
   Box,
@@ -64,6 +85,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react-native';
+import type { AppNavigationProp } from '@/navigation/types';
 
 const DOOR_SENSOR_MODELS = new Set([
   'X1C',
@@ -128,212 +150,6 @@ interface PrinterCardProps {
   onMaintenancePress?: () => void;
   onPrintPress?: () => void;
   onTrayPress?: (tray: AMSTray, context: TrayPressContext) => void;
-}
-
-function clamp(value: number, min = 0, max = 100) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function getStatusLabel(status?: PrinterStatus) {
-  if (!status?.connected) return 'Offline';
-  if (status.stg_cur_name) return status.stg_cur_name;
-
-  switch (status.state) {
-    case 'RUNNING':
-      return 'Printing';
-    case 'PAUSE':
-      return 'Paused';
-    case 'FINISH':
-      return 'Finished';
-    case 'FAILED':
-      return 'Failed';
-    case 'IDLE':
-      return 'Idle';
-    default:
-      return status.state
-        ? status.state.charAt(0) + status.state.slice(1).toLowerCase()
-        : 'Idle';
-  }
-}
-
-function getSeverityColor(
-  errors: HMSError[],
-  colors: ReturnType<typeof useTheme>['colors'],
-) {
-  if (!errors.length) return colors.success;
-  if (errors.some(error => error.severity <= 2)) return colors.error;
-  return colors.warning;
-}
-
-function getBadgeColor(
-  printer: Printer,
-  status: PrinterStatus | undefined,
-  colors: ReturnType<typeof useTheme>['colors'],
-  hmsErrors: HMSError[],
-) {
-  if (printer.is_active === false) return colors.warning;
-  if (!status?.connected) return colors.statusOffline;
-  if (hmsErrors.length) return getSeverityColor(hmsErrors, colors);
-  return statusColor(status.state ?? 'idle', colors);
-}
-
-function getWifiTone(
-  signal: number,
-  colors: ReturnType<typeof useTheme>['colors'],
-) {
-  if (signal >= -60) return colors.success;
-  if (signal >= -70) return colors.warning;
-  return colors.error;
-}
-
-function formatEta(minutes: number | null | undefined) {
-  if (minutes == null || minutes <= 0) return '—';
-  const eta = new Date(Date.now() + minutes * 60 * 1000);
-  return eta.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
-function estimateElapsedSeconds(
-  progress: number,
-  remainingMinutes: number | null | undefined,
-) {
-  if (!remainingMinutes || remainingMinutes <= 0) return null;
-  if (progress <= 0 || progress >= 100) return null;
-  const remainingSeconds = remainingMinutes * 60;
-  const totalSeconds = remainingSeconds / (1 - progress / 100);
-  if (!Number.isFinite(totalSeconds) || totalSeconds <= remainingSeconds) {
-    return null;
-  }
-  return Math.round(totalSeconds - remainingSeconds);
-}
-
-function temperatureTone(
-  current: number | null | undefined,
-  target: number | null | undefined,
-  colors: ReturnType<typeof useTheme>['colors'],
-) {
-  if (target != null && target > 0 && (current ?? 0) + 2 < target) {
-    return colors.warning;
-  }
-  if ((current ?? 0) >= 200) return colors.error;
-  if ((current ?? 0) >= 50) return colors.info;
-  return colors.textTertiary;
-}
-
-function formatTemperature(
-  current: number | null | undefined,
-  target: number | null | undefined,
-) {
-  const currentValue = `${Math.round(current ?? 0)}°`;
-  if (target != null && target > 0) {
-    return `${currentValue} / ${Math.round(target)}°`;
-  }
-  return currentValue;
-}
-
-function formatDualNozzleTemperature(status: PrinterStatus) {
-  const primary = formatTemperature(
-    status.temperatures?.nozzle,
-    status.temperatures?.nozzle_target,
-  );
-  const secondary = formatTemperature(
-    status.temperatures?.nozzle_2,
-    status.temperatures?.nozzle_2_target,
-  );
-  return `L ${primary} • R ${secondary}`;
-}
-
-function parseFilamentColor(value: string | null | undefined) {
-  if (!value) return null;
-  const normalized = value.replace('#', '').trim();
-  if (!normalized || /^0+$/.test(normalized)) return null;
-  if (normalized.length >= 6) return `#${normalized.slice(0, 6)}`;
-  return normalized.startsWith('#') ? normalized : `#${normalized}`;
-}
-
-function isLightColor(hex: string | null | undefined) {
-  const parsed = parseFilamentColor(hex);
-  if (!parsed) return false;
-  const raw = parsed.slice(1);
-  const red = Number.parseInt(raw.slice(0, 2), 16);
-  const green = Number.parseInt(raw.slice(2, 4), 16);
-  const blue = Number.parseInt(raw.slice(4, 6), 16);
-  const luminance = (red * 299 + green * 587 + blue * 114) / 1000;
-  return luminance >= 180;
-}
-
-function getFillColor(
-  percent: number | null | undefined,
-  colors: ReturnType<typeof useTheme>['colors'],
-) {
-  if (percent == null) return colors.surfaceHover;
-  if (percent >= 60) return colors.success;
-  if (percent >= 25) return colors.warning;
-  return colors.error;
-}
-
-function getAmsStatusLabel(ams: AMSUnit) {
-  if (ams.dry_time > 0) return `${Math.ceil(ams.dry_time / 60)}h drying`;
-  if (ams.is_ams_ht || ams.module_type === 'n3s') return 'AMS HT';
-  if (ams.module_type === 'n3f') return 'AMS Pro';
-  return 'AMS';
-}
-
-function getAmsTitle(ams: AMSUnit) {
-  return `AMS ${String.fromCharCode(65 + ((ams.id >= 128 ? ams.id - 128 : ams.id) % 26))}`;
-}
-
-function getTrayLabel(tray: AMSTray) {
-  return tray.tray_sub_brands || tray.tray_type || 'Empty';
-}
-
-/** Compute effective fill level using the same priority chain as the web UI:
- *  inventory spool (label_weight - weight_used) → raw AMS remain */
-function getEffectiveTrayFill(
-  tray: AMSTray,
-  printerId: number,
-  amsId: number,
-  slotIdx: number,
-  assignments?: SpoolAssignment[],
-): number | null {
-  if (!tray.tray_type) return null;
-  const hasFillLevel = tray.remain >= 0;
-
-  // Check inventory spool assignment
-  const assignment = assignments?.find(
-    a => a.printer_id === printerId && a.ams_id === amsId && a.tray_id === slotIdx,
-  );
-  const sp = assignment?.spool;
-  const inventoryFill =
-    sp && sp.label_weight > 0 && sp.weight_used != null
-      ? Math.round(Math.max(0, sp.label_weight - sp.weight_used) / sp.label_weight * 100)
-      : null;
-
-  // If inventory says 0% but AMS reports positive remain, prefer AMS
-  const resolvedInventoryFill =
-    inventoryFill === 0 && hasFillLevel && tray.remain > 0 ? null : inventoryFill;
-
-  return resolvedInventoryFill ?? (hasFillLevel ? clamp(tray.remain) : null);
-}
-
-function getTrayStateLabel(tray: AMSTray) {
-  if (tray.tray_type) return tray.tray_type;
-  if (tray.state === 9 || tray.state === 10) return 'Empty';
-  return 'Unset';
-}
-
-function getTrayGlobalId(amsId: number, trayId: number) {
-  return amsId >= 255 ? trayId : amsId * 4 + trayId;
-}
-
-function getNozzleName(slot: NozzleRackSlot) {
-  const diameter = slot.nozzle_diameter ? `${slot.nozzle_diameter}mm` : 'Nozzle';
-  const type = slot.nozzle_type ? slot.nozzle_type.replace(/_/g, ' ') : '';
-  return type ? `${diameter} ${type}` : diameter;
-}
-
-function stripExtension(name: string | null | undefined) {
-  if (!name) return 'No active job';
-  return name.replace(/\.(gcode|3mf)$/i, '');
 }
 
 function MetricCard({
@@ -641,7 +457,7 @@ export function PrinterCard({
   onPrintPress,
   onTrayPress,
 }: PrinterCardProps) {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
   const { showToast } = useToast();
@@ -729,23 +545,13 @@ export function PrinterCard({
     // Only show a part thumbnail when actively printing
     if (!isPrinting) return null;
 
-    const directThumbnailUrl = taskThumbnailUrl ?? status?.cover_url ?? null;
-
     const resolveServerUrl = (url: string) => {
       if (/^https?:\/\//i.test(url)) return url;
       if (!serverUrl) return null;
       return `${serverUrl}${url.startsWith('/') ? '' : '/'}${url}`;
     };
 
-    const resolvedDirectUrl =
-      directThumbnailUrl != null ? resolveServerUrl(directThumbnailUrl) : null;
-    if (resolvedDirectUrl) {
-      return {
-        uri: withCacheBuster(resolvedDirectUrl, snapshotSeed),
-        headers: authHeaders,
-      };
-    }
-
+    // 1. Server-hosted archive thumbnail (most reliable)
     if (status?.current_archive_id != null) {
       const archiveThumbnailUrl =
         status.current_plate_id != null
@@ -757,17 +563,36 @@ export function PrinterCard({
       };
     }
 
-    // Printing but no thumbnail available — show model image as fallback
-    return printerImageSource;
+    // 2. Direct URL from server (task_thumbnail_url or cover_url, only if HTTP(S))
+    const directThumbnailUrl = taskThumbnailUrl ?? status?.cover_url ?? null;
+    const resolvedDirectUrl =
+      directThumbnailUrl != null ? resolveServerUrl(directThumbnailUrl) : null;
+    if (resolvedDirectUrl) {
+      return {
+        uri: withCacheBuster(resolvedDirectUrl, snapshotSeed),
+        headers: authHeaders,
+      };
+    }
+
+    // 3. Camera snapshot fallback
+    if (status?.ipcam) {
+      return {
+        uri: withCacheBuster(api.getCameraSnapshotUrl(printer.id), snapshotSeed),
+        headers: authHeaders,
+      };
+    }
+
+    return null;
   }, [
     authHeaders,
     isPrinting,
-    printerImageSource,
+    printer.id,
     serverUrl,
     snapshotSeed,
     status?.cover_url,
     status?.current_archive_id,
     status?.current_plate_id,
+    status?.ipcam,
     taskThumbnailUrl,
   ]);
 
@@ -970,23 +795,6 @@ export function PrinterCard({
           <Box size={32} color={colors.textTertiary} strokeWidth={1.5} />
         </View>
       )}
-      {isPrinting ? (
-        <View style={styles.previewProgressWrap}>
-          <View
-            style={[
-              styles.previewProgressTrack,
-              { backgroundColor: 'rgba(0, 0, 0, 0.5)' },
-            ]}
-          >
-            <View
-              style={[
-                styles.previewProgressFill,
-                { width: `${progress}%`, backgroundColor: PRINT_GREEN },
-              ]}
-            />
-          </View>
-        </View>
-      ) : null}
     </View>
   );
 
@@ -1008,7 +816,8 @@ export function PrinterCard({
           },
         ]}
       >
-        <View style={styles.compactHeader}>
+        {/* Top row: image + name/model */}
+        <View style={styles.compactTopRow}>
           <View
             style={[
               styles.compactImageWrap,
@@ -1018,10 +827,10 @@ export function PrinterCard({
             {printerImageSource ? (
               <Image source={printerImageSource} style={styles.compactImage} />
             ) : (
-              <PrinterIcon size={16} color={colors.textSecondary} strokeWidth={2} />
+              <PrinterIcon size={20} color={colors.textSecondary} strokeWidth={2} />
             )}
           </View>
-          <View style={styles.compactInfo}>
+          <View style={styles.compactTextCol}>
             <View style={styles.compactNameRow}>
               <Text style={[styles.compactName, { color: colors.text }]} numberOfLines={1}>
                 {printer.name}
@@ -1033,6 +842,7 @@ export function PrinterCard({
             </Text>
           </View>
         </View>
+        {/* Progress bar */}
         <View style={styles.compactProgressRow}>
           <View style={[styles.compactProgressTrack, { backgroundColor: colors.border }]}>
             <View
@@ -1064,7 +874,7 @@ export function PrinterCard({
       ]}
     >
       <View style={styles.headerRow}>
-        <Pressable onPress={onPress} style={styles.titleArea}>
+        <Pressable onPress={onPress} style={styles.titleArea} accessibilityLabel={`${printer.name}, ${printer.model || 'Unknown model'}`} accessibilityRole="button">
           <View
             style={[
               styles.printerImageWrap,
@@ -1662,6 +1472,8 @@ export function PrinterCard({
                       borderColor: colors.border,
                     },
                   ]}
+                  accessibilityLabel={`${item.maintenance_type_name}, ${item.is_due ? 'Overdue' : 'Due soon'}`}
+                  accessibilityRole="button"
                 >
                   <View style={[styles.maintenanceDot, { backgroundColor: tone }]} />
                   <View style={styles.maintenanceText}>
@@ -1698,6 +1510,8 @@ export function PrinterCard({
                 borderColor: colors.border,
               },
             ]}
+            accessibilityLabel="More actions"
+            accessibilityRole="button"
           >
             <MoreVertical size={18} color={colors.text} strokeWidth={2} />
           </Pressable>
@@ -1714,6 +1528,9 @@ export function PrinterCard({
               },
               !canCamera && styles.disabledAction,
             ]}
+            accessibilityLabel="Camera"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canCamera }}
           >
             <Camera size={16} color={colors.text} strokeWidth={2} />
           </Pressable>
@@ -1728,6 +1545,9 @@ export function PrinterCard({
               },
               !canBrowse && styles.disabledAction,
             ]}
+            accessibilityLabel="Browse files"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canBrowse }}
           >
             <FolderOpen size={16} color={colors.text} strokeWidth={2} />
           </Pressable>
@@ -1742,6 +1562,9 @@ export function PrinterCard({
               },
               !canBrowse && styles.disabledAction,
             ]}
+            accessibilityLabel="Print"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canBrowse }}
           >
             <Play size={14} color={colors.textInverse} strokeWidth={2} />
             <Text style={[styles.footerPrintText, { color: colors.textInverse }]}>Print</Text>
@@ -2012,7 +1835,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.sm,
   },
-  compactHeader: {
+  compactTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
@@ -2031,7 +1854,7 @@ const styles = StyleSheet.create({
     height: 36,
     resizeMode: 'contain',
   },
-  compactInfo: {
+  compactTextCol: {
     flex: 1,
     gap: 2,
   },
@@ -2056,6 +1879,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    alignSelf: 'stretch',
   },
   compactProgressTrack: {
     flex: 1,
@@ -2262,12 +2086,10 @@ const styles = StyleSheet.create({
   },
   controlsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   controlActionsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   controlButton: {
@@ -2282,8 +2104,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   controlIconButton: {
-    width: 42,
-    height: 42,
+    flex: 1,
+    height: 44,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     alignItems: 'center',
