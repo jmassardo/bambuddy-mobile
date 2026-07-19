@@ -20,14 +20,12 @@ const THEME_STORAGE_KEY = 'bambuddy-theme-mode';
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>('dark');
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(THEME_STORAGE_KEY).then((stored) => {
       if (stored === 'light' || stored === 'dark' || stored === 'system') {
         setModeState(stored);
       }
-      setLoaded(true);
     });
   }, []);
 
@@ -45,8 +43,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     () => ({ mode, resolvedMode, colors: themeColors, setMode, isDark }),
     [mode, resolvedMode, themeColors, setMode, isDark],
   );
-
-  if (!loaded) return null;
 
   return React.createElement(ThemeContext.Provider, { value }, children);
 }

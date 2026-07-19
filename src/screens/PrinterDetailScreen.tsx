@@ -48,6 +48,7 @@ import {
   statusColor,
   type ApiRecord,
 } from '@/utils/data';
+import type { AppNavigationProp } from '@/navigation/types';
 
 const SPEED_MODES = [
   { label: 'Silent', value: 1 },
@@ -123,7 +124,7 @@ function JogButton({
 }
 
 export default function PrinterDetailScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<any>();
   const { id } = (route.params ?? {}) as { id: string };
   const printerId = Number(id);
@@ -219,6 +220,35 @@ export default function PrinterDetailScreen() {
     onError: () => showToast('Failed to update print speed.', 'error'),
   });
 
+  const xyJogMutation = useMutation({
+    mutationFn: ({ x, y }: { x: number; y: number }) => api.xyJog(printerId, x, y),
+    onSuccess: () => {
+      void invalidatePrinterStatus();
+    },
+    onError: error =>
+      showToast(getErrorMessage(error, 'Unable to move the print head.'), 'error'),
+  });
+
+  const zJogMutation = useMutation({
+    mutationFn: (distance: number) => api.bedJog(printerId, distance),
+    onSuccess: () => {
+      void invalidatePrinterStatus();
+    },
+    onError: error =>
+      showToast(getErrorMessage(error, 'Unable to move the Z axis.'), 'error'),
+  });
+
+  const homeMutation = useMutation({
+    mutationFn: ({ axes }: { axes: 'all' | 'xy' | 'z'; label: string }) =>
+      api.homeAxes(printerId, axes),
+    onSuccess: async (_, { label }) => {
+      await invalidatePrinterStatus();
+      showToast(`${label} started.`, 'success');
+    },
+    onError: error =>
+      showToast(getErrorMessage(error, 'Unable to home the printer.'), 'error'),
+  });
+
   if (printerQuery.isLoading || statusQuery.isLoading) {
     return <LoadingScreen message="Loading printer details…" />;
   }
@@ -283,35 +313,6 @@ export default function PrinterDetailScreen() {
     .slice(0, 10);
   const movementDelta = jogStepSize;
 
-  const xyJogMutation = useMutation({
-    mutationFn: ({ x, y }: { x: number; y: number }) => api.xyJog(printerId, x, y),
-    onSuccess: () => {
-      void invalidatePrinterStatus();
-    },
-    onError: error =>
-      showToast(getErrorMessage(error, 'Unable to move the print head.'), 'error'),
-  });
-
-  const zJogMutation = useMutation({
-    mutationFn: (distance: number) => api.bedJog(printerId, distance),
-    onSuccess: () => {
-      void invalidatePrinterStatus();
-    },
-    onError: error =>
-      showToast(getErrorMessage(error, 'Unable to move the Z axis.'), 'error'),
-  });
-
-  const homeMutation = useMutation({
-    mutationFn: ({ axes }: { axes: 'all' | 'xy' | 'z'; label: string }) =>
-      api.homeAxes(printerId, axes),
-    onSuccess: async (_, { label }) => {
-      await invalidatePrinterStatus();
-      showToast(`${label} started.`, 'success');
-    },
-    onError: error =>
-      showToast(getErrorMessage(error, 'Unable to home the printer.'), 'error'),
-  });
-
   const movementDisabled =
     isPrinting ||
     xyJogMutation.isPending ||
@@ -338,11 +339,11 @@ export default function PrinterDetailScreen() {
       </View>
 
       <Pressable
-        onPress={() => navigation.navigate('Camera', { id: String(printerId) })}
+        onPress={() => navigation.navigate('Camera', { id: printerId })}
       >
         <Image
           source={{ uri: api.getCameraSnapshotUrl(printerId) }}
-          style={styles.snapshot}
+          style={[styles.snapshot, { backgroundColor: colors.surface }]}
         />
       </Pressable>
 
@@ -977,7 +978,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     borderRadius: borderRadius.xl,
-    backgroundColor: '#111827',
   },
   progressTrack: {
     height: 10,

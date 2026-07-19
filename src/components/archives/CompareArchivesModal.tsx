@@ -138,7 +138,7 @@ export function CompareArchivesModal({ visible, archives, onClose }: CompareArch
                   >
                     <Image
                       source={{ uri: api.getArchiveThumbnail(archive.id) }}
-                      style={styles.thumbnail}
+                      style={[styles.thumbnail, { backgroundColor: colors.surface }]}
                     />
                     <Text style={[styles.archiveTitle, { color: colors.text }]} numberOfLines={2}>
                       {archive.print_name || archive.filename}

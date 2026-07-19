@@ -48,6 +48,7 @@ import type {
 } from '@/types/api';
 import { withCacheBuster } from '@/utils/data';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { AppNavigationProp } from '@/navigation/types';
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
@@ -285,7 +286,7 @@ function clampTranslationOffset(value: number, axisSize: number, scale: number) 
 }
 
 export default function CameraScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<any>();
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -608,7 +609,7 @@ export default function CameraScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: '#000' }]}> 
+    <View style={[styles.container, { backgroundColor: colors.background }]}> 
       {printerQuery.isLoading || statusQuery.isLoading ? (
         <View style={styles.stateWrap}>
           <ActivityIndicator size="large" color={colors.accent} />

@@ -25,6 +25,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatCurrency, formatDate, formatDateTime, formatDuration, formatWeight, pickBoolean, pickNumber, pickString, statusColor, type ApiRecord } from '@/utils/data';
+import type { AppNavigationProp } from '@/navigation/types';
 
 type DetailTab = 'summary' | 'bom' | 'files' | 'timeline' | 'archives';
 
@@ -36,7 +37,7 @@ function isProjectModelFile(file: ApiRecord) {
 }
 
 export default function ProjectDetailScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Project' });
   }, [navigation]);

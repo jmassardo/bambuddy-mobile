@@ -14,6 +14,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton } from '@/components/common/AppUI';
+import type { AppNavigationProp } from '@/navigation/types';
 
 function isLikelyUrl(value: string) {
   return /^https?:\/\//i.test(value.trim());
@@ -25,7 +26,7 @@ function extractSpoolId(value: string) {
 }
 
 export default function ScannerScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Scan QR Code', headerShown: false });
   }, [navigation]);
@@ -66,7 +67,7 @@ export default function ScannerScreen() {
           navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
           return;
         }
-        navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
         return;
       }
 
@@ -115,6 +116,9 @@ export default function ScannerScreen() {
           label="Grant Camera Access"
           onPress={() => void requestPermission()}
         />
+        <Pressable onPress={() => navigation.goBack()} style={styles.backLink}>
+          <Text style={[styles.backLinkText, { color: colors.accent }]}>Go Back</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -130,6 +134,9 @@ export default function ScannerScreen() {
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           No back camera is available on this device.
         </Text>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backLink}>
+          <Text style={[styles.backLinkText, { color: colors.accent }]}>Go Back</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -189,6 +196,8 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: fontSize.xl, fontWeight: fontWeight.bold },
   subtitle: { fontSize: fontSize.base, lineHeight: 22 },
+  backLink: { marginTop: spacing.lg },
+  backLinkText: { fontSize: fontSize.base, fontWeight: fontWeight.semibold },
   closeButton: {
     position: 'absolute',
     top: spacing.xl,

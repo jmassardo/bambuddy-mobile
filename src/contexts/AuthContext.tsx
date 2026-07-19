@@ -25,7 +25,7 @@ interface AuthContextType {
     available_methods?: string[];
     user?: UserResponse;
   }>;
-  loginWithToken: (token: string, user: UserResponse) => void;
+  loginWithToken: (token: string, user: UserResponse) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   hasPermission: (permission: Permission) => boolean;
@@ -112,8 +112,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { access_token: response.access_token, user: response.user as UserResponse };
   }, []);
 
-  const loginWithToken = useCallback((token: string, newUser: UserResponse) => {
-    setAuthToken(token);
+  const loginWithToken = useCallback(async (token: string, newUser: UserResponse) => {
+    await setAuthToken(token);
     setUser(newUser);
   }, []);
 
@@ -141,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!authEnabled) return true;
       if (!user) return false;
       if (user.is_admin) return true;
-      return user.groups.some((g) => g.permissions.includes(permission));
+      return user.groups?.some((g) => g.permissions?.includes(permission)) ?? false;
     },
     [authEnabled, user],
   );
