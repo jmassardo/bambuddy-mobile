@@ -1,22 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  FlatList,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, Search, Check, Minus, Shield } from 'lucide-react-native';
+import { X, Check, Minus, Shield } from 'lucide-react-native';
 import { api } from '@/api/client';
 import { useTheme } from '@/theme';
 import { useToast } from '@/contexts/ToastContext';
-import { borderRadius, fontSize, spacing } from '@/theme/tokens';
+import {  } from '@/theme/tokens';
 import { TextField, PrimaryButton, SearchBar } from '@/components/common/AppUI';
-import { pickArray, pickNumber, pickString, type ApiRecord } from '@/utils/data';
+import { pickArray, pickString, type ApiRecord } from '@/utils/data';
 
 interface Props {
   visible: boolean;
@@ -197,7 +195,7 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
                         borderColor: allSelected ? colors.accent : someSelected ? colors.accent : colors.border,
                       },
                     ]}>
-                      {allSelected && <Check size={12} color="#fff" />}
+                      {allSelected && <Check size={12} color={colors.textInverse} />}
                       {someSelected && !allSelected && <Minus size={12} color={colors.accent} />}
                     </View>
                     <Text style={[styles.categoryName, { color: colors.text }]}>{cat.label}</Text>
@@ -218,7 +216,7 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
                           borderColor: permissions.includes(perm.value) ? colors.accent : colors.border,
                         },
                       ]}>
-                        {permissions.includes(perm.value) && <Check size={12} color="#fff" />}
+                        {permissions.includes(perm.value) && <Check size={12} color={colors.textInverse} />}
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.permLabel, { color: colors.text }]}>{perm.label}</Text>

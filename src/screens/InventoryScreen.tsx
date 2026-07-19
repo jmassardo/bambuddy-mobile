@@ -25,7 +25,8 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDateTime, formatWeight, pickArray, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
-import type { Printer, SpoolAssignment, SpoolKProfile, SpoolLabelTemplate, SpoolUsageRecord } from '@/types/api';
+import type { Printer, SpoolKProfile, SpoolLabelTemplate, SpoolUsageRecord } from '@/types/api';
+import type { AppNavigationProp } from '@/navigation/types';
 
 type ArchiveFilter = 'active' | 'archived';
 type ViewMode = 'cards' | 'forecast';
@@ -65,7 +66,7 @@ const DEFAULT_FORM: SpoolFormState = {
 };
 
 export default function InventoryScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Inventory' });
   }, [navigation]);
@@ -587,6 +588,9 @@ export default function InventoryScreen() {
         keyExtractor={item => pickString(item, ['id'])}
         contentContainerStyle={styles.content}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         refreshControl={
           <RefreshControl
             refreshing={spoolsQuery.isRefetching || assignmentsQuery.isRefetching}

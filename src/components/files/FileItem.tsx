@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -18,8 +18,7 @@ import {
   Trash2,
   Video,
 } from 'lucide-react-native';
-import { getAuthToken } from '@/api/client';
-import { apiUrl, useServerStore } from '@/api/server';
+import { api } from '@/api/client';
 import { useTheme } from '@/theme';
 import {
   borderRadius,
@@ -38,7 +37,7 @@ import {
   pickString,
   type ApiRecord,
 } from '@/utils/data';
-import { formatFileSize } from '@/utils/formatters';
+import { formatFileSize } from '@/utils/data';
 
 type FileItemIconName =
   | 'image'
@@ -80,11 +79,11 @@ interface FileItemProps {
 }
 
 function thumbnailUrl(id: number): string | null {
-  const serverUrl = useServerStore.getState().serverUrl;
-  if (!serverUrl) return null;
-  const token = getAuthToken();
-  const suffix = token ? `?token=${encodeURIComponent(token)}` : '';
-  return apiUrl(serverUrl, `/library/${id}/thumbnail${suffix}`);
+  try {
+    return api.getLibraryFileThumbnailUrl(id);
+  } catch {
+    return null;
+  }
 }
 
 function ActionPill({
@@ -131,14 +130,15 @@ export function FileItem({
   onPress,
   onLongPress,
   onToggleSelect,
-  onRename,
+  onRename: _onRename,
   onDelete,
   onMove,
-  onDownload,
+  onDownload: _onDownload,
   onPreview,
   onSlice,
 }: FileItemProps) {
   const { colors } = useTheme();
+  const [thumbError, setThumbError] = useState(false);
   const id = Number(pickId(item));
   const name = pickString(item, ['print_name', 'filename', 'name'], 'Untitled');
   const rawFilename = pickString(item, ['filename', 'name'], name);
@@ -153,14 +153,14 @@ export function FileItem({
   const printCount = pickNumber(item, ['print_count'], 0);
   const size = pickNumber(item, ['file_size', 'size', 'size_bytes'], 0);
   const updatedAt = pickString(item, ['updated_at', 'created_at', 'modified_at']);
-  const uploader = pickString(item, ['created_by_username']);
-  const slicedFor = pickString(item, ['sliced_for_model']);
+  // uploader and slicedFor available via pickString if needed in future
   const tags = pickArray(item, ['tags']).filter(isRecord);
   const previewSource = useMemo(() => {
     const hasThumb = pickString(item, ['thumbnail_path']) !== '';
-    if (!hasThumb || !id || isFolder) return null;
+    const hasPreviewableExt = /\.(3mf|gcode\.3mf)$/i.test(rawFilename);
+    if ((!hasThumb && !hasPreviewableExt) || !id || isFolder) return null;
     return thumbnailUrl(id);
-  }, [id, isFolder, item]);
+  }, [id, isFolder, item, rawFilename]);
   const iconName = fileIconName(rawFilename, isFolder) as FileItemIconName;
   const FileTypeIcon = FILE_ITEM_ICONS[iconName];
   const isGrid = viewMode === 'grid';
@@ -201,8 +201,8 @@ export function FileItem({
       ) : null}
 
       <View style={[styles.media, isGrid ? styles.gridMedia : styles.listMedia, { backgroundColor: colors.surfaceElevated }]}> 
-        {previewSource ? (
-          <Image source={{ uri: previewSource }} style={styles.thumbnail} resizeMode="cover" />
+        {previewSource && !thumbError ? (
+          <Image source={{ uri: previewSource }} style={styles.thumbnail} resizeMode="cover" onError={() => setThumbError(true)} />
         ) : (
           <FileTypeIcon size={28} color={isFolder ? colors.accentLight : colors.textTertiary} strokeWidth={2} />
         )}
@@ -243,21 +243,17 @@ export function FileItem({
               style={[
                 styles.externalChip,
                 {
-                  backgroundColor: '#7c3aed22',
-                  borderColor: '#7c3aed55',
+                  backgroundColor: colors.highlightBg,
+                  borderColor: `${colors.highlight}55`,
                 },
               ]}
             >
-              <Text style={[styles.externalChipText, { color: '#c4b5fd' }]}>External</Text>
+              <Text style={[styles.externalChipText, { color: colors.highlightLight }]}>External</Text>
             </View>
           ) : null}
         </View>
 
         <View style={styles.metaGrid}>
-          <View style={styles.metaItem}>
-            <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Type</Text>
-            <Text style={[styles.metaValue, { color: colors.text }]}>{isFolder ? 'Folder' : fileType.toUpperCase()}</Text>
-          </View>
           <View style={styles.metaItem}>
             <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Size</Text>
             <Text style={[styles.metaValue, { color: colors.text }]}>{isFolder ? '—' : formatFileSize(size)}</Text>
@@ -266,20 +262,10 @@ export function FileItem({
             <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Updated</Text>
             <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>{formatDateTime(updatedAt)}</Text>
           </View>
-          <View style={styles.metaItem}>
-            <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Prints</Text>
-            <Text style={[styles.metaValue, { color: colors.text }]}>{printCount || '0'}</Text>
-          </View>
-          {uploader ? (
+          {printCount > 0 ? (
             <View style={styles.metaItem}>
-              <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Uploaded by</Text>
-              <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>{uploader}</Text>
-            </View>
-          ) : null}
-          {slicedFor ? (
-            <View style={styles.metaItem}>
-              <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Profile</Text>
-              <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>{slicedFor}</Text>
+              <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Prints</Text>
+              <Text style={[styles.metaValue, { color: colors.text }]}>{printCount}</Text>
             </View>
           ) : null}
         </View>
@@ -324,8 +310,6 @@ export function FileItem({
           <ActionPill label="Preview" icon="image" color={colors.info} onPress={isPreviewable ? onPreview : undefined} />
           <ActionPill label="Slice" icon="layers" color={colors.accent} onPress={isSliceable ? onSlice : undefined} />
           <ActionPill label="Move" icon="folder" color={colors.warning} onPress={onMove} />
-          <ActionPill label="Rename" icon="edit" color={colors.textSecondary} onPress={onRename} />
-          <ActionPill label="Download" icon="download" color={colors.textSecondary} onPress={!isFolder ? onDownload : undefined} />
           <ActionPill label="Delete" icon="trash" color={colors.error} onPress={onDelete} />
         </View>
       </View>
@@ -410,7 +394,8 @@ const styles = StyleSheet.create({
   },
   listMedia: {
     width: 120,
-    minHeight: 150,
+    height: 160,
+    overflow: 'hidden',
   },
   gridMedia: {
     width: '100%',
