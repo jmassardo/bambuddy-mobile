@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowUpDown, ChevronDown, Printer as PrinterIcon } from 'lucide-react-native';
 import { api } from '@/api/client';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import {
@@ -18,15 +19,16 @@ import {
   PrimaryButton,
   SearchBar,
   SectionCard,
-  StatCard,
 } from '@/components/common/AppUI';
+import { ActionSheetModal } from '@/components/common/ActionSheetModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { QueueItemCard } from '@/components/queue/QueueItemCard';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { PrintBatch, PrintQueueItem, Printer } from '@/types/api';
-import { formatDateTime, formatDuration, formatWeight } from '@/utils/data';
+import { formatDateTime } from '@/utils/data';
+import type { AppNavigationProp } from '@/navigation/types';
 
 type QueueTab = 'queue' | 'history' | 'timeline' | 'batches';
 type QueueStatusFilter =
@@ -453,7 +455,7 @@ function BatchItemsModal({
 }
 
 export default function QueueScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Queue' });
   }, [navigation]);
@@ -472,6 +474,8 @@ export default function QueueScreen() {
   const [deleteIds, setDeleteIds] = useState<number[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<PrintBatch | null>(null);
   const [confirmUngroupBatch, setConfirmUngroupBatch] = useState<PrintBatch | null>(null);
+  const [showPrinterSheet, setShowPrinterSheet] = useState(false);
+  const [showSortSheet, setShowSortSheet] = useState(false);
 
   const queueQuery = useQuery({
     queryKey: ['queue'],
@@ -785,138 +789,111 @@ export default function QueueScreen() {
           onChange={value => {
             setActiveTab(value);
             setSelectedIds([]);
+            setStatusFilter('all');
           }}
         />
 
-        {activeTab !== 'batches' ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
-            <StatCard label="Printing" value={String(queueStats.active)} helper="Live jobs" />
-            <StatCard label="Queued" value={String(queueStats.pending)} helper="Pending items" />
-            <StatCard label="Waiting" value={String(queueStats.waiting)} helper="Needs attention" />
-            <StatCard label="Est. time" value={formatDuration(queueStats.totalTime)} helper="Pending total" />
-            <StatCard label="Filament" value={formatWeight(queueStats.totalWeight)} helper="Pending total" />
-            <StatCard label="History" value={String(queueStats.history)} helper="Finished jobs" />
-          </ScrollView>
-        ) : null}
-
-        <SectionCard
-          title="Queue controls"
-          subtitle={
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder={
             activeTab === 'batches'
-              ? 'Search batches, inspect grouped queue items, and ungroup when needed.'
-              : activeTab === 'timeline'
-                ? 'Search recent queue events across created, started, and completed jobs.'
-                : 'Search, filter, sort, and act on queue items. Long press a queued item to multi-select.'
+              ? 'Search batches by name or status'
+              : 'Search queue, printers, filament, or notes'
           }
-        >
-          <SearchBar
-            value={search}
-            onChangeText={setSearch}
-            placeholder={
-              activeTab === 'batches'
-                ? 'Search batches by name or status'
-                : 'Search queue, printers, filament, or notes'
-            }
-          />
+        />
 
-          {(activeTab === 'queue' || activeTab === 'history') ? (
-            <>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersRow}>
-                {(
-                  ['all', 'pending', 'waiting', 'paused', 'printing', 'completed', 'failed', 'skipped', 'cancelled'] as QueueStatusFilter[]
-                ).map(status => (
-                  <Chip
-                    key={status}
-                    label={`${capitalize(status)}${statusCounts[status] ? ` (${statusCounts[status]})` : ''}`}
-                    selected={statusFilter === status}
-                    onPress={() => setStatusFilter(status)}
-                  />
-                ))}
-              </ScrollView>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersRow}>
-                <Chip
-                  label="All printers"
-                  selected={printerFilter === 'all'}
-                  onPress={() => setPrinterFilter('all')}
-                />
-                <Chip
-                  label="Unassigned"
-                  selected={printerFilter === 'unassigned'}
-                  onPress={() => setPrinterFilter('unassigned')}
-                />
-                {printers.map(printer => (
-                  <Chip
-                    key={printer.id}
-                    label={printer.name}
-                    selected={printerFilter === printer.id}
-                    onPress={() => setPrinterFilter(printer.id)}
-                  />
-                ))}
-              </ScrollView>
-            </>
-          ) : null}
-
-          {activeTab === 'queue' ? (
+        {(activeTab === 'queue' || activeTab === 'history') ? (
+          <>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersRow}>
-              {(['position', 'name', 'printer', 'time'] as QueueSort[]).map(sort => (
+              {(
+                activeTab === 'queue'
+                  ? ['all', 'pending', 'waiting', 'paused', 'printing'] as QueueStatusFilter[]
+                  : ['all', 'completed', 'failed', 'skipped', 'cancelled'] as QueueStatusFilter[]
+              ).map(status => (
                 <Chip
-                  key={sort}
-                  label={`Sort: ${sort}`}
-                  selected={queueSort === sort}
-                  onPress={() => setQueueSort(sort)}
+                  key={status}
+                  label={`${capitalize(status)}${statusCounts[status] ? ` (${statusCounts[status]})` : ''}`}
+                  selected={statusFilter === status}
+                  onPress={() => setStatusFilter(status)}
                 />
               ))}
             </ScrollView>
-          ) : null}
 
-          {selectionMode ? (
-            <View style={[styles.bulkBar, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
-              <Text style={[styles.bulkTitle, { color: colors.text }]}>
-                {selectedIds.length} selected
-              </Text>
-              <View style={styles.bulkActions}>
-                <PrimaryButton
-                  label={allVisibleSelected ? 'Clear visible' : 'Select visible'}
-                  variant="secondary"
-                  onPress={toggleSelectAll}
-                />
-                <PrimaryButton
-                  label="Assign printer"
-                  onPress={() => {
-                    setBulkEditIds(selectedIds);
-                    setBulkEditCurrentValue(undefined);
-                  }}
-                  disabled={selectedIds.length === 0}
-                />
-                <PrimaryButton
-                  label="Cancel"
-                  variant="secondary"
-                  onPress={() => {
-                    actionMutation.mutate({ type: 'cancel', ids: selectedIds });
-                  }}
-                  disabled={selectedIds.length === 0 || actionMutation.isPending}
-                />
-                <PrimaryButton
-                  label="Delete"
-                  variant="danger"
-                  onPress={() => setDeleteIds(selectedIds)}
-                  disabled={selectedIds.length === 0 || actionMutation.isPending}
-                />
-                <PrimaryButton
-                  label="Done"
-                  variant="secondary"
-                  onPress={() => setSelectedIds([])}
-                />
-              </View>
+            <View style={styles.toolbarRow}>
+              <Pressable
+                onPress={() => setShowPrinterSheet(true)}
+                style={[styles.toolbarButton, { backgroundColor: colors.surfaceElevated, borderColor: printerFilter !== 'all' ? colors.accent : colors.border }]}
+              >
+                <PrinterIcon size={14} color={printerFilter !== 'all' ? colors.accent : colors.textSecondary} strokeWidth={2} />
+                <Text style={[styles.toolbarLabel, { color: printerFilter !== 'all' ? colors.accent : colors.text }]} numberOfLines={1}>
+                  {printerFilter === 'all' ? 'All printers' : printerFilter === 'unassigned' ? 'Unassigned' : printers.find(p => p.id === printerFilter)?.name ?? 'Printer'}
+                </Text>
+                <ChevronDown size={14} color={colors.textSecondary} strokeWidth={2} />
+              </Pressable>
+
+              {activeTab === 'queue' ? (
+                <Pressable
+                  onPress={() => setShowSortSheet(true)}
+                  style={[styles.toolbarButton, { backgroundColor: colors.surfaceElevated, borderColor: queueSort !== 'position' ? colors.accent : colors.border }]}
+                >
+                  <ArrowUpDown size={14} color={queueSort !== 'position' ? colors.accent : colors.textSecondary} strokeWidth={2} />
+                  <Text style={[styles.toolbarLabel, { color: queueSort !== 'position' ? colors.accent : colors.text }]} numberOfLines={1}>
+                    {capitalize(queueSort)}
+                  </Text>
+                  <ChevronDown size={14} color={colors.textSecondary} strokeWidth={2} />
+                </Pressable>
+              ) : null}
             </View>
-          ) : null}
-        </SectionCard>
+          </>
+        ) : null}
+
+        {selectionMode ? (
+          <View style={[styles.bulkBar, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <Text style={[styles.bulkTitle, { color: colors.text }]}>
+              {selectedIds.length} selected
+            </Text>
+            <View style={styles.bulkActions}>
+              <PrimaryButton
+                label={allVisibleSelected ? 'Clear visible' : 'Select visible'}
+                variant="secondary"
+                onPress={toggleSelectAll}
+              />
+              <PrimaryButton
+                label="Assign printer"
+                onPress={() => {
+                  setBulkEditIds(selectedIds);
+                  setBulkEditCurrentValue(undefined);
+                }}
+                disabled={selectedIds.length === 0}
+              />
+              <PrimaryButton
+                label="Cancel"
+                variant="secondary"
+                onPress={() => {
+                  actionMutation.mutate({ type: 'cancel', ids: selectedIds });
+                }}
+                disabled={selectedIds.length === 0 || actionMutation.isPending}
+              />
+              <PrimaryButton
+                label="Delete"
+                variant="danger"
+                onPress={() => setDeleteIds(selectedIds)}
+                disabled={selectedIds.length === 0 || actionMutation.isPending}
+              />
+              <PrimaryButton
+                label="Done"
+                variant="secondary"
+                onPress={() => setSelectedIds([])}
+              />
+            </View>
+          </View>
+        ) : null}
 
         {activeTab === 'queue' ? (
           <View style={styles.sectionStack}>
             <SectionCard
               title="Currently printing"
-              subtitle="Live jobs, printer assignments, status, and stop controls."
             >
               {filteredActiveItems.length > 0 ? (
                 filteredActiveItems.map(item => (
@@ -937,7 +914,6 @@ export default function QueueScreen() {
 
             <SectionCard
               title="Queued items"
-              subtitle="Use move buttons to reorder on mobile. Long press any item to enter multi-select mode."
               right={
                 <Text style={[styles.sectionHelper, { color: colors.textTertiary }]}>No drag library installed, so reorder uses move controls.</Text>
               }
@@ -1083,6 +1059,36 @@ export default function QueueScreen() {
         variant="warning"
         loading={ungroupBatchMutation.isPending}
       />
+
+      <ActionSheetModal
+        visible={showPrinterSheet}
+        title="Filter by printer"
+        onClose={() => setShowPrinterSheet(false)}
+        actions={[
+          {
+            label: 'All printers',
+            onPress: () => { setPrinterFilter('all'); setShowPrinterSheet(false); },
+          },
+          {
+            label: 'Unassigned',
+            onPress: () => { setPrinterFilter('unassigned'); setShowPrinterSheet(false); },
+          },
+          ...printers.map(printer => ({
+            label: printer.name,
+            onPress: () => { setPrinterFilter(printer.id); setShowPrinterSheet(false); },
+          })),
+        ]}
+      />
+
+      <ActionSheetModal
+        visible={showSortSheet}
+        title="Sort queue by"
+        onClose={() => setShowSortSheet(false)}
+        actions={(['position', 'name', 'printer', 'time'] as QueueSort[]).map(sort => ({
+          label: capitalize(sort),
+          onPress: () => { setQueueSort(sort); setShowSortSheet(false); },
+        }))}
+      />
     </View>
   );
 }
@@ -1096,11 +1102,25 @@ const styles = StyleSheet.create({
     paddingBottom: spacing['4xl'],
     gap: spacing.lg,
   },
-  statsRow: {
-    gap: spacing.md,
-  },
   filtersRow: {
     gap: spacing.sm,
+  },
+  toolbarRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  toolbarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  toolbarLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
   },
   bulkBar: {
     borderWidth: 1,

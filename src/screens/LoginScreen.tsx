@@ -21,6 +21,7 @@ import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { LoadingScreen } from '@/components/common/StateScreens';
 import { useServerStore } from '@/api/server';
 import type { LoginResponse, OIDCProvider } from '@/types/api';
+import type { AppNavigationProp } from '@/navigation/types';
 
 function extractParam(source: string, key: string) {
   const patterns = [
@@ -35,6 +36,14 @@ function extractParam(source: string, key: string) {
 }
 
 function parseOidcCallback(url: string) {
+  // Only accept callbacks from our own app scheme or server origin
+  const parsed = new URL(url);
+  const isAppScheme = parsed.protocol === 'bambuddy:' || parsed.protocol === 'bambuddy-mobile:';
+  const serverUrl = useServerStore.getState().serverUrl;
+  const isServerOrigin = serverUrl && url.startsWith(serverUrl);
+  if (!isAppScheme && !isServerOrigin) {
+    return { token: null, error: 'unexpected_callback_origin' };
+  }
   return {
     token: extractParam(url, 'oidc_token'),
     error: extractParam(url, 'oidc_error'),
@@ -42,11 +51,11 @@ function parseOidcCallback(url: string) {
 }
 
 export default function LoginScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Login', headerShown: false });
   }, [navigation]);
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { login, loginWithToken, user, loading, requiresSetup } = useAuth();
   const { showToast } = useToast();
   const serverUrl = useServerStore(state => state.serverUrl);
@@ -75,7 +84,7 @@ export default function LoginScreen() {
       return;
     }
     if (user) {
-      navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     }
   }, [requiresSetup, navigation, user]);
 
@@ -242,7 +251,7 @@ export default function LoginScreen() {
           ]}
         >
           <Image
-            source={require('../../assets/images/bambuddy-logo.png')}
+            source={isDark ? require('../../assets/images/bambuddy-logo.png') : require('../../assets/images/bambuddy-logo-dark.png')}
             style={styles.logoImage}
             resizeMode="contain"
           />
