@@ -101,6 +101,24 @@ export function getAuthToken(): string | null {
   return authToken;
 }
 
+// --- Stream Token Management ---
+// Thumbnails and camera endpoints use a separate stream token via ?token= query param.
+let streamToken: string | null = null;
+
+export function getStreamToken(): string | null {
+  return streamToken;
+}
+
+export function setStreamToken(token: string | null): void {
+  streamToken = token;
+}
+
+export function withStreamToken(url: string): string {
+  if (!streamToken) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}token=${encodeURIComponent(streamToken)}`;
+}
+
 // --- API Error ---
 
 export class ApiError extends Error {
@@ -123,6 +141,34 @@ export class ApiError extends Error {
 }
 
 // --- Core Request Function ---
+
+const USER_SAFE_MESSAGES: Record<number, string> = {
+  400: 'Invalid request',
+  403: 'Permission denied',
+  404: 'Not found',
+  408: 'Request timed out',
+  429: 'Too many requests — please wait',
+  500: 'Server error',
+  502: 'Server unavailable',
+  503: 'Server temporarily unavailable',
+  504: 'Server timed out',
+};
+
+/** Strip internal details (file paths, stack traces) from server error messages. */
+function sanitizeErrorMessage(raw: string, status: number): string {
+  if (!raw || raw === `HTTP ${status}`) {
+    return USER_SAFE_MESSAGES[status] ?? `Request failed (${status})`;
+  }
+  // If message looks like it contains file paths or stack traces, replace it
+  if (/\/[a-z_/]+\.(py|js|ts|go|rs|java)/i.test(raw) || /Traceback|stacktrace|at\s+\S+\(/i.test(raw)) {
+    return USER_SAFE_MESSAGES[status] ?? `Request failed (${status})`;
+  }
+  // Cap length to avoid giant error blobs in toasts
+  if (raw.length > 200) {
+    return raw.slice(0, 197) + '…';
+  }
+  return raw;
+}
 
 function getServerUrl(): string {
   const url = useServerStore.getState().serverUrl;
@@ -193,12 +239,15 @@ async function request<T>(
       }
     }
 
-    throw new ApiError(message, response.status, code, structuredDetail);
+    // Sanitize message for user-facing toasts — strip paths, stack traces, internal details
+    const sanitized = sanitizeErrorMessage(message, response.status);
+
+    throw new ApiError(sanitized, response.status, code, structuredDetail);
   }
 
   const contentLength = response.headers.get('content-length');
   if (response.status === 204 || contentLength === '0') {
-    return undefined as T;
+    return undefined as unknown as T;
   }
 
   return await response.json();
@@ -385,7 +434,7 @@ async function requestWithFallback<T>(
   try {
     return await request<T>(primary.endpoint, primary.options);
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
+    if (error instanceof ApiError && (error.status === 404 || error.status === 405 || error.status === 501)) {
       return request<T>(fallback.endpoint, fallback.options);
     }
     throw error;
@@ -399,7 +448,7 @@ async function requestTextWithFallback(
   try {
     return await requestText(primary.endpoint, primary.options);
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
+    if (error instanceof ApiError && (error.status === 404 || error.status === 405 || error.status === 501)) {
       return requestText(fallback.endpoint, fallback.options);
     }
     throw error;
@@ -1068,20 +1117,21 @@ export const api = {
 
   getCameraSnapshotUrl: (printerId: number): string => {
     const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/printers/${printerId}/camera/snapshot${token}`;
+    return withStreamToken(`${serverUrl}/api/v1/printers/${printerId}/camera/snapshot`);
   },
 
   getCameraStreamUrl: (printerId: number): string => {
     const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/printers/${printerId}/camera/stream${token}`;
+    return withStreamToken(`${serverUrl}/api/v1/printers/${printerId}/camera/stream`);
   },
 
   diagnosePrinterCamera: (printerId: number) =>
     request<CameraDiagnoseResult>(`/printers/${printerId}/camera/diagnose`, {
       method: 'POST',
     }),
+
+  getCameraStreamToken: () =>
+    request<{ token: string }>('/printers/camera/stream-token', { method: 'POST' }),
 
   // Printer files (SD card)
   getPrinterFiles: (printerId: number, path = '/') =>
@@ -1298,14 +1348,12 @@ export const api = {
 
   getArchivePlateThumbnail: (id: number, plateIndex: number): string => {
     const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/archives/${id}/plates/${plateIndex}/thumbnail${token}`;
+    return withStreamToken(`${serverUrl}/api/v1/archives/${id}/plate-thumbnail/${plateIndex}`);
   },
 
   getArchiveThumbnail: (id: number): string => {
     const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/archives/${id}/thumbnail${token}`;
+    return withStreamToken(`${serverUrl}/api/v1/archives/${id}/thumbnail`);
   },
 
   getArchiveTimelapse: (id: number): string => {
@@ -1682,20 +1730,17 @@ export const api = {
 
   getLibraryFilePlateThumbnail: (id: number, plateIndex: number): string => {
     const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/library/${id}/plates/${plateIndex}/thumbnail${token}`;
+    return withStreamToken(`${serverUrl}/api/v1/library/files/${id}/plate-thumbnail/${plateIndex}`);
   },
 
   getLibraryFileThumbnailUrl: (id: number): string => {
     const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/library/files/${id}/thumbnail${token}`;
+    return withStreamToken(`${serverUrl}/api/v1/library/files/${id}/thumbnail`);
   },
 
   getLibraryFileDownloadUrl: (id: number): string => {
     const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/library/files/${id}/download${token}`;
+    return withStreamToken(`${serverUrl}/api/v1/library/files/${id}/download`);
   },
 
   getLibraryFileText: (id: number) =>

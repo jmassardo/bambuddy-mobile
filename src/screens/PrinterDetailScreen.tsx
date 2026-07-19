@@ -48,6 +48,7 @@ import {
   statusColor,
   type ApiRecord,
 } from '@/utils/data';
+import type { AppNavigationProp } from '@/navigation/types';
 
 const SPEED_MODES = [
   { label: 'Silent', value: 1 },
@@ -123,7 +124,7 @@ function JogButton({
 }
 
 export default function PrinterDetailScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<any>();
   const { id } = (route.params ?? {}) as { id: string };
   const printerId = Number(id);
@@ -338,11 +339,11 @@ export default function PrinterDetailScreen() {
       </View>
 
       <Pressable
-        onPress={() => navigation.navigate('Camera', { id: String(printerId) })}
+        onPress={() => navigation.navigate('Camera', { id: printerId })}
       >
         <Image
           source={{ uri: api.getCameraSnapshotUrl(printerId) }}
-          style={styles.snapshot}
+          style={[styles.snapshot, { backgroundColor: colors.surface }]}
         />
       </Pressable>
 
@@ -977,7 +978,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     borderRadius: borderRadius.xl,
-    backgroundColor: '#111827',
   },
   progressTrack: {
     height: 10,

@@ -39,6 +39,7 @@ import {
   pickString,
   type ApiRecord,
 } from '@/utils/data';
+import type { AppNavigationProp } from '@/navigation/types';
 
 function assetToUpload(asset: Asset) {
   if (!asset.uri) return null;
@@ -50,7 +51,7 @@ function assetToUpload(asset: Asset) {
 }
 
 export default function ArchiveDetailScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<any>();
   const { id } = (route.params ?? {}) as { id: string };
   const archiveId = Number(id);
@@ -224,7 +225,7 @@ export default function ArchiveDetailScreen() {
       >
         <Image
           source={{ uri: api.getArchiveThumbnail(archiveId) }}
-          style={styles.thumbnail}
+          style={[styles.thumbnail, { backgroundColor: colors.surface }]}
         />
 
         <SectionCard
@@ -318,7 +319,7 @@ export default function ArchiveDetailScreen() {
             {photos.map(photo => (
               <View key={photo} style={styles.photoCard}>
                 <Pressable onPress={() => setFullscreenPhoto(photo)}>
-                  <Image source={{ uri: api.getArchivePhotoUrl(archiveId, photo) }} style={styles.photo} />
+                  <Image source={{ uri: api.getArchivePhotoUrl(archiveId, photo) }} style={[styles.photo, { backgroundColor: colors.surface }]} />
                 </Pressable>
                 <Pressable
                   onPress={() => setPendingPhotoDelete(photo)}
@@ -501,7 +502,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 240,
     borderRadius: borderRadius.xl,
-    backgroundColor: '#111827',
   },
   actionRow: {
     flexDirection: 'row',
@@ -534,7 +534,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: borderRadius.lg,
-    backgroundColor: '#111827',
   },
   photoDelete: {
     position: 'absolute',

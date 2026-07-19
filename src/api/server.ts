@@ -20,6 +20,9 @@ export const useServerStore = create<ServerStore>((set) => ({
   setServerUrl: async (url: string) => {
     // Normalize: strip trailing slash
     const normalized = url.replace(/\/+$/, '');
+    if (!/^https:\/\//i.test(normalized)) {
+      throw new Error('Server URL must use HTTPS (https://)');
+    }
     await AsyncStorage.setItem(SERVER_URL_KEY, normalized);
     set({ serverUrl: normalized });
   },

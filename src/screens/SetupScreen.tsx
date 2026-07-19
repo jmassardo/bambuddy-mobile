@@ -14,9 +14,10 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
+import type { AppNavigationProp } from '@/navigation/types';
 
 export default function SetupScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Setup' });
   }, [navigation]);
@@ -51,7 +52,7 @@ export default function SetupScreen() {
     },
     onSuccess: () => {
       showToast('Setup complete. Welcome to Bambuddy!', 'success');
-      navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     },
     onError: (mutationError: Error) =>
       setError(mutationError.message || 'Setup failed.'),

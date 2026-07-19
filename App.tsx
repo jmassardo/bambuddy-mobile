@@ -1,21 +1,34 @@
 import React, { useEffect } from 'react';
-import { StatusBar } from 'react-native';
+import { StatusBar, Text, View } from 'react-native';
+import { ErrorBoundary } from 'react-error-boundary';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, QueryClient, QueryClientProvider, QueryErrorResetBoundary } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import RootNavigator from '@/navigation/RootNavigator';
 import { ThemeProvider, useTheme } from '@/theme';
 import { useServerStore } from '@/api/server';
 
+const mutationCache = new MutationCache({
+  onError: (error) => {
+    // Global fallback — screens can still handle errors locally
+    const message = error instanceof Error ? error.message : 'An error occurred';
+    console.warn('[Mutation Error]', message);
+  },
+});
+
 const queryClient = new QueryClient({
+  mutationCache,
   defaultOptions: {
     queries: {
       retry: 2,
       staleTime: 30_000,
       refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: 0,
     },
   },
 });
@@ -68,11 +81,26 @@ export default function App() {
       <SafeAreaProvider>
         <ThemeProvider>
           <QueryClientProvider client={queryClient}>
-            <ToastProvider>
-              <AuthProvider>
-                <AppContent />
-              </AuthProvider>
-            </ToastProvider>
+            <QueryErrorResetBoundary>
+              {({ reset }) => (
+                <ErrorBoundary
+                  onReset={reset}
+                  fallbackRender={({ resetErrorBoundary }) => (
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+                      <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8, color: '#fff' }}>Something went wrong</Text>
+                      <Text style={{ color: '#aaa', marginBottom: 16, textAlign: 'center' }}>An unexpected error occurred. Tap below to try again.</Text>
+                      <Text onPress={resetErrorBoundary} style={{ color: '#00AE42', fontSize: 16, fontWeight: '600' }}>Retry</Text>
+                    </View>
+                  )}
+                >
+                  <ToastProvider>
+                    <AuthProvider>
+                      <AppContent />
+                    </AuthProvider>
+                  </ToastProvider>
+                </ErrorBoundary>
+              )}
+            </QueryErrorResetBoundary>
           </QueryClientProvider>
         </ThemeProvider>
       </SafeAreaProvider>
