@@ -1,97 +1,107 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Bambuddy Companion
 
-# Getting Started
+[![iOS Beta](https://img.shields.io/badge/iOS-TestFlight-00AE42?style=for-the-badge&logo=apple&logoColor=white)](https://testflight.apple.com/join/8SdWmK3t)
+[![Android Beta](https://img.shields.io/badge/Android-Open%20Testing-00AE42?style=for-the-badge&logo=android&logoColor=white)](https://play.google.com/apps/testing/com.dxrf.bambuddy)
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print farm management platform. Monitor printers, manage queues, browse files, and control your Bambu Lab fleet from your phone or tablet.
 
-## Step 1: Start Metro
+> [!IMPORTANT]
+> Bambuddy Companion requires access to a self-hosted Bambuddy server instance.
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Overview
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+- **App name:** Bambuddy Companion
+- **Bundle ID:** `com.dxrf.bambuddy`
+- **Platforms:** iOS and Android
+- **Tech stack:** React Native, TypeScript
+- **Author:** [Jenna Massardo](https://www.dxrf.com)
 
-```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
-```
-
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
-```
+## Preview / Beta Testing
 
 ### iOS
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+- Join the TestFlight beta: https://testflight.apple.com/join/8SdWmK3t
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+### Android
+
+1. Join the testers group: https://groups.google.com/g/bambuddy-companion-app
+2. Opt in on your device: https://play.google.com/apps/testing/com.dxrf.bambuddy
+3. Store listing: https://play.google.com/store/apps/details?id=com.dxrf.bambuddy
+
+## Features
+
+- Multi-printer dashboard with real-time status updates over WebSocket
+- Print queue management with batch grouping and scheduling
+- File browsing, upload, and organization for 3MF/STL assets
+- Full printer controls for pause, resume, stop, speed, lights, and calibration
+- Live MJPEG camera streaming
+- Spool inventory with NFC tag scanning
+- Statistics, analytics, and historical archives with photo galleries
+- Project organization for multi-part builds
+- Maintenance tracking
+- Planned push notifications
+
+## Requirements
+
+- A self-hosted Bambuddy server instance
+- Node.js 22+
+- Ruby 3.1+ with Bundler
+- Xcode, CocoaPods, and an iOS simulator/device for iOS development
+- Android Studio and Android SDK for Android development
+
+For local React Native setup guidance, see the official [React Native environment setup docs](https://reactnative.dev/docs/set-up-your-environment).
+
+## Development Setup
 
 ```sh
+npm install
 bundle install
+cd ios && bundle exec pod install && cd ..
 ```
 
-Then, and every time you update your native dependencies, run:
+Start Metro:
 
 ```sh
-bundle exec pod install
+npm start
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+Run the app:
 
 ```sh
-# Using npm
 npm run ios
-
-# OR using Yarn
-yarn ios
+npm run android
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## Building
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+Fastlane-based build commands:
 
-## Step 3: Modify your app
+```sh
+npm run build:ios:debug
+npm run build:ios:release
+npm run build:android:debug
+npm run build:android:release
+```
 
-Now that you have successfully run the app, let's make changes!
+Beta distribution lanes are also available:
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+```sh
+npm run beta:ios
+npm run beta:android
+```
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+## Testing
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+```sh
+npm test
+npm run lint
+npm run typecheck
+```
 
-## Congratulations! :tada:
+## Links
 
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- Website: https://companion.bambuddy.cool
+- Bambuddy platform: https://bambuddy.cool
+- Wiki: https://wiki.bambuddy.cool
+- GitHub Discussions: https://github.com/jmassardo/bambuddy-mobile/discussions
+- Issue tracker: https://github.com/jmassardo/bambuddy-mobile/issues
