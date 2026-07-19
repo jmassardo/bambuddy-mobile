@@ -11,7 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import DocumentPicker, { isCancel } from 'react-native-document-picker';
+import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { ActionSheetModal } from '@/components/common/ActionSheetModal';
@@ -23,6 +23,7 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDate, formatCurrency, pickNumber, pickString, statusColor, type ApiRecord } from '@/utils/data';
 import { proxyThumbnailUrl } from '@/utils/media';
+import type { AppNavigationProp } from '@/navigation/types';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'archived';
 
@@ -66,7 +67,7 @@ function projectCoverUrl(project: ApiRecord): string | null {
 }
 
 export default function ProjectsScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Projects' });
   }, [navigation]);
@@ -158,9 +159,9 @@ export default function ProjectsScreen() {
 
   const coverMutation = useMutation({
     mutationFn: async (projectId: number) => {
-      const asset = await DocumentPicker.pickSingle({ type: [DocumentPicker.types.images] });
+      const [asset] = await pick({ type: [types.images] });
       return api.uploadProjectCoverImage(projectId, {
-        uri: asset.fileCopyUri ?? asset.uri,
+        uri: asset.uri,
         name: asset.name ?? 'cover-image',
         type: asset.type ?? 'image/jpeg',
       });
@@ -170,7 +171,7 @@ export default function ProjectsScreen() {
       showToast('Cover image updated.', 'success');
     },
     onError: (error: unknown) => {
-      if (isCancel(error)) return;
+      if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) return;
       showToast(error instanceof Error ? error.message : 'Unable to upload cover image.', 'error');
     },
   });
