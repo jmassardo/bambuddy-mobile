@@ -36,8 +36,8 @@ export function ConfirmModal({
   const { colors } = useTheme();
 
   const variantColors = {
-    danger: { icon: colors.error, button: colors.error, buttonHover: '#dc2626' },
-    warning: { icon: colors.warning, button: colors.warning, buttonHover: '#d97706' },
+    danger: { icon: colors.error, button: colors.error, buttonHover: colors.error },
+    warning: { icon: colors.warning, button: colors.warning, buttonHover: colors.warning },
     info: { icon: colors.accent, button: colors.accent, buttonHover: colors.accentDark },
   };
   const vc = variantColors[variant];
@@ -69,9 +69,9 @@ export function ConfirmModal({
               style={[styles.button, styles.confirmButton, { backgroundColor: vc.button }]}
             >
               {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={colors.textInverse} />
               ) : (
-                <Text style={[styles.buttonText, { color: '#fff' }]}>{confirmLabel}</Text>
+                <Text style={[styles.buttonText, { color: colors.textInverse }]}>{confirmLabel}</Text>
               )}
             </Pressable>
           </View>

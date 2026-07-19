@@ -17,9 +17,10 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDateTime, pickArray, pickBoolean, pickNumber, pickRecord, pickString, statusColor, type ApiRecord } from '@/utils/data';
+import type { AppNavigationProp } from '@/navigation/types';
 
 export default function MakerWorldScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'MakerWorld' });
   }, [navigation]);

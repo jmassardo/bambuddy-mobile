@@ -23,6 +23,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDateTime, pickArray, pickBoolean, pickNumber, pickString, statusColor, type ApiRecord } from '@/utils/data';
+import type { AppNavigationProp } from '@/navigation/types';
 
 type CreateMode = 'local' | 'ldap';
 
@@ -43,7 +44,7 @@ const DEFAULT_FORM: UserFormState = {
 };
 
 export default function UsersScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Users' });
   }, [navigation]);
@@ -317,7 +318,7 @@ export default function UsersScreen() {
                 onPress={() => { setEditGroupId(null); setShowGroupEdit(true); }}
                 style={[styles.groupAddBtn, { backgroundColor: colors.accent }]}
               >
-                <Plus size={14} color="#fff" strokeWidth={2.5} />
+                <Plus size={14} color={colors.textInverse} strokeWidth={2.5} />
               </Pressable>
             </View>
             {groups.length > 0 ? groups.map(group => {

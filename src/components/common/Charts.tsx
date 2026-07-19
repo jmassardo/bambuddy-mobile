@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
+import Svg, { Circle, Rect, Text as SvgText, Line } from 'react-native-svg';
 import { useTheme } from '@/theme';
 
 interface BarChartProps {
@@ -137,21 +137,39 @@ export function SimpleDonutChart({ data, size = 120 }: DonutChartProps) {
 
   return (
     <View style={{ alignItems: 'center' }}>
-      <Svg width={size} height={size}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {/* Background track */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={colors.surfaceElevated}
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
         {data.map((item, i) => {
           const fraction = item.value / total;
           const dash = fraction * circumference;
-          const offset = cumulativeOffset;
+          const gap = circumference - dash;
+          const rotation = (cumulativeOffset / circumference) * 360 - 90;
           cumulativeOffset += dash;
+          if (fraction === 0) return null;
           return (
-            <React.Fragment key={i}>
-              <Rect x={0} y={0} width={0} height={0} />
-              {/* Using circles with stroke-dasharray for donut segments */}
-            </React.Fragment>
+            <Circle
+              key={i}
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              stroke={item.color}
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeDasharray={`${dash} ${gap}`}
+              strokeLinecap="butt"
+              rotation={rotation}
+              origin={`${size / 2}, ${size / 2}`}
+            />
           );
         })}
-        {/* Background circle */}
-        <Line x1={0} y1={0} x2={0} y2={0} stroke="transparent" />
       </Svg>
       <View style={styles.legendWrap}>
         {data.map((item) => (
