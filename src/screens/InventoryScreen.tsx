@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import DocumentPicker, { isCancel } from 'react-native-document-picker';
+import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check } from 'lucide-react-native';
 import { api } from '@/api/client';
@@ -551,9 +551,9 @@ export default function InventoryScreen() {
 
   const pickCsvFile = async () => {
     try {
-      const asset = await DocumentPicker.pickSingle({ type: [DocumentPicker.types.allFiles] });
+      const [asset] = await pick({ type: [types.allFiles] });
       const file = {
-        uri: asset.fileCopyUri ?? asset.uri,
+        uri: asset.uri,
         name: asset.name ?? 'inventory.csv',
         type: asset.type ?? 'text/csv',
       };
@@ -561,7 +561,7 @@ export default function InventoryScreen() {
       const preview = await api.importSpoolsCsvPreview(file);
       setCsvPreview(preview as ApiRecord);
     } catch (error) {
-      if (isCancel(error)) return;
+      if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) return;
       showToast(error instanceof Error ? error.message : 'Unable to read the CSV file.', 'error');
     }
   };
