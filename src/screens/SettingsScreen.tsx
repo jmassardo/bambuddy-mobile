@@ -347,7 +347,7 @@ export default function SettingsScreen() {
   const [createdApiKey, setCreatedApiKey] = useState('');
   const [cameraTokenForm, setCameraTokenForm] = useState<CameraTokenFormState>(EMPTY_CAMERA_TOKEN_FORM);
   const [createdCameraToken, setCreatedCameraToken] = useState('');
-  const [cameraTokenInfoVisible, setCameraTokenInfoVisible] = useState(false);
+  const [, setCameraTokenInfoVisible] = useState(false);
   const [editingExternalLink, setEditingExternalLink] = useState<ApiRecord | null>(null);
   const [externalLinkModalVisible, setExternalLinkModalVisible] = useState(false);
   const [externalLinkForm, setExternalLinkForm] = useState<ExternalLinkFormState>(EMPTY_EXTERNAL_LINK_FORM);

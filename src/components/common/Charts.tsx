@@ -131,18 +131,17 @@ export function SimpleDonutChart({ data, size = 120 }: DonutChartProps) {
   const { colors } = useTheme();
   const total = data.reduce((acc, d) => acc + d.value, 0) || 1;
   const radius = size / 2 - 10;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const strokeWidth = 18;
   const circumference = 2 * Math.PI * radius;
-  let cumulativeOffset = 0;
 
   return (
     <View style={{ alignItems: 'center' }}>
       <Svg width={size} height={size}>
         {data.map((item, i) => {
           const fraction = item.value / total;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const dash = fraction * circumference;
-          const offset = cumulativeOffset;
-          cumulativeOffset += dash;
           return (
             <React.Fragment key={i}>
               <Rect x={0} y={0} width={0} height={0} />
