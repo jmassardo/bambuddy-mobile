@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -11,7 +12,7 @@ import {
 } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { useServerStore } from '@/api/server';
+import { isInsecureUrl, useServerStore } from '@/api/server';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -66,6 +67,27 @@ export default function ServerConfigScreen() {
     },
   });
 
+  /** Initiates connection, showing a warning if the URL uses plain HTTP */
+  function handleConnect() {
+    const normalized = normalizeUrl(serverUrl);
+    if (isInsecureUrl(normalized)) {
+      Alert.alert(
+        'Insecure Connection',
+        'This server uses HTTP, which is not encrypted. Your data may be visible to others on the network.\n\nOnly use this on trusted networks (e.g. your home LAN or VPN).',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Connect Anyway',
+            style: 'destructive',
+            onPress: () => void connectMutation.mutateAsync(),
+          },
+        ],
+      );
+    } else {
+      void connectMutation.mutateAsync();
+    }
+  }
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -98,6 +120,11 @@ export default function ServerConfigScreen() {
           autoCorrect={false}
           placeholder="https://bambuddy.example.com"
         />
+        {isInsecureUrl(serverUrl.trim()) ? (
+          <Text style={[styles.warning, { color: colors.warning }]}>
+            ⚠️ This URL uses an unencrypted HTTP connection.
+          </Text>
+        ) : null}
         {error ? (
           <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
         ) : null}
@@ -108,7 +135,7 @@ export default function ServerConfigScreen() {
         />
         <PrimaryButton
           label={connectMutation.isPending ? 'Connecting…' : 'Connect'}
-          onPress={() => void connectMutation.mutateAsync()}
+          onPress={handleConnect}
           loading={connectMutation.isPending}
           disabled={serverUrl.trim().length === 0}
         />
@@ -150,6 +177,11 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   error: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    textAlign: 'center',
+  },
+  warning: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
     textAlign: 'center',
