@@ -3,10 +3,12 @@ import { useNavigation } from '@react-navigation/native';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { useMutation } from '@tanstack/react-query';
-import { MenuItem, SectionHeader } from '@/components/common/UIComponents';
+import { MenuItem, SectionHeader } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
+import { useServerStore } from '@/api/server';
 import { useTheme } from '@/theme';
 import { fontSize, fontWeight, spacing } from '@/theme/tokens';
+import type { AppNavigationProp } from '@/navigation/types';
 
 const MENU_GROUPS = [
   {
@@ -38,7 +40,7 @@ const MENU_GROUPS = [
 ] as const;
 
 export default function MoreScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'More' });
   }, [navigation]);
@@ -50,6 +52,13 @@ export default function MoreScreen() {
   const logoutMutation = useMutation({
     mutationFn: logout,
     // RootNavigator automatically switches to Login when user is cleared
+  });
+
+  const changeServerMutation = useMutation({
+    mutationFn: async () => {
+      await logout();
+      await useServerStore.getState().clearServerUrl();
+    },
   });
 
   return (
@@ -83,9 +92,15 @@ export default function MoreScreen() {
 
       <View style={styles.accountCard}>
         <MenuItem
+          icon="server"
+          label={changeServerMutation.isPending ? 'Disconnecting…' : 'Change server'}
+          subtitle="Disconnect and connect to a different Bambuddy server"
+          onPress={() => void changeServerMutation.mutateAsync()}
+        />
+        <MenuItem
           icon="power"
           label={logoutMutation.isPending ? 'Signing out…' : 'Sign out'}
-          subtitle="Disconnect this mobile session"
+          subtitle="Sign out of this account"
           onPress={() => void logoutMutation.mutateAsync()}
           destructive
         />
