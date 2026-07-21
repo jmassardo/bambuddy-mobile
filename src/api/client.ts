@@ -593,8 +593,7 @@ export const api = {
     }),
 
   getOIDCProviderIconUrl: (id: number): string => {
-    const serverUrl = getServerUrl();
-    return `${serverUrl}/api/v1/auth/oidc/providers/${id}/icon`;
+    return buildMediaUrl(`/auth/oidc/providers/${id}/icon`);
   },
 
   deleteOIDCProviderIcon: (id: number) =>
@@ -1061,21 +1060,15 @@ export const api = {
 
   // Camera
   getPrinterImageUrl: (printerId: number): string => {
-    const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/printers/${printerId}/image${token}`;
+    return buildMediaUrl(`/printers/${printerId}/image`);
   },
 
   getCameraSnapshotUrl: (printerId: number): string => {
-    const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/printers/${printerId}/camera/snapshot${token}`;
+    return buildMediaUrl(`/printers/${printerId}/camera/snapshot`);
   },
 
   getCameraStreamUrl: (printerId: number): string => {
-    const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/printers/${printerId}/camera/stream${token}`;
+    return buildMediaUrl(`/printers/${printerId}/camera/stream`);
   },
 
   diagnosePrinterCamera: (printerId: number) =>
@@ -1297,27 +1290,21 @@ export const api = {
     request<Record<string, unknown>>(`/archives/${id}/plates`),
 
   getArchivePlateThumbnail: (id: number, plateIndex: number): string => {
-    const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/archives/${id}/plates/${plateIndex}/thumbnail${token}`;
+    return buildMediaUrl(`/archives/${id}/plates/${plateIndex}/thumbnail`);
   },
 
   getArchiveThumbnail: (id: number): string => {
-    const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/archives/${id}/thumbnail${token}`;
+    return buildMediaUrl(`/archives/${id}/thumbnail`);
   },
 
   getArchiveTimelapse: (id: number): string => {
-    const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/archives/${id}/timelapse${token}`;
+    return buildMediaUrl(`/archives/${id}/timelapse`);
   },
 
   getArchivePhotoUrl: (archiveId: number, filename: string): string => {
-    const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/archives/${archiveId}/photos/${encodeURIComponent(filename)}${token}`;
+    return buildMediaUrl(
+      `/archives/${archiveId}/photos/${encodeURIComponent(filename)}`,
+    );
   },
 
   getArchivePhotos: async (archiveId: number) => {
@@ -1370,12 +1357,8 @@ export const api = {
     ),
 
   getArchiveQRCode: (archiveId: number, size = 200): string => {
-    const serverUrl = getServerUrl();
     const params = new URLSearchParams({ size: String(size) });
-    if (authToken) {
-      params.set('token', authToken);
-    }
-    return `${serverUrl}/api/v1/archives/${archiveId}/qrcode?${params.toString()}`;
+    return buildMediaUrl(`/archives/${archiveId}/qrcode`, params);
   },
 
   recalculateCosts: () =>
@@ -1681,21 +1664,15 @@ export const api = {
   },
 
   getLibraryFilePlateThumbnail: (id: number, plateIndex: number): string => {
-    const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/library/${id}/plates/${plateIndex}/thumbnail${token}`;
+    return buildMediaUrl(`/library/${id}/plates/${plateIndex}/thumbnail`);
   },
 
   getLibraryFileThumbnailUrl: (id: number): string => {
-    const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/library/files/${id}/thumbnail${token}`;
+    return buildMediaUrl(`/library/files/${id}/thumbnail`);
   },
 
   getLibraryFileDownloadUrl: (id: number): string => {
-    const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/library/files/${id}/download${token}`;
+    return buildMediaUrl(`/library/files/${id}/download`);
   },
 
   getLibraryFileText: (id: number) =>
@@ -1893,9 +1870,7 @@ export const api = {
     ),
 
   getProjectCoverImageUrl: (projectId: number): string => {
-    const serverUrl = getServerUrl();
-    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return `${serverUrl}/api/v1/projects/${projectId}/cover-image${token}`;
+    return buildMediaUrl(`/projects/${projectId}/cover-image`);
   },
 
   uploadProjectCoverImage: (
@@ -2670,7 +2645,7 @@ export const api = {
   createLongLivedCameraToken: (payload: { name: string; expires_in_days: number }) =>
     request<Record<string, unknown>>('/auth/tokens', {
       method: 'POST',
-      body: JSON.stringify({ ...payload, scope: 'camera_stream' }),
+      body: JSON.stringify({ ...payload, scope: MEDIA_TOKEN_SCOPE }),
     }),
 
   revokeLongLivedCameraToken: (tokenId: number) =>
@@ -2724,10 +2699,10 @@ export const api = {
     }),
 
   testGitHubBackupConnection: (repoUrl: string, token: string, provider = 'github') =>
-    request<Record<string, unknown>>(
-      `/github-backup/test?repo_url=${encodeURIComponent(repoUrl)}&token=${encodeURIComponent(token)}&provider=${encodeURIComponent(provider)}`,
-      { method: 'POST' },
-    ),
+    request<Record<string, unknown>>('/github-backup/test', {
+      method: 'POST',
+      body: JSON.stringify({ repo_url: repoUrl, token, provider }),
+    }),
 
   getGitHubBackupStatus: () =>
     request<Record<string, unknown>>('/github-backup/status'),
