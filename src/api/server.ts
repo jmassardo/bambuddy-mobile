@@ -33,6 +33,9 @@ export const useServerStore = create<ServerStore>((set) => ({
     const previousUrl = useServerStore.getState().serverUrl;
     // Normalize: strip trailing slash
     const normalized = url.replace(/\/+$/, '');
+    if (!/^https:\/\//i.test(normalized)) {
+      throw new Error('Server URL must use HTTPS (https://)');
+    }
     await AsyncStorage.setItem(SERVER_URL_KEY, normalized);
     if (previousUrl !== normalized) {
       await serverUrlChangeHandler(previousUrl, normalized);

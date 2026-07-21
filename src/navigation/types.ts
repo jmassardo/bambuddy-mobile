@@ -1,8 +1,20 @@
-import type { CompositeNavigationProp, NavigatorScreenParams, RouteProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type {
+  CompositeNavigationProp,
+  NavigatorScreenParams,
+  RouteProp,
+} from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 // Navigation type definitions for all screens and params
+
+export type MainTabParamList = {
+  Dashboard: undefined;
+  Queue: undefined;
+  Archives: undefined;
+  Files: undefined;
+  More: undefined;
+};
 
 export type RootStackParamList = {
   ServerSetup: undefined;
@@ -26,14 +38,6 @@ export type RootStackParamList = {
   Users: undefined;
 };
 
-export type MainTabParamList = {
-  Dashboard: undefined;
-  Queue: undefined;
-  Archives: undefined;
-  Files: undefined;
-  More: undefined;
-};
-
 export type RootNavigationProp<
   T extends keyof RootStackParamList = keyof RootStackParamList,
 > = NativeStackNavigationProp<RootStackParamList, T>;
@@ -49,3 +53,5 @@ export type RootRouteProp<T extends keyof RootStackParamList> = RouteProp<
   RootStackParamList,
   T
 >;
+
+export type AppNavigationProp = NativeStackNavigationProp<RootStackParamList>;

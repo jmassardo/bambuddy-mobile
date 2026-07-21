@@ -121,6 +121,34 @@ export function buildMediaUrl(path: string, params?: URLSearchParams): string {
   return `${serverUrl}/api/v1${path}${queryString ? `?${queryString}` : ''}`;
 }
 
+export async function getCameraStreamToken(): Promise<{ token: string | null }> {
+  if (!getScopedMediaToken() && getAuthToken()) {
+    await refreshMediaToken();
+  }
+  return { token: getScopedMediaToken() };
+}
+
+export function setStreamToken(token: string | null): void {
+  mediaToken = token;
+  const serverUrl = getCurrentServerUrl();
+  mediaTokenServerOrigin =
+    token && serverUrl ? getServerOrigin(serverUrl) : null;
+}
+
+export function withStreamToken(url: string): string {
+  const scopedToken = getScopedMediaToken();
+  if (!scopedToken) return url;
+
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set('token', scopedToken);
+    return parsed.toString();
+  } catch {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}token=${encodeURIComponent(scopedToken)}`;
+  }
+}
+
 export async function clearAuthTokenForServer(
   serverUrl: string | null,
 ): Promise<void> {

@@ -27,6 +27,28 @@ function parseOidcCallback(url: string) {
   try {
     const parsedUrl = new URL(url);
     const params = parsedUrl.searchParams;
+    const isAppScheme =
+      parsedUrl.protocol === 'bambuddy:' ||
+      parsedUrl.protocol === 'bambuddy-mobile:';
+    const serverUrl = useServerStore.getState().serverUrl;
+    let isServerOrigin = false;
+
+    if (serverUrl) {
+      try {
+        isServerOrigin = parsedUrl.origin === new URL(serverUrl).origin;
+      } catch {
+        isServerOrigin = false;
+      }
+    }
+
+    if (!isAppScheme && !isServerOrigin) {
+      return {
+        token: null,
+        error: 'unexpected_callback_origin',
+        state: params.get('state'),
+      };
+    }
+
     return {
       token: params.get('oidc_token'),
       error: params.get('oidc_error'),

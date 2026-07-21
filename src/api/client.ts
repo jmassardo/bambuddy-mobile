@@ -8,6 +8,7 @@ import {
   buildMediaUrl,
   checkAuthStatus,
   clearAuthTokenForServer,
+  getCameraStreamToken,
   getAuthToken,
   loadAuthToken,
   MEDIA_TOKEN_SCOPE,
@@ -17,8 +18,10 @@ import {
   requestTextWithFallback,
   requestWithFallback,
   setAuthToken,
+  setStreamToken,
   uploadFile,
   uploadFileWithProgress,
+  withStreamToken,
 } from './http';
 import { inventoryApi } from './inventory';
 import { maintenanceApi } from './maintenance';
@@ -42,6 +45,7 @@ export const api = {
   ...profilesApi,
   ...backupApi,
   ...systemApi,
+  getCameraStreamToken,
 };
 
 export {
@@ -50,6 +54,7 @@ export {
   buildMediaUrl,
   checkAuthStatus,
   clearAuthTokenForServer,
+  getCameraStreamToken,
   getAuthToken,
   loadAuthToken,
   MEDIA_TOKEN_SCOPE,
@@ -59,6 +64,8 @@ export {
   requestTextWithFallback,
   requestWithFallback,
   setAuthToken,
+  setStreamToken,
   uploadFile,
   uploadFileWithProgress,
+  withStreamToken,
 };

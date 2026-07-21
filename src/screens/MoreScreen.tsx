@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { useMutation } from '@tanstack/react-query';
 import { MenuItem, SectionHeader } from '@/components/common/UIComponents';
+import { useServerStore } from '@/api/server';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
 import { fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -53,6 +54,13 @@ export default function MoreScreen() {
     // RootNavigator automatically switches to Login when user is cleared
   });
 
+  const changeServerMutation = useMutation({
+    mutationFn: async () => {
+      await logout();
+      await useServerStore.getState().clearServerUrl();
+    },
+  });
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -83,6 +91,12 @@ export default function MoreScreen() {
       ))}
 
       <View style={styles.accountCard}>
+        <MenuItem
+          icon="server"
+          label={changeServerMutation.isPending ? 'Disconnecting…' : 'Change server'}
+          subtitle="Disconnect and connect to a different Bambuddy server"
+          onPress={() => void changeServerMutation.mutateAsync()}
+        />
         <MenuItem
           icon="power"
           label={logoutMutation.isPending ? 'Signing out…' : 'Sign out'}

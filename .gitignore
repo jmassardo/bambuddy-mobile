@@ -80,3 +80,7 @@ Gemfile.lock
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Android release keystore
+android/app/release.keystore
+android/keystore.properties
