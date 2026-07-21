@@ -2,7 +2,6 @@
 // Uses react-native-keychain for Face ID / Touch ID / Fingerprint
 
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -22,9 +21,12 @@ export function useBiometricAuth() {
     enabled: false,
     loading: true,
   });
-  const [isUnlocked, setIsUnlocked] = useState(true);
 
-  const checkBiometrics = useCallback(async () => {
+  useEffect(() => {
+    checkBiometrics();
+  }, []);
+
+  const checkBiometrics = async () => {
     try {
       const biometryType = await Keychain.getSupportedBiometryType();
       const available = biometryType !== null;
@@ -44,32 +46,10 @@ export function useBiometricAuth() {
       const enabled = enabledStr === 'true' && available;
 
       setState({ available, biometricType, enabled, loading: false });
-      setIsUnlocked(!enabled);
     } catch {
       setState({ available: false, biometricType: null, enabled: false, loading: false });
-      setIsUnlocked(true);
     }
-  }, []);
-
-  useEffect(() => {
-    void checkBiometrics();
-  }, [checkBiometrics]);
-
-  useEffect(() => {
-    const handleAppStateChange = (nextState: AppStateStatus) => {
-      if (!state.enabled) {
-        setIsUnlocked(true);
-        return;
-      }
-
-      if (nextState === 'active' || nextState === 'background' || nextState === 'inactive') {
-        setIsUnlocked(false);
-      }
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription.remove();
-  }, [state.enabled]);
+  };
 
   const authenticate = useCallback(async (): Promise<boolean> => {
     try {
@@ -88,7 +68,6 @@ export function useBiometricAuth() {
           accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
           accessible: Keychain.ACCESSIBLE.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY,
         });
-
         // Try reading it back with biometric
         const result = await Keychain.getGenericPassword({
           service: 'bambuddy-biometric-check',
@@ -97,15 +76,10 @@ export function useBiometricAuth() {
             cancel: 'Use Password',
           },
         });
-        const success = !!result;
-        setIsUnlocked(success);
-        return success;
+        return !!result;
       }
-
-      setIsUnlocked(true);
       return true;
     } catch {
-      setIsUnlocked(false);
       return false;
     }
   }, []);
@@ -115,10 +89,8 @@ export function useBiometricAuth() {
       const success = await authenticate();
       if (!success) return false;
     }
-
     await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, String(enabled));
     setState((prev) => ({ ...prev, enabled }));
-    setIsUnlocked(true);
     return true;
   }, [authenticate]);
 
@@ -137,7 +109,6 @@ export function useBiometricAuth() {
 
   return {
     ...state,
-    isUnlocked,
     authenticate,
     setEnabled,
     getBiometricLabel,

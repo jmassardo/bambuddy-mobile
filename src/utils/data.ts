@@ -77,7 +77,7 @@ export function pickRecordArray(source: unknown, paths: string[]): ApiRecord[] {
 export function pickId(source: unknown, paths: string[] = ['id']): string {
   const value = firstValue(source, paths);
   if (typeof value === 'string' || typeof value === 'number') return String(value);
-  return '';
+  return Math.random().toString(36).slice(2);
 }
 
 export function normalizeStatus(status: string): string {

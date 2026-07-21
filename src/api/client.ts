@@ -59,166 +59,47 @@ import type {
   UnifiedPresetsResponse,
   UnlinkedSpool,
 } from '@/types/api';
-import {
-  apiUrl,
-  registerServerUrlChangeHandler,
-  useServerStore,
-} from './server';
+import { apiUrl, useServerStore } from './server';
 
 const AUTH_TOKEN_KEY = 'bambuddy-auth-token';
-const MEDIA_TOKEN_SCOPE = 'camera_stream';
 
 // --- Auth Token Management ---
 
 let authToken: string | null = null;
-let mediaToken: string | null = null;
 let tokenLoaded = false;
-let loadedTokenService: string | null = null;
-let mediaTokenServerOrigin: string | null = null;
-
-function getServerOrigin(serverUrl: string): string {
-  try {
-    return new URL(serverUrl).origin;
-  } catch {
-    return serverUrl.replace(/\/+$/, '');
-  }
-}
-
-function getCurrentServerUrl(): string | null {
-  return useServerStore.getState().serverUrl;
-}
-
-function getAuthTokenService(serverUrl: string | null): string | null {
-  if (!serverUrl) return null;
-  return `${AUTH_TOKEN_KEY}:${getServerOrigin(serverUrl)}`;
-}
-
-async function resetStoredAuthToken(serverUrl: string | null): Promise<void> {
-  const service = getAuthTokenService(serverUrl);
-  if (!service) return;
-  await Keychain.resetGenericPassword({ service });
-}
-
-function resetLoadedTokens(): void {
-  authToken = null;
-  mediaToken = null;
-  tokenLoaded = false;
-  loadedTokenService = null;
-  mediaTokenServerOrigin = null;
-}
-
-async function refreshMediaToken(): Promise<void> {
-  const serverUrl = getCurrentServerUrl();
-  if (!authToken || !serverUrl) {
-    mediaToken = null;
-    mediaTokenServerOrigin = null;
-    return;
-  }
-
-  try {
-    const response = await request<Record<string, unknown>>('/auth/tokens', {
-      method: 'POST',
-      body: JSON.stringify({ scope: MEDIA_TOKEN_SCOPE }),
-    });
-    mediaToken = typeof response.token === 'string' ? response.token : null;
-    mediaTokenServerOrigin = getServerOrigin(serverUrl);
-  } catch {
-    mediaToken = null;
-    mediaTokenServerOrigin = null;
-  }
-}
-
-function getScopedMediaToken(): string | null {
-  const serverUrl = getCurrentServerUrl();
-  if (!serverUrl) return null;
-  const serverOrigin = getServerOrigin(serverUrl);
-  if (mediaTokenServerOrigin !== serverOrigin) {
-    mediaToken = null;
-    mediaTokenServerOrigin = null;
-    return null;
-  }
-  return mediaToken;
-}
-
-function buildMediaUrl(path: string, params?: URLSearchParams): string {
-  const serverUrl = getServerUrl();
-  const query = new URLSearchParams(params);
-  const scopedToken = getScopedMediaToken();
-  if (scopedToken) {
-    query.set('token', scopedToken);
-  }
-  const queryString = query.toString();
-  return `${serverUrl}/api/v1${path}${queryString ? `?${queryString}` : ''}`;
-}
-
-export async function clearAuthTokenForServer(
-  serverUrl: string | null,
-): Promise<void> {
-  resetLoadedTokens();
-  try {
-    await resetStoredAuthToken(serverUrl);
-  } catch {}
-}
 
 export async function loadAuthToken(): Promise<string | null> {
-  const serverUrl = getCurrentServerUrl();
-  const service = getAuthTokenService(serverUrl);
-  if (!service) {
-    resetLoadedTokens();
-    return null;
-  }
-  if (tokenLoaded && loadedTokenService === service) return authToken;
+  if (tokenLoaded) return authToken;
   try {
     const creds = await Keychain.getGenericPassword({
-      service,
+      service: AUTH_TOKEN_KEY,
     });
     authToken = creds ? creds.password : null;
   } catch {
     authToken = null;
   }
-  loadedTokenService = service;
   tokenLoaded = true;
-  await refreshMediaToken();
   return authToken;
 }
 
 export async function setAuthToken(token: string | null): Promise<void> {
-  const serverUrl = getCurrentServerUrl();
-  const service = getAuthTokenService(serverUrl);
   authToken = token;
-  mediaToken = null;
-  mediaTokenServerOrigin = null;
-  loadedTokenService = service;
-  tokenLoaded = true;
   try {
-    if (service) {
-      if (token) {
-        await Keychain.setGenericPassword(service, token, {
-          service,
-        });
-      } else {
-        await Keychain.resetGenericPassword({ service });
-      }
+    if (token) {
+      await Keychain.setGenericPassword(AUTH_TOKEN_KEY, token, {
+        service: AUTH_TOKEN_KEY,
+      });
+    } else {
+      await Keychain.resetGenericPassword({ service: AUTH_TOKEN_KEY });
     }
   } catch {
-    if (token) {
-      console.warn('Keychain persistence failed; token is memory-only this session');
-    }
-  }
-
-  if (token) {
-    await refreshMediaToken();
+    // Keychain unavailable — token stays in memory only
   }
 }
 
 export function getAuthToken(): string | null {
   return authToken;
 }
-
-registerServerUrlChangeHandler(async (previousUrl, nextUrl) => {
-  if (previousUrl === nextUrl) return;
-  await clearAuthTokenForServer(previousUrl);
-});
 
 // --- API Error ---
 
@@ -712,7 +593,8 @@ export const api = {
     }),
 
   getOIDCProviderIconUrl: (id: number): string => {
-    return buildMediaUrl(`/auth/oidc/providers/${id}/icon`);
+    const serverUrl = getServerUrl();
+    return `${serverUrl}/api/v1/auth/oidc/providers/${id}/icon`;
   },
 
   deleteOIDCProviderIcon: (id: number) =>
@@ -1179,15 +1061,21 @@ export const api = {
 
   // Camera
   getPrinterImageUrl: (printerId: number): string => {
-    return buildMediaUrl(`/printers/${printerId}/image`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/printers/${printerId}/image${token}`;
   },
 
   getCameraSnapshotUrl: (printerId: number): string => {
-    return buildMediaUrl(`/printers/${printerId}/camera/snapshot`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/printers/${printerId}/camera/snapshot${token}`;
   },
 
   getCameraStreamUrl: (printerId: number): string => {
-    return buildMediaUrl(`/printers/${printerId}/camera/stream`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/printers/${printerId}/camera/stream${token}`;
   },
 
   diagnosePrinterCamera: (printerId: number) =>
@@ -1409,21 +1297,27 @@ export const api = {
     request<Record<string, unknown>>(`/archives/${id}/plates`),
 
   getArchivePlateThumbnail: (id: number, plateIndex: number): string => {
-    return buildMediaUrl(`/archives/${id}/plates/${plateIndex}/thumbnail`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/archives/${id}/plates/${plateIndex}/thumbnail${token}`;
   },
 
   getArchiveThumbnail: (id: number): string => {
-    return buildMediaUrl(`/archives/${id}/thumbnail`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/archives/${id}/thumbnail${token}`;
   },
 
   getArchiveTimelapse: (id: number): string => {
-    return buildMediaUrl(`/archives/${id}/timelapse`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/archives/${id}/timelapse${token}`;
   },
 
   getArchivePhotoUrl: (archiveId: number, filename: string): string => {
-    return buildMediaUrl(
-      `/archives/${archiveId}/photos/${encodeURIComponent(filename)}`,
-    );
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/archives/${archiveId}/photos/${encodeURIComponent(filename)}${token}`;
   },
 
   getArchivePhotos: async (archiveId: number) => {
@@ -1476,8 +1370,12 @@ export const api = {
     ),
 
   getArchiveQRCode: (archiveId: number, size = 200): string => {
+    const serverUrl = getServerUrl();
     const params = new URLSearchParams({ size: String(size) });
-    return buildMediaUrl(`/archives/${archiveId}/qrcode`, params);
+    if (authToken) {
+      params.set('token', authToken);
+    }
+    return `${serverUrl}/api/v1/archives/${archiveId}/qrcode?${params.toString()}`;
   },
 
   recalculateCosts: () =>
@@ -1783,15 +1681,21 @@ export const api = {
   },
 
   getLibraryFilePlateThumbnail: (id: number, plateIndex: number): string => {
-    return buildMediaUrl(`/library/${id}/plates/${plateIndex}/thumbnail`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/library/${id}/plates/${plateIndex}/thumbnail${token}`;
   },
 
   getLibraryFileThumbnailUrl: (id: number): string => {
-    return buildMediaUrl(`/library/files/${id}/thumbnail`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/library/files/${id}/thumbnail${token}`;
   },
 
   getLibraryFileDownloadUrl: (id: number): string => {
-    return buildMediaUrl(`/library/files/${id}/download`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/library/files/${id}/download${token}`;
   },
 
   getLibraryFileText: (id: number) =>
@@ -1989,7 +1893,9 @@ export const api = {
     ),
 
   getProjectCoverImageUrl: (projectId: number): string => {
-    return buildMediaUrl(`/projects/${projectId}/cover-image`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/projects/${projectId}/cover-image${token}`;
   },
 
   uploadProjectCoverImage: (
@@ -2764,7 +2670,7 @@ export const api = {
   createLongLivedCameraToken: (payload: { name: string; expires_in_days: number }) =>
     request<Record<string, unknown>>('/auth/tokens', {
       method: 'POST',
-      body: JSON.stringify({ ...payload, scope: MEDIA_TOKEN_SCOPE }),
+      body: JSON.stringify({ ...payload, scope: 'camera_stream' }),
     }),
 
   revokeLongLivedCameraToken: (tokenId: number) =>
@@ -2818,10 +2724,10 @@ export const api = {
     }),
 
   testGitHubBackupConnection: (repoUrl: string, token: string, provider = 'github') =>
-    request<Record<string, unknown>>('/github-backup/test', {
-      method: 'POST',
-      body: JSON.stringify({ repo_url: repoUrl, token, provider }),
-    }),
+    request<Record<string, unknown>>(
+      `/github-backup/test?repo_url=${encodeURIComponent(repoUrl)}&token=${encodeURIComponent(token)}&provider=${encodeURIComponent(provider)}`,
+      { method: 'POST' },
+    ),
 
   getGitHubBackupStatus: () =>
     request<Record<string, unknown>>('/github-backup/status'),

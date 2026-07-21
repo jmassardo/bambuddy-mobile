@@ -70,8 +70,7 @@ export function useNfc() {
           const payload = record.payload as number[];
           // Skip the language code prefix for text records
           const langCodeLen = payload[0];
-          const bytes = Uint8Array.from(payload.slice(1 + langCodeLen));
-          data = new TextDecoder('utf-8').decode(bytes);
+          data = String.fromCharCode(...payload.slice(1 + langCodeLen));
         }
       }
 
@@ -82,11 +81,7 @@ export function useNfc() {
       console.warn('[NFC] Read error:', error);
       return null;
     } finally {
-      try {
-        await NfcManager.cancelTechnologyRequest();
-      } catch {
-        // Ignore
-      }
+      NfcManager.cancelTechnologyRequest().catch(() => {});
     }
   }, [state.supported, state.enabled]);
 
@@ -121,11 +116,7 @@ export function useNfc() {
         );
         return false;
       } finally {
-        try {
-          await NfcManager.cancelTechnologyRequest();
-        } catch {
-          // Ignore
-        }
+        NfcManager.cancelTechnologyRequest().catch(() => {});
       }
     },
     [state.supported, state.enabled],
