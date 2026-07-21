@@ -593,7 +593,8 @@ export const api = {
     }),
 
   getOIDCProviderIconUrl: (id: number): string => {
-    return buildMediaUrl(`/auth/oidc/providers/${id}/icon`);
+    const serverUrl = getServerUrl();
+    return `${serverUrl}/api/v1/auth/oidc/providers/${id}/icon`;
   },
 
   deleteOIDCProviderIcon: (id: number) =>
@@ -604,8 +605,12 @@ export const api = {
       method: 'POST',
     }),
 
-  getOIDCAuthorizeUrl: (providerId: number) =>
-    request<{ auth_url: string }>(`/auth/oidc/authorize/${providerId}`),
+  getOIDCAuthorizeUrl: (providerId: number, state?: string) => {
+    const query = state ? `?state=${encodeURIComponent(state)}` : '';
+    return request<{ auth_url: string }>(
+      `/auth/oidc/authorize/${providerId}${query}`,
+    );
+  },
 
   exchangeOIDCToken: (oidcToken: string) =>
     request<LoginResponse>('/auth/oidc/exchange', {
@@ -1060,15 +1065,21 @@ export const api = {
 
   // Camera
   getPrinterImageUrl: (printerId: number): string => {
-    return buildMediaUrl(`/printers/${printerId}/image`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/printers/${printerId}/image${token}`;
   },
 
   getCameraSnapshotUrl: (printerId: number): string => {
-    return buildMediaUrl(`/printers/${printerId}/camera/snapshot`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/printers/${printerId}/camera/snapshot${token}`;
   },
 
   getCameraStreamUrl: (printerId: number): string => {
-    return buildMediaUrl(`/printers/${printerId}/camera/stream`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/printers/${printerId}/camera/stream${token}`;
   },
 
   diagnosePrinterCamera: (printerId: number) =>
@@ -1290,21 +1301,27 @@ export const api = {
     request<Record<string, unknown>>(`/archives/${id}/plates`),
 
   getArchivePlateThumbnail: (id: number, plateIndex: number): string => {
-    return buildMediaUrl(`/archives/${id}/plates/${plateIndex}/thumbnail`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/archives/${id}/plates/${plateIndex}/thumbnail${token}`;
   },
 
   getArchiveThumbnail: (id: number): string => {
-    return buildMediaUrl(`/archives/${id}/thumbnail`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/archives/${id}/thumbnail${token}`;
   },
 
   getArchiveTimelapse: (id: number): string => {
-    return buildMediaUrl(`/archives/${id}/timelapse`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/archives/${id}/timelapse${token}`;
   },
 
   getArchivePhotoUrl: (archiveId: number, filename: string): string => {
-    return buildMediaUrl(
-      `/archives/${archiveId}/photos/${encodeURIComponent(filename)}`,
-    );
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/archives/${archiveId}/photos/${encodeURIComponent(filename)}${token}`;
   },
 
   getArchivePhotos: async (archiveId: number) => {
@@ -1357,8 +1374,12 @@ export const api = {
     ),
 
   getArchiveQRCode: (archiveId: number, size = 200): string => {
+    const serverUrl = getServerUrl();
     const params = new URLSearchParams({ size: String(size) });
-    return buildMediaUrl(`/archives/${archiveId}/qrcode`, params);
+    if (authToken) {
+      params.set('token', authToken);
+    }
+    return `${serverUrl}/api/v1/archives/${archiveId}/qrcode?${params.toString()}`;
   },
 
   recalculateCosts: () =>
@@ -1664,15 +1685,21 @@ export const api = {
   },
 
   getLibraryFilePlateThumbnail: (id: number, plateIndex: number): string => {
-    return buildMediaUrl(`/library/${id}/plates/${plateIndex}/thumbnail`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/library/${id}/plates/${plateIndex}/thumbnail${token}`;
   },
 
   getLibraryFileThumbnailUrl: (id: number): string => {
-    return buildMediaUrl(`/library/files/${id}/thumbnail`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/library/files/${id}/thumbnail${token}`;
   },
 
   getLibraryFileDownloadUrl: (id: number): string => {
-    return buildMediaUrl(`/library/files/${id}/download`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/library/files/${id}/download${token}`;
   },
 
   getLibraryFileText: (id: number) =>
@@ -1870,7 +1897,9 @@ export const api = {
     ),
 
   getProjectCoverImageUrl: (projectId: number): string => {
-    return buildMediaUrl(`/projects/${projectId}/cover-image`);
+    const serverUrl = getServerUrl();
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${serverUrl}/api/v1/projects/${projectId}/cover-image${token}`;
   },
 
   uploadProjectCoverImage: (
@@ -2645,7 +2674,7 @@ export const api = {
   createLongLivedCameraToken: (payload: { name: string; expires_in_days: number }) =>
     request<Record<string, unknown>>('/auth/tokens', {
       method: 'POST',
-      body: JSON.stringify({ ...payload, scope: MEDIA_TOKEN_SCOPE }),
+      body: JSON.stringify({ ...payload, scope: 'camera_stream' }),
     }),
 
   revokeLongLivedCameraToken: (tokenId: number) =>
@@ -2699,10 +2728,10 @@ export const api = {
     }),
 
   testGitHubBackupConnection: (repoUrl: string, token: string, provider = 'github') =>
-    request<Record<string, unknown>>('/github-backup/test', {
-      method: 'POST',
-      body: JSON.stringify({ repo_url: repoUrl, token, provider }),
-    }),
+    request<Record<string, unknown>>(
+      `/github-backup/test?repo_url=${encodeURIComponent(repoUrl)}&token=${encodeURIComponent(token)}&provider=${encodeURIComponent(provider)}`,
+      { method: 'POST' },
+    ),
 
   getGitHubBackupStatus: () =>
     request<Record<string, unknown>>('/github-backup/status'),

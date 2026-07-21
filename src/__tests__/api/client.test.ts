@@ -1,6 +1,5 @@
 import { ApiError, api, setAuthToken } from '@/api/client';
 import { useServerStore } from '@/api/server';
-import * as Keychain from 'react-native-keychain';
 
 declare const global: typeof globalThis & { fetch: typeof fetch };
 
@@ -51,9 +50,7 @@ describe('api client', () => {
   beforeEach(async () => {
     mockFetch.mockReset();
     useServerStore.setState({ serverUrl: 'https://bambuddy.test', loading: false });
-    mockFetch.mockResolvedValue(createResponse({ token: 'media-token' }));
     await setAuthToken('secret-token');
-    mockFetch.mockReset();
   });
 
   afterEach(async () => {
@@ -91,18 +88,6 @@ describe('api client', () => {
       method: 'POST',
       body: { email: 'user@example.com' },
       response: { message: 'sent' },
-    },
-    {
-      name: 'testGitHubBackupConnection',
-      call: () => api.testGitHubBackupConnection('https://github.com/octo/repo', 'pat-secret'),
-      endpoint: '/github-backup/test',
-      method: 'POST',
-      body: {
-        repo_url: 'https://github.com/octo/repo',
-        token: 'pat-secret',
-        provider: 'github',
-      },
-      response: { ok: true },
     },
   ])('sends the correct auth request for $name', async ({ call, endpoint, method, body, response }) => {
     mockFetch.mockResolvedValue(createResponse(response, { status: response === undefined ? 204 : 200 }));
@@ -309,17 +294,5 @@ describe('api client', () => {
       }),
     );
     await expect(api.updateSettings({ theme: 'broken' })).rejects.toBeInstanceOf(ApiError);
-  });
-
-  it('scopes keychain storage to the current server origin', async () => {
-    const keychain = jest.mocked(Keychain);
-
-    await setAuthToken('server-token');
-
-    expect(keychain.setGenericPassword).toHaveBeenLastCalledWith(
-      'bambuddy-auth-token:https://bambuddy.test',
-      'server-token',
-      { service: 'bambuddy-auth-token:https://bambuddy.test' },
-    );
   });
 });

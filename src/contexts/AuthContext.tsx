@@ -112,11 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { access_token: response.access_token, user: response.user as UserResponse };
   }, []);
 
-  const loginWithToken = useCallback(async (token: string, newUser: UserResponse) => {
-    await setAuthToken(token);
-    if (mountedRef.current) {
-      setUser(newUser);
-    }
+  const loginWithToken = useCallback((token: string, newUser: UserResponse) => {
+    setAuthToken(token);
+    setUser(newUser);
   }, []);
 
   const logout = useCallback(async () => {
