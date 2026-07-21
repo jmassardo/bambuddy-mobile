@@ -22,22 +22,23 @@ import { LoadingScreen } from '@/components/common/StateScreens';
 import { useServerStore } from '@/api/server';
 import type { LoginResponse, OIDCProvider } from '@/types/api';
 
-function parseOidcCallback(url: string) {
-  try {
-    const parsedUrl = new URL(url);
-    const params = parsedUrl.searchParams;
-    return {
-      token: params.get('oidc_token'),
-      error: params.get('oidc_error'),
-      state: params.get('state'),
-    };
-  } catch {
-    return {
-      token: null,
-      error: 'invalid_callback_url',
-      state: null,
-    };
+function extractParam(source: string, key: string) {
+  const patterns = [
+    new RegExp(`[?#&]${key}=([^&#]+)`),
+    new RegExp(`${key}=([^&#]+)`),
+  ];
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    if (match?.[1]) return decodeURIComponent(match[1]);
   }
+  return null;
+}
+
+function parseOidcCallback(url: string) {
+  return {
+    token: extractParam(url, 'oidc_token'),
+    error: extractParam(url, 'oidc_error'),
+  };
 }
 
 export default function LoginScreen() {
@@ -61,7 +62,6 @@ export default function LoginScreen() {
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const pendingOidcState = React.useRef<string | null>(null);
 
   useEffect(() => {
     if (!serverUrl) {
@@ -113,8 +113,8 @@ export default function LoginScreen() {
 
   const oidcExchangeMutation = useMutation({
     mutationFn: (oidcToken: string) => api.exchangeOIDCToken(oidcToken),
-    onSuccess: async response => {
-      await finalizeLogin(response);
+    onSuccess: response => {
+      void finalizeLogin(response);
     },
     onError: (exchangeError: Error) => {
       setError(exchangeError.message || 'OIDC login failed.');
@@ -123,22 +123,8 @@ export default function LoginScreen() {
   });
 
   useEffect(() => {
-    const handleUrl = async ({ url }: { url: string }) => {
-      const { token, error: oidcError, state } = parseOidcCallback(url);
-      if (!token && !oidcError) {
-        return;
-      }
-
-      const expectedState = pendingOidcState.current;
-      if (!expectedState || !state || state !== expectedState) {
-        pendingOidcState.current = null;
-        console.warn('Rejected OIDC callback with missing or mismatched state.');
-        setError('OIDC login failed. Please try again.');
-        showToast('OIDC login failed.', 'error');
-        return;
-      }
-
-      pendingOidcState.current = null;
+    const handleUrl = ({ url }: { url: string }) => {
+      const { token, error: oidcError } = parseOidcCallback(url);
       if (oidcError) {
         setError(`OIDC login failed: ${oidcError.replace(/_/g, ' ')}`);
         showToast('OIDC login failed.', 'error');
@@ -146,17 +132,14 @@ export default function LoginScreen() {
       }
       if (token) {
         setError('');
-        await oidcExchangeMutation.mutateAsync(token);
+        oidcExchangeMutation.mutate(token);
       }
     };
 
     const subscription = Linking.addEventListener('url', handleUrl);
-    void (async () => {
-      const url = await Linking.getInitialURL();
-      if (url) {
-        await handleUrl({ url });
-      }
-    })();
+    void Linking.getInitialURL().then(url => {
+      if (url) handleUrl({ url });
+    });
     return () => subscription.remove();
   }, [oidcExchangeMutation, showToast]);
 
@@ -228,25 +211,12 @@ export default function LoginScreen() {
   });
 
   const oidcStartMutation = useMutation({
-    mutationFn: async (providerId: number) => {
-      const state = `${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
-      pendingOidcState.current = state;
-      return api.getOIDCAuthorizeUrl(providerId, state);
-    },
+    mutationFn: (providerId: number) => api.getOIDCAuthorizeUrl(providerId),
     onSuccess: async data => {
       setError('');
-      try {
-        await Linking.openURL(data.auth_url);
-      } catch (error) {
-        pendingOidcState.current = null;
-        const message =
-          error instanceof Error ? error.message : 'Unable to start SSO login.';
-        setError(message);
-        showToast(message, 'error');
-      }
+      await Linking.openURL(data.auth_url);
     },
     onError: (mutationError: Error) => {
-      pendingOidcState.current = null;
       setError(mutationError.message || 'Unable to start SSO login.');
       showToast(mutationError.message || 'Unable to start SSO login.', 'error');
     },

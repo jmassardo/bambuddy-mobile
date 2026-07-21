@@ -3,6 +3,7 @@ import {
   formatDuration,
   formatWeight,
   pickBoolean,
+  pickId,
   pickNumber,
   pickString,
 } from '@/utils/data';
@@ -48,6 +49,11 @@ describe('data utilities', () => {
     expect(pickBoolean(source, ['flags.active'])).toBe(true);
     expect(pickBoolean(source, ['flags.hidden'], true)).toBe(false);
     expect(pickBoolean(source, ['flags.missing'], true)).toBe(true);
+  });
+
+  it('pickId returns an empty string when no identifier is present', () => {
+    expect(pickId({ name: 'No ID' })).toBe('');
+    expect(pickId({ id: 42 })).toBe('42');
   });
 
   it('formatDuration formats seconds into human readable output', () => {
