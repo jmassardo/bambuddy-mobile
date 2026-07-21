@@ -11,8 +11,18 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Camera, Image as ImageIcon, Pencil, Trash2, X } from 'lucide-react-native';
-import { launchCamera, launchImageLibrary, type Asset } from 'react-native-image-picker';
+import {
+  Camera,
+  Image as ImageIcon,
+  Pencil,
+  Trash2,
+  X,
+} from 'lucide-react-native';
+import {
+  launchCamera,
+  launchImageLibrary,
+  type Asset,
+} from 'react-native-image-picker';
 import QRCode from 'react-native-qrcode-svg';
 import { WebView } from 'react-native-webview';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -63,7 +73,9 @@ export default function ArchiveDetailScreen() {
   const [showQrModal, setShowQrModal] = useState(false);
   const [showProjectPageModal, setShowProjectPageModal] = useState(false);
   const [fullscreenPhoto, setFullscreenPhoto] = useState<string | null>(null);
-  const [pendingPhotoDelete, setPendingPhotoDelete] = useState<string | null>(null);
+  const [pendingPhotoDelete, setPendingPhotoDelete] = useState<string | null>(
+    null,
+  );
   const [showTimelapseFullscreen, setShowTimelapseFullscreen] = useState(false);
 
   const archiveQuery = useQuery({
@@ -83,17 +95,24 @@ export default function ArchiveDetailScreen() {
     [archiveQuery.data],
   );
 
-  const timelapseUrl = archive?.timelapse_path || pickString(archive as unknown as ApiRecord, ['timelapse_url'])
-    ? api.getArchiveTimelapse(archiveId)
-    : null;
+  const timelapseUrl =
+    archive?.timelapse_path ||
+    pickString(archive as unknown as ApiRecord, ['timelapse_url'])
+      ? api.getArchiveTimelapse(archiveId)
+      : null;
   const isSoftDeleted = Boolean(
-    pickString(archive as unknown as ApiRecord, ['deleted_at']) || archive?.status === 'deleted',
+    pickString(archive as unknown as ApiRecord, ['deleted_at']) ||
+      archive?.status === 'deleted',
   );
   const archiveUrl = serverUrl ? `${serverUrl}/archives/${archiveId}` : null;
-  const archiveProjectPageUrl = pickString(
-    archive as unknown as ApiRecord,
-    ['external_url', 'makerworld_url'],
-  ) || (archive?.project_id && serverUrl ? `${serverUrl}/projects/${archive.project_id}` : null);
+  const archiveProjectPageUrl =
+    pickString(archive as unknown as ApiRecord, [
+      'external_url',
+      'makerworld_url',
+    ]) ||
+    (archive?.project_id && serverUrl
+      ? `${serverUrl}/projects/${archive.project_id}`
+      : null);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
@@ -127,7 +146,8 @@ export default function ArchiveDetailScreen() {
       await queryClient.invalidateQueries({ queryKey: ['queue'] });
       showToast('Reprint started.', 'success');
     },
-    onError: () => showToast('Unable to start a reprint for this archive.', 'error'),
+    onError: () =>
+      showToast('Unable to start a reprint for this archive.', 'error'),
   });
 
   const queueMutation = useMutation({
@@ -136,7 +156,8 @@ export default function ArchiveDetailScreen() {
       await queryClient.invalidateQueries({ queryKey: ['queue'] });
       showToast('Archive added to queue.', 'success');
     },
-    onError: () => showToast('Unable to add this archive to the queue.', 'error'),
+    onError: () =>
+      showToast('Unable to add this archive to the queue.', 'error'),
   });
 
   const restoreMutation = useMutation({
@@ -145,34 +166,44 @@ export default function ArchiveDetailScreen() {
       await invalidateArchiveQueries();
       showToast('Archive restored.', 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to restore this archive.', 'error'),
+    onError: (error: Error) =>
+      showToast(error.message || 'Unable to restore this archive.', 'error'),
   });
 
   const uploadPhotoMutation = useMutation({
-    mutationFn: (file: { uri: string; name: string; type: string }) => api.uploadArchivePhoto(archiveId, file),
+    mutationFn: (file: { uri: string; name: string; type: string }) =>
+      api.uploadArchivePhoto(archiveId, file),
     onSuccess: async () => {
       await invalidateArchiveQueries();
       showToast('Photo added to archive.', 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to upload the photo.', 'error'),
+    onError: (error: Error) =>
+      showToast(error.message || 'Unable to upload the photo.', 'error'),
   });
 
   const deletePhotoMutation = useMutation({
-    mutationFn: (filename: string) => api.deleteArchivePhoto(archiveId, filename),
+    mutationFn: (filename: string) =>
+      api.deleteArchivePhoto(archiveId, filename),
     onSuccess: async () => {
       await invalidateArchiveQueries();
       setPendingPhotoDelete(null);
       setFullscreenPhoto(null);
       showToast('Photo removed.', 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to remove the photo.', 'error'),
+    onError: (error: Error) =>
+      showToast(error.message || 'Unable to remove the photo.', 'error'),
   });
 
   const pickPhoto = async (source: 'camera' | 'gallery') => {
     try {
-      const result = source === 'camera'
-        ? await launchCamera({ mediaType: 'photo', cameraType: 'back', saveToPhotos: true })
-        : await launchImageLibrary({ mediaType: 'photo', selectionLimit: 1 });
+      const result =
+        source === 'camera'
+          ? await launchCamera({
+              mediaType: 'photo',
+              cameraType: 'back',
+              saveToPhotos: true,
+            })
+          : await launchImageLibrary({ mediaType: 'photo', selectionLimit: 1 });
       const selectedAsset = result.assets?.[0];
       if (!selectedAsset) {
         showToast('No photo was selected.', 'warning');
@@ -185,7 +216,10 @@ export default function ArchiveDetailScreen() {
       }
       await uploadPhotoMutation.mutateAsync(file);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to add a photo.', 'error');
+      showToast(
+        error instanceof Error ? error.message : 'Unable to add a photo.',
+        'error',
+      );
     }
   };
 
@@ -206,7 +240,9 @@ export default function ArchiveDetailScreen() {
     );
   }
 
-  const runs = Array.isArray(runsQuery.data) ? (runsQuery.data as ApiRecord[]) : [];
+  const runs = Array.isArray(runsQuery.data)
+    ? (runsQuery.data as ApiRecord[])
+    : [];
   const photos = archive.photos ?? [];
 
   return (
@@ -229,13 +265,48 @@ export default function ArchiveDetailScreen() {
 
         <SectionCard
           title={archive.print_name || archive.filename || 'Untitled archive'}
-          subtitle={archive.printer_name || pickString(archive as unknown as ApiRecord, ['printer_name', 'printer'], 'Unknown printer')}
+          subtitle={
+            archive.printer_name ||
+            pickString(
+              archive as unknown as ApiRecord,
+              ['printer_name', 'printer'],
+              'Unknown printer',
+            )
+          }
         >
-          <KeyValueRow label="Tags" value={archive.tags || pickString(archive as unknown as ApiRecord, ['tags_text', 'tag_names'], '—') || '—'} />
-          <KeyValueRow label="Date" value={formatDateTime(archive.completed_at || archive.created_at)} />
-          <KeyValueRow label="Duration" value={formatDuration(archive.actual_time_seconds || archive.print_time_seconds)} />
-          <KeyValueRow label="Filament" value={formatWeight(archive.filament_used_grams)} />
-          <KeyValueRow label="Cost" value={formatCurrency(archive.cost ?? pickString(archive as unknown as ApiRecord, ['estimated_cost']))} />
+          <KeyValueRow
+            label="Tags"
+            value={
+              archive.tags ||
+              pickString(
+                archive as unknown as ApiRecord,
+                ['tags_text', 'tag_names'],
+                '—',
+              ) ||
+              '—'
+            }
+          />
+          <KeyValueRow
+            label="Date"
+            value={formatDateTime(archive.completed_at || archive.created_at)}
+          />
+          <KeyValueRow
+            label="Duration"
+            value={formatDuration(
+              archive.actual_time_seconds || archive.print_time_seconds,
+            )}
+          />
+          <KeyValueRow
+            label="Filament"
+            value={formatWeight(archive.filament_used_grams)}
+          />
+          <KeyValueRow
+            label="Cost"
+            value={formatCurrency(
+              archive.cost ??
+                pickString(archive as unknown as ApiRecord, ['estimated_cost']),
+            )}
+          />
         </SectionCard>
 
         <View style={styles.actionRow}>
@@ -283,7 +354,13 @@ export default function ArchiveDetailScreen() {
               variant="secondary"
               onPress={() =>
                 void Share.share({
-                  message: `${archive.print_name || archive.filename} • ${archive.printer_name || pickString(archive as unknown as ApiRecord, ['printer_name', 'printer'])}`,
+                  message: `${archive.print_name || archive.filename} • ${
+                    archive.printer_name ||
+                    pickString(archive as unknown as ApiRecord, [
+                      'printer_name',
+                      'printer',
+                    ])
+                  }`,
                 })
               }
             />
@@ -304,79 +381,157 @@ export default function ArchiveDetailScreen() {
             title="Timelapse"
             subtitle="Play the finished print timelapse inline or expand it fullscreen."
           >
-            <View style={[styles.webviewFrame, { borderColor: colors.border }]}> 
-              <WebView source={{ uri: timelapseUrl }} allowsFullscreenVideo mediaPlaybackRequiresUserAction={false} />
+            <View style={[styles.webviewFrame, { borderColor: colors.border }]}>
+              <WebView
+                source={{ uri: timelapseUrl }}
+                originWhitelist={serverOrigin ? [serverOrigin] : []}
+                javaScriptEnabled={false}
+                allowFileAccess={false}
+                setSupportMultipleWindows={false}
+                allowsInlineMediaPlayback
+                allowsFullscreenVideo
+                mediaPlaybackRequiresUserAction={false}
+              />
             </View>
             <View style={styles.inlineActions}>
-              <PrimaryButton label="Fullscreen" variant="secondary" onPress={() => setShowTimelapseFullscreen(true)} />
+              <PrimaryButton
+                label="Fullscreen"
+                variant="secondary"
+                onPress={() => setShowTimelapseFullscreen(true)}
+              />
             </View>
           </SectionCard>
         ) : null}
 
-        <SectionCard title="Photo gallery" subtitle="Archive photos appear here as a horizontal gallery.">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRail}>
+        <SectionCard
+          title="Photo gallery"
+          subtitle="Archive photos appear here as a horizontal gallery."
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.photoRail}
+          >
             {photos.map(photo => (
               <View key={photo} style={styles.photoCard}>
                 <Pressable onPress={() => setFullscreenPhoto(photo)}>
-                  <Image source={{ uri: api.getArchivePhotoUrl(archiveId, photo) }} style={styles.photo} />
+                  <Image
+                    source={{ uri: api.getArchivePhotoUrl(archiveId, photo) }}
+                    style={styles.photo}
+                  />
                 </Pressable>
                 <Pressable
                   onPress={() => setPendingPhotoDelete(photo)}
-                  style={[styles.photoDelete, { backgroundColor: colors.error }]}
+                  style={[
+                    styles.photoDelete,
+                    { backgroundColor: colors.error },
+                  ]}
                 >
-                  <Trash2 size={14} color={colors.textInverse} strokeWidth={2} />
+                  <Trash2
+                    size={14}
+                    color={colors.textInverse}
+                    strokeWidth={2}
+                  />
                 </Pressable>
               </View>
             ))}
             <Pressable
               onPress={() => void pickPhoto('camera')}
-              style={[styles.photoActionCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              style={[
+                styles.photoActionCard,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                },
+              ]}
             >
               <Camera size={18} color={colors.accent} strokeWidth={2} />
-              <Text style={[styles.photoActionText, { color: colors.textSecondary }]}>Camera</Text>
+              <Text
+                style={[
+                  styles.photoActionText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Camera
+              </Text>
             </Pressable>
             <Pressable
               onPress={() => void pickPhoto('gallery')}
-              style={[styles.photoActionCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              style={[
+                styles.photoActionCard,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                },
+              ]}
             >
               <ImageIcon size={18} color={colors.accent} strokeWidth={2} />
-              <Text style={[styles.photoActionText, { color: colors.textSecondary }]}>Gallery</Text>
+              <Text
+                style={[
+                  styles.photoActionText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Gallery
+              </Text>
             </Pressable>
           </ScrollView>
           {uploadPhotoMutation.isPending ? (
-            <Text style={[styles.helperText, { color: colors.textSecondary }]}>Uploading photo…</Text>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              Uploading photo…
+            </Text>
           ) : null}
         </SectionCard>
 
-        <SectionCard title="Print History" subtitle="Previous runs for this archived model.">
+        <SectionCard
+          title="Print History"
+          subtitle="Previous runs for this archived model."
+        >
           {runs.length > 0 ? (
             runs.map(run => (
               <View
                 key={String(run.id ?? `${run.started_at}-${run.status}`)}
                 style={[
                   styles.runCard,
-                  { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                  },
                 ]}
               >
-                <Text style={[styles.runTitle, { color: colors.text }]}> 
+                <Text style={[styles.runTitle, { color: colors.text }]}>
                   {pickString(run, ['status', 'result'], 'Unknown result')}
                 </Text>
-                <Text style={[styles.runMeta, { color: colors.textSecondary }]}> 
-                  {formatDateTime(pickString(run, ['started_at', 'created_at']))}
+                <Text style={[styles.runMeta, { color: colors.textSecondary }]}>
+                  {formatDateTime(
+                    pickString(run, ['started_at', 'created_at']),
+                  )}
                 </Text>
-                <Text style={[styles.runMeta, { color: colors.textSecondary }]}> 
-                  {pickString(run, ['printer_name', 'printer'], 'Unknown printer')}
+                <Text style={[styles.runMeta, { color: colors.textSecondary }]}>
+                  {pickString(
+                    run,
+                    ['printer_name', 'printer'],
+                    'Unknown printer',
+                  )}
                 </Text>
               </View>
             ))
           ) : (
-            <Text style={[styles.note, { color: colors.textSecondary }]}>No print history available yet.</Text>
+            <Text style={[styles.note, { color: colors.textSecondary }]}>
+              No print history available yet.
+            </Text>
           )}
         </SectionCard>
 
         <SectionCard title="Notes & Failure Analysis">
-          <Text style={[styles.note, { color: colors.textSecondary }]}> 
-            {archive.notes || archive.failure_reason || pickString(archive as unknown as ApiRecord, ['failure_analysis', 'comment'], 'No notes or failure analysis were captured for this archive.')}
+          <Text style={[styles.note, { color: colors.textSecondary }]}>
+            {archive.notes ||
+              archive.failure_reason ||
+              pickString(
+                archive as unknown as ApiRecord,
+                ['failure_analysis', 'comment'],
+                'No notes or failure analysis were captured for this archive.',
+              )}
           </Text>
         </SectionCard>
       </ScrollView>
@@ -398,15 +553,31 @@ export default function ArchiveDetailScreen() {
         onClose={() => setShowPrintLog(false)}
       />
 
-      <Modal visible={showQrModal} transparent animationType="fade" onRequestClose={() => setShowQrModal(false)}>
-        <View style={[styles.centeredBackdrop, { backgroundColor: colors.overlay }]}>
-          <View style={[styles.qrCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.qrTitle, { color: colors.text }]}>Archive QR code</Text>
+      <Modal
+        visible={showQrModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowQrModal(false)}
+      >
+        <View
+          style={[styles.centeredBackdrop, { backgroundColor: colors.overlay }]}
+        >
+          <View
+            style={[
+              styles.qrCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.qrTitle, { color: colors.text }]}>
+              Archive QR code
+            </Text>
             <Text style={[styles.qrSubtitle, { color: colors.textSecondary }]}>
               Scan to open this archive in Bambuddy.
             </Text>
             {archiveUrl ? (
-              <View style={[styles.qrFrame, { backgroundColor: colors.surface }]}>
+              <View
+                style={[styles.qrFrame, { backgroundColor: colors.surface }]}
+              >
                 <QRCode
                   value={archiveUrl}
                   size={220}
@@ -415,55 +586,146 @@ export default function ArchiveDetailScreen() {
                 />
               </View>
             ) : (
-              <Text style={[styles.note, { color: colors.error }]}>The server URL is not configured.</Text>
+              <Text style={[styles.note, { color: colors.error }]}>
+                The server URL is not configured.
+              </Text>
             )}
             {archiveUrl ? (
-              <Text style={[styles.qrUrl, { color: colors.textSecondary }]}>{archiveUrl}</Text>
+              <Text style={[styles.qrUrl, { color: colors.textSecondary }]}>
+                {archiveUrl}
+              </Text>
             ) : null}
-            <PrimaryButton label="Close" variant="secondary" onPress={() => setShowQrModal(false)} />
+            <PrimaryButton
+              label="Close"
+              variant="secondary"
+              onPress={() => setShowQrModal(false)}
+            />
           </View>
         </View>
       </Modal>
 
-      <Modal visible={showProjectPageModal} animationType="slide" onRequestClose={() => setShowProjectPageModal(false)}>
-        <View style={[styles.fullscreenContainer, { backgroundColor: colors.background }]}>
-          <View style={[styles.fullscreenHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.fullscreenTitle, { color: colors.text }]}>Project page</Text>
-            <PrimaryButton label="Close" variant="secondary" onPress={() => setShowProjectPageModal(false)} />
+      <Modal
+        visible={showProjectPageModal}
+        animationType="slide"
+        onRequestClose={() => setShowProjectPageModal(false)}
+      >
+        <View
+          style={[
+            styles.fullscreenContainer,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <View
+            style={[
+              styles.fullscreenHeader,
+              { borderBottomColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.fullscreenTitle, { color: colors.text }]}>
+              Project page
+            </Text>
+            <PrimaryButton
+              label="Close"
+              variant="secondary"
+              onPress={() => setShowProjectPageModal(false)}
+            />
           </View>
           {archiveProjectPageUrl ? (
-            <WebView source={{ uri: archiveProjectPageUrl }} />
+            <WebView
+              source={{ uri: archiveProjectPageUrl }}
+              originWhitelist={serverOrigin ? [serverOrigin] : []}
+              javaScriptEnabled={false}
+              allowFileAccess={false}
+              setSupportMultipleWindows={false}
+              allowsInlineMediaPlayback
+            />
           ) : (
             <View style={styles.emptyWebView}>
-              <Text style={[styles.note, { color: colors.textSecondary }]}>No project page is available for this archive.</Text>
+              <Text style={[styles.note, { color: colors.textSecondary }]}>
+                No project page is available for this archive.
+              </Text>
             </View>
           )}
         </View>
       </Modal>
 
-      <Modal visible={fullscreenPhoto !== null} transparent animationType="fade" onRequestClose={() => setFullscreenPhoto(null)}>
-        <View style={[styles.fullscreenBackdrop, { backgroundColor: colors.overlay }]}> 
-          <Pressable style={styles.fullscreenClose} onPress={() => setFullscreenPhoto(null)}>
+      <Modal
+        visible={fullscreenPhoto !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFullscreenPhoto(null)}
+      >
+        <View
+          style={[
+            styles.fullscreenBackdrop,
+            { backgroundColor: colors.overlay },
+          ]}
+        >
+          <Pressable
+            style={styles.fullscreenClose}
+            onPress={() => setFullscreenPhoto(null)}
+          >
             <X size={20} color={colors.textInverse} strokeWidth={2} />
           </Pressable>
           {fullscreenPhoto ? (
-            <Image source={{ uri: api.getArchivePhotoUrl(archiveId, fullscreenPhoto) }} style={styles.fullscreenImage} resizeMode="contain" />
+            <Image
+              source={{
+                uri: api.getArchivePhotoUrl(archiveId, fullscreenPhoto),
+              }}
+              style={styles.fullscreenImage}
+              resizeMode="contain"
+            />
           ) : null}
           {fullscreenPhoto ? (
             <View style={styles.fullscreenActions}>
-              <PrimaryButton label="Delete photo" variant="danger" onPress={() => setPendingPhotoDelete(fullscreenPhoto)} />
+              <PrimaryButton
+                label="Delete photo"
+                variant="danger"
+                onPress={() => setPendingPhotoDelete(fullscreenPhoto)}
+              />
             </View>
           ) : null}
         </View>
       </Modal>
 
-      <Modal visible={showTimelapseFullscreen} animationType="slide" onRequestClose={() => setShowTimelapseFullscreen(false)}>
-        <View style={[styles.fullscreenContainer, { backgroundColor: colors.background }]}> 
-          <View style={[styles.fullscreenHeader, { borderBottomColor: colors.border }]}> 
-            <Text style={[styles.fullscreenTitle, { color: colors.text }]}>Timelapse</Text>
-            <PrimaryButton label="Close" variant="secondary" onPress={() => setShowTimelapseFullscreen(false)} />
+      <Modal
+        visible={showTimelapseFullscreen}
+        animationType="slide"
+        onRequestClose={() => setShowTimelapseFullscreen(false)}
+      >
+        <View
+          style={[
+            styles.fullscreenContainer,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <View
+            style={[
+              styles.fullscreenHeader,
+              { borderBottomColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.fullscreenTitle, { color: colors.text }]}>
+              Timelapse
+            </Text>
+            <PrimaryButton
+              label="Close"
+              variant="secondary"
+              onPress={() => setShowTimelapseFullscreen(false)}
+            />
           </View>
-          {timelapseUrl ? <WebView source={{ uri: timelapseUrl }} allowsFullscreenVideo mediaPlaybackRequiresUserAction={false} /> : null}
+          {timelapseUrl ? (
+            <WebView
+              source={{ uri: timelapseUrl }}
+              originWhitelist={serverOrigin ? [serverOrigin] : []}
+              javaScriptEnabled={false}
+              allowFileAccess={false}
+              setSupportMultipleWindows={false}
+              allowsInlineMediaPlayback
+              allowsFullscreenVideo
+              mediaPlaybackRequiresUserAction={false}
+            />
+          ) : null}
         </View>
       </Modal>
 
