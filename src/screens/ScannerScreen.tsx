@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import {
   Camera,
@@ -69,11 +70,11 @@ function extractSpoolId(value: string) {
 }
 
 export default function ScannerScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Scanner'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Scan QR Code', headerShown: false });
   }, [navigation]);
-  const route = useRoute<any>();
+  const route = useRoute<RootRouteProp<'Scanner'>>();
   const { mode } = (route.params ?? {}) as { mode?: string };
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -147,7 +148,10 @@ export default function ScannerScreen() {
         navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
         return;
       }
-      navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main', params: { screen: 'Dashboard' } }],
+      });
     } catch (error) {
       setPendingServerUrl(null);
       setHandled(false);

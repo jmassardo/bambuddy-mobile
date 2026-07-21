@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import {
   Image,
   Modal,
@@ -60,8 +61,8 @@ function assetToUpload(asset: Asset) {
 }
 
 export default function ArchiveDetailScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const navigation = useNavigation<RootNavigationProp<'ArchiveDetail'>>();
+  const route = useRoute<RootRouteProp<'ArchiveDetail'>>();
   const { id } = (route.params ?? {}) as { id: string };
   const archiveId = Number(id);
   const { colors } = useTheme();

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Pressable,
@@ -182,7 +183,7 @@ function classifyPrinter(
 }
 
 export default function PrintersDashboardScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<MainTabNavigationProp<'Dashboard'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Printers' });
   }, [navigation]);

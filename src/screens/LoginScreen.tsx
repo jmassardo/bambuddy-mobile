@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   Image,
   KeyboardAvoidingView,
@@ -41,7 +42,7 @@ function parseOidcCallback(url: string) {
 }
 
 export default function LoginScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Login'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Login', headerShown: false });
   }, [navigation]);
@@ -75,7 +76,10 @@ export default function LoginScreen() {
       return;
     }
     if (user) {
-      navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main', params: { screen: 'Dashboard' } }],
+      });
     }
   }, [requiresSetup, navigation, user]);
 

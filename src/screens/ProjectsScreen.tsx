@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Image,
@@ -66,7 +67,7 @@ function projectCoverUrl(project: ApiRecord): string | null {
 }
 
 export default function ProjectsScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Projects'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Projects' });
   }, [navigation]);

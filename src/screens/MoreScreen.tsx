@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { useMutation } from '@tanstack/react-query';
@@ -38,7 +39,7 @@ const MENU_GROUPS = [
 ] as const;
 
 export default function MoreScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<MainTabNavigationProp<'More'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'More' });
   }, [navigation]);

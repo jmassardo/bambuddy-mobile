@@ -1,18 +1,22 @@
+import type { CompositeNavigationProp, NavigatorScreenParams, RouteProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 // Navigation type definitions for all screens and params
 
 export type RootStackParamList = {
   ServerSetup: undefined;
   Login: undefined;
-  Main: undefined;
-  PrinterDetail: { id: number };
-  ArchiveDetail: { id: number };
-  ProjectDetail: { id: number };
-  Camera: { id: number };
-  Scanner: undefined;
+  Main: NavigatorScreenParams<MainTabParamList> | undefined;
+  PrinterDetail: { id: number | string };
+  ArchiveDetail: { id: number | string };
+  ProjectDetail: { id: number | string };
+  Camera: { id: number | string };
+  Scanner: { mode?: string } | undefined;
   Settings: undefined;
   Setup: undefined;
   Notifications: undefined;
-  Inventory: undefined;
+  Inventory: { spool?: string } | undefined;
   Maintenance: undefined;
   MakerWorld: undefined;
   Profiles: undefined;
@@ -29,3 +33,19 @@ export type MainTabParamList = {
   Files: undefined;
   More: undefined;
 };
+
+export type RootNavigationProp<
+  T extends keyof RootStackParamList = keyof RootStackParamList,
+> = NativeStackNavigationProp<RootStackParamList, T>;
+
+export type MainTabNavigationProp<
+  T extends keyof MainTabParamList = keyof MainTabParamList,
+> = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, T>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
+
+export type RootRouteProp<T extends keyof RootStackParamList> = RouteProp<
+  RootStackParamList,
+  T
+>;

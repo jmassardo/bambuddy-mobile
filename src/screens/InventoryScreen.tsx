@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Modal,
@@ -65,7 +66,7 @@ const DEFAULT_FORM: SpoolFormState = {
 };
 
 export default function InventoryScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Inventory'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Inventory' });
   }, [navigation]);

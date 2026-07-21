@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import {
   ActivityIndicator,
   Image,
@@ -123,8 +124,8 @@ function JogButton({
 }
 
 export default function PrinterDetailScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const navigation = useNavigation<RootNavigationProp<'PrinterDetail'>>();
+  const route = useRoute<RootRouteProp<'PrinterDetail'>>();
   const { id } = (route.params ?? {}) as { id: string };
   const printerId = Number(id);
   const queryClient = useQueryClient();

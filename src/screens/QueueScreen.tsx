@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import {
   Modal,
   Pressable,
@@ -453,7 +454,7 @@ function BatchItemsModal({
 }
 
 export default function QueueScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<MainTabNavigationProp<'Queue'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Queue' });
   }, [navigation]);

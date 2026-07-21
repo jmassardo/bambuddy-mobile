@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Modal,
@@ -43,7 +44,7 @@ const DEFAULT_FORM: UserFormState = {
 };
 
 export default function UsersScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Users'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Users' });
   }, [navigation]);

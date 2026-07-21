@@ -2,6 +2,7 @@
 import Clipboard from '@react-native-clipboard/clipboard';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   ActivityIndicator,
   Image,
@@ -330,7 +331,7 @@ function summarize(section: SectionKey, queries: Record<string, unknown>) {
 }
 
 export default function SettingsScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Settings'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Settings' });
   }, [navigation]);

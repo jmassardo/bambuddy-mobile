@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Modal,
@@ -137,7 +138,7 @@ function buildFailureRates(items: ApiRecord[], keyFn: (item: ApiRecord) => strin
 }
 
 export default function StatsScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Stats'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Statistics' });
   }, [navigation]);

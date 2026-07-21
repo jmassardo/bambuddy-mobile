@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {
   FlatList,
@@ -141,7 +142,7 @@ function SimpleModal({
 }
 
 export default function ArchivesScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<MainTabNavigationProp<'Archives'>>();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();

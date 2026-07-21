@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, getAuthToken, api } from '@/api/client';
 import { useServerStore } from '@/api/server';
@@ -641,7 +642,7 @@ export function PrinterCard({
   onPrintPress,
   onTrayPress,
 }: PrinterCardProps) {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<MainTabNavigationProp>();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
   const { showToast } = useToast();

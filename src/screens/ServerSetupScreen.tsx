@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   Image,
   KeyboardAvoidingView,
@@ -24,7 +25,7 @@ function normalizeUrl(input: string) {
 }
 
 export default function ServerConfigScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'ServerSetup'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Server', headerShown: false });
   }, [navigation]);

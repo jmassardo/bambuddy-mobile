@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import {
@@ -449,7 +450,7 @@ function ProviderConfigFields({
 }
 
 export default function NotificationsScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Notifications'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Notifications' });
   }, [navigation]);
