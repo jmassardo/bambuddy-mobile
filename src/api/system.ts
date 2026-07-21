@@ -1,4 +1,5 @@
 import type {
+  ApiEntity,
   DebugLoggingState,
   InventorySpool,
   LinkedSpoolsMap,
@@ -13,15 +14,15 @@ import type {
 import { request, requestBlob, requestWithFallback } from './http';
 
 export const systemApi = {
-  getSystemInfo: async () => request<SystemInfo>('/system/info'),
+  getSystemInfo: async () => request<ApiEntity<SystemInfo>>('/system/info'),
 
-  getSystemHealth: async () => request<SystemHealthResult>('/system/health'),
+  getSystemHealth: async () => request<ApiEntity<SystemHealthResult>>('/system/health'),
 
   getStorageUsage: async (options?: { refresh?: boolean }) => {
     const params = new URLSearchParams();
     if (options?.refresh) params.set('refresh', 'true');
     const query = params.toString() ? `?${params}` : '';
-    return requestWithFallback<Record<string, unknown>>(
+    return requestWithFallback<ApiEntity<StorageUsageResponse>>(
       { endpoint: `/system/storage${query}` },
       { endpoint: `/system/storage-usage${query}` },
     );
@@ -189,10 +190,10 @@ export const systemApi = {
     }),
 
   getSpoolBuddyDevices: async () =>
-    request<Record<string, unknown>[]>('/spoolbuddy/devices'),
+    request<Array<ApiEntity<SpoolBuddyDevice>>>('/spoolbuddy/devices'),
 
   getSpoolBuddyDevice: async (id: string) =>
-    request<Record<string, unknown>>(`/spoolbuddy/devices/${id}`),
+    request<ApiEntity<SpoolBuddyDevice>>(`/spoolbuddy/devices/${id}`),
 
   writeSpoolBuddyTag: async (deviceId: string, data: Record<string, unknown>) =>
     request<void>('/spoolbuddy/nfc/write-tag', {

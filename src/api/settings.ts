@@ -1,29 +1,34 @@
 import type {
+  ApiEntity,
+  AppSettings,
+  ExternalLink,
+  NotificationProvider,
+  NotificationTemplate,
   NotificationTestRequest,
   NotificationTestResponse,
 } from '@/types/api';
 import { request, requestWithFallback } from './http';
 
 export const settingsApi = {
-  getSettings: async () => request<Record<string, unknown>>('/settings/'),
+  getSettings: async () => request<ApiEntity<AppSettings>>('/settings/'),
 
   updateSettings: async (data: Record<string, unknown>) =>
-    request<Record<string, unknown>>('/settings/', {
+    request<ApiEntity<AppSettings>>('/settings/', {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
   getNotificationProviders: async () =>
-    request<Record<string, unknown>[]>('/notifications/'),
+    request<Array<ApiEntity<NotificationProvider>>>('/notifications/'),
 
   createNotificationProvider: async (data: Record<string, unknown>) =>
-    request<Record<string, unknown>>('/notifications/', {
+    request<ApiEntity<NotificationProvider>>('/notifications/', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   updateNotificationProvider: async (id: number, data: Record<string, unknown>) =>
-    request<Record<string, unknown>>(`/notifications/${id}`, {
+    request<ApiEntity<NotificationProvider>>(`/notifications/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
@@ -92,16 +97,17 @@ export const settingsApi = {
       body: JSON.stringify({ token }),
     }),
 
-  getExternalLinks: async () => request<Record<string, unknown>[]>('/external-links/'),
+  getExternalLinks: async () =>
+    request<Array<ApiEntity<ExternalLink>>>('/external-links/'),
 
   createExternalLink: async (data: Record<string, unknown>) =>
-    request<Record<string, unknown>>('/external-links/', {
+    request<ApiEntity<ExternalLink>>('/external-links/', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   updateExternalLink: async (id: number, data: Record<string, unknown>) =>
-    request<Record<string, unknown>>(`/external-links/${id}`, {
+    request<ApiEntity<ExternalLink>>(`/external-links/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
@@ -110,19 +116,19 @@ export const settingsApi = {
     request<void>(`/external-links/${id}`, { method: 'DELETE' }),
 
   reorderExternalLinks: async (ids: number[]) =>
-    request<Record<string, unknown>[]>('/external-links/reorder', {
+    request<Array<ApiEntity<ExternalLink>>>('/external-links/reorder', {
       method: 'PUT',
       body: JSON.stringify({ ids }),
     }),
 
   getNotificationTemplates: async () =>
-    requestWithFallback<Record<string, unknown>[]>(
+    requestWithFallback<Array<ApiEntity<NotificationTemplate>>>(
       { endpoint: '/notification-templates' },
       { endpoint: '/notifications/templates' },
     ),
 
   updateNotificationTemplate: async (id: string, data: Record<string, unknown>) =>
-    requestWithFallback<Record<string, unknown>>(
+    requestWithFallback<ApiEntity<NotificationTemplate>>(
       {
         endpoint: `/notification-templates/${id}`,
         options: {
@@ -140,7 +146,7 @@ export const settingsApi = {
     ),
 
   resetNotificationTemplate: async (id: string) =>
-    requestWithFallback<Record<string, unknown>>(
+    requestWithFallback<ApiEntity<NotificationTemplate>>(
       {
         endpoint: `/notification-templates/${id}/reset`,
         options: { method: 'POST' },

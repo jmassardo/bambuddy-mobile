@@ -1,16 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError, getAuthToken, loadAuthToken, setAuthToken } from '../api/client';
 import { useServerStore } from '../api/server';
+import type {
+  AuthenticatedUserResponse,
+  Permission,
+} from '@/types/api';
 
-export type Permission = string;
-
-export interface UserResponse {
-  id: number;
-  username: string;
-  is_admin: boolean;
-  email?: string | null;
-  groups: { id: number; name: string; permissions: string[] }[];
-}
+export type UserResponse = AuthenticatedUserResponse;
 
 interface AuthContextType {
   user: UserResponse | null;
@@ -59,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const token = getAuthToken();
         if (token) {
           try {
-            const currentUser = (await api.getCurrentUser()) as UserResponse;
+            const currentUser = await api.getCurrentUser();
             if (mountedRef.current) setUser(currentUser);
           } catch (err) {
             if (err instanceof ApiError && err.status === 401) {
@@ -107,9 +103,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     await setAuthToken(response.access_token);
     if (mountedRef.current) {
-      setUser(response.user as UserResponse);
+      setUser(response.user);
     }
-    return { access_token: response.access_token, user: response.user as UserResponse };
+    return { access_token: response.access_token, user: response.user };
   }, []);
 
   const loginWithToken = useCallback(async (token: string, newUser: UserResponse) => {
@@ -131,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const currentUser = (await api.getCurrentUser()) as UserResponse;
+      const currentUser = await api.getCurrentUser();
       if (mountedRef.current) setUser(currentUser);
     } catch {
       // Ignore

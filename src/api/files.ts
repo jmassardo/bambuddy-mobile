@@ -1,3 +1,12 @@
+import type {
+  ApiEntity,
+  LibraryFile,
+  LibraryFileListItem,
+  LibraryFolderTree,
+  LibraryStats,
+  LibraryTrashItem,
+  LibraryTrashSettings,
+} from '@/types/api';
 import {
   ApiError,
   buildMediaUrl,
@@ -21,10 +30,13 @@ function flattenFolders(
 }
 
 export const filesApi = {
-  getLibraryFolders: async () => request<Record<string, unknown>[]>('/library/folders'),
+  getLibraryFolders: async () =>
+    request<Array<ApiEntity<LibraryFolderTree>>>('/library/folders'),
 
   getLibraryFoldersByProject: async (projectId: number) =>
-    request<Record<string, unknown>[]>(`/library/folders/by-project/${projectId}`),
+    request<Array<ApiEntity<LibraryFolderTree>>>(
+      `/library/folders/by-project/${projectId}`,
+    ),
 
   getLibraryFiles: async (
     folderId?: number | null,
@@ -42,11 +54,13 @@ export const filesApi = {
       params.set('project_id', String(projectId));
     }
     const query = params.toString();
-    return request<Record<string, unknown>[]>(`/library/files${query ? `?${query}` : ''}`);
+    return request<Array<ApiEntity<LibraryFileListItem>>>(
+      `/library/files${query ? `?${query}` : ''}`,
+    );
   },
 
   getLibraryFile: async (id: number) =>
-    requestWithFallback<Record<string, unknown>>(
+    requestWithFallback<ApiEntity<LibraryFile>>(
       { endpoint: `/library/files/${id}` },
       { endpoint: `/library/${id}` },
     ),
@@ -178,10 +192,14 @@ export const filesApi = {
 
   getExternalFolders: async () => {
     try {
-      return await request<Record<string, unknown>[]>('/library/external-folders');
+      return await request<Array<ApiEntity<LibraryFolderTree>>>(
+        '/library/external-folders',
+      );
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 404) throw error;
-      const folders = await request<Record<string, unknown>[]>('/library/folders');
+      const folders = await request<Array<ApiEntity<LibraryFolderTree>>>(
+        '/library/folders',
+      );
       return flattenFolders(folders).filter(folder => Boolean(folder.is_external));
     }
   },
@@ -230,7 +248,7 @@ export const filesApi = {
       body: JSON.stringify(data),
     }),
 
-  getLibraryStats: async () => request<Record<string, unknown>>('/library/stats'),
+  getLibraryStats: async () => request<ApiEntity<LibraryStats>>('/library/stats'),
 
   bulkDeleteLibrary: async (fileIds: number[], folderIds: number[]) =>
     request<Record<string, unknown>>('/library/bulk-delete', {
@@ -244,7 +262,8 @@ export const filesApi = {
       body: JSON.stringify({ file_ids: fileIds }),
     }),
 
-  getLibraryTrash: async () => request<Record<string, unknown>[]>('/library/trash'),
+  getLibraryTrash: async () =>
+    request<Array<ApiEntity<LibraryTrashItem>>>('/library/trash'),
 
   restoreLibraryItem: async (id: number) =>
     request<void>(`/library/trash/${id}/restore`, { method: 'POST' }),
@@ -261,10 +280,10 @@ export const filesApi = {
     }),
 
   getLibraryTrashSettings: async () =>
-    request<Record<string, unknown>>('/library/trash/settings'),
+    request<ApiEntity<LibraryTrashSettings>>('/library/trash/settings'),
 
   updateLibraryTrashSettings: async (data: Record<string, unknown>) =>
-    request<Record<string, unknown>>('/library/trash/settings', {
+    request<ApiEntity<LibraryTrashSettings>>('/library/trash/settings', {
       method: 'PUT',
       body: JSON.stringify(data),
     }),

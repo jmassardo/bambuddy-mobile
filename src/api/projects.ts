@@ -1,3 +1,11 @@
+import type {
+  ApiEntity,
+  Archive,
+  BOMItem,
+  Project,
+  ProjectListItem,
+  TimelineEvent,
+} from '@/types/api';
 import {
   buildMediaUrl,
   request,
@@ -8,9 +16,9 @@ import {
 } from './http';
 
 export const projectsApi = {
-  getProjects: async () => request<Record<string, unknown>[]>('/projects/'),
+  getProjects: async () => request<Array<ApiEntity<ProjectListItem>>>('/projects/'),
 
-  getProject: async (id: number) => request<Record<string, unknown>>(`/projects/${id}`),
+  getProject: async (id: number) => request<ApiEntity<Project>>(`/projects/${id}`),
 
   createProject: async (data: Record<string, unknown>) =>
     request<Record<string, unknown>>('/projects/', {
@@ -27,7 +35,7 @@ export const projectsApi = {
   deleteProject: async (id: number) => request<void>(`/projects/${id}`, { method: 'DELETE' }),
 
   getProjectArchives: async (id: number, limit = 100, offset = 0) =>
-    request<Record<string, unknown>[]>(
+    request<Array<ApiEntity<Archive>>>(
       `/projects/${id}/archives?limit=${limit}&offset=${offset}`,
     ),
 
@@ -50,7 +58,7 @@ export const projectsApi = {
     ),
 
   getProjectBOM: async (projectId: number) =>
-    request<Record<string, unknown>[]>(`/projects/${projectId}/bom`),
+    request<Array<ApiEntity<BOMItem>>>(`/projects/${projectId}/bom`),
 
   createBOMItem: async (projectId: number, data: Record<string, unknown>) =>
     request<Record<string, unknown>>(`/projects/${projectId}/bom`, {
@@ -77,7 +85,7 @@ export const projectsApi = {
     }),
 
   getProjectTimeline: async (projectId: number, limit = 50) =>
-    request<Record<string, unknown>[]>(
+    request<Array<ApiEntity<TimelineEvent>>>(
       `/projects/${projectId}/timeline?limit=${limit}`,
     ),
 

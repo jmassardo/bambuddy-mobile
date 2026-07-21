@@ -189,10 +189,11 @@ export default function StatsScreen() {
     mutationFn: async (format: 'csv' | 'json') => {
       const filenameBase = `bambuddy-stats-${range}${selectedPrinterId ? `-printer-${selectedPrinterId}` : ''}${selectedUserId !== null ? `-user-${selectedUserId}` : ''}`;
       if (format === 'json') {
-        const blob = new Blob([JSON.stringify(archivesQuery.data ?? [], null, 2)], {
+        const blobOptions: BlobOptions = {
           type: 'application/json',
           lastModified: Date.now(),
-        } as any);
+        };
+        const blob = new Blob([JSON.stringify(archivesQuery.data ?? [], null, 2)], blobOptions);
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }

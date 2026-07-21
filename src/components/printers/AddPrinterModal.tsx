@@ -96,15 +96,18 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
   // Fetch discovery info on mount
   useEffect(() => {
     if (!visible) return;
-    api.getDiscoveryInfo?.()
-      .then((info: { is_docker: boolean; subnets: string[] }) => {
+    const loadDiscoveryInfo = async () => {
+      try {
+        const info = await api.getDiscoveryInfo();
         setIsDocker(info.is_docker);
         if (info.subnets?.length > 0) {
           setDetectedSubnets(info.subnets);
           setSubnet(info.subnets[0]);
         }
-      })
-      .catch(() => {});
+      } catch {}
+    };
+
+    void loadDiscoveryInfo();
   }, [visible]);
 
   // Reset form on close

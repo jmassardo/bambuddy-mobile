@@ -1,3 +1,4 @@
+import type { ApiEntity, Archive, ArchiveComparison, PrintLogResponse } from '@/types/api';
 import { buildMediaUrl, ApiError, request, requestBlob, uploadFile, type UploadableFile } from './http';
 
 export const archivesApi = {
@@ -20,10 +21,10 @@ export const archivesApi = {
     if (params?.createdById !== undefined) {
       searchParams.set('created_by_id', String(params.createdById));
     }
-    return request<Record<string, unknown>[]>(`/archives/?${searchParams}`);
+    return request<Array<ApiEntity<Archive>>>(`/archives/?${searchParams}`);
   },
 
-  getArchive: async (id: number) => request<Record<string, unknown>>(`/archives/${id}`),
+  getArchive: async (id: number) => request<ApiEntity<Archive>>(`/archives/${id}`),
 
   getArchiveRuns: async (id: number) =>
     request<Record<string, unknown>>(`/archives/${id}/runs`),
@@ -44,7 +45,7 @@ export const archivesApi = {
     if (options?.status) searchParams.set('status', options.status);
     if (options?.limit) searchParams.set('limit', String(options.limit));
     if (options?.offset) searchParams.set('offset', String(options.offset));
-    return request<Record<string, unknown>[]>(`/archives/search?${searchParams}`);
+    return request<Array<ApiEntity<Archive>>>(`/archives/search?${searchParams}`);
   },
 
   updateArchive: async (id: number, data: Record<string, unknown>) =>
@@ -91,10 +92,12 @@ export const archivesApi = {
     request<Record<string, unknown>>(`/archives/${id}/delete-impact`),
 
   getArchiveComparison: async (ids: number[]) =>
-    request<Record<string, unknown>>(`/archives/compare?archive_ids=${ids.join(',')}`),
+    request<ApiEntity<ArchiveComparison>>(
+      `/archives/compare?archive_ids=${ids.join(',')}`,
+    ),
 
   getArchiveSimilar: async (id: number, limit = 10) =>
-    request<Record<string, unknown>[]>(`/archives/${id}/similar?limit=${limit}`),
+    request<Array<ApiEntity<Archive>>>(`/archives/${id}/similar?limit=${limit}`),
 
   exportArchives: async (options?: {
     format?: 'csv' | 'xlsx';
@@ -173,7 +176,7 @@ export const archivesApi = {
         : [];
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 404) throw error;
-      const response = await request<{ items?: Record<string, unknown>[] }>('/print-log/?limit=250');
+      const response = await request<ApiEntity<PrintLogResponse>>('/print-log/?limit=250');
       const items = Array.isArray(response.items) ? response.items : [];
       return items.filter(item => Number(item.archive_id ?? 0) === archiveId);
     }

@@ -1,4 +1,8 @@
 import type {
+  ApiEntity,
+  KProfilesResponse,
+  MakerworldRecentImport,
+  MakerworldResolvedModel,
   SmartPlug,
   SmartPlugCreate,
   SmartPlugStatus,
@@ -84,7 +88,7 @@ export const profilesApi = {
     if (resolvedPrinterId === undefined) {
       throw new Error('No printer available for K profiles');
     }
-    return request<Record<string, unknown>>(
+    return request<ApiEntity<KProfilesResponse>>(
       `/printers/${resolvedPrinterId}/kprofiles/?nozzle_diameter=${nozzleDiameter}`,
     );
   },
@@ -107,7 +111,7 @@ export const profilesApi = {
   getMakerworldStatus: async () => request<Record<string, unknown>>('/makerworld/status'),
 
   resolveMakerworldUrl: async (url: string) =>
-    request<Record<string, unknown>>('/makerworld/resolve', {
+    request<ApiEntity<MakerworldResolvedModel>>('/makerworld/resolve', {
       method: 'POST',
       body: JSON.stringify({ url }),
     }),
@@ -119,7 +123,9 @@ export const profilesApi = {
     }),
 
   getMakerworldRecentImports: async () =>
-    request<Record<string, unknown>[]>('/makerworld/recent-imports'),
+    request<Array<ApiEntity<MakerworldRecentImport>>>(
+      '/makerworld/recent-imports',
+    ),
 
   getSlicerPresets: async (options?: { refresh?: boolean }) =>
     request<UnifiedPresetsResponse>(

@@ -1,5 +1,7 @@
 import type {
   AdvancedAuthStatus,
+  AuthenticatedLoginResponse,
+  AuthenticatedUserResponse,
   BackupCodesResponse,
   ForgotPasswordRequest,
   ForgotPasswordResponse,
@@ -22,20 +24,7 @@ export const authApi = {
   getAuthStatus: async () => checkAuthStatus(),
 
   login: async (data: { username: string; password: string }) =>
-    request<{
-      access_token: string;
-      token_type: string;
-      user: {
-        id: number;
-        username: string;
-        is_admin: boolean;
-        email?: string | null;
-        groups: { id: number; name: string; permissions: string[] }[];
-      };
-      requires_2fa?: boolean;
-      pre_auth_token?: string;
-      available_methods?: string[];
-    }>('/auth/login', {
+    request<AuthenticatedLoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -45,17 +34,7 @@ export const authApi = {
     code: string;
     method?: string;
   }) =>
-    request<{
-      access_token: string;
-      token_type: string;
-      user: {
-        id: number;
-        username: string;
-        is_admin: boolean;
-        email?: string | null;
-        groups: { id: number; name: string; permissions: string[] }[];
-      };
-    }>('/auth/2fa/verify', {
+    request<AuthenticatedLoginResponse>('/auth/2fa/verify', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -63,13 +42,7 @@ export const authApi = {
   logout: async () => request<void>('/auth/logout', { method: 'POST' }),
 
   getCurrentUser: async () =>
-    request<{
-      id: number;
-      username: string;
-      is_admin: boolean;
-      email?: string | null;
-      groups: { id: number; name: string; permissions: string[] }[];
-    }>('/auth/me'),
+    request<AuthenticatedUserResponse>('/auth/me'),
 
   setupAuth: async (data: { username: string; password: string }) =>
     request<{ access_token: string; token_type: string }>('/auth/setup', {

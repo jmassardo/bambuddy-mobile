@@ -1,4 +1,5 @@
 import type {
+  ApiEntity,
   CalibrationResult,
   CameraDiagnoseResult,
   DiscoveredPrinter,
@@ -12,14 +13,13 @@ import type {
   SlotPresetMapping,
   SubnetScanStatus,
   VirtualPrinterConfig,
-  VirtualPrinterListResponse,
 } from '@/types/api';
 import { buildMediaUrl, request, requestWithFallback } from './http';
 
 export const printersApi = {
-  getPrinters: async () => request<Record<string, unknown>[]>('/printers/'),
+  getPrinters: async () => request<Array<ApiEntity<Printer>>>('/printers/'),
 
-  getPrinter: async (id: number) => request<Printer>(`/printers/${id}`),
+  getPrinter: async (id: number) => request<ApiEntity<Printer>>(`/printers/${id}`),
 
   createPrinter: async (data: Record<string, unknown>) =>
     request<Record<string, unknown>>('/printers/', {
@@ -459,21 +459,21 @@ export const printersApi = {
   getVirtualPrinters: async () => {
     const response = await printersApi.getVirtualPrinterList();
     return Array.isArray(response.printers)
-      ? (response.printers as Record<string, unknown>[])
+      ? (response.printers as Array<ApiEntity<VirtualPrinterConfig>>)
       : [];
   },
 
   getVirtualPrinter: async (id: number) =>
-    request<Record<string, unknown>>(`/virtual-printers/${id}`),
+    request<ApiEntity<VirtualPrinterConfig>>(`/virtual-printers/${id}`),
 
   createVirtualPrinter: async (data: Record<string, unknown>) =>
-    request<Record<string, unknown>>('/virtual-printers/', {
+    request<ApiEntity<VirtualPrinterConfig>>('/virtual-printers/', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   updateVirtualPrinter: async (id: number, data: Record<string, unknown>) =>
-    request<Record<string, unknown>>(`/virtual-printers/${id}`, {
+    request<ApiEntity<VirtualPrinterConfig>>(`/virtual-printers/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
@@ -482,7 +482,7 @@ export const printersApi = {
     request<void>(`/virtual-printers/${id}`, { method: 'DELETE' }),
 
   startVirtualPrinter: async (id: number) =>
-    requestWithFallback<Record<string, unknown>>(
+    requestWithFallback<ApiEntity<VirtualPrinterConfig>>(
       {
         endpoint: `/virtual-printers/${id}/start`,
         options: { method: 'POST' },
@@ -494,7 +494,7 @@ export const printersApi = {
     ),
 
   stopVirtualPrinter: async (id: number) =>
-    requestWithFallback<Record<string, unknown>>(
+    requestWithFallback<ApiEntity<VirtualPrinterConfig>>(
       {
         endpoint: `/virtual-printers/${id}/stop`,
         options: { method: 'POST' },
