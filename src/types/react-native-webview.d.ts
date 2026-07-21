@@ -4,6 +4,11 @@ declare module 'react-native-webview' {
 
   export interface WebViewProps extends ViewProps {
     source?: { uri?: string; html?: string };
+    originWhitelist?: string[];
+    javaScriptEnabled?: boolean;
+    allowFileAccess?: boolean;
+    setSupportMultipleWindows?: boolean;
+    allowsInlineMediaPlayback?: boolean;
     allowsFullscreenVideo?: boolean;
     mediaPlaybackRequiresUserAction?: boolean;
   }

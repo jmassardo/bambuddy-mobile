@@ -105,6 +105,14 @@ export default function ArchiveDetailScreen() {
       archive?.status === 'deleted',
   );
   const archiveUrl = serverUrl ? `${serverUrl}/archives/${archiveId}` : null;
+  const serverOrigin = useMemo(() => {
+    if (!serverUrl) return null;
+    try {
+      return new URL(serverUrl).origin;
+    } catch {
+      return null;
+    }
+  }, [serverUrl]);
   const archiveProjectPageUrl =
     pickString(archive as unknown as ApiRecord, [
       'external_url',
