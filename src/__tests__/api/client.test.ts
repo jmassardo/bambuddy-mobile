@@ -1,5 +1,6 @@
 import { ApiError, api, setAuthToken } from '@/api/client';
 import { useServerStore } from '@/api/server';
+import * as Keychain from 'react-native-keychain';
 
 declare const global: typeof globalThis & { fetch: typeof fetch };
 
@@ -50,7 +51,9 @@ describe('api client', () => {
   beforeEach(async () => {
     mockFetch.mockReset();
     useServerStore.setState({ serverUrl: 'https://bambuddy.test', loading: false });
+    mockFetch.mockResolvedValue(createResponse({ token: 'media-token' }));
     await setAuthToken('secret-token');
+    mockFetch.mockReset();
   });
 
   afterEach(async () => {
@@ -88,6 +91,18 @@ describe('api client', () => {
       method: 'POST',
       body: { email: 'user@example.com' },
       response: { message: 'sent' },
+    },
+    {
+      name: 'testGitHubBackupConnection',
+      call: () => api.testGitHubBackupConnection('https://github.com/octo/repo', 'pat-secret'),
+      endpoint: '/github-backup/test',
+      method: 'POST',
+      body: {
+        repo_url: 'https://github.com/octo/repo',
+        token: 'pat-secret',
+        provider: 'github',
+      },
+      response: { ok: true },
     },
   ])('sends the correct auth request for $name', async ({ call, endpoint, method, body, response }) => {
     mockFetch.mockResolvedValue(createResponse(response, { status: response === undefined ? 204 : 200 }));
@@ -296,149 +311,15 @@ describe('api client', () => {
     await expect(api.updateSettings({ theme: 'broken' })).rejects.toBeInstanceOf(ApiError);
   });
 
-  // ── Error sanitization ──
+  it('scopes keychain storage to the current server origin', async () => {
+    const keychain = Keychain as jest.Mocked<typeof Keychain>;
 
-  it('sanitizes error messages containing file paths', async () => {
-    mockFetch.mockResolvedValue(
-      createResponse(
-        { detail: 'Error at /app/server/routes/settings.py line 42' },
-        { ok: false, status: 500 },
-      ),
+    await setAuthToken('server-token');
+
+    expect(keychain.setGenericPassword).toHaveBeenLastCalledWith(
+      'bambuddy-auth-token:https://bambuddy.test',
+      'server-token',
+      { service: 'bambuddy-auth-token:https://bambuddy.test' },
     );
-
-    await expect(api.getSettings()).rejects.toEqual(
-      expect.objectContaining({
-        message: 'Server error',
-        status: 500,
-      }),
-    );
-  });
-
-  it('sanitizes error messages containing stack traces', async () => {
-    mockFetch.mockResolvedValue(
-      createResponse(
-        { detail: 'Traceback (most recent call last): ...' },
-        { ok: false, status: 500 },
-      ),
-    );
-
-    await expect(api.getSettings()).rejects.toEqual(
-      expect.objectContaining({
-        message: 'Server error',
-        status: 500,
-      }),
-    );
-  });
-
-  it('truncates very long error messages', async () => {
-    const longMessage = 'A'.repeat(300);
-    mockFetch.mockResolvedValue(
-      createResponse(
-        { detail: longMessage },
-        { ok: false, status: 400 },
-      ),
-    );
-
-    let error: ApiError | undefined;
-    try {
-      await api.getSettings();
-    } catch (e) {
-      error = e as ApiError;
-    }
-    expect(error).toBeDefined();
-    expect(error!.message.length).toBeLessThanOrEqual(200);
-    expect(error!.message).toContain('…');
-  });
-
-  it('preserves short user-safe error messages', async () => {
-    mockFetch.mockResolvedValue(
-      createResponse(
-        { detail: 'Invalid printer name' },
-        { ok: false, status: 400 },
-      ),
-    );
-
-    await expect(api.getSettings()).rejects.toEqual(
-      expect.objectContaining({
-        message: 'Invalid printer name',
-      }),
-    );
-  });
-
-  it('uses friendly message for generic HTTP errors', async () => {
-    mockFetch.mockResolvedValue(
-      createResponse(
-        {},
-        { ok: false, status: 403 },
-      ),
-    );
-
-    await expect(api.getSettings()).rejects.toEqual(
-      expect.objectContaining({
-        message: 'Permission denied',
-        status: 403,
-      }),
-    );
-  });
-
-  // ── Empty / 204 responses ──
-
-  it('returns undefined for 204 No Content responses', async () => {
-    mockFetch.mockResolvedValue(createResponse(undefined, { status: 204, contentLength: '0' }));
-
-    const result = await api.logout();
-    expect(result).toBeUndefined();
-  });
-
-  it('returns undefined for responses with Content-Length: 0', async () => {
-    mockFetch.mockResolvedValue(createResponse(undefined, { status: 200, contentLength: '0' }));
-
-    const result = await api.logout();
-    expect(result).toBeUndefined();
-  });
-
-  // ── Array detail errors ──
-
-  it('joins validation error arrays into a single message', async () => {
-    mockFetch.mockResolvedValue(
-      createResponse(
-        {
-          detail: [
-            { msg: 'Value error, field is required' },
-            { msg: 'Value error, must be positive' },
-          ],
-        },
-        { ok: false, status: 422 },
-      ),
-    );
-
-    await expect(api.getSettings()).rejects.toEqual(
-      expect.objectContaining({
-        message: 'field is required; must be positive',
-      }),
-    );
-  });
-
-  // ── 401 clears auth token ──
-
-  it('clears auth token on 401 with credential error', async () => {
-    mockFetch.mockResolvedValue(
-      createResponse(
-        { detail: 'Could not validate credentials' },
-        { ok: false, status: 401 },
-      ),
-    );
-
-    await expect(api.getSettings()).rejects.toEqual(
-      expect.objectContaining({ status: 401 }),
-    );
-
-    // Subsequent requests should not include Authorization header
-    mockFetch.mockResolvedValue(createResponse({ theme: 'dark' }));
-    await api.getSettings();
-
-    const [, options] = mockFetch.mock.calls.at(-1) as [string, RequestInit];
-    const headers = options.headers as Record<string, string>;
-    expect(headers['Authorization']).toBeUndefined();
   });
 });

@@ -1,441 +1,49 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError, getAuthToken, api } from '@/api/client';
+import { getAuthToken, api } from '@/api/client';
 import { useServerStore } from '@/api/server';
-import { StatusBadge } from '@/components/common/AppUI';
-import {
-  ActionSheetModal,
-  type ActionSheetAction,
-} from '@/components/common/ActionSheetModal';
-import { EditPrinterModal } from '@/components/printers/EditPrinterModal';
-import { HMSErrorModal } from '@/components/printers/HMSErrorModal';
-import { MoveControlsModal } from '@/components/printers/MoveControlsModal';
-import { SkipObjectsModal } from '@/components/printers/SkipObjectsModal';
-import {
-  TrayDetailModal,
-  type TrayDetailContext,
-} from '@/components/printers/TrayDetailModal';
 import { filterKnownHMSErrors } from '@/components/printers/hmsErrorCatalog';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/contexts/ToastContext';
-import { useTheme } from '@/theme';
-import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
-import type {
-  AMSTray,
-  MaintenanceStatus,
-  NozzleRackSlot,
-  Printer,
-  PrinterStatus,
-  SpoolAssignment,
-} from '@/types/api';
-import { formatDuration, getPrinterModelImagePath, withCacheBuster } from '@/utils/data';
+import { PrinterCardCompact } from '@/components/printers/PrinterCardCompact';
+import { PrinterCardControlsSection } from '@/components/printers/PrinterCardControlsSection';
+import {
+  buildPrinterCardActionIcons,
+  PrinterCardDialogs,
+} from '@/components/printers/PrinterCardDialogs';
+import { PrinterCardDiagnosticsSection } from '@/components/printers/PrinterCardDiagnosticsSection';
+import { PrinterCardFilamentSection } from '@/components/printers/PrinterCardFilamentSection';
+import { PrinterCardFooter } from '@/components/printers/PrinterCardFooter';
+import { PrinterCardHeader } from '@/components/printers/PrinterCardHeader';
 import {
   clamp,
   estimateElapsedSeconds,
-  formatDualNozzleTemperature,
-  formatEta,
-  formatTemperature,
-  getAmsStatusLabel,
-  getAmsTitle,
   getBadgeColor,
-  getEffectiveTrayFill,
-  getFillColor,
-  getNozzleName,
-  getSeverityColor,
+  getErrorMessage,
   getStatusLabel,
-  getTrayGlobalId,
-  getTrayLabel,
-  getTrayStateLabel,
-  getWifiTone,
-  isLightColor,
-  parseFilamentColor,
+  SPEED_LEVELS,
   stripExtension,
-  temperatureTone,
-} from './printerCardUtils';
-import {
-  AlertCircle,
-  Box,
-  Camera,
-  CheckCircle,
-  FolderOpen,
-  Gauge,
-  Layers,
-  Lightbulb,
-  Link,
-  MoreVertical,
-  Move,
-  Pause,
-  Pencil,
-  Play,
-  Printer as PrinterIcon,
-  RefreshCw,
-  RotateCcw,
-  Square,
-  Trash2,
-  Wifi,
-  WifiOff,
-  Wrench,
-  X,
-} from 'lucide-react-native';
-import type { AppNavigationProp } from '@/navigation/types';
+} from '@/components/printers/PrinterCard.helpers';
+import { styles } from '@/components/printers/PrinterCard.styles';
+import { PrinterCardStatusSection } from '@/components/printers/PrinterCardStatusSection';
+import { PrinterCardTemperatureSection } from '@/components/printers/PrinterCardTemperatureSection';
+import type {
+  PrinterCardProps,
+  SelectedTray,
+  TrayPressContext,
+} from '@/components/printers/PrinterCard.types';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
+import { useTheme } from '@/theme';
+import type { ActionSheetAction } from '@/components/common/ActionSheetModal';
+import type { AMSTray, MaintenanceStatus, PrinterStatus } from '@/types/api';
+import { CheckCircle, Gauge } from 'lucide-react-native';
+import { getPrinterModelImagePath, withCacheBuster } from '@/utils/data';
 
-const DOOR_SENSOR_MODELS = new Set([
-  'X1C',
-  'X1',
-  'X1E',
-  'X2D',
-  'P2S',
-  'H2D',
-  'H2D Pro',
-  'H2C',
-  'H2S',
-]);
-
-const CHAMBER_FAN_MODELS = new Set([
-  'X1C',
-  'X1',
-  'X1E',
-  'X2D',
-  'P1S',
-  'P2S',
-  'H2D',
-  'H2D Pro',
-  'H2C',
-  'H2S',
-]);
-
-const SPEED_LEVELS: Record<number, { label: string; percent: string }> = {
-  1: { label: 'Silent', percent: '50%' },
-  2: { label: 'Standard', percent: '100%' },
-  3: { label: 'Sport', percent: '124%' },
-  4: { label: 'Ludicrous', percent: '166%' },
+type PrinterStatusWithThumbnail = PrinterStatus & {
+  task_thumbnail_url?: string | null;
 };
-
-const PRINT_GREEN = '#00AE42';
-const PAUSE_AMBER = '#f59e0b';
-const STOP_RED = '#ef4444';
-
-interface MaintenanceSummary {
-  dueCount: number;
-  warningCount: number;
-  items: MaintenanceStatus[];
-}
-
-type TrayPressContext = TrayDetailContext;
-
-interface PrinterCardProps {
-  printer: Printer;
-  status?: PrinterStatus;
-  queueCount?: number;
-  maintenance?: MaintenanceSummary;
-  spoolAssignments?: SpoolAssignment[];
-  loading?: boolean;
-  snapshotSeed?: number | string;
-  selected?: boolean;
-  selectionMode?: boolean;
-  compact?: boolean;
-  onPress?: () => void;
-  onLongPress?: () => void;
-  onToggleSelect?: () => void;
-  onCameraPress?: () => void;
-  onQueuePress?: () => void;
-  onMaintenancePress?: () => void;
-  onPrintPress?: () => void;
-  onTrayPress?: (tray: AMSTray, context: TrayPressContext) => void;
-}
-
-function MetricCard({
-  label,
-  value,
-  helper,
-  tone,
-}: {
-  label: string;
-  value: string;
-  helper?: string;
-  tone?: string;
-}) {
-  const { colors } = useTheme();
-
-  return (
-    <View
-      style={[
-        styles.metricCard,
-        { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-      ]}
-    >
-      <View style={styles.metricHeader}>
-        <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-          {label}
-        </Text>
-        <View
-          style={[
-            styles.metricDot,
-            { backgroundColor: tone ?? colors.textTertiary },
-          ]}
-        />
-      </View>
-      <Text style={[styles.metricValue, { color: colors.text }]}>{value}</Text>
-      {helper ? (
-        <Text style={[styles.metricHelper, { color: colors.textTertiary }]}> 
-          {helper}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-function InfoPill({
-  label,
-  color,
-  icon,
-  onPress,
-}: {
-  label: string;
-  color: string;
-  icon?: React.ReactNode;
-  onPress?: () => void;
-}) {
-  const content = (
-    <View
-      style={[
-        styles.infoPill,
-        { backgroundColor: `${color}18`, borderColor: `${color}45` },
-      ]}
-    >
-      {icon}
-      <Text style={[styles.infoPillText, { color }]} numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
-  );
-
-  if (onPress) {
-    return <Pressable onPress={onPress}>{content}</Pressable>;
-  }
-
-  return content;
-}
-
-function SectionLabel({ label }: { label: string }) {
-  const { colors } = useTheme();
-
-  return (
-    <View style={styles.sectionLabelRow}>
-      <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
-        {label}
-      </Text>
-      <View style={[styles.sectionDivider, { backgroundColor: colors.borderSubtle }]} />
-    </View>
-  );
-}
-
-function TrayCard({
-  label,
-  subtitle,
-  fill,
-  colorHex,
-  active,
-  helper,
-  onPress,
-  compact,
-}: {
-  label: string;
-  subtitle?: string;
-  fill: number | null;
-  colorHex: string | null | undefined;
-  active: boolean;
-  helper: string;
-  onPress?: () => void;
-  compact?: boolean;
-}) {
-  const { colors } = useTheme();
-  const color = parseFilamentColor(colorHex);
-  const lightColor = isLightColor(colorHex);
-  const textColor = color && lightColor ? colors.textInverse : colors.text;
-
-  const content = (
-    <View
-      style={[
-        styles.trayCard,
-        compact && styles.trayCardCompact,
-        {
-          backgroundColor: colors.surfaceElevated,
-          borderColor: active ? colors.accent : colors.border,
-        },
-      ]}
-    >
-      <View style={styles.trayTopRow}>
-        <View
-          style={[
-            styles.trayColorCircle,
-            {
-              backgroundColor: color ?? colors.surfaceHover,
-              borderColor: color ?? colors.border,
-            },
-          ]}
-        >
-          <Text style={[styles.trayColorText, { color: textColor }]}>{helper}</Text>
-        </View>
-        {active ? <View style={[styles.activeDot, { backgroundColor: colors.accent }]} /> : null}
-      </View>
-      <Text style={[styles.trayLabel, { color: colors.text }]} numberOfLines={1}>
-        {label}
-      </Text>
-      {subtitle ? (
-        <Text style={[styles.traySubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      ) : null}
-      <View style={[styles.fillTrack, { backgroundColor: colors.surfaceHover }]}>
-        <View
-          style={[
-            styles.fillBar,
-            {
-              width: `${fill ?? 0}%`,
-              backgroundColor: getFillColor(fill, colors),
-            },
-          ]}
-        />
-      </View>
-      <Text style={[styles.trayFillText, { color: colors.textSecondary }]}> 
-        {fill == null ? '—' : `${fill}% remaining`}
-      </Text>
-    </View>
-  );
-
-  if (!onPress) return content;
-
-  return (
-    <Pressable onPress={onPress} style={styles.trayPressable}>
-      {content}
-    </Pressable>
-  );
-}
-
-function NozzleRackView({
-  slots,
-  activeNozzle,
-}: {
-  slots: NozzleRackSlot[];
-  activeNozzle: number | null | undefined;
-}) {
-  const { colors } = useTheme();
-  const rackSlots = useMemo(() => {
-    const rackOnly = slots.filter(slot => slot.id >= 2);
-    return Array.from({ length: 6 }, (_, index) => {
-      const slotId = 16 + index;
-      return (
-        rackOnly.find(slot => slot.id === slotId) ?? {
-          id: -index - 1,
-          nozzle_type: '',
-          nozzle_diameter: '',
-          wear: null,
-          stat: null,
-          max_temp: 0,
-          serial_number: '',
-          filament_color: '',
-          filament_id: '',
-          filament_type: '',
-        }
-      );
-    });
-  }, [slots]);
-
-  return (
-    <View style={styles.rackRow}>
-      {rackSlots.map((slot, index) => {
-        const color = parseFilamentColor(slot.filament_color);
-        const lightColor = isLightColor(slot.filament_color);
-        const isEmpty = !slot.nozzle_diameter && !slot.nozzle_type;
-        return (
-          <View
-            key={`${slot.id}-${index}`}
-            style={[
-              styles.rackSlot,
-              {
-                backgroundColor: color ?? colors.surfaceElevated,
-                borderColor:
-                  activeNozzle != null && slot.id === activeNozzle
-                    ? colors.accent
-                    : colors.border,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.rackSlotText,
-                {
-                  color: color && lightColor ? colors.textInverse : colors.text,
-                },
-              ]}
-            >
-              {isEmpty ? '—' : slot.nozzle_diameter || '?'}
-            </Text>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-function ControlButton({
-  label,
-  icon,
-  trailingIcon,
-  onPress,
-  disabled,
-  backgroundColor,
-  borderColor,
-  textColor,
-  outline,
-  iconOnly,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  trailingIcon?: React.ReactNode;
-  onPress: () => void;
-  disabled?: boolean;
-  backgroundColor: string;
-  borderColor: string;
-  textColor: string;
-  outline?: boolean;
-  iconOnly?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={[
-        iconOnly ? styles.controlIconButton : styles.controlButton,
-        { backgroundColor, borderColor },
-        outline && styles.controlButtonOutline,
-        disabled && styles.disabledAction,
-      ]}
-      accessibilityLabel={label}
-    >
-      {icon}
-      {!iconOnly && (
-        <Text style={[styles.controlButtonText, { color: textColor }]} numberOfLines={1}>
-          {label}
-        </Text>
-      )}
-      {trailingIcon}
-    </Pressable>
-  );
-}
-
-function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof ApiError ? error.message : fallback;
-}
 
 export function PrinterCard({
   printer,
@@ -457,13 +65,14 @@ export function PrinterCard({
   onPrintPress,
   onTrayPress,
 }: PrinterCardProps) {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<MainTabNavigationProp>();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const serverUrl = useServerStore(state => state.serverUrl);
   const authToken = getAuthToken();
+  const actionIcons = buildPrinterCardActionIcons(colors);
   const [moveModalVisible, setMoveModalVisible] = useState(false);
   const [calibrateSheetVisible, setCalibrateSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
@@ -471,16 +80,14 @@ export function PrinterCard({
   const [showHmsModal, setShowHmsModal] = useState(false);
   const [skipObjectsVisible, setSkipObjectsVisible] = useState(false);
   const [showSpeedSheet, setShowSpeedSheet] = useState(false);
-  const [maintenanceModeTarget, setMaintenanceModeTarget] = useState<boolean | null>(null);
+  const [maintenanceModeTarget, setMaintenanceModeTarget] =
+    useState<boolean | null>(null);
   const [deleteSheetVisible, setDeleteSheetVisible] = useState(false);
   const [selectedMaintenanceItem, setSelectedMaintenanceItem] =
     useState<MaintenanceStatus | null>(null);
-  const [selectedTray, setSelectedTray] = useState<{
-    tray: AMSTray;
-    context: TrayPressContext;
-  } | null>(null);
+  const [selectedTray, setSelectedTray] = useState<SelectedTray | null>(null);
   const authHeaders = useMemo(
-    () => (authToken ? { Authorization: `Bearer ${authToken}` } : undefined),
+    () => (authToken ? { Authorization: 'Bearer ' + authToken } : undefined),
     [authToken],
   );
 
@@ -489,28 +96,26 @@ export function PrinterCard({
   const isPaused = status?.state === 'PAUSE';
   const isPrintingWithObjects =
     isPrinting && (status?.printable_objects_count ?? 0) > 0;
-  const taskThumbnailUrl =
-    (status as PrinterStatus & { task_thumbnail_url?: string | null } | undefined)
-      ?.task_thumbnail_url ?? null;
+  const taskThumbnailUrl = (status as PrinterStatusWithThumbnail | undefined)
+    ?.task_thumbnail_url;
   const hmsErrors = filterKnownHMSErrors(status?.hms_errors ?? []);
   const badgeLabel = getStatusLabel(status);
   const badgeColor = getBadgeColor(printer, status, colors, hmsErrors);
   const currentPrintName = stripExtension(
     status?.subtask_name || status?.current_print || status?.gcode_file,
   );
-  const rawProgress = status?.progress ?? 0;
-  const progress = clamp(rawProgress);
+  const progress = clamp(status?.progress ?? 0);
   const elapsedSeconds = estimateElapsedSeconds(progress, status?.remaining_time);
   const speedInfo = SPEED_LEVELS[status?.speed_level ?? 2] ?? SPEED_LEVELS[2];
   const maintenanceCount =
     (maintenance?.dueCount ?? 0) + (maintenance?.warningCount ?? 0);
   const canCamera = hasPermission('camera:view') && !!onCameraPress;
-  const canPrintControl =
-    isPrinting && hasPermission('printers:control');
+  const canPrintControl = isPrinting && hasPermission('printers:control');
   const canControlPrinter = isConnected && hasPermission('printers:control');
   const canBrowse = !!onPrintPress;
   const canEditPrinter = hasPermission('printers:update');
   const canDeletePrinter = hasPermission('printers:delete');
+  const canSkipObjects = hasPermission('printers:control');
   const canClearPlate =
     Boolean(status?.awaiting_plate_clear) &&
     !isPrinting &&
@@ -528,9 +133,7 @@ export function PrinterCard({
 
   const printerImageUrl = useMemo(() => {
     if (!serverUrl) return null;
-    // Use the model-based static image from the server (same as web UI)
-    const imagePath = getPrinterModelImagePath(printer.model);
-    return `${serverUrl}${imagePath}`;
+    return `${serverUrl}${getPrinterModelImagePath(printer.model)}`;
   }, [printer.model, serverUrl]);
 
   const printerImageSource = useMemo(() => {
@@ -542,31 +145,17 @@ export function PrinterCard({
   }, [authHeaders, printerImageUrl]);
 
   const partPreviewSource = useMemo(() => {
-    // Only show a part thumbnail when actively printing
     if (!isPrinting) return null;
 
-    const resolveServerUrl = (url: string) => {
+    const directThumbnailUrl = taskThumbnailUrl ?? status?.cover_url ?? null;
+    const resolveServerAssetUrl = (url: string) => {
       if (/^https?:\/\//i.test(url)) return url;
       if (!serverUrl) return null;
       return `${serverUrl}${url.startsWith('/') ? '' : '/'}${url}`;
     };
 
-    // 1. Server-hosted archive thumbnail (most reliable)
-    if (status?.current_archive_id != null) {
-      const archiveThumbnailUrl =
-        status.current_plate_id != null
-          ? api.getArchivePlateThumbnail(status.current_archive_id, status.current_plate_id)
-          : api.getArchiveThumbnail(status.current_archive_id);
-      return {
-        uri: withCacheBuster(archiveThumbnailUrl, snapshotSeed),
-        headers: authHeaders,
-      };
-    }
-
-    // 2. Direct URL from server (task_thumbnail_url or cover_url, only if HTTP(S))
-    const directThumbnailUrl = taskThumbnailUrl ?? status?.cover_url ?? null;
     const resolvedDirectUrl =
-      directThumbnailUrl != null ? resolveServerUrl(directThumbnailUrl) : null;
+      directThumbnailUrl != null ? resolveServerAssetUrl(directThumbnailUrl) : null;
     if (resolvedDirectUrl) {
       return {
         uri: withCacheBuster(resolvedDirectUrl, snapshotSeed),
@@ -574,25 +163,30 @@ export function PrinterCard({
       };
     }
 
-    // 3. Camera snapshot fallback
-    if (status?.ipcam) {
+    if (status?.current_archive_id != null) {
+      const archiveThumbnailUrl =
+        status.current_plate_id != null
+          ? api.getArchivePlateThumbnail(
+              status.current_archive_id,
+              status.current_plate_id,
+            )
+          : api.getArchiveThumbnail(status.current_archive_id);
       return {
-        uri: withCacheBuster(api.getCameraSnapshotUrl(printer.id), snapshotSeed),
+        uri: withCacheBuster(archiveThumbnailUrl, snapshotSeed),
         headers: authHeaders,
       };
     }
 
-    return null;
+    return printerImageSource;
   }, [
     authHeaders,
     isPrinting,
-    printer.id,
+    printerImageSource,
     serverUrl,
     snapshotSeed,
     status?.cover_url,
     status?.current_archive_id,
     status?.current_plate_id,
-    status?.ipcam,
     taskThumbnailUrl,
   ]);
 
@@ -619,11 +213,13 @@ export function PrinterCard({
   });
 
   const lightMutation = useMutation({
-    mutationFn: () => api.setChamberLight(printer.id, !status?.chamber_light),
+    mutationFn: async () => api.setChamberLight(printer.id, !status?.chamber_light),
     onSuccess: async () => {
       await invalidatePrinterQueries();
       showToast(
-        status?.chamber_light ? 'Chamber light turned off.' : 'Chamber light turned on.',
+        status?.chamber_light
+          ? 'Chamber light turned off.'
+          : 'Chamber light turned on.',
         'success',
       );
     },
@@ -632,7 +228,7 @@ export function PrinterCard({
   });
 
   const speedMutation = useMutation({
-    mutationFn: (mode: number) => api.setPrintSpeed(printer.id, mode),
+    mutationFn: async (mode: number) => api.setPrintSpeed(printer.id, mode),
     onSuccess: async () => {
       await invalidatePrinterQueries();
       showToast('Print speed updated.', 'success');
@@ -642,7 +238,7 @@ export function PrinterCard({
   });
 
   const clearPlateMutation = useMutation({
-    mutationFn: () => api.clearPlate(printer.id),
+    mutationFn: async () => api.clearPlate(printer.id),
     onSuccess: async () => {
       await invalidatePrinterQueries();
       showToast('Plate marked as cleared.', 'success');
@@ -652,7 +248,7 @@ export function PrinterCard({
   });
 
   const calibrateMutation = useMutation({
-    mutationFn: (axes: 'z' | 'xy' | 'all') => api.homeAxes(printer.id, axes),
+    mutationFn: async (axes: 'z' | 'xy' | 'all') => api.homeAxes(printer.id, axes),
     onSuccess: async (_, axes) => {
       await invalidatePrinterQueries();
       showToast(
@@ -669,7 +265,7 @@ export function PrinterCard({
   });
 
   const maintenanceMutation = useMutation({
-    mutationFn: (nextIsActive: boolean) =>
+    mutationFn: async (nextIsActive: boolean) =>
       api.updatePrinter(printer.id, { is_active: nextIsActive }),
     onSuccess: async (_, nextIsActive) => {
       await invalidatePrinterQueries();
@@ -685,7 +281,7 @@ export function PrinterCard({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => api.deletePrinter(printer.id),
+    mutationFn: async () => api.deletePrinter(printer.id),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['printers'] }),
@@ -711,46 +307,34 @@ export function PrinterCard({
         onTrayPress(tray, context);
         return;
       }
-
       setSelectedTray({ tray, context });
     },
     [onTrayPress],
   );
 
-  const handleToggleMaintenance = useCallback(() => {
-    setMaintenanceModeTarget(!printer.is_active);
-  }, [printer.is_active]);
-
-  const handleDeletePrinter = useCallback(() => {
-    setDeleteSheetVisible(true);
-  }, []);
-
-  const showMoveMenu = useCallback(() => {
-    setMoveModalVisible(true);
-  }, []);
-
-  const showCalibrateMenu = useCallback(() => {
-    setCalibrateSheetVisible(true);
-  }, []);
-
-  const showSpeedMenu = useCallback(() => {
-    setShowSpeedSheet(true);
-  }, []);
-
-  const showMoreMenu = useCallback(() => {
-    setMoreSheetVisible(true);
-  }, []);
+  const handleCompleteSelectedMaintenance = useCallback(async () => {
+    if (!selectedMaintenanceItem) return;
+    const item = selectedMaintenanceItem;
+    setSelectedMaintenanceItem(null);
+    try {
+      await api.performMaintenance(item.id);
+      await queryClient.invalidateQueries({ queryKey: ['maintenanceTasks'] });
+      showToast(`${item.maintenance_type_name} marked complete`, 'success');
+    } catch (error) {
+      showToast(getErrorMessage(error, 'Could not complete task'), 'error');
+    }
+  }, [queryClient, selectedMaintenanceItem, showToast]);
 
   const speedActions = useMemo<ActionSheetAction[]>(
     () => [
       ...Object.entries(SPEED_LEVELS).map(([value, info]) => {
-        const selected = Number(value) === (status?.speed_level ?? 2);
+        const selectedSpeed = Number(value) === (status?.speed_level ?? 2);
         return {
           label: `${info.label} (${info.percent})`,
           icon: (
             <Gauge
               size={18}
-              color={selected ? colors.accent : colors.text}
+              color={selectedSpeed ? colors.accent : colors.text}
               strokeWidth={2}
             />
           ),
@@ -759,107 +343,189 @@ export function PrinterCard({
             speedMutation.mutate(Number(value));
           },
           disabled: !canControlPrinter || speedMutation.isPending,
-          loading: speedMutation.isPending && selected,
+          loading: speedMutation.isPending && selectedSpeed,
         };
       }),
       {
         label: 'Cancel',
-        icon: <X size={18} color={colors.textSecondary} strokeWidth={2} />,
+        icon: actionIcons.cancel,
         onPress: () => setShowSpeedSheet(false),
       },
     ],
     [
+      actionIcons.cancel,
       canControlPrinter,
       colors.accent,
       colors.text,
-      colors.textSecondary,
       speedMutation,
       status?.speed_level,
     ],
   );
 
-  const partPreview = (
-    <View
-      style={[
-        styles.previewFrame,
-        {
-          backgroundColor: colors.surfaceElevated,
-          borderColor: colors.border,
+  const maintenanceModeActions = useMemo<ActionSheetAction[]>(
+    () => [
+      {
+        label: 'Cancel',
+        icon: actionIcons.cancel,
+        onPress: () => setMaintenanceModeTarget(null),
+      },
+      {
+        label: maintenanceModeTarget ? 'Disable' : 'Enable',
+        icon: actionIcons.wrench,
+        onPress: () => {
+          if (maintenanceModeTarget == null) return;
+          setMaintenanceModeTarget(null);
+          maintenanceMutation.mutate(maintenanceModeTarget);
         },
-      ]}
-    >
-      {partPreviewSource ? (
-        <Image source={partPreviewSource} style={styles.previewImage} resizeMode="cover" />
-      ) : (
-        <View style={styles.previewPlaceholder}>
-          <Box size={32} color={colors.textTertiary} strokeWidth={1.5} />
-        </View>
-      )}
-    </View>
+        destructive: maintenanceModeTarget === false,
+        disabled: maintenanceModeTarget == null || maintenanceMutation.isPending,
+        loading: maintenanceMutation.isPending,
+      },
+    ],
+    [
+      actionIcons.cancel,
+      actionIcons.wrench,
+      maintenanceModeTarget,
+      maintenanceMutation,
+    ],
+  );
+
+  const deleteActions = useMemo<ActionSheetAction[]>(
+    () => [
+      {
+        label: 'Cancel',
+        icon: actionIcons.cancel,
+        onPress: () => setDeleteSheetVisible(false),
+      },
+      {
+        label: 'Delete',
+        icon: actionIcons.delete,
+        onPress: () => {
+          setDeleteSheetVisible(false);
+          deleteMutation.mutate();
+        },
+        destructive: true,
+        disabled: deleteMutation.isPending,
+        loading: deleteMutation.isPending,
+      },
+    ],
+    [actionIcons.cancel, actionIcons.delete, deleteMutation],
+  );
+
+  const maintenanceItemActions = useMemo<ActionSheetAction[]>(
+    () => [
+      {
+        label: 'Cancel',
+        icon: actionIcons.cancel,
+        onPress: () => setSelectedMaintenanceItem(null),
+      },
+      {
+        label: 'Mark complete',
+        icon: actionIcons.complete,
+        onPress: () => {
+          void handleCompleteSelectedMaintenance();
+        },
+      },
+    ],
+    [actionIcons.cancel, actionIcons.complete, handleCompleteSelectedMaintenance],
+  );
+
+  const calibrateActions = useMemo<ActionSheetAction[]>(
+    () => [
+      {
+        label: 'Auto-level bed',
+        icon: actionIcons.rotate,
+        onPress: () => {
+          setCalibrateSheetVisible(false);
+          calibrateMutation.mutate('z');
+        },
+        disabled: !canControlPrinter || calibrateMutation.isPending,
+        loading: calibrateMutation.isPending,
+      },
+      {
+        label: 'Home all axes',
+        icon: actionIcons.move,
+        onPress: () => {
+          setCalibrateSheetVisible(false);
+          calibrateMutation.mutate('all');
+        },
+        disabled: !canControlPrinter || calibrateMutation.isPending,
+        loading: calibrateMutation.isPending,
+      },
+      {
+        label: 'Home XY',
+        icon: actionIcons.move,
+        onPress: () => {
+          setCalibrateSheetVisible(false);
+          calibrateMutation.mutate('xy');
+        },
+        disabled: !canControlPrinter || calibrateMutation.isPending,
+        loading: calibrateMutation.isPending,
+      },
+    ],
+    [actionIcons.move, actionIcons.rotate, calibrateMutation, canControlPrinter],
+  );
+
+  const moreActions = useMemo<ActionSheetAction[]>(
+    () => [
+      {
+        label: 'Edit',
+        onPress: () => {
+          setMoreSheetVisible(false);
+          setEditModalVisible(true);
+        },
+        icon: actionIcons.edit,
+        disabled: !canEditPrinter,
+      },
+      {
+        label:
+          printer.is_active === false
+            ? 'Disable maintenance mode'
+            : 'Enable maintenance mode',
+        onPress: () => {
+          setMoreSheetVisible(false);
+          setMaintenanceModeTarget(!printer.is_active);
+        },
+        icon: actionIcons.wrench,
+        disabled: !canEditPrinter || maintenanceMutation.isPending,
+        loading: maintenanceMutation.isPending,
+      },
+      {
+        label: 'Delete',
+        onPress: () => {
+          setMoreSheetVisible(false);
+          setDeleteSheetVisible(true);
+        },
+        icon: actionIcons.delete,
+        destructive: true,
+        disabled: !canDeletePrinter || deleteMutation.isPending,
+        loading: deleteMutation.isPending,
+      },
+    ],
+    [
+      actionIcons.delete,
+      actionIcons.edit,
+      actionIcons.wrench,
+      canDeletePrinter,
+      canEditPrinter,
+      deleteMutation,
+      maintenanceMutation,
+      printer.is_active,
+    ],
   );
 
   if (compact) {
-    const statusDotColor = isPrinting
-      ? PRINT_GREEN
-      : isConnected
-        ? colors.success
-        : colors.error;
     return (
-      <Pressable
+      <PrinterCardCompact
+        printer={printer}
+        selected={selected}
+        isConnected={isConnected}
+        isPrinting={isPrinting}
+        progress={progress}
+        printerImageSource={printerImageSource}
         onPress={onPress}
         onLongPress={onLongPress}
-        style={[
-          styles.compactCard,
-          {
-            backgroundColor: selected ? colors.accentBg : colors.card,
-            borderColor: selected ? colors.accent : colors.cardBorder,
-          },
-        ]}
-      >
-        {/* Top row: image + name/model */}
-        <View style={styles.compactTopRow}>
-          <View
-            style={[
-              styles.compactImageWrap,
-              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-            ]}
-          >
-            {printerImageSource ? (
-              <Image source={printerImageSource} style={styles.compactImage} />
-            ) : (
-              <PrinterIcon size={20} color={colors.textSecondary} strokeWidth={2} />
-            )}
-          </View>
-          <View style={styles.compactTextCol}>
-            <View style={styles.compactNameRow}>
-              <Text style={[styles.compactName, { color: colors.text }]} numberOfLines={1}>
-                {printer.name}
-              </Text>
-              <View style={[styles.compactDot, { backgroundColor: statusDotColor }]} />
-            </View>
-            <Text style={[styles.compactModel, { color: colors.textSecondary }]} numberOfLines={1}>
-              {printer.model ?? 'Unknown'}
-            </Text>
-          </View>
-        </View>
-        {/* Progress bar */}
-        <View style={styles.compactProgressRow}>
-          <View style={[styles.compactProgressTrack, { backgroundColor: colors.border }]}>
-            <View
-              style={[
-                styles.compactProgressFill,
-                {
-                  width: isPrinting ? `${progress}%` : '0%',
-                  backgroundColor: isPrinting ? PRINT_GREEN : colors.border,
-                },
-              ]}
-            />
-          </View>
-          <Text style={[styles.compactPercent, { color: colors.textSecondary }]}>
-            {isPrinting ? `${progress}%` : '----%'}
-          </Text>
-        </View>
-      </Pressable>
+      />
     );
   }
 
@@ -873,927 +539,122 @@ export function PrinterCard({
         },
       ]}
     >
-      <View style={styles.headerRow}>
-        <Pressable onPress={onPress} style={styles.titleArea} accessibilityLabel={`${printer.name}, ${printer.model || 'Unknown model'}`} accessibilityRole="button">
-          <View
-            style={[
-              styles.printerImageWrap,
-              {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            {printerImageSource ? (
-              <Image source={printerImageSource} style={styles.printerImage} />
-            ) : (
-              <PrinterIcon size={18} color={colors.textSecondary} strokeWidth={2} />
-            )}
-          </View>
-          <View style={styles.titleText}>
-            <View style={styles.titleLine}>
-              <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-                {printer.name}
-              </Text>
-              <View
-                style={[
-                  styles.connectionDot,
-                  {
-                    backgroundColor: isConnected ? colors.success : colors.error,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-              {printer.model || 'Unknown model'}
-              {printer.location ? ` • ${printer.location}` : ''}
-            </Text>
-          </View>
-        </Pressable>
-        <StatusBadge label={badgeLabel} color={badgeColor} />
-      </View>
+      <PrinterCardHeader
+        printer={printer}
+        status={status}
+        badgeLabel={badgeLabel}
+        badgeColor={badgeColor}
+        hmsErrors={hmsErrors}
+        queueCount={queueCount}
+        maintenance={maintenance}
+        maintenanceCount={maintenanceCount}
+        printerImageSource={printerImageSource}
+        onPress={onPress}
+        onQueuePress={onQueuePress}
+        onMaintenancePress={onMaintenancePress}
+        onShowHmsModal={() => setShowHmsModal(true)}
+      />
 
-      <View style={styles.badgesWrap}>
-        <InfoPill
-          label={
-            printer.is_active === false
-              ? 'Maintenance mode'
-              : isConnected
-                ? 'Online'
-                : 'Offline'
-          }
-          color={
-            printer.is_active === false
-              ? colors.warning
-              : isConnected
-                ? colors.success
-                : colors.error
-          }
-          icon={
-            printer.is_active === false ? (
-              <Wrench size={12} color={colors.warning} strokeWidth={2} />
-            ) : isConnected ? (
-              <Link size={12} color={colors.success} strokeWidth={2} />
-            ) : (
-              <WifiOff size={12} color={colors.error} strokeWidth={2} />
-            )
-          }
-        />
-        {isConnected ? (
-          status?.wired_network ? (
-            <InfoPill
-              label="LAN"
-              color={colors.success}
-              icon={<Link size={12} color={colors.success} strokeWidth={2} />}
-            />
-          ) : status?.wifi_signal != null ? (
-            <InfoPill
-              label={`${status.wifi_signal} dBm`}
-              color={getWifiTone(status.wifi_signal, colors)}
-              icon={
-                <Wifi
-                  size={12}
-                  color={getWifiTone(status.wifi_signal, colors)}
-                  strokeWidth={2}
-                />
-              }
-            />
-          ) : null
-        ) : null}
-        {hmsErrors.length ? (
-          <InfoPill
-            label={`${hmsErrors.length} HMS`}
-            color={getSeverityColor(hmsErrors, colors)}
-            icon={
-              <AlertCircle
-                size={12}
-                color={getSeverityColor(hmsErrors, colors)}
-                strokeWidth={2}
-              />
-            }
-            onPress={() => setShowHmsModal(true)}
-          />
-        ) : (
-          <InfoPill
-            label="HMS OK"
-            color={colors.success}
-            icon={<CheckCircle size={12} color={colors.success} strokeWidth={2} />}
-          />
-        )}
-        {queueCount > 0 ? (
-          <InfoPill
-            label={`${queueCount} queued`}
-            color={colors.info}
-            icon={<Layers size={12} color={colors.info} strokeWidth={2} />}
-            onPress={onQueuePress}
-          />
-        ) : null}
-        {maintenanceCount > 0 ? (
-          <InfoPill
-            label={`${maintenanceCount} maintenance`}
-            color={maintenance?.dueCount ? colors.error : colors.warning}
-            icon={
-              <Wrench
-                size={12}
-                color={maintenance?.dueCount ? colors.error : colors.warning}
-                strokeWidth={2}
-              />
-            }
-            onPress={onMaintenancePress}
-          />
-        ) : (
-          <InfoPill
-            label="Maintenance OK"
-            color={colors.success}
-            icon={<Wrench size={12} color={colors.success} strokeWidth={2} />}
-          />
-        )}
-        {status?.firmware_version ? (
-          <InfoPill label={status.firmware_version} color={colors.textSecondary} />
-        ) : null}
-        {status && DOOR_SENSOR_MODELS.has(printer.model ?? '') ? (
-          <InfoPill
-            label={status.door_open ? 'Door open' : 'Door closed'}
-            color={status.door_open ? colors.warning : colors.success}
-          />
-        ) : null}
-      </View>
-
-      <SectionLabel label="Status" />
-      <View style={styles.statusRow}>
-        {partPreview}
-        <View style={styles.statusContent}>
-          <View style={styles.statusTopRow}>
-            <Text style={[styles.stateText, { color: colors.textSecondary }]} numberOfLines={1}>
-              {badgeLabel}
-            </Text>
-            {loading ? (
-              <Text style={[styles.refreshText, { color: colors.textTertiary }]}>Refreshing…</Text>
-            ) : null}
-          </View>
-          <Text style={[styles.printName, { color: colors.text }]} numberOfLines={2}>
-            {currentPrintName}
-          </Text>
-          <View style={[styles.progressTrack, { backgroundColor: colors.surfaceHover }]}> 
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${progress}%`,
-                  backgroundColor: badgeColor,
-                },
-              ]}
-            />
-          </View>
-          <View style={styles.progressMetaRow}>
-            <Text style={[styles.progressText, { color: colors.text }]}> 
-              {`${Math.round(progress)}%`}
-            </Text>
-            <Text style={[styles.progressMeta, { color: colors.textSecondary }]}> 
-              Layer{' '}
-              {status?.layer_num != null && status?.total_layers != null
-                ? `${status.layer_num}/${status.total_layers}`
-                : '—'}
-            </Text>
-          </View>
-          <View style={styles.timelineRow}>
-            <Text style={[styles.timelineItem, { color: colors.textSecondary }]}>
-              Remaining {formatDuration((status?.remaining_time ?? 0) * 60)}
-            </Text>
-            <Text style={[styles.timelineItem, { color: colors.textSecondary }]}>
-              Elapsed {formatDuration(elapsedSeconds ?? 0)}
-            </Text>
-          </View>
-          <View style={styles.timelineRow}>
-            <Text style={[styles.timelineItem, { color: colors.textSecondary }]}>
-              ETA {formatEta(status?.remaining_time)}
-            </Text>
-            <Text style={[styles.timelineItem, { color: colors.textSecondary }]}>
-              Speed {speedInfo.label} · {speedInfo.percent}
-            </Text>
-          </View>
-          {currentPrintUserQuery.data?.username ? (
-            <Text style={[styles.userText, { color: colors.textTertiary }]} numberOfLines={1}>
-              Started by {currentPrintUserQuery.data.username}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-
-      {!compact && (
-      <>
-      <SectionLabel label="Controls" />
-      <View style={styles.controlsGrid}>
-        <ControlButton
-          label={status?.chamber_light ? 'Light on' : 'Light off'}
-          icon={<Lightbulb size={16} color={status?.chamber_light ? colors.warning : colors.text} strokeWidth={2} />}
-          onPress={() => lightMutation.mutate()}
-          disabled={!canControlPrinter || lightMutation.isPending}
-          backgroundColor={colors.surfaceElevated}
-          borderColor={colors.border}
-          textColor={colors.text}
-          iconOnly
-        />
-        <ControlButton
-          label="Move"
-          icon={<Move size={16} color={colors.text} strokeWidth={2} />}
-          onPress={showMoveMenu}
-          disabled={!canControlPrinter}
-          backgroundColor={colors.surfaceElevated}
-          borderColor={colors.border}
-          textColor={colors.text}
-          iconOnly
-        />
-        <ControlButton
-          label="Calibrate"
-          icon={<RotateCcw size={16} color={colors.text} strokeWidth={2} />}
-          onPress={showCalibrateMenu}
-          disabled={!canControlPrinter}
-          backgroundColor={colors.surfaceElevated}
-          borderColor={colors.border}
-          textColor={colors.text}
-          iconOnly
-        />
-        <ControlButton
-          label={speedInfo.label}
-          icon={<Gauge size={16} color={colors.text} strokeWidth={2} />}
-          onPress={showSpeedMenu}
-          disabled={!canControlPrinter || speedMutation.isPending}
-          backgroundColor={colors.surfaceElevated}
-          borderColor={colors.border}
-          textColor={colors.text}
-          iconOnly
-        />
-        <ControlButton
-          label="Refresh"
-          icon={<RefreshCw size={16} color={colors.text} strokeWidth={2} />}
-          onPress={handleRefresh}
-          backgroundColor={colors.surfaceElevated}
-          borderColor={colors.border}
-          textColor={colors.text}
-          iconOnly
-        />
-        {isPrintingWithObjects ? (
-          <ControlButton
-            label="Skip objects"
-            icon={<Layers size={16} color={colors.text} strokeWidth={2} />}
-            onPress={() => setSkipObjectsVisible(true)}
-            disabled={!hasPermission('printers:control')}
-            backgroundColor={colors.surfaceElevated}
-            borderColor={colors.border}
-            textColor={colors.text}
-            iconOnly
-          />
-        ) : null}
-      </View>
-      <View style={styles.controlActionsRow}>
-        <ControlButton
-          label={isPaused ? 'Resume' : 'Pause'}
-          icon={
-            isPaused ? (
-              <Play size={16} color={colors.textInverse} strokeWidth={2} />
-            ) : (
-              <Pause size={16} color={colors.textInverse} strokeWidth={2} />
-            )
-          }
-          onPress={() => actionMutation.mutate(isPaused ? 'resume' : 'pause')}
-          disabled={!canPrintControl || actionMutation.isPending}
-          backgroundColor={isPaused ? PRINT_GREEN : PAUSE_AMBER}
-          borderColor={isPaused ? PRINT_GREEN : PAUSE_AMBER}
-          textColor={colors.textInverse}
-          iconOnly
-        />
-        <ControlButton
-          label="Stop"
-          icon={<Square size={16} color={colors.textInverse} strokeWidth={2} />}
-          onPress={() => actionMutation.mutate('stop')}
-          disabled={!canPrintControl || actionMutation.isPending}
-          backgroundColor={STOP_RED}
-          borderColor={STOP_RED}
-          textColor={colors.textInverse}
-          iconOnly
-        />
-        {status?.awaiting_plate_clear ? (
-          <ControlButton
-            label="Clear plate"
-            icon={<Wrench size={15} color={PAUSE_AMBER} strokeWidth={2} />}
-            onPress={() => clearPlateMutation.mutate()}
-            disabled={!canClearPlate || clearPlateMutation.isPending}
-            backgroundColor="transparent"
-            borderColor={PAUSE_AMBER}
-            textColor={PAUSE_AMBER}
-            outline
-          />
-        ) : null}
-      </View>
-
-      <SectionLabel label="Temperatures & fans" />
-      <View style={styles.metricGrid}>
-        <MetricCard
-          label={status?.temperatures?.nozzle_2 != null ? 'Nozzles' : 'Nozzle'}
-          value={
-            status?.temperatures?.nozzle_2 != null && status
-              ? formatDualNozzleTemperature(status)
-              : formatTemperature(
-                  status?.temperatures?.nozzle,
-                  status?.temperatures?.nozzle_target,
-                )
-          }
-          helper={
-            status?.active_extruder != null && status?.temperatures?.nozzle_2 != null
-              ? `Active ${status.active_extruder === 1 ? 'left' : 'right'} nozzle`
-              : status?.nozzles?.[0]?.nozzle_diameter
-                ? `${status.nozzles[0].nozzle_diameter}mm ${status.nozzles[0].nozzle_type.replace(/_/g, ' ')}`
-                : undefined
-          }
-          tone={temperatureTone(status?.temperatures?.nozzle, status?.temperatures?.nozzle_target, colors)}
-        />
-        <MetricCard
-          label="Bed"
-          value={formatTemperature(
-            status?.temperatures?.bed,
-            status?.temperatures?.bed_target,
-          )}
-          tone={temperatureTone(status?.temperatures?.bed, status?.temperatures?.bed_target, colors)}
-        />
-        {status?.temperatures?.chamber != null ? (
-          <MetricCard
-            label="Chamber"
-            value={formatTemperature(
-              status?.temperatures?.chamber,
-              status?.temperatures?.chamber_target,
-            )}
-            helper={status.supports_chamber_heater ? 'Heated chamber' : 'Sensor only'}
-            tone={temperatureTone(status?.temperatures?.chamber, status?.temperatures?.chamber_target, colors)}
-          />
-        ) : null}
-        <MetricCard
-          label="Part fan"
-          value={`${status?.cooling_fan_speed ?? 0}%`}
-          tone={(status?.cooling_fan_speed ?? 0) > 0 ? colors.info : colors.textTertiary}
-        />
-        <MetricCard
-          label="Aux fan"
-          value={`${status?.big_fan1_speed ?? 0}%`}
-          tone={(status?.big_fan1_speed ?? 0) > 0 ? colors.info : colors.textTertiary}
-        />
-        {CHAMBER_FAN_MODELS.has(printer.model ?? '') ? (
-          <MetricCard
-            label="Chamber fan"
-            value={`${status?.big_fan2_speed ?? 0}%`}
-            tone={(status?.big_fan2_speed ?? 0) > 0 ? colors.success : colors.textTertiary}
-          />
-        ) : null}
-      </View>
-
-      {(status?.ams?.length || status?.vt_tray?.length) ? (
-        <>
-          <SectionLabel label="Filament systems" />
-          <View style={styles.amsList}>
-            {(status?.ams ?? []).map(ams => {
-              const trayCount = ams.tray.length;
-              return (
-                <View
-                  key={ams.id}
-                  style={[
-                    styles.amsCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <View style={styles.amsHeader}>
-                    <View style={styles.amsHeaderText}>
-                      <Text style={[styles.amsTitle, { color: colors.text }]}> 
-                        {`AMS ${String.fromCharCode(65 + ((ams.id >= 128 ? ams.id - 128 : ams.id) % 26))}`}
-                      </Text>
-                      <Text style={[styles.amsSubtitle, { color: colors.textSecondary }]}> 
-                        {getAmsStatusLabel(ams)}
-                      </Text>
-                    </View>
-                    <View style={styles.amsIndicators}>
-                      {ams.temp != null ? (
-                        <Text style={[styles.amsIndicatorText, { color: getFillColor(100 - ams.temp, colors) }]}> 
-                          {ams.temp}°C
-                        </Text>
-                      ) : null}
-                      {ams.humidity != null ? (
-                        <Text
-                          style={[
-                            styles.amsIndicatorText,
-                            {
-                              color:
-                                ams.humidity <= 40
-                                  ? colors.success
-                                  : ams.humidity <= 60
-                                    ? colors.warning
-                                    : colors.error,
-                            },
-                          ]}
-                        >
-                          {ams.humidity}% RH
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                  <View style={styles.trayGrid}>
-                    {ams.tray.map((tray, index) => {
-                      const active = status?.tray_now === getTrayGlobalId(ams.id, tray.id);
-                      return (
-                        <TrayCard
-                          key={`${ams.id}-${tray.id}-${index}`}
-                          label={getTrayLabel(tray)}
-                          subtitle={
-                            tray.tray_sub_brands && tray.tray_type && tray.tray_sub_brands !== tray.tray_type
-                              ? tray.tray_type
-                              : undefined
-                          }
-                          fill={getEffectiveTrayFill(tray, printer.id, ams.id, index, spoolAssignments)}
-                          colorHex={tray.tray_color}
-                          active={active}
-                          helper={String(index + 1)}
-                          onPress={() =>
-                            handleTrayPress(tray, {
-                              amsId: ams.id,
-                              trayId: tray.id,
-                              slotIndex: index,
-                              isExternal: false,
-                              label: String(index + 1),
-                              amsLabel: getAmsTitle(ams),
-                              temperature: ams.temp,
-                            })
-                          }
-                          compact={trayCount < 4}
-                        />
-                      );
-                    })}
-                  </View>
-                </View>
-              );
-            })}
-
-            {(status?.vt_tray ?? []).length > 0 ? (
-              <View
-                style={[
-                  styles.amsCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <View style={styles.amsHeader}>
-                  <View style={styles.amsHeaderText}>
-                    <Text style={[styles.amsTitle, { color: colors.text }]}>External</Text>
-                    <Text style={[styles.amsSubtitle, { color: colors.textSecondary }]}>Virtual tray</Text>
-                  </View>
-                </View>
-                <View style={styles.trayGrid}>
-                  {(status?.vt_tray ?? []).map((tray, index) => {
-                    const active = status?.tray_now === (tray.id ?? 254);
-                    const helper =
-                      printer.nozzle_count > 1
-                        ? (tray.id ?? 254) === 254
-                          ? 'L'
-                          : 'R'
-                        : String(index + 1);
-                    return (
-                      <TrayCard
-                        key={`ext-${tray.id ?? index}`}
-                        label={tray.tray_sub_brands || getTrayStateLabel(tray)}
-                        subtitle={tray.tray_type && tray.tray_sub_brands ? tray.tray_type : 'Virtual tray'}
-                        fill={getEffectiveTrayFill(tray, printer.id, 255, (tray.id ?? 254) - 254, spoolAssignments)}
-                        colorHex={tray.tray_color}
-                        active={active}
-                        helper={helper}
-                        onPress={() =>
-                          handleTrayPress(tray, {
-                            amsId: 255,
-                            trayId: tray.id ?? 254,
-                            slotIndex: index,
-                            isExternal: true,
-                            label: helper,
-                            amsLabel: 'External spool',
-                            temperature: null,
-                          })
-                        }
-                        compact
-                      />
-                    );
-                  })}
-                </View>
-              </View>
-            ) : null}
-          </View>
-        </>
-      ) : null}
-
-      {status?.nozzle_rack?.some(slot => slot.id >= 2) ? (
-        <>
-          <SectionLabel label="Nozzle rack" />
-          <NozzleRackView slots={status.nozzle_rack} activeNozzle={status.active_extruder} />
-          <View style={styles.nozzleMetaList}>
-            {status.nozzle_rack
-              .filter(slot => slot.id >= 2)
-              .slice(0, 3)
-              .map(slot => (
-                <Text
-                  key={`meta-${slot.id}`}
-                  style={[styles.nozzleMetaText, { color: colors.textSecondary }]}
-                >
-                  {getNozzleName(slot)}
-                  {slot.filament_type ? ` • ${slot.filament_type}` : ''}
-                  {slot.wear != null ? ` • wear ${slot.wear}%` : ''}
-                </Text>
-              ))}
-          </View>
-        </>
-      ) : null}
-
-      {hmsErrors.length > 0 ? (
-        <>
-          <SectionLabel label="HMS alerts" />
-          <View style={styles.hmsList}>
-            {hmsErrors.slice(0, 3).map((error, index) => (
-              <View
-                key={`${error.code}-${index}`}
-                style={[
-                  styles.hmsItem,
-                  {
-                    backgroundColor: colors.surfaceElevated,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.hmsSeverity,
-                    {
-                      backgroundColor:
-                        error.severity <= 2 ? colors.error : colors.warning,
-                    },
-                  ]}
-                />
-                <View style={styles.hmsText}>
-                  <Text style={[styles.hmsTitle, { color: colors.text }]}> 
-                    {error.full_code || error.code}
-                  </Text>
-                  <Text style={[styles.hmsSubtitle, { color: colors.textSecondary }]}> 
-                    Severity {error.severity}
-                    {error.actions?.length ? ` • ${error.actions.join(', ')}` : ''}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </>
-      ) : null}
-
-      {(maintenance?.items?.length ?? 0) > 0 ? (() => {
-        const neededItems = maintenance!.items.filter(item => item.is_due || item.is_warning);
-        if (neededItems.length === 0) return null;
-        return (
-        <>
-          <SectionLabel label="Maintenance needed" />
-          <View style={styles.maintenanceList}>
-            {neededItems.slice(0, 5).map(item => {
-              const tone = item.is_due
-                ? colors.error
-                : colors.warning;
-              return (
-                <Pressable
-                  key={item.id}
-                  onPress={() => setSelectedMaintenanceItem(item)}
-                  style={[
-                    styles.maintenanceItem,
-                    {
-                      backgroundColor: colors.surfaceElevated,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  accessibilityLabel={`${item.maintenance_type_name}, ${item.is_due ? 'Overdue' : 'Due soon'}`}
-                  accessibilityRole="button"
-                >
-                  <View style={[styles.maintenanceDot, { backgroundColor: tone }]} />
-                  <View style={styles.maintenanceText}>
-                    <Text style={[styles.maintenanceTitle, { color: colors.text }]}> 
-                      {item.maintenance_type_name}
-                    </Text>
-                    <Text style={[styles.maintenanceSubtitle, { color: colors.textSecondary }]}> 
-                      {item.is_due
-                        ? 'Overdue'
-                        : item.interval_type === 'days'
-                          ? `${item.days_until_due ?? 0} day${(item.days_until_due ?? 0) === 1 ? '' : 's'} left`
-                          : `${Math.round(item.hours_until_due)}h left`}
-                    </Text>
-                  </View>
-                  <CheckCircle size={16} color={colors.textTertiary} strokeWidth={1.5} />
-                </Pressable>
-              );
-            })}
-          </View>
-        </>
-        );
-      })() : null}
-      </>
-      )}
-
-      <View style={styles.footerRow}>
-        <View style={styles.footerLeft}>
-          <Pressable
-            onPress={showMoreMenu}
-            style={[
-              styles.iconButton,
-              {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
-              },
-            ]}
-            accessibilityLabel="More actions"
-            accessibilityRole="button"
-          >
-            <MoreVertical size={18} color={colors.text} strokeWidth={2} />
-          </Pressable>
-        </View>
-        <View style={styles.footerRight}>
-          <Pressable
-            onPress={onCameraPress}
-            disabled={!canCamera}
-            style={[
-              styles.iconButton,
-              {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
-              },
-              !canCamera && styles.disabledAction,
-            ]}
-            accessibilityLabel="Camera"
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canCamera }}
-          >
-            <Camera size={16} color={colors.text} strokeWidth={2} />
-          </Pressable>
-          <Pressable
-            onPress={onPrintPress}
-            disabled={!canBrowse}
-            style={[
-              styles.iconButton,
-              {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
-              },
-              !canBrowse && styles.disabledAction,
-            ]}
-            accessibilityLabel="Browse files"
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canBrowse }}
-          >
-            <FolderOpen size={16} color={colors.text} strokeWidth={2} />
-          </Pressable>
-          <Pressable
-            onPress={onPrintPress}
-            disabled={!canBrowse}
-            style={[
-              styles.footerPrintButton,
-              {
-                backgroundColor: PRINT_GREEN,
-                borderColor: PRINT_GREEN,
-              },
-              !canBrowse && styles.disabledAction,
-            ]}
-            accessibilityLabel="Print"
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canBrowse }}
-          >
-            <Play size={14} color={colors.textInverse} strokeWidth={2} />
-            <Text style={[styles.footerPrintText, { color: colors.textInverse }]}>Print</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      <MoveControlsModal
-        visible={moveModalVisible}
-        printerId={printer.id}
-        printerName={printer.name}
+      <PrinterCardStatusSection
+        status={status}
+        badgeLabel={badgeLabel}
+        badgeColor={badgeColor}
+        currentPrintName={currentPrintName}
+        progress={progress}
+        elapsedSeconds={elapsedSeconds}
+        speedInfo={speedInfo}
+        loading={loading}
         isPrinting={isPrinting}
-        onClose={() => setMoveModalVisible(false)}
+        currentPrintUserName={currentPrintUserQuery.data?.username}
+        partPreviewSource={partPreviewSource}
       />
 
-      <HMSErrorModal
-        visible={showHmsModal}
-        printerId={printer.id}
-        printerName={printer.name}
-        errors={hmsErrors}
-        onClose={() => setShowHmsModal(false)}
+      <PrinterCardControlsSection
+        status={status}
+        canControlPrinter={canControlPrinter}
+        canPrintControl={canPrintControl}
+        canClearPlate={canClearPlate}
+        canSkipObjects={canSkipObjects}
+        isPaused={isPaused}
+        isPrintingWithObjects={isPrintingWithObjects}
+        speedInfo={speedInfo}
+        actionPending={actionMutation.isPending}
+        lightPending={lightMutation.isPending}
+        speedPending={speedMutation.isPending}
+        clearPlatePending={clearPlateMutation.isPending}
+        onToggleLight={() => lightMutation.mutate()}
+        onShowMoveMenu={() => setMoveModalVisible(true)}
+        onShowCalibrateMenu={() => setCalibrateSheetVisible(true)}
+        onShowSpeedMenu={() => setShowSpeedSheet(true)}
+        onRefresh={() => {
+          void handleRefresh();
+        }}
+        onShowSkipObjects={() => setSkipObjectsVisible(true)}
+        onTogglePause={() =>
+          actionMutation.mutate(isPaused ? 'resume' : 'pause')
+        }
+        onStop={() => actionMutation.mutate('stop')}
+        onClearPlate={() => clearPlateMutation.mutate()}
       />
 
-      <TrayDetailModal
-        visible={selectedTray != null}
-        printerId={printer.id}
-        tray={selectedTray?.tray ?? null}
-        context={selectedTray?.context ?? null}
+      <PrinterCardTemperatureSection printer={printer} status={status} />
+
+      <PrinterCardFilamentSection
+        printer={printer}
+        status={status}
+        spoolAssignments={spoolAssignments}
+        onTrayPress={handleTrayPress}
+      />
+
+      <PrinterCardDiagnosticsSection
+        status={status}
+        hmsErrors={hmsErrors}
+        maintenance={maintenance}
+        onSelectMaintenanceItem={setSelectedMaintenanceItem}
+      />
+
+      <PrinterCardFooter
+        canCamera={canCamera}
+        canBrowse={canBrowse}
+        onCameraPress={onCameraPress}
+        onPrintPress={onPrintPress}
+        onShowMoreMenu={() => setMoreSheetVisible(true)}
+      />
+
+      <PrinterCardDialogs
+        printer={printer}
         isPrinting={isPrinting}
-        onClose={() => setSelectedTray(null)}
+        hmsErrors={hmsErrors}
+        selectedTray={selectedTray}
+        moveModalVisible={moveModalVisible}
+        showHmsModal={showHmsModal}
+        skipObjectsVisible={skipObjectsVisible}
+        editModalVisible={editModalVisible}
+        showSpeedSheet={showSpeedSheet}
+        maintenanceModeTarget={maintenanceModeTarget}
+        deleteSheetVisible={deleteSheetVisible}
+        selectedMaintenanceItem={selectedMaintenanceItem}
+        calibrateSheetVisible={calibrateSheetVisible}
+        moreSheetVisible={moreSheetVisible}
+        speedActions={speedActions}
+        maintenanceModeActions={maintenanceModeActions}
+        deleteActions={deleteActions}
+        maintenanceItemActions={maintenanceItemActions}
+        calibrateActions={calibrateActions}
+        moreActions={moreActions}
+        onCloseMoveModal={() => setMoveModalVisible(false)}
+        onCloseHmsModal={() => setShowHmsModal(false)}
+        onCloseTrayModal={() => setSelectedTray(null)}
+        onCloseSkipObjectsModal={() => setSkipObjectsVisible(false)}
+        onCloseEditModal={() => setEditModalVisible(false)}
+        onCloseSpeedSheet={() => setShowSpeedSheet(false)}
+        onCloseMaintenanceModeSheet={() => setMaintenanceModeTarget(null)}
+        onCloseDeleteSheet={() => setDeleteSheetVisible(false)}
+        onCloseMaintenanceItemSheet={() => setSelectedMaintenanceItem(null)}
+        onCloseCalibrateSheet={() => setCalibrateSheetVisible(false)}
+        onCloseMoreSheet={() => setMoreSheetVisible(false)}
       />
 
-      <SkipObjectsModal
-        visible={skipObjectsVisible}
-        printerId={printer.id}
-        onClose={() => setSkipObjectsVisible(false)}
-      />
-
-      <EditPrinterModal
-        visible={editModalVisible}
-        printer={editModalVisible ? printer : null}
-        onClose={() => setEditModalVisible(false)}
-      />
-
-      <ActionSheetModal
-        visible={showSpeedSheet}
-        title="Print speed"
-        subtitle="Choose a print speed."
-        onClose={() => setShowSpeedSheet(false)}
-        actions={speedActions}
-      />
-
-      <ActionSheetModal
-        visible={maintenanceModeTarget != null}
-        title={
-          maintenanceModeTarget
-            ? 'Disable maintenance mode'
-            : 'Enable maintenance mode'
-        }
-        subtitle={
-          maintenanceModeTarget
-            ? `${printer.name} will return to active service.`
-            : `${printer.name} will stop accepting normal printer actions until maintenance mode is disabled.`
-        }
-        onClose={() => setMaintenanceModeTarget(null)}
-        actions={[
-          {
-            label: 'Cancel',
-            icon: <X size={18} color={colors.textSecondary} strokeWidth={2} />,
-            onPress: () => setMaintenanceModeTarget(null),
-          },
-          {
-            label: maintenanceModeTarget ? 'Disable' : 'Enable',
-            icon: <Wrench size={18} color={colors.text} strokeWidth={2} />,
-            onPress: () => {
-              if (maintenanceModeTarget == null) return;
-              setMaintenanceModeTarget(null);
-              maintenanceMutation.mutate(maintenanceModeTarget);
-            },
-            destructive: maintenanceModeTarget === false,
-            disabled: maintenanceModeTarget == null || maintenanceMutation.isPending,
-            loading: maintenanceMutation.isPending,
-          },
-        ]}
-      />
-
-      <ActionSheetModal
-        visible={deleteSheetVisible}
-        title="Delete printer"
-        subtitle={`Delete ${printer.name}? This cannot be undone.`}
-        onClose={() => setDeleteSheetVisible(false)}
-        actions={[
-          {
-            label: 'Cancel',
-            icon: <X size={18} color={colors.textSecondary} strokeWidth={2} />,
-            onPress: () => setDeleteSheetVisible(false),
-          },
-          {
-            label: 'Delete',
-            icon: <Trash2 size={18} color={colors.error} strokeWidth={2} />,
-            onPress: () => {
-              setDeleteSheetVisible(false);
-              deleteMutation.mutate();
-            },
-            destructive: true,
-            disabled: deleteMutation.isPending,
-            loading: deleteMutation.isPending,
-          },
-        ]}
-      />
-
-      <ActionSheetModal
-        visible={selectedMaintenanceItem != null}
-        title={selectedMaintenanceItem?.maintenance_type_name ?? 'Maintenance'}
-        subtitle={
-          selectedMaintenanceItem == null
-            ? undefined
-            : selectedMaintenanceItem.is_due
-              ? 'This task is overdue. Mark as completed?'
-              : `This task is due soon (${selectedMaintenanceItem.interval_type === 'days' ? `${selectedMaintenanceItem.days_until_due ?? 0} days left` : `${Math.round(selectedMaintenanceItem.hours_until_due)}h left`}). Mark as completed?`
-        }
-        onClose={() => setSelectedMaintenanceItem(null)}
-        actions={[
-          {
-            label: 'Cancel',
-            icon: <X size={18} color={colors.textSecondary} strokeWidth={2} />,
-            onPress: () => setSelectedMaintenanceItem(null),
-          },
-          {
-            label: 'Mark complete',
-            icon: <CheckCircle size={18} color={colors.text} strokeWidth={2} />,
-            onPress: () => {
-              if (!selectedMaintenanceItem) return;
-              const item = selectedMaintenanceItem;
-              setSelectedMaintenanceItem(null);
-              api
-                .performMaintenance(item.id)
-                .then(() => {
-                  queryClient.invalidateQueries({ queryKey: ['maintenanceTasks'] });
-                  showToast(`${item.maintenance_type_name} marked complete`, 'success');
-                })
-                .catch(err => {
-                  showToast(getErrorMessage(err, 'Could not complete task'), 'error');
-                });
-            },
-          },
-        ]}
-      />
-
-      <ActionSheetModal
-        visible={calibrateSheetVisible}
-        title="Calibration"
-        subtitle="Choose a printer homing action."
-        onClose={() => setCalibrateSheetVisible(false)}
-        actions={[
-          {
-            label: 'Auto-level bed',
-            icon: <RotateCcw size={18} color={colors.text} strokeWidth={2} />,
-            onPress: () => {
-              setCalibrateSheetVisible(false);
-              calibrateMutation.mutate('z');
-            },
-            disabled: !canControlPrinter || calibrateMutation.isPending,
-            loading: calibrateMutation.isPending,
-          },
-          {
-            label: 'Home all axes',
-            icon: <Move size={18} color={colors.text} strokeWidth={2} />,
-            onPress: () => {
-              setCalibrateSheetVisible(false);
-              calibrateMutation.mutate('all');
-            },
-            disabled: !canControlPrinter || calibrateMutation.isPending,
-            loading: calibrateMutation.isPending,
-          },
-          {
-            label: 'Home XY',
-            icon: <Move size={18} color={colors.text} strokeWidth={2} />,
-            onPress: () => {
-              setCalibrateSheetVisible(false);
-              calibrateMutation.mutate('xy');
-            },
-            disabled: !canControlPrinter || calibrateMutation.isPending,
-            loading: calibrateMutation.isPending,
-          },
-        ]}
-      />
-
-      <ActionSheetModal
-        visible={moreSheetVisible}
-        title={printer.name}
-        subtitle={printer.model || 'Printer options'}
-        onClose={() => setMoreSheetVisible(false)}
-        actions={[
-          {
-            label: 'Edit',
-            icon: <Pencil size={18} color={colors.text} strokeWidth={2} />,
-            onPress: () => {
-              setMoreSheetVisible(false);
-              setEditModalVisible(true);
-            },
-            disabled: !canEditPrinter,
-          },
-          {
-            label:
-              printer.is_active === false
-                ? 'Disable maintenance mode'
-                : 'Enable maintenance mode',
-            icon: <Wrench size={18} color={colors.text} strokeWidth={2} />,
-            onPress: () => {
-              setMoreSheetVisible(false);
-              handleToggleMaintenance();
-            },
-            disabled: !canEditPrinter || maintenanceMutation.isPending,
-            loading: maintenanceMutation.isPending,
-          },
-          {
-            label: 'Delete',
-            icon: <Trash2 size={18} color={colors.error} strokeWidth={2} />,
-            onPress: () => {
-              setMoreSheetVisible(false);
-              handleDeletePrinter();
-            },
-            destructive: true,
-            disabled: !canDeletePrinter || deleteMutation.isPending,
-            loading: deleteMutation.isPending,
-          },
-        ]}
-      />
       {selectionMode ? (
         <>
           <Pressable
@@ -1819,553 +680,3 @@ export function PrinterCard({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    position: 'relative',
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  compactCard: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  compactTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  compactImageWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  compactImage: {
-    width: 36,
-    height: 36,
-    resizeMode: 'contain',
-  },
-  compactTextCol: {
-    flex: 1,
-    gap: 2,
-  },
-  compactNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  compactName: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.bold,
-  },
-  compactDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  compactModel: {
-    fontSize: fontSize.xs,
-  },
-  compactProgressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    alignSelf: 'stretch',
-  },
-  compactProgressTrack: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  compactProgressFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  compactPercent: {
-    fontSize: fontSize.xs,
-    minWidth: 36,
-    textAlign: 'right',
-  },
-  selectionCover: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: borderRadius.xl,
-  },
-  selectionBadge: {
-    position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
-    width: 24,
-    height: 24,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  titleArea: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  printerImageWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  printerImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: borderRadius.lg,
-  },
-  titleText: {
-    flex: 1,
-    gap: 2,
-  },
-  titleLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  title: {
-    flex: 1,
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
-  },
-  connectionDot: {
-    width: 10,
-    height: 10,
-    borderRadius: borderRadius.full,
-  },
-  meta: {
-    fontSize: fontSize.sm,
-  },
-  badgesWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  infoPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  infoPillText: {
-    fontSize: 10,
-    fontWeight: fontWeight.semibold,
-  },
-  sectionLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  sectionLabel: {
-    fontSize: fontSize.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-    fontWeight: fontWeight.semibold,
-  },
-  sectionDivider: {
-    flex: 1,
-    height: 2,
-    borderRadius: borderRadius.full,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  previewFrame: {
-    width: 108,
-    height: 108,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    borderWidth: 1,
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  previewProgressWrap: {
-    position: 'absolute',
-    left: spacing.sm,
-    right: spacing.sm,
-    bottom: 0,
-  },
-  previewProgressTrack: {
-    height: 6,
-    borderRadius: borderRadius.full,
-    overflow: 'hidden',
-  },
-  previewPlaceholder: {
-    width: 108,
-    height: 108,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewProgressFill: {
-    height: '100%',
-    borderRadius: borderRadius.full,
-  },
-  statusContent: {
-    flex: 1,
-    gap: spacing.sm,
-  },
-  statusTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  stateText: {
-    flex: 1,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-  },
-  refreshText: {
-    fontSize: fontSize.xs,
-  },
-  printName: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-  },
-  progressTrack: {
-    height: 8,
-    borderRadius: borderRadius.full,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: borderRadius.full,
-  },
-  progressMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  progressText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-  },
-  progressMeta: {
-    fontSize: fontSize.sm,
-  },
-  timelineRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  timelineItem: {
-    fontSize: fontSize.xs,
-  },
-  userText: {
-    fontSize: fontSize.xs,
-  },
-  controlsGrid: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  controlActionsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  controlButton: {
-    minHeight: 38,
-    minWidth: 96,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-  },
-  controlIconButton: {
-    flex: 1,
-    height: 44,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  controlButtonOutline: {
-    backgroundColor: 'transparent',
-  },
-  controlButtonText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-  },
-  metricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  metricCard: {
-    width: '31%',
-    flexGrow: 1,
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  metricHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  metricLabel: {
-    fontSize: fontSize.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  metricDot: {
-    width: 8,
-    height: 8,
-    borderRadius: borderRadius.full,
-  },
-  metricValue: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-  },
-  metricHelper: {
-    fontSize: fontSize.xs,
-  },
-  amsList: {
-    gap: spacing.sm,
-  },
-  amsCard: {
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  amsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  amsHeaderText: {
-    flex: 1,
-    gap: 2,
-  },
-  amsTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-  },
-  amsSubtitle: {
-    fontSize: fontSize.xs,
-  },
-  amsIndicators: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  amsIndicatorText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
-  },
-  trayGrid: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  trayPressable: {
-    flex: 1,
-    minWidth: 0,
-  },
-  trayCard: {
-    flex: 1,
-    minWidth: 0,
-    borderWidth: 1,
-    borderRadius: borderRadius.md,
-    padding: spacing.sm,
-    gap: 4,
-  },
-  trayCardCompact: {
-    maxWidth: 140,
-  },
-  trayTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  trayColorCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trayColorText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
-  },
-  activeDot: {
-    width: 10,
-    height: 10,
-    borderRadius: borderRadius.full,
-    marginTop: 2,
-  },
-  trayLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-  },
-  traySubtitle: {
-    fontSize: 10,
-  },
-  fillTrack: {
-    height: 6,
-    borderRadius: borderRadius.full,
-    overflow: 'hidden',
-  },
-  fillBar: {
-    height: '100%',
-    borderRadius: borderRadius.full,
-  },
-  trayFillText: {
-    fontSize: fontSize.xs,
-  },
-  rackRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  rackSlot: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rackSlotText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-  },
-  nozzleMetaList: {
-    gap: spacing.xs,
-  },
-  nozzleMetaText: {
-    fontSize: fontSize.xs,
-  },
-  hmsList: {
-    gap: spacing.sm,
-  },
-  hmsItem: {
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  hmsSeverity: {
-    width: 8,
-    height: 36,
-    borderRadius: borderRadius.full,
-  },
-  hmsText: {
-    flex: 1,
-    gap: 2,
-  },
-  hmsTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-  },
-  hmsSubtitle: {
-    fontSize: fontSize.xs,
-  },
-  maintenanceList: {
-    gap: spacing.sm,
-  },
-  maintenanceItem: {
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  maintenanceDot: {
-    width: 8,
-    height: 32,
-    borderRadius: borderRadius.full,
-  },
-  maintenanceText: {
-    flex: 1,
-    gap: 2,
-  },
-  maintenanceTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-  },
-  maintenanceSubtitle: {
-    fontSize: fontSize.xs,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  footerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  footerRight: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-  },
-  iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  footerPrintButton: {
-    minHeight: 38,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-  },
-  footerPrintText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-  },
-  disabledAction: {
-    opacity: 0.45,
-  },
-});

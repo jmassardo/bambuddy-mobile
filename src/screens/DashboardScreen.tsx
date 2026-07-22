@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Pressable,
@@ -41,7 +42,6 @@ import type {
   PrinterStatus,
   PrintQueueItem,
 } from '@/types/api';
-import type { AppNavigationProp } from '@/navigation/types';
 
 const FILTERS = [
   { key: 'all', label: 'All' },
@@ -174,16 +174,16 @@ function classifyPrinter(
 ) {
   if (printer.is_active === false) return 'issues';
   if (!status?.connected) return 'offline';
+  if ((status.hms_errors?.length ?? 0) > 0) return 'issues';
+  if ((maintenance?.dueCount ?? 0) > 0) return 'issues';
   if (status.state === 'RUNNING') return 'printing';
   if (status.state === 'PAUSE') return 'paused';
   if (status.state === 'FAILED') return 'issues';
-  if ((status.hms_errors?.length ?? 0) > 0) return 'issues';
-  if ((maintenance?.dueCount ?? 0) > 0) return 'issues';
   return 'idle';
 }
 
 export default function PrintersDashboardScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<MainTabNavigationProp<'Dashboard'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Printers' });
   }, [navigation]);
@@ -192,7 +192,7 @@ export default function PrintersDashboardScreen() {
   const { hasAnyPermission } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  const { isConnected: wsConnected, isReconnecting } = useWebSocket();
+  const { isConnected: wsConnected } = useWebSocket();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
   const [viewMode, setViewMode] = useState<'normal' | 'compact'>('normal');
@@ -325,6 +325,25 @@ export default function PrintersDashboardScreen() {
     });
   }, [filter, maintenanceByPrinter, printers, search, statusByPrinter]);
 
+  // TODO: summary stats for future dashboard summary widget
+  // const summary = useMemo(() => {
+  //   return printers.reduce(
+  //     (acc, printer) => {
+  //       const status = statusByPrinter.get(printer.id);
+  //       const maintenance = maintenanceByPrinter.get(printer.id);
+  //       const mode = classifyPrinter(printer, status, maintenance);
+  //       acc.total += 1;
+  //       if (mode === 'printing') acc.printing += 1;
+  //       if (mode === 'paused') acc.paused += 1;
+  //       if (mode === 'idle') acc.idle += 1;
+  //       if (mode === 'issues') acc.issues += 1;
+  //       if (mode === 'offline') acc.offline += 1;
+  //       return acc;
+  //     },
+  //     { total: 0, printing: 0, paused: 0, idle: 0, issues: 0, offline: 0 },
+  //   );
+  // }, [maintenanceByPrinter, printers, statusByPrinter]);
+
   const handleRefresh = async () => {
     await Promise.all([
       printersQuery.refetch(),
@@ -420,9 +439,6 @@ export default function PrintersDashboardScreen() {
         contentContainerStyle={styles.content}
         columnWrapperStyle={viewMode === 'compact' ? styles.gridRow : undefined}
         ItemSeparatorComponent={viewMode === 'compact' ? undefined : ListSeparator}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={5}
         refreshControl={
           <RefreshControl
             refreshing={
@@ -450,7 +466,6 @@ export default function PrintersDashboardScreen() {
                   current.includes(item.id) ? current : [...current, item.id],
                 );
               }}
-              style={viewMode === 'compact' ? { flex: 1 } : undefined}
             >
               <PrinterCard
                 printer={item}
@@ -472,15 +487,15 @@ export default function PrintersDashboardScreen() {
                 onPress={() =>
                   selectionMode
                     ? toggleSelection()
-                    : navigation.navigate('PrinterDetail', { id: item.id })
+                    : navigation.navigate('PrinterDetail', { id: String(item.id) })
                 }
                 onCameraPress={() =>
                   selectionMode
                     ? toggleSelection()
-                    : navigation.navigate('Camera', { id: item.id })
+                    : navigation.navigate('Camera', { id: String(item.id) })
                 }
                 onQueuePress={() =>
-                  selectionMode ? toggleSelection() : navigation.navigate('Main', { screen: 'Queue' })
+                  selectionMode ? toggleSelection() : navigation.navigate('Queue')
                 }
                 onMaintenancePress={() =>
                   selectionMode ? toggleSelection() : navigation.navigate('Maintenance')
@@ -579,14 +594,12 @@ export default function PrintersDashboardScreen() {
                     { color: wsConnected ? colors.accentLight : colors.textSecondary },
                   ]}
                 >
-                  {wsConnected ? 'Live' : isReconnecting ? 'Reconnecting' : 'Polling'}
+                  {wsConnected ? 'Live' : 'Polling'}
                 </Text>
               </View>
               <Pressable
                 onPress={() => setViewMode(m => m === 'normal' ? 'compact' : 'normal')}
                 style={[styles.viewToggle, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-                accessibilityLabel={viewMode === 'normal' ? 'Switch to compact view' : 'Switch to normal view'}
-                accessibilityRole="button"
               >
                 {viewMode === 'normal'
                   ? <Grid2x2 size={16} color={colors.text} strokeWidth={2} />
@@ -596,10 +609,8 @@ export default function PrintersDashboardScreen() {
               <Pressable
                 onPress={() => setShowAddPrinter(true)}
                 style={[styles.addBtn, { backgroundColor: colors.accent }]}
-                accessibilityLabel="Add printer"
-                accessibilityRole="button"
               >
-                <Plus size={18} color={colors.textInverse} strokeWidth={2.5} />
+                <Plus size={18} color="#fff" strokeWidth={2.5} />
               </Pressable>
             </View>
 

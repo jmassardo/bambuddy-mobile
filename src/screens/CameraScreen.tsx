@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -48,7 +49,6 @@ import type {
 } from '@/types/api';
 import { withCacheBuster } from '@/utils/data';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { AppNavigationProp } from '@/navigation/types';
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
@@ -286,8 +286,8 @@ function clampTranslationOffset(value: number, axisSize: number, scale: number) 
 }
 
 export default function CameraScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
-  const route = useRoute<any>();
+  const navigation = useNavigation<RootNavigationProp<'Camera'>>();
+  const route = useRoute<RootRouteProp<'Camera'>>();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const { hasPermission } = useAuth();
@@ -609,7 +609,7 @@ export default function CameraScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}> 
+    <View style={[styles.container, { backgroundColor: '#000' }]}> 
       {printerQuery.isLoading || statusQuery.isLoading ? (
         <View style={styles.stateWrap}>
           <ActivityIndicator size="large" color={colors.accent} />

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   RefreshControl,
@@ -15,7 +16,6 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDateTime, pickArray, pickBoolean, pickString, statusColor, type ApiRecord } from '@/utils/data';
-import type { AppNavigationProp } from '@/navigation/types';
 
 type ProfileTab = 'cloud' | 'orca' | 'local' | 'kprofiles';
 type CloudStep = 'login' | 'code' | 'token';
@@ -24,32 +24,12 @@ function normalizeProfiles(source: unknown): ApiRecord[] {
   if (Array.isArray(source)) {
     return source.filter((item): item is ApiRecord => typeof item === 'object' && item !== null);
   }
-  if (typeof source === 'object' && source !== null) {
-    // Try known wrapper keys first (e.g. {profiles: [...]})
-    const records = pickArray(source, ['profiles', 'items', 'results']);
-    if (records.length > 0) {
-      return records.filter((item): item is ApiRecord => typeof item === 'object' && item !== null);
-    }
-    // Flatten categorized responses (e.g. {filament: [...], printer: [...], process: [...]})
-    const obj = source as Record<string, unknown>;
-    const merged: ApiRecord[] = [];
-    for (const key of Object.keys(obj)) {
-      const val = obj[key];
-      if (Array.isArray(val)) {
-        for (const item of val) {
-          if (typeof item === 'object' && item !== null) {
-            merged.push(item as ApiRecord);
-          }
-        }
-      }
-    }
-    return merged;
-  }
-  return [];
+  const records = pickArray(source, ['profiles', 'items', 'results']);
+  return records.filter((item): item is ApiRecord => typeof item === 'object' && item !== null);
 }
 
 export default function ProfilesScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<RootNavigationProp<'Profiles'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Profiles' });
   }, [navigation]);

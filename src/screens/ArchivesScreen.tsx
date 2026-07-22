@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {
   FlatList,
@@ -12,7 +13,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Calendar, Camera, CheckCircle, ChevronDown, Download, Grid2x2, List, MoreHorizontal, Pause, Printer as PrinterIcon, Tag, X } from 'lucide-react-native';
+import { Camera, CheckCircle, Download, Pause, X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { ArchiveCard } from '@/components/archives/ArchiveCard';
@@ -21,9 +22,10 @@ import {
   Chip,
   PrimaryButton,
   SearchBar,
+  SectionCard,
+  StatCard,
   TextField,
 } from '@/components/common/AppUI';
-import { ActionSheetModal } from '@/components/common/ActionSheetModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { useToast } from '@/contexts/ToastContext';
@@ -34,13 +36,14 @@ import {
   fontWeight,
   spacing,
 } from '@/theme/tokens';
-import type { Archive, Printer } from '@/types/api';
+import type { Archive, ArchiveStats, Printer } from '@/types/api';
 import {
+  formatCurrency,
+  formatDuration,
   pickArray,
   pickNumber,
 } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
-import type { AppNavigationProp } from '@/navigation/types';
 
 
 type ArchiveStatusFilter =
@@ -139,7 +142,7 @@ function SimpleModal({
 }
 
 export default function ArchivesScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<MainTabNavigationProp<'Archives'>>();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -163,10 +166,6 @@ export default function ArchivesScreen() {
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [purgeDays, setPurgeDays] = useState(90);
   const [purgeStats, setPurgeStats] = useState(false);
-  const [showPrinterSheet, setShowPrinterSheet] = useState(false);
-  const [showRangeSheet, setShowRangeSheet] = useState(false);
-  const [showTagSheet, setShowTagSheet] = useState(false);
-  const [showMoreSheet, setShowMoreSheet] = useState(false);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
@@ -212,6 +211,7 @@ export default function ArchivesScreen() {
     () => (Array.isArray(tagsQuery.data) ? tagsQuery.data : []),
     [tagsQuery.data],
   );
+  const stats = (statsQuery.data ?? null) as ArchiveStats | null;
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.deleteArchive(id),
@@ -318,13 +318,21 @@ export default function ArchivesScreen() {
     mutationFn: async () => {
       const filenameBase = `bambuddy-archives-${new Date().toISOString().slice(0, 10)}`;
       if (exportFormat === 'json') {
-        const blob = new Blob([JSON.stringify(filteredArchives, null, 2)], { type: 'application/json', lastModified: Date.now() } as any);
+        const jsonBlobOptions: BlobOptions = {
+          type: 'application/json',
+          lastModified: Date.now(),
+        };
+        const blob = new Blob([JSON.stringify(filteredArchives, null, 2)], jsonBlobOptions);
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
       if (hasUnsupportedServerExportFilters) {
         const csv = toCsv(archiveExportRows(filteredArchives));
-        const blob = new Blob([csv], { type: 'text/csv', lastModified: Date.now() } as any);
+        const csvBlobOptions: BlobOptions = {
+          type: 'text/csv',
+          lastModified: Date.now(),
+        };
+        const blob = new Blob([csv], csvBlobOptions);
         await shareBlob(blob, `${filenameBase}.csv`);
         return;
       }
@@ -413,9 +421,6 @@ export default function ArchivesScreen() {
         data={filteredArchives}
         keyExtractor={item => String(item.id)}
         numColumns={viewMode === 'grid' ? 2 : 1}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={5}
         renderItem={({ item }) => (
           <View style={[styles.archiveCell, viewMode === 'grid' ? styles.gridCell : styles.listCell]}>
             <ArchiveCard
@@ -424,7 +429,7 @@ export default function ArchivesScreen() {
               selected={selectedIds.includes(item.id)}
               selectionMode={selectionMode}
               onToggleSelect={() => toggleSelected(item.id)}
-              onPress={() => navigation.navigate('ArchiveDetail', { id: item.id })}
+              onPress={() => navigation.navigate('ArchiveDetail', { id: String(item.id) })}
               onLongPress={() => {
                 setSelectionMode(true);
                 setSelectedIds(current =>
@@ -470,7 +475,16 @@ export default function ArchivesScreen() {
         }
         ListHeaderComponent={
           <View style={styles.headerStack}>
-            <SearchBar value={search} onChangeText={setSearch} placeholder="Search print name, filename, printer, material, tags, or notes" />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
+              <StatCard label="Filtered" value={String(filteredArchives.length)} helper={`${archives.length} total`} />
+              <StatCard label="Successful" value={String(stats?.successful_prints ?? 0)} helper="Archive stats" />
+              <StatCard label="Failed" value={String(stats?.failed_prints ?? 0)} helper="Archive stats" />
+              <StatCard label="Print time" value={formatDuration(Math.round((stats?.total_print_time_hours ?? 0) * 3600))} helper="All archives" />
+              <StatCard label="Cost" value={formatCurrency(stats?.total_cost ?? 0)} helper="All archives" />
+            </ScrollView>
+
+            <SectionCard title="Archive browser" subtitle="Web-style search, filters, compare mode, tags, and actions for reprints, timelapses, photos, QR links, and deletes.">
+              <SearchBar value={search} onChangeText={setSearch} placeholder="Search print name, filename, printer, material, tags, or notes" />
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
                 {(['all', 'completed', 'failed', 'cancelled', 'favorite', 'duplicate'] as ArchiveStatusFilter[]).map(status => (
@@ -483,82 +497,65 @@ export default function ArchivesScreen() {
                 ))}
               </ScrollView>
 
-              <View style={styles.toolbarRow}>
-                <Pressable
-                  onPress={() => setShowRangeSheet(true)}
-                  style={[styles.toolbarButton, { backgroundColor: colors.surfaceElevated, borderColor: rangeFilter !== 'all' ? colors.accent : colors.border }]}
-                >
-                  <Calendar size={14} color={rangeFilter !== 'all' ? colors.accent : colors.textSecondary} strokeWidth={2} />
-                  <Text style={[styles.toolbarLabel, { color: rangeFilter !== 'all' ? colors.accent : colors.text }]} numberOfLines={1}>
-                    {rangeFilter === 'all' ? 'All dates' : `${rangeFilter.toUpperCase()}`}
-                  </Text>
-                  <ChevronDown size={14} color={colors.textSecondary} strokeWidth={2} />
-                </Pressable>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                {(['all', '7d', '30d', '90d'] as RangeFilter[]).map(range => (
+                  <Chip
+                    key={range}
+                    label={range === 'all' ? 'All dates' : `${range.toUpperCase()} range`}
+                    selected={rangeFilter === range}
+                    onPress={() => setRangeFilter(range)}
+                  />
+                ))}
+              </ScrollView>
 
-                <Pressable
-                  onPress={() => setShowPrinterSheet(true)}
-                  style={[styles.toolbarButton, { backgroundColor: colors.surfaceElevated, borderColor: printerFilter !== 'all' ? colors.accent : colors.border }]}
-                >
-                  <PrinterIcon size={14} color={printerFilter !== 'all' ? colors.accent : colors.textSecondary} strokeWidth={2} />
-                  <Text style={[styles.toolbarLabel, { color: printerFilter !== 'all' ? colors.accent : colors.text }]} numberOfLines={1}>
-                    {printerFilter === 'all' ? 'All printers' : printers.find(p => p.id === printerFilter)?.name ?? 'Printer'}
-                  </Text>
-                  <ChevronDown size={14} color={colors.textSecondary} strokeWidth={2} />
-                </Pressable>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                <Chip label="All printers" selected={printerFilter === 'all'} onPress={() => setPrinterFilter('all')} />
+                {printers.map(printer => (
+                  <Chip
+                    key={printer.id}
+                    label={printer.name}
+                    selected={printerFilter === printer.id}
+                    onPress={() => setPrinterFilter(printer.id)}
+                  />
+                ))}
+              </ScrollView>
 
-                {tagSummary.length > 0 ? (
-                  <Pressable
-                    onPress={() => setShowTagSheet(true)}
-                    style={[styles.toolbarButton, { backgroundColor: colors.surfaceElevated, borderColor: tagFilter !== null ? colors.accent : colors.border }]}
-                  >
-                    <Tag size={14} color={tagFilter !== null ? colors.accent : colors.textSecondary} strokeWidth={2} />
-                    <Text style={[styles.toolbarLabel, { color: tagFilter !== null ? colors.accent : colors.text }]} numberOfLines={1}>
-                      {tagFilter ?? 'All tags'}
-                    </Text>
-                    <ChevronDown size={14} color={colors.textSecondary} strokeWidth={2} />
-                  </Pressable>
-                ) : null}
-              </View>
+              {tagSummary.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                  <Chip label="All tags" selected={tagFilter === null} onPress={() => setTagFilter(null)} />
+                  {tagSummary.map(tag => (
+                    <Chip
+                      key={tag.name}
+                      label={`${tag.name} (${tag.count})`}
+                      selected={tagFilter === tag.name}
+                      onPress={() => setTagFilter(tag.name)}
+                    />
+                  ))}
+                </ScrollView>
+              ) : null}
 
-              <View style={styles.toolbarRow}>
-                <Pressable
+              <View style={styles.headerActions}>
+                <PrimaryButton
+                  label={viewMode === 'grid' ? 'List view' : 'Grid view'}
+                  variant="secondary"
                   onPress={() => setViewMode(current => (current === 'grid' ? 'list' : 'grid'))}
-                  style={[styles.toolbarButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-                >
-                  {viewMode === 'grid'
-                    ? <List size={14} color={colors.textSecondary} strokeWidth={2} />
-                    : <Grid2x2 size={14} color={colors.textSecondary} strokeWidth={2} />
-                  }
-                  <Text style={[styles.toolbarLabel, { color: colors.text }]}>
-                    {viewMode === 'grid' ? 'List' : 'Grid'}
-                  </Text>
-                </Pressable>
-
-                <Pressable
+                />
+                <PrimaryButton
+                  label={selectionMode ? 'Done selecting' : 'Select archives'}
+                  variant="secondary"
                   onPress={() => {
                     if (selectionMode) setSelectedIds([]);
                     setSelectionMode(current => !current);
                   }}
-                  style={[styles.toolbarButton, { backgroundColor: colors.surfaceElevated, borderColor: selectionMode ? colors.accent : colors.border }]}
-                >
-                  <CheckCircle size={14} color={selectionMode ? colors.accent : colors.textSecondary} strokeWidth={2} />
-                  <Text style={[styles.toolbarLabel, { color: selectionMode ? colors.accent : colors.text }]}>
-                    {selectionMode ? 'Done' : 'Select'}
-                  </Text>
-                </Pressable>
-
+                />
+                <PrimaryButton label="Export" variant="secondary" onPress={() => setShowExportModal(true)} />
+                <PrimaryButton label="Purge" variant="secondary" onPress={() => setShowPurgeModal(true)} />
+                <PrimaryButton label="Manage tags" variant="secondary" onPress={() => setShowTagSummary(true)} />
                 {selectedIds.length >= 2 && selectedIds.length <= 5 ? (
                   <PrimaryButton label={`Compare (${selectedIds.length})`} onPress={() => setCompareIds(selectedIds)} />
                 ) : null}
-
-                <Pressable
-                  onPress={() => setShowMoreSheet(true)}
-                  style={[styles.toolbarButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-                >
-                  <MoreHorizontal size={14} color={colors.textSecondary} strokeWidth={2} />
-                  <Text style={[styles.toolbarLabel, { color: colors.text }]}>More</Text>
-                </Pressable>
               </View>
+            </SectionCard>
           </View>
         }
         ListEmptyComponent={
@@ -821,70 +818,6 @@ export default function ArchivesScreen() {
         confirmLabel="Purge"
         loading={purgeMutation.isPending}
       />
-
-      <ActionSheetModal
-        visible={showPrinterSheet}
-        title="Filter by printer"
-        onClose={() => setShowPrinterSheet(false)}
-        actions={[
-          {
-            label: 'All printers',
-            onPress: () => { setPrinterFilter('all'); setShowPrinterSheet(false); },
-          },
-          ...printers.map(printer => ({
-            label: printer.name,
-            onPress: () => { setPrinterFilter(printer.id); setShowPrinterSheet(false); },
-          })),
-        ]}
-      />
-
-      <ActionSheetModal
-        visible={showRangeSheet}
-        title="Filter by date range"
-        onClose={() => setShowRangeSheet(false)}
-        actions={(['all', '7d', '30d', '90d'] as RangeFilter[]).map(range => ({
-          label: range === 'all' ? 'All dates' : `Last ${range === '7d' ? '7 days' : range === '30d' ? '30 days' : '90 days'}`,
-          onPress: () => { setRangeFilter(range); setShowRangeSheet(false); },
-        }))}
-      />
-
-      {tagSummary.length > 0 ? (
-        <ActionSheetModal
-          visible={showTagSheet}
-          title="Filter by tag"
-          onClose={() => setShowTagSheet(false)}
-          actions={[
-            {
-              label: 'All tags',
-              onPress: () => { setTagFilter(null); setShowTagSheet(false); },
-            },
-            ...tagSummary.map(tag => ({
-              label: `${tag.name} (${tag.count})`,
-              onPress: () => { setTagFilter(tag.name); setShowTagSheet(false); },
-            })),
-          ]}
-        />
-      ) : null}
-
-      <ActionSheetModal
-        visible={showMoreSheet}
-        title="Archive actions"
-        onClose={() => setShowMoreSheet(false)}
-        actions={[
-          {
-            label: 'Export',
-            onPress: () => { setShowMoreSheet(false); setShowExportModal(true); },
-          },
-          {
-            label: 'Purge old archives',
-            onPress: () => { setShowMoreSheet(false); setShowPurgeModal(true); },
-          },
-          {
-            label: 'Manage tags',
-            onPress: () => { setShowMoreSheet(false); setShowTagSummary(true); },
-          },
-        ]}
-      />
     </View>
   );
 }
@@ -906,29 +839,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerStack: {
-    gap: spacing.md,
+    gap: spacing.lg,
     marginBottom: spacing.lg,
+  },
+  statsRow: {
+    gap: spacing.md,
   },
   filterRow: {
     gap: spacing.sm,
   },
-  toolbarRow: {
+  headerActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-  },
-  toolbarButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-  },
-  toolbarLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
   },
   archiveCell: {
     marginBottom: spacing.md,

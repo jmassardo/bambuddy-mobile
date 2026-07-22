@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Modal,
@@ -30,7 +31,6 @@ import {
   pickString,
   type ApiRecord,
 } from '@/utils/data';
-import type { AppNavigationProp } from '@/navigation/types';
 
 type RangeKey = 'today' | '7d' | '30d' | '90d' | 'all';
 type SelectorKey = 'printer' | 'user' | null;
@@ -138,7 +138,7 @@ function buildFailureRates(items: ApiRecord[], keyFn: (item: ApiRecord) => strin
 }
 
 export default function StatsScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<RootNavigationProp<'Stats'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Statistics' });
   }, [navigation]);
@@ -189,10 +189,11 @@ export default function StatsScreen() {
     mutationFn: async (format: 'csv' | 'json') => {
       const filenameBase = `bambuddy-stats-${range}${selectedPrinterId ? `-printer-${selectedPrinterId}` : ''}${selectedUserId !== null ? `-user-${selectedUserId}` : ''}`;
       if (format === 'json') {
-        const blob = new Blob([JSON.stringify(archivesQuery.data ?? [], null, 2)], {
+        const blobOptions: BlobOptions = {
           type: 'application/json',
           lastModified: Date.now(),
-        } as any);
+        };
+        const blob = new Blob([JSON.stringify(archivesQuery.data ?? [], null, 2)], blobOptions);
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
@@ -575,7 +576,7 @@ export default function StatsScreen() {
         <SectionCard title="Print habits" subtitle="Which days do you print most?">
           {habitsData.some(d => d.value > 0) ? (
             <SimpleBarChart
-              data={habitsData.map(d => ({ label: d.label, value: d.value, color: colors.info }))}
+              data={habitsData.map(d => ({ label: d.label, value: d.value, color: '#3b82f6' }))}
               height={160}
             />
           ) : (
@@ -586,7 +587,7 @@ export default function StatsScreen() {
         <SectionCard title="Time of day" subtitle="When you start prints during the day.">
           {hourlyData.some(d => d.value > 0) ? (
             <SimpleBarChart
-              data={hourlyData.filter((_, i) => i % 2 === 0).map(d => ({ label: d.label, value: d.value, color: colors.warning }))}
+              data={hourlyData.filter((_, i) => i % 2 === 0).map(d => ({ label: d.label, value: d.value, color: '#f59e0b' }))}
               height={160}
             />
           ) : (

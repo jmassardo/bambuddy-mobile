@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import {
   Camera,
@@ -14,10 +15,53 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton } from '@/components/common/AppUI';
-import type { AppNavigationProp } from '@/navigation/types';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
-function isLikelyUrl(value: string) {
-  return /^https?:\/\//i.test(value.trim());
+function isAllowedHttpHost(hostname: string) {
+  const normalizedHostname = hostname.trim().toLowerCase();
+  if (
+    normalizedHostname === 'localhost' ||
+    normalizedHostname.endsWith('.local')
+  ) {
+    return true;
+  }
+
+  const ipv4Match = normalizedHostname.match(
+    /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/,
+  );
+  if (!ipv4Match) return false;
+
+  const octets = ipv4Match.slice(1).map(value => Number(value));
+  if (octets.some(value => Number.isNaN(value) || value < 0 || value > 255)) {
+    return false;
+  }
+
+  const [first, second] = octets;
+  if (first === 10 || first === 127) return true;
+  if (first === 192 && second === 168) return true;
+  if (first === 172 && second >= 16 && second <= 31) return true;
+  return false;
+}
+
+function parseServerUrl(value: string) {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return null;
+
+  try {
+    const parsedUrl = new URL(trimmedValue);
+    if (parsedUrl.protocol === 'https:') {
+      return parsedUrl;
+    }
+    if (
+      parsedUrl.protocol === 'http:' &&
+      isAllowedHttpHost(parsedUrl.hostname)
+    ) {
+      return parsedUrl;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function extractSpoolId(value: string) {
@@ -26,11 +70,11 @@ function extractSpoolId(value: string) {
 }
 
 export default function ScannerScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<RootNavigationProp<'Scanner'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Scan QR Code', headerShown: false });
   }, [navigation]);
-  const route = useRoute<any>();
+  const route = useRoute<RootRouteProp<'Scanner'>>();
   const { mode } = (route.params ?? {}) as { mode?: string };
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -38,6 +82,7 @@ export default function ScannerScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const [handled, setHandled] = useState(false);
+  const [pendingServerUrl, setPendingServerUrl] = useState<URL | null>(null);
 
   const subtitle = useMemo(
     () =>
@@ -52,22 +97,14 @@ export default function ScannerScreen() {
     setHandled(true);
 
     try {
-      if (mode === 'server' || isLikelyUrl(data)) {
-        await useServerStore
-          .getState()
-          .setServerUrl(data.trim().replace(/\/$/, ''));
-        const status = await api.getAuthStatus();
-        setServerConnected(true);
-        showToast('Server URL saved from QR code.', 'success');
-        if (status.requires_setup) {
-          navigation.reset({ index: 0, routes: [{ name: 'Setup' }] });
+      const scannedServerUrl = parseServerUrl(data);
+      if (mode === 'server' || scannedServerUrl) {
+        if (!scannedServerUrl) {
+          showToast('QR code does not contain a valid server URL.', 'warning');
+          setHandled(false);
           return;
         }
-        if (status.auth_enabled) {
-          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-          return;
-        }
-        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+        setPendingServerUrl(scannedServerUrl);
         return;
       }
 
@@ -89,6 +126,39 @@ export default function ScannerScreen() {
         'error',
       );
       setHandled(false);
+    }
+  };
+
+  const confirmServerUrl = async () => {
+    if (!pendingServerUrl) return;
+
+    try {
+      await useServerStore
+        .getState()
+        .setServerUrl(pendingServerUrl.toString().trim().replace(/\/$/, ''));
+      const status = await api.getAuthStatus();
+      setServerConnected(true);
+      setPendingServerUrl(null);
+      showToast('Server URL saved from QR code.', 'success');
+      if (status.requires_setup) {
+        navigation.reset({ index: 0, routes: [{ name: 'Setup' }] });
+        return;
+      }
+      if (status.auth_enabled) {
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+        return;
+      }
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main', params: { screen: 'Dashboard' } }],
+      });
+    } catch (error) {
+      setPendingServerUrl(null);
+      setHandled(false);
+      showToast(
+        error instanceof Error ? error.message : 'Scan failed.',
+        'error',
+      );
     }
   };
 
@@ -116,9 +186,6 @@ export default function ScannerScreen() {
           label="Grant Camera Access"
           onPress={() => void requestPermission()}
         />
-        <Pressable onPress={() => navigation.goBack()} style={styles.backLink}>
-          <Text style={[styles.backLinkText, { color: colors.accent }]}>Go Back</Text>
-        </Pressable>
       </SafeAreaView>
     );
   }
@@ -134,9 +201,6 @@ export default function ScannerScreen() {
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           No back camera is available on this device.
         </Text>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backLink}>
-          <Text style={[styles.backLinkText, { color: colors.accent }]}>Go Back</Text>
-        </Pressable>
       </SafeAreaView>
     );
   }
@@ -161,7 +225,10 @@ export default function ScannerScreen() {
         {handled ? (
           <PrimaryButton
             label="Scan Another"
-            onPress={() => setHandled(false)}
+            onPress={() => {
+              setPendingServerUrl(null);
+              setHandled(false);
+            }}
             variant="secondary"
           />
         ) : null}
@@ -172,6 +239,24 @@ export default function ScannerScreen() {
       >
         <Text style={[styles.closeText, { color: colors.text }]}>Close</Text>
       </Pressable>
+      <ConfirmModal
+        visible={pendingServerUrl !== null}
+        onClose={() => {
+          setPendingServerUrl(null);
+          setHandled(false);
+        }}
+        onConfirm={() => {
+          void confirmServerUrl();
+        }}
+        title="Save server URL"
+        message={
+          pendingServerUrl
+            ? `Save ${pendingServerUrl.origin} (${pendingServerUrl.host}) as your Bambuddy server?`
+            : ''
+        }
+        confirmLabel="Save"
+        variant="info"
+      />
     </SafeAreaView>
   );
 }
@@ -196,8 +281,6 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: fontSize.xl, fontWeight: fontWeight.bold },
   subtitle: { fontSize: fontSize.base, lineHeight: 22 },
-  backLink: { marginTop: spacing.lg },
-  backLinkText: { fontSize: fontSize.base, fontWeight: fontWeight.semibold },
   closeButton: {
     position: 'absolute',
     top: spacing.xl,

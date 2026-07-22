@@ -100,7 +100,7 @@ npm run typecheck
 
 ## Links
 
-- Website: https://companion.bambuddy.cool
+- Website: https://dxrf.com/bambuddy-companion
 - Bambuddy platform: https://bambuddy.cool
 - Wiki: https://wiki.bambuddy.cool
 - GitHub Discussions: https://github.com/jmassardo/bambuddy-mobile/discussions

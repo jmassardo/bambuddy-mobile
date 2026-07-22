@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import {
   Image,
   Linking,
@@ -25,7 +26,6 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatCurrency, formatDate, formatDateTime, formatDuration, formatWeight, pickBoolean, pickNumber, pickString, statusColor, type ApiRecord } from '@/utils/data';
-import type { AppNavigationProp } from '@/navigation/types';
 
 type DetailTab = 'summary' | 'bom' | 'files' | 'timeline' | 'archives';
 
@@ -37,12 +37,12 @@ function isProjectModelFile(file: ApiRecord) {
 }
 
 export default function ProjectDetailScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<RootNavigationProp<'ProjectDetail'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Project' });
   }, [navigation]);
 
-  const route = useRoute<any>();
+  const route = useRoute<RootRouteProp<'ProjectDetail'>>();
   const projectId = Number(route.params?.id);
   const { colors } = useTheme();
   const { hasPermission } = useAuth();

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   Linking,
   RefreshControl,
@@ -18,7 +19,6 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { pickArray, pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
-import type { AppNavigationProp } from '@/navigation/types';
 
 type LogLevel = 'all' | 'info' | 'warn' | 'error';
 
@@ -40,7 +40,7 @@ function findCategory(data: ApiRecord, keys: string[]) {
 }
 
 export default function SystemScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<RootNavigationProp<'System'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'System' });
   }, [navigation]);
@@ -302,7 +302,7 @@ export default function SystemScreen() {
           />
         </View>
 
-        <ScrollView style={[styles.logBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} nestedScrollEnabled>
+        <View style={[styles.logBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
           {logEntries.length > 0 ? (
             logEntries.map((entry, index) => (
               <Text key={`${index}-${entry}`} style={[styles.logLine, { color: colors.textSecondary }]}>
@@ -312,7 +312,7 @@ export default function SystemScreen() {
           ) : (
             <Text style={[styles.logLine, { color: colors.textSecondary }]}>Recent logs are unavailable for this server.</Text>
           )}
-        </ScrollView>
+        </View>
       </SectionCard>
 
       <SectionCard title="Submit bug report" subtitle="Send recent diagnostics and open the resulting report when available.">

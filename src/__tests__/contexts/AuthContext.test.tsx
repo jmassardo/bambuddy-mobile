@@ -28,20 +28,30 @@ const mockedSetAuthToken = setAuthToken as jest.MockedFunction<typeof setAuthTok
 const testUser: UserResponse = {
   id: 1,
   username: 'jenna',
+  role: 'admin',
+  is_active: true,
   is_admin: true,
+  auth_source: 'local',
   email: 'jenna@example.com',
+  permissions: ['printers:read', 'printers:update', 'queue:update_all'],
+  created_at: '2026-01-01T00:00:00Z',
   groups: [
-    { id: 1, name: 'admins', permissions: ['printers.view', 'printers.edit', 'queue.manage'] },
+    { id: 1, name: 'admins', permissions: ['printers:read', 'printers:update', 'queue:update_all'] },
   ],
 };
 
 const regularUser: UserResponse = {
   id: 2,
   username: 'viewer',
+  role: 'user',
+  is_active: true,
   is_admin: false,
-  email: null,
+  auth_source: 'local',
+  email: undefined,
+  permissions: ['printers:read'],
+  created_at: '2026-01-01T00:00:00Z',
   groups: [
-    { id: 2, name: 'viewers', permissions: ['printers.view'] },
+    { id: 2, name: 'viewers', permissions: ['printers:read'] },
   ],
 };
 
@@ -75,7 +85,7 @@ describe('AuthContext', () => {
       await act(async () => { renderAuth(); });
       await act(async () => { await new Promise<void>((r) => setTimeout(r, 50)); });
 
-      expect(latestAuth!.hasPermission('anything.at.all')).toBe(true);
+      expect(latestAuth!.hasPermission('settings:update')).toBe(true);
     });
 
     it('checks group permissions for non-admin users', async () => {
@@ -84,8 +94,8 @@ describe('AuthContext', () => {
       await act(async () => { renderAuth(); });
       await act(async () => { await new Promise<void>((r) => setTimeout(r, 50)); });
 
-      expect(latestAuth!.hasPermission('printers.view')).toBe(true);
-      expect(latestAuth!.hasPermission('printers.edit')).toBe(false);
+      expect(latestAuth!.hasPermission('printers:read')).toBe(true);
+      expect(latestAuth!.hasPermission('printers:update')).toBe(false);
     });
 
     it('returns true when auth is disabled', async () => {
@@ -97,7 +107,7 @@ describe('AuthContext', () => {
       await act(async () => { renderAuth(); });
       await act(async () => { await new Promise<void>((r) => setTimeout(r, 50)); });
 
-      expect(latestAuth!.hasPermission('anything')).toBe(true);
+      expect(latestAuth!.hasPermission('settings:update')).toBe(true);
     });
 
     it('returns false when no user is logged in and auth enabled', async () => {
@@ -107,7 +117,7 @@ describe('AuthContext', () => {
       await act(async () => { await new Promise<void>((r) => setTimeout(r, 50)); });
 
       expect(latestAuth!.user).toBeNull();
-      expect(latestAuth!.hasPermission('printers.view')).toBe(false);
+      expect(latestAuth!.hasPermission('printers:read')).toBe(false);
     });
   });
 
@@ -118,8 +128,8 @@ describe('AuthContext', () => {
       await act(async () => { renderAuth(); });
       await act(async () => { await new Promise<void>((r) => setTimeout(r, 50)); });
 
-      expect(latestAuth!.hasAnyPermission('printers.edit', 'printers.view')).toBe(true);
-      expect(latestAuth!.hasAnyPermission('admin.settings', 'admin.users')).toBe(false);
+      expect(latestAuth!.hasAnyPermission('printers:update', 'printers:read')).toBe(true);
+      expect(latestAuth!.hasAnyPermission('settings:update', 'users:delete')).toBe(false);
     });
   });
 

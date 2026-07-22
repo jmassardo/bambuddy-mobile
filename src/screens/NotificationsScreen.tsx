@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import {
@@ -18,7 +19,7 @@ import {
   Card,
   Input,
   SectionHeader,
-} from '@/components/common/AppUI';
+} from '@/components/common/UIComponents';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import {
   EmptyState,
@@ -37,7 +38,6 @@ import type {
   ProviderType,
 } from '@/types/api';
 import { pickBoolean, pickString } from '@/utils/data';
-import type { AppNavigationProp } from '@/navigation/types';
 
 const PREFERENCE_ROWS = [
   {
@@ -450,7 +450,7 @@ function ProviderConfigFields({
 }
 
 export default function NotificationsScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<RootNavigationProp<'Notifications'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Notifications' });
   }, [navigation]);

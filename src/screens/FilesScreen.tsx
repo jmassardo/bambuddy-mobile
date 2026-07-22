@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Linking,
@@ -11,7 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { CheckCircle, ChevronDown, ChevronRight, Filter, Grid2x2, List, MoreHorizontal, Pause, X } from 'lucide-react-native';
+import { CheckCircle, ChevronDown, ChevronRight, Pause, X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { FileUploadModal } from '@/components/files/FileUploadModal';
@@ -22,13 +23,12 @@ import {
   PrimaryButton,
   SearchBar,
   SectionCard,
+  StatCard,
   TextField,
 } from '@/components/common/AppUI';
-import { ActionSheetModal } from '@/components/common/ActionSheetModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { PrintModal } from '@/components/printers/PrintModal';
-import { ModelViewer } from '@/components/viewer';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import {
@@ -47,8 +47,7 @@ import {
   pickString,
   type ApiRecord,
 } from '@/utils/data';
-import { formatFileSize } from '@/utils/data';
-import type { AppNavigationProp } from '@/navigation/types';
+import { formatFileSize } from '@/utils/formatters';
 
 
 type FileViewMode = 'list' | 'grid';
@@ -65,20 +64,18 @@ function ModalShell({
   subtitle,
   onClose,
   children,
-  fullScreen,
 }: {
   visible: boolean;
   title: string;
   subtitle?: string;
   onClose: () => void;
   children: React.ReactNode;
-  fullScreen?: boolean;
 }) {
   const { colors } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.modalBackdrop, fullScreen && styles.modalBackdropFull, { backgroundColor: colors.overlay }]}> 
-        <View style={[styles.modalCard, fullScreen && styles.modalCardFull, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
+      <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}> 
+        <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderText}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
@@ -127,7 +124,7 @@ function sortEntries(entries: ApiRecord[], sort: FileSort) {
 }
 
 export default function FilesScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<MainTabNavigationProp<'Files'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Files' });
   }, [navigation]);
@@ -167,9 +164,6 @@ export default function FilesScreen() {
   const [editingTagId, setEditingTagId] = useState<number | null>(null);
   const [pendingTagDelete, setPendingTagDelete] = useState<ApiRecord | null>(null);
   const [readmeExpanded, setReadmeExpanded] = useState(true);
-  const [showSortSheet, setShowSortSheet] = useState(false);
-  const [showTypeSheet, setShowTypeSheet] = useState(false);
-  const [showMoreSheet, setShowMoreSheet] = useState(false);
   const currentFolder = folderStack[folderStack.length - 1];
 
   const filesQuery = useQuery({
@@ -194,8 +188,6 @@ export default function FilesScreen() {
     queryKey: ['libraryTags'],
     queryFn: () => api.getLibraryTags(),
   });
-  // Query runs to keep external folders cache warm for downstream components
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const externalFoldersQuery = useQuery({
     queryKey: ['externalFolders'],
     queryFn: () => api.getExternalFolders(),
@@ -276,6 +268,11 @@ export default function FilesScreen() {
     () => tagCatalog.filter(tag => selectedTagIds.includes(pickNumber(tag, ['id']))),
     [selectedTagIds, tagCatalog],
   );
+  const externalFolders = useMemo(
+    () => (Array.isArray(externalFoldersQuery.data) ? externalFoldersQuery.data.filter(isRecord) : []),
+    [externalFoldersQuery.data],
+  );
+
   React.useEffect(() => {
     setReadmeExpanded(true);
   }, [currentFolder.id, readmeFileId]);
@@ -316,6 +313,16 @@ export default function FilesScreen() {
     () => filteredEntries.filter(isFolderEntry),
     [filteredEntries],
   );
+
+  const fileStats = useMemo(() => {
+    const folders = entries.filter(isFolderEntry).length;
+    const files = entries.length - folders;
+    const totalSize = entries.reduce(
+      (sum, item) => sum + pickNumber(item, ['file_size', 'size', 'size_bytes'], 0),
+      0,
+    );
+    return { folders, files, totalSize };
+  }, [entries]);
 
   const rootFolders = useMemo(() => {
     const tree = foldersQuery.data;
@@ -491,6 +498,15 @@ export default function FilesScreen() {
     onError: (error: Error) => showToast(error.message || 'Unable to remove the external folder.', 'error'),
   });
 
+  const scanExternalFolderMutation = useMutation({
+    mutationFn: (id: number) => api.scanExternalFolder(id),
+    onSuccess: async () => {
+      await invalidateFiles();
+      showToast('External folder synced.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to sync the external folder.', 'error'),
+  });
+
   const purgeOldFilesMutation = useMutation({
     mutationFn: () => api.purgeLibraryOldFiles({ older_than_days: purgeDays, include_never_printed: includeNeverPrinted }),
     onSuccess: async () => {
@@ -615,9 +631,6 @@ export default function FilesScreen() {
         data={filteredEntries}
         keyExtractor={item => `${trashMode ? 'trash' : 'file'}-${pickId(item)}`}
         numColumns={!trashMode && viewMode === 'grid' ? 2 : 1}
-        initialNumToRender={12}
-        maxToRenderPerBatch={10}
-        windowSize={5}
         renderItem={({ item }) => {
           if (trashMode) {
             const id = Number(pickId(item));
@@ -696,15 +709,24 @@ export default function FilesScreen() {
         }
         ListHeaderComponent={
           <View style={styles.headerStack}>
-            {!trashMode ? (
-              <Breadcrumb
-                path={folderStack}
-                onNavigate={index => {
-                  setFolderStack(current => current.slice(0, index + 1));
-                  setSelectedIds([]);
-                }}
-              />
-            ) : null}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
+              <StatCard label={trashMode ? 'Trash items' : 'Files'} value={String(fileStats.files)} helper={trashMode ? 'Deleted library files' : 'Current folder'} />
+              <StatCard label="Folders" value={String(fileStats.folders)} helper="Current folder" />
+              <StatCard label="Size" value={formatFileSize(fileStats.totalSize)} helper="Visible items" />
+              <StatCard label="Tags" value={String(Array.isArray(tagsQuery.data) ? tagsQuery.data.length : 0)} helper="Library catalog" />
+              <StatCard label="Pending uploads" value={String(pendingUploads.length)} helper="Server queue" />
+            </ScrollView>
+
+            <SectionCard title={trashMode ? 'Library trash' : 'File manager'} subtitle={trashMode ? 'Recover or permanently delete files from trash.' : 'Folder navigation, upload, file actions, and web-style metadata in one mobile view.'}>
+              {!trashMode ? (
+                <Breadcrumb
+                  path={folderStack}
+                  onNavigate={index => {
+                    setFolderStack(current => current.slice(0, index + 1));
+                    setSelectedIds([]);
+                  }}
+                />
+              ) : null}
               <SearchBar
                 value={search}
                 onChangeText={setSearch}
@@ -724,60 +746,90 @@ export default function FilesScreen() {
                   <Chip label="Clear tag filters" selected={false} onPress={() => setSelectedTagIds([])} />
                 </ScrollView>
               ) : null}
+              {!trashMode && visibleFolders.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.folderRow}>
+                  {visibleFolders.map(folder => (
+                    <Chip
+                      key={pickId(folder)}
+                      label={pickString(folder, ['name', 'filename'], 'Folder')}
+                      selected={false}
+                      onPress={() => openEntry(folder)}
+                    />
+                  ))}
+                </ScrollView>
+              ) : null}
               {!trashMode ? (
-                <View style={styles.toolbarRow}>
-                  <Pressable
-                    onPress={() => setShowTypeSheet(true)}
-                    style={[styles.toolbarButton, { backgroundColor: colors.surfaceElevated, borderColor: typeFilter !== 'all' ? colors.accent : colors.border }]}
-                  >
-                    <Filter size={14} color={typeFilter !== 'all' ? colors.accent : colors.textSecondary} strokeWidth={2} />
-                    <Text style={[styles.toolbarLabel, { color: typeFilter !== 'all' ? colors.accent : colors.text }]} numberOfLines={1}>
-                      {typeFilter === 'all' ? 'All types' : typeFilter.toUpperCase()}
-                    </Text>
-                    <ChevronDown size={14} color={colors.textSecondary} strokeWidth={2} />
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => setShowSortSheet(true)}
-                    style={[styles.toolbarButton, { backgroundColor: colors.surfaceElevated, borderColor: sortBy !== 'name' ? colors.accent : colors.border }]}
-                  >
-                    <Text style={[styles.toolbarLabel, { color: sortBy !== 'name' ? colors.accent : colors.text }]} numberOfLines={1}>
-                      Sort: {sortBy}
-                    </Text>
-                    <ChevronDown size={14} color={colors.textSecondary} strokeWidth={2} />
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => setViewMode(current => (current === 'grid' ? 'list' : 'grid'))}
-                    style={[styles.toolbarButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-                  >
-                    {viewMode === 'grid'
-                      ? <List size={14} color={colors.textSecondary} strokeWidth={2} />
-                      : <Grid2x2 size={14} color={colors.textSecondary} strokeWidth={2} />
-                    }
-                    <Text style={[styles.toolbarLabel, { color: colors.text }]}>
-                      {viewMode === 'grid' ? 'List' : 'Grid'}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => setShowMoreSheet(true)}
-                    style={[styles.toolbarButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-                  >
-                    <MoreHorizontal size={14} color={colors.textSecondary} strokeWidth={2} />
-                    <Text style={[styles.toolbarLabel, { color: colors.text }]}>More</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <View style={styles.toolbarRow}>
-                  <PrimaryButton
-                    label="Back to files"
-                    variant="secondary"
-                    onPress={() => {
-                      setTrashMode(false);
-                      setSelectedIds([]);
-                    }}
-                  />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                  <Chip label="All types" selected={typeFilter === 'all'} onPress={() => setTypeFilter('all')} />
+                  {fileTypes.map(type => (
+                    <Chip
+                      key={type}
+                      label={type.toUpperCase()}
+                      selected={typeFilter === type}
+                      onPress={() => setTypeFilter(type)}
+                    />
+                  ))}
+                </ScrollView>
+              ) : null}
+              {!trashMode ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                  {(['name', 'date', 'size', 'type', 'prints'] as FileSort[]).map(sort => (
+                    <Chip
+                      key={sort}
+                      label={`Sort: ${sort}`}
+                      selected={sortBy === sort}
+                      onPress={() => setSortBy(sort)}
+                    />
+                  ))}
+                </ScrollView>
+              ) : null}
+              <View style={styles.headerActions}>
+                <PrimaryButton
+                  label={viewMode === 'grid' ? 'List view' : 'Grid view'}
+                  variant="secondary"
+                  onPress={() => setViewMode(current => (current === 'grid' ? 'list' : 'grid'))}
+                  disabled={trashMode}
+                />
+                <PrimaryButton
+                  label="Upload"
+                  onPress={() => {
+                    setShowUploadModal(true);
+                  }}
+                  disabled={trashMode}
+                />
+                <PrimaryButton
+                  label="New folder"
+                  variant="secondary"
+                  onPress={() => setShowNewFolder(true)}
+                  disabled={trashMode}
+                />
+                <PrimaryButton
+                  label="Tags"
+                  variant="secondary"
+                  onPress={() => setShowTagFilterModal(true)}
+                  disabled={trashMode}
+                />
+                <PrimaryButton
+                  label="Purge old"
+                  variant="secondary"
+                  onPress={() => setShowPurgeModal(true)}
+                  disabled={trashMode}
+                />
+                <PrimaryButton
+                  label="External folders"
+                  variant="secondary"
+                  onPress={() => setShowExternalFolderModal(true)}
+                  disabled={trashMode}
+                />
+                <PrimaryButton
+                  label={trashMode ? 'Back to files' : 'Open trash'}
+                  variant="secondary"
+                  onPress={() => {
+                    setTrashMode(current => !current);
+                    setSelectedIds([]);
+                  }}
+                />
+                {trashMode ? (
                   <PrimaryButton
                     label="Empty trash"
                     variant="danger"
@@ -786,16 +838,58 @@ export default function FilesScreen() {
                     }}
                     disabled={emptyTrashMutation.isPending || entries.length === 0}
                   />
-                </View>
-              )}
-              {pendingUploads.length > 0 && !trashMode ? (
-                <View style={[styles.pendingUploads, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                ) : null}
+              </View>
+              {pendingUploads.length > 0 ? (
+                <View style={[styles.pendingUploads, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
                   <Text style={[styles.pendingUploadsTitle, { color: colors.text }]}>Pending uploads</Text>
                   <Text style={[styles.pendingUploadsText, { color: colors.textSecondary }]}>
                     {pendingUploads.length} file{pendingUploads.length === 1 ? '' : 's'} still processing on the server.
                   </Text>
                 </View>
               ) : null}
+            </SectionCard>
+
+            {!trashMode ? (
+              <SectionCard
+                title="External folders"
+                subtitle="Linked folders stay visible in the mobile file manager and can be synced on demand."
+              >
+                {externalFolders.length > 0 ? (
+                  externalFolders.map(folder => (
+                    <View
+                      key={pickId(folder)}
+                      style={[styles.externalFolderRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                    >
+                      <View style={styles.externalFolderText}>
+                        <Text style={[styles.externalFolderTitle, { color: colors.text }]}>{pickString(folder, ['name'], 'External folder')}</Text>
+                        <Text style={[styles.externalFolderMeta, { color: colors.textSecondary }]} numberOfLines={2}>
+                          {pickString(folder, ['external_path'], 'No path')}
+                        </Text>
+                        <Text style={[styles.externalFolderMeta, { color: colors.textSecondary }]}> 
+                          {pickBoolean(folder, ['external_readonly']) ? 'Read only' : 'Writable'}
+                        </Text>
+                      </View>
+                      <View style={styles.rowActionWrap}>
+                        <PrimaryButton
+                          label="Sync"
+                          variant="secondary"
+                          onPress={() => void scanExternalFolderMutation.mutateAsync(Number(pickId(folder)))}
+                          disabled={scanExternalFolderMutation.isPending}
+                        />
+                        <PrimaryButton
+                          label="Delete"
+                          variant="danger"
+                          onPress={() => setPendingExternalFolderDelete(folder)}
+                        />
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={[styles.pendingUploadsText, { color: colors.textSecondary }]}>No external folders added yet.</Text>
+                )}
+              </SectionCard>
+            ) : null}
           </View>
         }
         ListEmptyComponent={
@@ -934,18 +1028,9 @@ export default function FilesScreen() {
         title={previewItem ? entryName(previewItem) : 'Preview'}
         subtitle="Model viewer, file details, and plate metadata in a mobile-friendly sheet."
         onClose={() => setPreviewItem(null)}
-        fullScreen
       >
         {previewItem ? (
-          <ScrollView style={styles.previewScroll} contentContainerStyle={styles.previewScrollContent}>
-            {/\.(stl|3mf|gcode\.3mf)$/i.test(pickString(previewItem, ['filename', 'name'])) ? (
-              <ModelViewer
-                fileUrl={api.getLibraryFileDownloadUrl(Number(pickId(previewItem)))}
-                filename={pickString(previewItem, ['filename', 'name'], '')}
-                thumbnailUrl={api.getLibraryFileThumbnailUrl(Number(pickId(previewItem)))}
-                height={280}
-              />
-            ) : null}
+          <ScrollView style={styles.modalScroll}>
             <SectionCard title="File details" subtitle="Size, date, type, upload owner, print count, and slicing metadata.">
               <Text style={[styles.previewLine, { color: colors.text }]}>Filename: {pickString(previewItem, ['filename', 'name'], 'Unknown')}</Text>
               <Text style={[styles.previewLine, { color: colors.text }]}>Type: {pickString(previewItem, ['file_type', 'type'], 'file').toUpperCase()}</Text>
@@ -1010,7 +1095,7 @@ export default function FilesScreen() {
             ) : null}
           </ScrollView>
         ) : null}
-        <View style={[styles.modalFooter, { marginTop: 'auto' }]}>
+        <View style={styles.modalFooter}>
           <PrimaryButton label="Close" variant="secondary" onPress={() => setPreviewItem(null)} />
         </View>
       </ModalShell>
@@ -1262,43 +1347,6 @@ export default function FilesScreen() {
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
       />
-
-      <ActionSheetModal
-        visible={showTypeSheet}
-        title="Filter by type"
-        onClose={() => setShowTypeSheet(false)}
-        actions={[
-          { label: 'All types', onPress: () => { setTypeFilter('all'); setShowTypeSheet(false); } },
-          ...fileTypes.map(type => ({
-            label: type.toUpperCase(),
-            onPress: () => { setTypeFilter(type); setShowTypeSheet(false); },
-          })),
-        ]}
-      />
-
-      <ActionSheetModal
-        visible={showSortSheet}
-        title="Sort files by"
-        onClose={() => setShowSortSheet(false)}
-        actions={(['name', 'date', 'size', 'type', 'prints'] as FileSort[]).map(sort => ({
-          label: `Sort: ${sort}`,
-          onPress: () => { setSortBy(sort); setShowSortSheet(false); },
-        }))}
-      />
-
-      <ActionSheetModal
-        visible={showMoreSheet}
-        title="More actions"
-        onClose={() => setShowMoreSheet(false)}
-        actions={[
-          { label: 'Upload file', onPress: () => { setShowUploadModal(true); setShowMoreSheet(false); } },
-          { label: 'New folder', onPress: () => { setShowNewFolder(true); setShowMoreSheet(false); } },
-          { label: 'Tags', onPress: () => { setShowTagFilterModal(true); setShowMoreSheet(false); } },
-          { label: 'Purge old files', onPress: () => { setShowPurgeModal(true); setShowMoreSheet(false); } },
-          { label: 'External folders', onPress: () => { setShowExternalFolderModal(true); setShowMoreSheet(false); } },
-          { label: 'Open trash', onPress: () => { setTrashMode(true); setSelectedIds([]); setShowMoreSheet(false); } },
-        ]}
-      />
     </View>
   );
 }
@@ -1316,26 +1364,19 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     marginBottom: spacing.lg,
   },
+  statsRow: {
+    gap: spacing.md,
+  },
   filterRow: {
     gap: spacing.sm,
   },
-  toolbarRow: {
+  folderRow: {
+    gap: spacing.sm,
+  },
+  headerActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-  },
-  toolbarButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-  },
-  toolbarLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
   },
   pendingUploads: {
     borderWidth: 1,
@@ -1397,10 +1438,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingTop: spacing['4xl'],
   },
-  modalBackdropFull: {
-    paddingTop: 0,
-    justifyContent: 'flex-end',
-  },
   modalCard: {
     borderWidth: 1,
     borderTopLeftRadius: borderRadius['2xl'],
@@ -1411,14 +1448,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
     maxHeight: '88%',
-  },
-  modalCardFull: {
-    height: '90%',
-    maxHeight: '90%',
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    borderBottomWidth: 0,
-    flexDirection: 'column',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1438,12 +1467,6 @@ const styles = StyleSheet.create({
   },
   modalScroll: {
     maxHeight: 360,
-  },
-  previewScroll: {
-    flex: 1,
-  },
-  previewScrollContent: {
-    flexGrow: 1,
   },
   modalFooter: {
     flexDirection: 'row',

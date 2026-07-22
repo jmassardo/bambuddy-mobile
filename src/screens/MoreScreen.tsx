@@ -1,14 +1,14 @@
 import React from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { useMutation } from '@tanstack/react-query';
-import { MenuItem, SectionHeader } from '@/components/common/AppUI';
-import { useAuth } from '@/contexts/AuthContext';
+import { MenuItem, SectionHeader } from '@/components/common/UIComponents';
 import { useServerStore } from '@/api/server';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
 import { fontSize, fontWeight, spacing } from '@/theme/tokens';
-import type { AppNavigationProp } from '@/navigation/types';
 
 const MENU_GROUPS = [
   {
@@ -40,7 +40,7 @@ const MENU_GROUPS = [
 ] as const;
 
 export default function MoreScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<MainTabNavigationProp<'More'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'More' });
   }, [navigation]);
@@ -100,7 +100,7 @@ export default function MoreScreen() {
         <MenuItem
           icon="power"
           label={logoutMutation.isPending ? 'Signing out…' : 'Sign out'}
-          subtitle="Sign out of this account"
+          subtitle="Disconnect this mobile session"
           onPress={() => void logoutMutation.mutateAsync()}
           destructive
         />

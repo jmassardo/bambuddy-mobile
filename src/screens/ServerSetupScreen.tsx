@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   Image,
   KeyboardAvoidingView,
@@ -16,7 +17,6 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
-import type { AppNavigationProp } from '@/navigation/types';
 
 function normalizeUrl(input: string) {
   const trimmed = input.trim();
@@ -25,11 +25,11 @@ function normalizeUrl(input: string) {
 }
 
 export default function ServerConfigScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<RootNavigationProp<'ServerSetup'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Server', headerShown: false });
   }, [navigation]);
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const { setServerConnected } = useAuth();
   const { showToast } = useToast();
   const storedUrl = useServerStore(state => state.serverUrl);
@@ -78,7 +78,7 @@ export default function ServerConfigScreen() {
         ]}
       >
         <Image
-          source={isDark ? require('../../assets/images/bambuddy-logo.png') : require('../../assets/images/bambuddy-logo-dark.png')}
+          source={require('../../assets/images/bambuddy-logo.png')}
           style={styles.logoImage}
           resizeMode="contain"
         />
@@ -128,6 +128,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius['2xl'],
     padding: spacing.xl,
     gap: spacing.lg,
+  },
+  logo: {
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.bold,
+    textAlign: 'center',
   },
   logoImage: {
     width: 120,

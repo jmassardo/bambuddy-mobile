@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Image,
@@ -11,7 +12,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
+import {
+  errorCodes,
+  isErrorWithCode,
+  pick,
+  types,
+} from '@react-native-documents/picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { ActionSheetModal } from '@/components/common/ActionSheetModal';
@@ -23,7 +29,6 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDate, formatCurrency, pickNumber, pickString, statusColor, type ApiRecord } from '@/utils/data';
 import { proxyThumbnailUrl } from '@/utils/media';
-import type { AppNavigationProp } from '@/navigation/types';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'archived';
 
@@ -67,7 +72,7 @@ function projectCoverUrl(project: ApiRecord): string | null {
 }
 
 export default function ProjectsScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<RootNavigationProp<'Projects'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Projects' });
   }, [navigation]);
@@ -171,7 +176,12 @@ export default function ProjectsScreen() {
       showToast('Cover image updated.', 'success');
     },
     onError: (error: unknown) => {
-      if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) return;
+      if (
+        isErrorWithCode(error) &&
+        error.code === errorCodes.OPERATION_CANCELED
+      ) {
+        return;
+      }
       showToast(error instanceof Error ? error.message : 'Unable to upload cover image.', 'error');
     },
   });

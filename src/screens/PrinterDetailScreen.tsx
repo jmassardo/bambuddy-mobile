@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import {
   ActivityIndicator,
   Image,
@@ -48,7 +49,6 @@ import {
   statusColor,
   type ApiRecord,
 } from '@/utils/data';
-import type { AppNavigationProp } from '@/navigation/types';
 
 const SPEED_MODES = [
   { label: 'Silent', value: 1 },
@@ -124,8 +124,8 @@ function JogButton({
 }
 
 export default function PrinterDetailScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
-  const route = useRoute<any>();
+  const navigation = useNavigation<RootNavigationProp<'PrinterDetail'>>();
+  const route = useRoute<RootRouteProp<'PrinterDetail'>>();
   const { id } = (route.params ?? {}) as { id: string };
   const printerId = Number(id);
   const queryClient = useQueryClient();
@@ -339,11 +339,11 @@ export default function PrinterDetailScreen() {
       </View>
 
       <Pressable
-        onPress={() => navigation.navigate('Camera', { id: printerId })}
+        onPress={() => navigation.navigate('Camera', { id: String(printerId) })}
       >
         <Image
           source={{ uri: api.getCameraSnapshotUrl(printerId) }}
-          style={[styles.snapshot, { backgroundColor: colors.surface }]}
+          style={styles.snapshot}
         />
       </Pressable>
 
@@ -978,6 +978,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     borderRadius: borderRadius.xl,
+    backgroundColor: '#111827',
   },
   progressTrack: {
     height: 10,

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   Image,
   Modal,
@@ -17,10 +18,9 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDateTime, pickArray, pickBoolean, pickNumber, pickRecord, pickString, statusColor, type ApiRecord } from '@/utils/data';
-import type { AppNavigationProp } from '@/navigation/types';
 
 export default function MakerWorldScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<RootNavigationProp<'MakerWorld'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'MakerWorld' });
   }, [navigation]);

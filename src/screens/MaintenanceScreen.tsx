@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -36,7 +37,6 @@ import type {
   PrinterMaintenanceOverview,
 } from '@/types/api';
 import { formatDateTime } from '@/utils/data';
-import type { AppNavigationProp } from '@/navigation/types';
 
 type FilterKey = 'all' | 'due' | 'warning';
 type MaintenanceTab = 'overview' | 'history' | 'types';
@@ -392,7 +392,7 @@ function AssignTypeModal({
 }
 
 export default function MaintenanceScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<RootNavigationProp<'Maintenance'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Maintenance' });
   }, [navigation]);
@@ -569,7 +569,7 @@ export default function MaintenanceScreen() {
       >
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>Maintenance</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Track printer upkeep and schedules.</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Track printer upkeep, manage maintenance types, and assign new schedules.</Text>
         </View>
 
         <InlineTabBar
