@@ -148,6 +148,9 @@ export default function LoginScreen() {
     },
   });
 
+  const oidcExchangeRef = React.useRef(oidcExchangeMutation.mutateAsync);
+  oidcExchangeRef.current = oidcExchangeMutation.mutateAsync;
+
   useEffect(() => {
     const handleUrl = async ({ url }: { url: string }) => {
       const { token, error: oidcError, state } = parseOidcCallback(url);
@@ -172,7 +175,7 @@ export default function LoginScreen() {
       }
       if (token) {
         setError('');
-        await oidcExchangeMutation.mutateAsync(token);
+        await oidcExchangeRef.current(token);
       }
     };
 
@@ -184,7 +187,7 @@ export default function LoginScreen() {
       }
     })();
     return () => subscription.remove();
-  }, [oidcExchangeMutation, showToast]);
+  }, [showToast]);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
