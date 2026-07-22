@@ -255,7 +255,9 @@ export default function LoginScreen() {
 
   const oidcStartMutation = useMutation({
     mutationFn: async (providerId: number) => {
-      const state = `${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+      const bytes = new Uint8Array(24);
+      crypto.getRandomValues(bytes);
+      const state = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
       pendingOidcState.current = state;
       return api.getOIDCAuthorizeUrl(providerId, state);
     },

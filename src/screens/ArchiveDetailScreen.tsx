@@ -3,6 +3,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import {
   Image,
+  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -640,14 +641,38 @@ export default function ArchiveDetailScreen() {
             />
           </View>
           {archiveProjectPageUrl ? (
-            <WebView
-              source={{ uri: archiveProjectPageUrl }}
-              originWhitelist={serverOrigin ? [serverOrigin] : []}
-              javaScriptEnabled={false}
-              allowFileAccess={false}
-              setSupportMultipleWindows={false}
-              allowsInlineMediaPlayback
-            />
+            (() => {
+              let isExternal = false;
+              try {
+                isExternal = serverOrigin
+                  ? new URL(archiveProjectPageUrl).origin !== serverOrigin
+                  : false;
+              } catch {}
+              if (isExternal) {
+                return (
+                  <View style={styles.emptyWebView}>
+                    <Text style={[styles.note, { color: colors.textSecondary }]}>
+                      This project links to an external site.
+                    </Text>
+                    <PrimaryButton
+                      label="Open in Browser"
+                      variant="primary"
+                      onPress={() => Linking.openURL(archiveProjectPageUrl)}
+                    />
+                  </View>
+                );
+              }
+              return (
+                <WebView
+                  source={{ uri: archiveProjectPageUrl }}
+                  originWhitelist={serverOrigin ? [serverOrigin] : []}
+                  javaScriptEnabled={false}
+                  allowFileAccess={false}
+                  setSupportMultipleWindows={false}
+                  allowsInlineMediaPlayback
+                />
+              );
+            })()
           ) : (
             <View style={styles.emptyWebView}>
               <Text style={[styles.note, { color: colors.textSecondary }]}>

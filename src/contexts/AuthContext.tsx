@@ -108,11 +108,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { access_token: response.access_token, user: response.user };
   }, []);
 
-  const loginWithToken = useCallback(async (token: string, newUser: UserResponse) => {
-    await setAuthToken(token);
-    if (mountedRef.current) {
-      setUser(newUser);
-    }
+  const loginWithToken = useCallback((token: string, newUser: UserResponse) => {
+    setUser(newUser);
+    setAuthToken(token).catch(err => {
+      console.warn('Failed to persist auth token:', err);
+    });
   }, []);
 
   const logout = useCallback(async () => {
