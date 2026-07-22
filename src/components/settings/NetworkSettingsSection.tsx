@@ -4,10 +4,10 @@ import { EmptyState } from '@/components/common/StateScreens';
 import { PrimaryButton, SectionCard, StatusBadge, TextField } from '@/components/common/AppUI';
 import { settingsStyles, SwitchRow, stringifyNumberField } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
-import { pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
+import { pickBoolean, pickString, type ApiRecord } from '@/utils/data';
 
 export function NetworkSettingsSection({ controller }: { controller: SettingsScreenController }) {
-  const { draft, pendingDeleteExternalLink } = controller.state;
+  const { draft } = controller.state;
   const { setDraft, openExternalLinkModal, setPendingDeleteExternalLink } = controller.actions;
   const externalLinks = (controller.queries.externalLinksQuery.data ?? []) as ApiRecord[];
 

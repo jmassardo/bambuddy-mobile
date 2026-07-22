@@ -31,7 +31,7 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDateTime, formatWeight, pickArray, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
-import type { Printer, SpoolAssignment, SpoolKProfile, SpoolLabelTemplate, SpoolUsageRecord } from '@/types/api';
+import type { Printer, SpoolKProfile, SpoolLabelTemplate, SpoolUsageRecord } from '@/types/api';
 
 type ArchiveFilter = 'active' | 'archived';
 type ViewMode = 'cards' | 'forecast';

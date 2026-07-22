@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/theme';
-import type { AMSTray, NozzleRackSlot } from '@/types/api';
+import type { NozzleRackSlot } from '@/types/api';
 import {
   getFillColor,
   isLightColor,

@@ -7,7 +7,6 @@ import { PrimaryButton, SectionCard, StatusBadge } from '@/components/common/App
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import type { SmartPlug, SmartPlugStatus } from '@/types/api';
-import { statusColor } from '@/utils/data';
 import { describePlugConnection, settingsStyles, SwitchRow } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
 

@@ -14,7 +14,6 @@ import type {
   SMTPSettings,
   SmartPlug,
   SmartPlugCreate,
-  SmartPlugStatus,
   SmartPlugUpdate,
   TOTPSetupResponse,
   TwoFAStatus,
