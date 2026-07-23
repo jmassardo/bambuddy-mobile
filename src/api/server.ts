@@ -26,6 +26,11 @@ interface ServerStore {
   loadServerUrl: () => Promise<void>;
 }
 
+/** Returns true if the URL uses plain HTTP (not HTTPS) */
+export function isInsecureUrl(url: string): boolean {
+  return /^http:\/\//i.test(url) && !/^https:\/\//i.test(url);
+}
+
 export const useServerStore = create<ServerStore>((set) => ({
   serverUrl: null,
   loading: true,
@@ -33,8 +38,8 @@ export const useServerStore = create<ServerStore>((set) => ({
     const previousUrl = useServerStore.getState().serverUrl;
     // Normalize: strip trailing slash
     const normalized = url.replace(/\/+$/, '');
-    if (!/^https:\/\//i.test(normalized)) {
-      throw new Error('Server URL must use HTTPS (https://)');
+    if (!/^https?:\/\//i.test(normalized)) {
+      throw new Error('Server URL must use HTTP or HTTPS (e.g. https://...)');
     }
     await AsyncStorage.setItem(SERVER_URL_KEY, normalized);
     if (previousUrl !== normalized) {
