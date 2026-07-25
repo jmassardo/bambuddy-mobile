@@ -14,7 +14,6 @@ import {
   X,
   Search,
   ChevronRight,
-  Loader2,
   Stethoscope,
   AlertTriangle,
   CheckCircle,
@@ -96,15 +95,18 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
   // Fetch discovery info on mount
   useEffect(() => {
     if (!visible) return;
-    api.getDiscoveryInfo?.()
-      .then((info: { is_docker: boolean; subnets: string[] }) => {
+    const loadDiscoveryInfo = async () => {
+      try {
+        const info = await api.getDiscoveryInfo();
         setIsDocker(info.is_docker);
         if (info.subnets?.length > 0) {
           setDetectedSubnets(info.subnets);
           setSubnet(info.subnets[0]);
         }
-      })
-      .catch(() => {});
+      } catch {}
+    };
+
+    void loadDiscoveryInfo();
   }, [visible]);
 
   // Reset form on close
@@ -294,7 +296,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                           },
                         ]}
                       >
-                        <Text style={[styles.subnetText, { color: subnet === s ? '#fff' : colors.text }]}>{s}</Text>
+                        <Text style={[styles.subnetText, { color: subnet === s ? colors.textInverse : colors.text }]}>{s}</Text>
                       </Pressable>
                     ))}
                   </ScrollView>
@@ -478,7 +480,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                 value={autoArchive}
                 onValueChange={setAutoArchive}
                 trackColor={{ false: colors.surfaceHover, true: colors.accent }}
-                thumbColor="#fff"
+                thumbColor={colors.textInverse}
               />
             </View>
 
@@ -554,7 +556,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                     onPress={handleSaveAnyway}
                     style={[styles.btn, { backgroundColor: colors.accent }]}
                   >
-                    <Text style={[styles.btnText, { color: '#fff' }]}>Save anyway</Text>
+                    <Text style={[styles.btnText, { color: colors.textInverse }]}>Save anyway</Text>
                   </Pressable>
                 </View>
               </View>
@@ -581,9 +583,9 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                   ]}
                 >
                   {checkingSave ? (
-                    <ActivityIndicator size="small" color="#fff" />
+                    <ActivityIndicator size="small" color={colors.textInverse} />
                   ) : (
-                    <Text style={[styles.btnText, { color: isFormValid ? '#fff' : colors.textTertiary }]}>Add Printer</Text>
+                    <Text style={[styles.btnText, { color: isFormValid ? colors.textInverse : colors.textTertiary }]}>Add Printer</Text>
                   )}
                 </Pressable>
               </View>

@@ -31,6 +31,12 @@ export const colors = {
     statusOffline: '#808080',
     statusMaintenance: '#f59e0b',
 
+    highlight: '#a855f7',
+    highlightLight: '#c4b5fd',
+    highlightBg: 'rgba(168, 85, 247, 0.1)',
+    infoBg: 'rgba(59, 130, 246, 0.13)',
+    infoLight: '#67e8f9',
+
     card: '#2d2d2d',
     cardBorder: '#3d3d3d',
 
@@ -76,6 +82,12 @@ export const colors = {
     statusError: '#ef4444',
     statusOffline: '#a1a1aa',
     statusMaintenance: '#f59e0b',
+
+    highlight: '#a855f7',
+    highlightLight: '#c4b5fd',
+    highlightBg: 'rgba(168, 85, 247, 0.1)',
+    infoBg: 'rgba(59, 130, 246, 0.13)',
+    infoLight: '#93c5fd',
 
     card: '#ffffff',
     cardBorder: '#e4e4e7',

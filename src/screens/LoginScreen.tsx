@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   Image,
   KeyboardAvoidingView,
@@ -22,27 +23,48 @@ import { LoadingScreen } from '@/components/common/StateScreens';
 import { useServerStore } from '@/api/server';
 import type { LoginResponse, OIDCProvider } from '@/types/api';
 
-function extractParam(source: string, key: string) {
-  const patterns = [
-    new RegExp(`[?#&]${key}=([^&#]+)`),
-    new RegExp(`${key}=([^&#]+)`),
-  ];
-  for (const pattern of patterns) {
-    const match = source.match(pattern);
-    if (match?.[1]) return decodeURIComponent(match[1]);
-  }
-  return null;
-}
-
 function parseOidcCallback(url: string) {
-  return {
-    token: extractParam(url, 'oidc_token'),
-    error: extractParam(url, 'oidc_error'),
-  };
+  try {
+    const parsedUrl = new URL(url);
+    const params = parsedUrl.searchParams;
+    const isAppScheme =
+      parsedUrl.protocol === 'bambuddy:' ||
+      parsedUrl.protocol === 'bambuddy-mobile:';
+    const serverUrl = useServerStore.getState().serverUrl;
+    let isServerOrigin = false;
+
+    if (serverUrl) {
+      try {
+        isServerOrigin = parsedUrl.origin === new URL(serverUrl).origin;
+      } catch {
+        isServerOrigin = false;
+      }
+    }
+
+    if (!isAppScheme && !isServerOrigin) {
+      return {
+        token: null,
+        error: 'unexpected_callback_origin',
+        state: params.get('state'),
+      };
+    }
+
+    return {
+      token: params.get('oidc_token'),
+      error: params.get('oidc_error'),
+      state: params.get('state'),
+    };
+  } catch {
+    return {
+      token: null,
+      error: 'invalid_callback_url',
+      state: null,
+    };
+  }
 }
 
 export default function LoginScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Login'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Login', headerShown: false });
   }, [navigation]);
@@ -62,6 +84,7 @@ export default function LoginScreen() {
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const pendingOidcState = React.useRef<string | null>(null);
 
   useEffect(() => {
     if (!serverUrl) {
@@ -75,7 +98,10 @@ export default function LoginScreen() {
       return;
     }
     if (user) {
-      navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main', params: { screen: 'Dashboard' } }],
+      });
     }
   }, [requiresSetup, navigation, user]);
 
@@ -113,8 +139,8 @@ export default function LoginScreen() {
 
   const oidcExchangeMutation = useMutation({
     mutationFn: (oidcToken: string) => api.exchangeOIDCToken(oidcToken),
-    onSuccess: response => {
-      void finalizeLogin(response);
+    onSuccess: async response => {
+      await finalizeLogin(response);
     },
     onError: (exchangeError: Error) => {
       setError(exchangeError.message || 'OIDC login failed.');
@@ -122,9 +148,26 @@ export default function LoginScreen() {
     },
   });
 
+  const oidcExchangeRef = React.useRef(oidcExchangeMutation.mutateAsync);
+  oidcExchangeRef.current = oidcExchangeMutation.mutateAsync;
+
   useEffect(() => {
-    const handleUrl = ({ url }: { url: string }) => {
-      const { token, error: oidcError } = parseOidcCallback(url);
+    const handleUrl = async ({ url }: { url: string }) => {
+      const { token, error: oidcError, state } = parseOidcCallback(url);
+      if (!token && !oidcError) {
+        return;
+      }
+
+      const expectedState = pendingOidcState.current;
+      if (!expectedState || !state || state !== expectedState) {
+        pendingOidcState.current = null;
+        console.warn('Rejected OIDC callback with missing or mismatched state.');
+        setError('OIDC login failed. Please try again.');
+        showToast('OIDC login failed.', 'error');
+        return;
+      }
+
+      pendingOidcState.current = null;
       if (oidcError) {
         setError(`OIDC login failed: ${oidcError.replace(/_/g, ' ')}`);
         showToast('OIDC login failed.', 'error');
@@ -132,16 +175,19 @@ export default function LoginScreen() {
       }
       if (token) {
         setError('');
-        oidcExchangeMutation.mutate(token);
+        await oidcExchangeRef.current(token);
       }
     };
 
     const subscription = Linking.addEventListener('url', handleUrl);
-    void Linking.getInitialURL().then(url => {
-      if (url) handleUrl({ url });
-    });
+    void (async () => {
+      const url = await Linking.getInitialURL();
+      if (url) {
+        await handleUrl({ url });
+      }
+    })();
     return () => subscription.remove();
-  }, [oidcExchangeMutation, showToast]);
+  }, [showToast]);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -211,12 +257,27 @@ export default function LoginScreen() {
   });
 
   const oidcStartMutation = useMutation({
-    mutationFn: (providerId: number) => api.getOIDCAuthorizeUrl(providerId),
+    mutationFn: async (providerId: number) => {
+      const bytes = new Uint8Array(24);
+      crypto.getRandomValues(bytes);
+      const state = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+      pendingOidcState.current = state;
+      return api.getOIDCAuthorizeUrl(providerId, state);
+    },
     onSuccess: async data => {
       setError('');
-      await Linking.openURL(data.auth_url);
+      try {
+        await Linking.openURL(data.auth_url);
+      } catch (error) {
+        pendingOidcState.current = null;
+        const message =
+          error instanceof Error ? error.message : 'Unable to start SSO login.';
+        setError(message);
+        showToast(message, 'error');
+      }
     },
     onError: (mutationError: Error) => {
+      pendingOidcState.current = null;
       setError(mutationError.message || 'Unable to start SSO login.');
       showToast(mutationError.message || 'Unable to start SSO login.', 'error');
     },

@@ -157,4 +157,140 @@ describe('useWebSocket', () => {
       renderer.unmount();
     });
   });
+
+  it('uses exponential backoff for reconnection', async () => {
+    const renderer = await renderHookHarness();
+
+    // First disconnect — should reconnect after ~1s (base delay)
+    act(() => {
+      MockWebSocket.instances[0]?.emitClose(1006);
+    });
+
+    // Should NOT have reconnected after 500ms
+    act(() => { jest.advanceTimersByTime(500); });
+    await act(async () => { await Promise.resolve(); });
+    expect(MockWebSocket.instances).toHaveLength(1);
+
+    // Should reconnect after ~1.3s (1000 base + up to 300ms jitter)
+    act(() => { jest.advanceTimersByTime(1000); });
+    await act(async () => { await Promise.resolve(); });
+    expect(MockWebSocket.instances).toHaveLength(2);
+
+    // Second disconnect — backoff increases to ~2s base
+    act(() => {
+      MockWebSocket.instances[1]?.emitClose(1006);
+    });
+
+    act(() => { jest.advanceTimersByTime(1500); });
+    await act(async () => { await Promise.resolve(); });
+    // With jitter, might not have reconnected yet at 1.5s for 2s base
+    const countAfter1_5s = MockWebSocket.instances.length;
+
+    act(() => { jest.advanceTimersByTime(2000); });
+    await act(async () => { await Promise.resolve(); });
+    // Should definitely have reconnected after 3.5s total
+    expect(MockWebSocket.instances.length).toBeGreaterThan(countAfter1_5s);
+
+    await act(async () => {
+      renderer.unmount();
+    });
+  });
+
+  it('resets backoff counter on successful connection', async () => {
+    const renderer = await renderHookHarness();
+
+    // Disconnect and reconnect a few times to build up backoff
+    act(() => { MockWebSocket.instances[0]?.emitClose(1006); });
+    act(() => { jest.advanceTimersByTime(5000); });
+    await act(async () => { await Promise.resolve(); });
+
+    act(() => { MockWebSocket.instances[1]?.emitClose(1006); });
+    act(() => { jest.advanceTimersByTime(5000); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Now open successfully — backoff should reset
+    act(() => { MockWebSocket.instances[2]?.open(); });
+
+    // Disconnect again — should use initial ~1s delay, not escalated
+    act(() => { MockWebSocket.instances[2]?.emitClose(1006); });
+
+    const countBefore = MockWebSocket.instances.length;
+    act(() => { jest.advanceTimersByTime(1500); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Should have reconnected quickly (within 1.3s)
+    expect(MockWebSocket.instances.length).toBeGreaterThan(countBefore);
+
+    await act(async () => {
+      renderer.unmount();
+    });
+  });
+
+  it('handles archive_created and inventory_changed messages', async () => {
+    const renderer = await renderHookHarness();
+
+    act(() => {
+      MockWebSocket.instances[0]?.open();
+      MockWebSocket.instances[0]?.emitMessage({ type: 'archive_created' });
+      MockWebSocket.instances[0]?.emitMessage({ type: 'inventory_changed' });
+      // Debounced — advance past debounce timer
+      jest.advanceTimersByTime(3000);
+    });
+
+    expect(mockInvalidateQueries).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['archives'] }),
+    );
+    expect(mockInvalidateQueries).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['archiveStats'] }),
+    );
+    expect(mockInvalidateQueries).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['inventory-spools'] }),
+    );
+
+    await act(async () => {
+      renderer.unmount();
+    });
+  });
+
+  it('shows toast for missing spool assignment', async () => {
+    const renderer = await renderHookHarness();
+
+    act(() => {
+      MockWebSocket.instances[0]?.open();
+      MockWebSocket.instances[0]?.emitMessage({
+        type: 'missing_spool_assignment',
+        printer_name: 'X1 Carbon',
+        missing_slots: [{ slot: 'AMS 1 Slot 2' }, { slot: 'AMS 1 Slot 4' }],
+      });
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'X1 Carbon: Missing spool assignment for AMS 1 Slot 2, AMS 1 Slot 4',
+      'warning',
+    );
+
+    await act(async () => {
+      renderer.unmount();
+    });
+  });
+
+  it('does not reconnect on unauthorized close (4401)', async () => {
+    const renderer = await renderHookHarness();
+
+    act(() => {
+      MockWebSocket.instances[0]?.emitClose(4401);
+      jest.advanceTimersByTime(10000);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Should NOT create a second WebSocket
+    expect(MockWebSocket.instances).toHaveLength(1);
+
+    await act(async () => {
+      renderer.unmount();
+    });
+  });
 });

@@ -7,14 +7,14 @@ import {
   Text,
   View,
 } from 'react-native';
-import DocumentPicker, { isCancel } from 'react-native-document-picker';
+import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import { useMutation } from '@tanstack/react-query';
 import { FileUp, Upload, X } from 'lucide-react-native';
 import { api } from '@/api/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
-import { formatFileSize } from '@/utils/formatters';
+import { formatFileSize } from '@/utils/data';
 
 interface FileUploadModalProps {
   visible: boolean;
@@ -83,20 +83,20 @@ export function FileUploadModal({
 
   const chooseFile = async () => {
     try {
-      const asset = await DocumentPicker.pickSingle({
-        type: [DocumentPicker.types.allFiles],
+      const [asset] = await pick({
+        type: [types.allFiles],
         presentationStyle: 'fullScreen',
       });
 
       setSelectedFile({
-        uri: asset.fileCopyUri ?? asset.uri,
+        uri: asset.uri,
         name: asset.name ?? 'upload',
         type: asset.type ?? 'application/octet-stream',
         size: asset.size,
       });
       setProgress(0);
     } catch (error) {
-      if (isCancel(error)) return;
+      if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) return;
       showToast(getErrorMessage(error, 'Unable to read the selected file.'), 'error');
     }
   };

@@ -26,7 +26,7 @@ import { api } from '@/api/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
-import type { AMSUnit, AMSTray, Printer, PrinterStatus } from '@/types/api';
+import type { AMSUnit, Printer, PrinterStatus } from '@/types/api';
 import {
   formatDuration,
   formatWeight,
@@ -37,7 +37,7 @@ import {
   pickString,
   type ApiRecord,
 } from '@/utils/data';
-import { formatFileSize } from '@/utils/formatters';
+import { formatFileSize } from '@/utils/data';
 
 interface PrintModalProps {
   visible: boolean;
@@ -367,13 +367,11 @@ export function PrintModal({
       : null;
   }, [entries, selectedFileId, selectedFileQuery.data]);
 
-  const selectedPrinter = useMemo(
-    () => (printersQuery.data ?? []).find((printer) => printer.id === selectedPrinterId) ?? null,
-    [printersQuery.data, selectedPrinterId],
-  );
-
   const plates = platesQuery.data?.plates ?? [];
-  const requirements = requirementsQuery.data?.filaments ?? [];
+  const requirements = useMemo(
+    () => requirementsQuery.data?.filaments ?? [],
+    [requirementsQuery.data?.filaments],
+  );
   const loadedTrays = useMemo(
     () => getLoadedTrays(printerStatusQuery.data),
     [printerStatusQuery.data],

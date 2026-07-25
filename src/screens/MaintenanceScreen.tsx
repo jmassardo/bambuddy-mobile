@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -391,7 +392,7 @@ function AssignTypeModal({
 }
 
 export default function MaintenanceScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Maintenance'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Maintenance' });
   }, [navigation]);

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   RefreshControl,
@@ -28,7 +29,7 @@ function normalizeProfiles(source: unknown): ApiRecord[] {
 }
 
 export default function ProfilesScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Profiles'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Profiles' });
   }, [navigation]);

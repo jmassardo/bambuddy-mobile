@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Image,
@@ -11,7 +12,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import DocumentPicker, { isCancel } from 'react-native-document-picker';
+import {
+  errorCodes,
+  isErrorWithCode,
+  pick,
+  types,
+} from '@react-native-documents/picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { ActionSheetModal } from '@/components/common/ActionSheetModal';
@@ -66,7 +72,7 @@ function projectCoverUrl(project: ApiRecord): string | null {
 }
 
 export default function ProjectsScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Projects'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Projects' });
   }, [navigation]);
@@ -158,9 +164,9 @@ export default function ProjectsScreen() {
 
   const coverMutation = useMutation({
     mutationFn: async (projectId: number) => {
-      const asset = await DocumentPicker.pickSingle({ type: [DocumentPicker.types.images] });
+      const [asset] = await pick({ type: [types.images] });
       return api.uploadProjectCoverImage(projectId, {
-        uri: asset.fileCopyUri ?? asset.uri,
+        uri: asset.uri,
         name: asset.name ?? 'cover-image',
         type: asset.type ?? 'image/jpeg',
       });
@@ -170,7 +176,12 @@ export default function ProjectsScreen() {
       showToast('Cover image updated.', 'success');
     },
     onError: (error: unknown) => {
-      if (isCancel(error)) return;
+      if (
+        isErrorWithCode(error) &&
+        error.code === errorCodes.OPERATION_CANCELED
+      ) {
+        return;
+      }
       showToast(error instanceof Error ? error.message : 'Unable to upload cover image.', 'error');
     },
   });

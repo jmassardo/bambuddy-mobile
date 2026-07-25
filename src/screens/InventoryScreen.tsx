@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Modal,
@@ -10,7 +11,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import DocumentPicker, { isCancel } from 'react-native-document-picker';
+import {
+  errorCodes,
+  isErrorWithCode,
+  pick,
+  types,
+} from '@react-native-documents/picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check } from 'lucide-react-native';
 import { api } from '@/api/client';
@@ -25,7 +31,7 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDateTime, formatWeight, pickArray, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
-import type { Printer, SpoolAssignment, SpoolKProfile, SpoolLabelTemplate, SpoolUsageRecord } from '@/types/api';
+import type { Printer, SpoolKProfile, SpoolLabelTemplate, SpoolUsageRecord } from '@/types/api';
 
 type ArchiveFilter = 'active' | 'archived';
 type ViewMode = 'cards' | 'forecast';
@@ -65,7 +71,7 @@ const DEFAULT_FORM: SpoolFormState = {
 };
 
 export default function InventoryScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Inventory'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Inventory' });
   }, [navigation]);
@@ -550,9 +556,9 @@ export default function InventoryScreen() {
 
   const pickCsvFile = async () => {
     try {
-      const asset = await DocumentPicker.pickSingle({ type: [DocumentPicker.types.allFiles] });
+      const [asset] = await pick({ type: [types.allFiles] });
       const file = {
-        uri: asset.fileCopyUri ?? asset.uri,
+        uri: asset.uri,
         name: asset.name ?? 'inventory.csv',
         type: asset.type ?? 'text/csv',
       };
@@ -560,7 +566,12 @@ export default function InventoryScreen() {
       const preview = await api.importSpoolsCsvPreview(file);
       setCsvPreview(preview as ApiRecord);
     } catch (error) {
-      if (isCancel(error)) return;
+      if (
+        isErrorWithCode(error) &&
+        error.code === errorCodes.OPERATION_CANCELED
+      ) {
+        return;
+      }
       showToast(error instanceof Error ? error.message : 'Unable to read the CSV file.', 'error');
     }
   };
@@ -707,17 +718,21 @@ export default function InventoryScreen() {
             }
             onEdit={() => openEdit(item)}
             onPrintLabel={() => openLabelModal([pickNumber(item, ['id'])])}
-            onArchive={() =>
-              archiveFilter === 'archived'
-                ? void api.restoreSpool(pickNumber(item, ['id'])).then(async () => {
-                    await invalidateInventory();
-                    showToast('Spool restored.', 'success');
-                  })
-                : void api.archiveSpool(pickNumber(item, ['id'])).then(async () => {
-                    await invalidateInventory();
-                    showToast('Spool archived.', 'success');
-                  })
-            }
+            onArchive={() => {
+              const spoolId = pickNumber(item, ['id']);
+              const toggleArchiveState = async () => {
+                if (archiveFilter === 'archived') {
+                  await api.restoreSpool(spoolId);
+                  showToast('Spool restored.', 'success');
+                } else {
+                  await api.archiveSpool(spoolId);
+                  showToast('Spool archived.', 'success');
+                }
+                await invalidateInventory();
+              };
+
+              void toggleArchiveState();
+            }}
             onDelete={() => setPendingDeleteSpool(item)}
           />
         )}
@@ -748,15 +763,17 @@ export default function InventoryScreen() {
               if (!pendingDeleteSpool) return;
               const spoolId = pickNumber(pendingDeleteSpool, ['id']);
               setPendingDeleteSpool(null);
-              void api
-                .deleteSpool(spoolId)
-                .then(async () => {
+              const deleteSpool = async () => {
+                try {
+                  await api.deleteSpool(spoolId);
                   await invalidateInventory();
                   showToast('Spool deleted.', 'success');
-                })
-                .catch(() => {
+                } catch {
                   showToast('Could not delete spool.', 'error');
-                });
+                }
+              };
+
+              void deleteSpool();
             },
             destructive: true,
           },

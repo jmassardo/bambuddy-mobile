@@ -543,13 +543,13 @@ export function EditArchiveModal({
                       <View key={photo} style={styles.photoWrap}>
                         <Image
                           source={{ uri: api.getArchivePhotoUrl(archive.id, photo) }}
-                          style={styles.photo}
+                          style={[styles.photo, { backgroundColor: colors.surface }]}
                         />
                         <Pressable
                           onPress={() => setPendingPhotoDelete(photo)}
                           style={[styles.photoDelete, { backgroundColor: colors.error }]}
                         >
-                          <Trash2 size={14} color="#fff" strokeWidth={2} />
+                          <Trash2 size={14} color={colors.textInverse} strokeWidth={2} />
                         </Pressable>
                       </View>
                     ))}

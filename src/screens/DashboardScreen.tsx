@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Pressable,
@@ -182,7 +183,7 @@ function classifyPrinter(
 }
 
 export default function PrintersDashboardScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<MainTabNavigationProp<'Dashboard'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Printers' });
   }, [navigation]);
@@ -324,23 +325,24 @@ export default function PrintersDashboardScreen() {
     });
   }, [filter, maintenanceByPrinter, printers, search, statusByPrinter]);
 
-  const summary = useMemo(() => {
-    return printers.reduce(
-      (acc, printer) => {
-        const status = statusByPrinter.get(printer.id);
-        const maintenance = maintenanceByPrinter.get(printer.id);
-        const mode = classifyPrinter(printer, status, maintenance);
-        acc.total += 1;
-        if (mode === 'printing') acc.printing += 1;
-        if (mode === 'paused') acc.paused += 1;
-        if (mode === 'idle') acc.idle += 1;
-        if (mode === 'issues') acc.issues += 1;
-        if (mode === 'offline') acc.offline += 1;
-        return acc;
-      },
-      { total: 0, printing: 0, paused: 0, idle: 0, issues: 0, offline: 0 },
-    );
-  }, [maintenanceByPrinter, printers, statusByPrinter]);
+  // TODO: summary stats for future dashboard summary widget
+  // const summary = useMemo(() => {
+  //   return printers.reduce(
+  //     (acc, printer) => {
+  //       const status = statusByPrinter.get(printer.id);
+  //       const maintenance = maintenanceByPrinter.get(printer.id);
+  //       const mode = classifyPrinter(printer, status, maintenance);
+  //       acc.total += 1;
+  //       if (mode === 'printing') acc.printing += 1;
+  //       if (mode === 'paused') acc.paused += 1;
+  //       if (mode === 'idle') acc.idle += 1;
+  //       if (mode === 'issues') acc.issues += 1;
+  //       if (mode === 'offline') acc.offline += 1;
+  //       return acc;
+  //     },
+  //     { total: 0, printing: 0, paused: 0, idle: 0, issues: 0, offline: 0 },
+  //   );
+  // }, [maintenanceByPrinter, printers, statusByPrinter]);
 
   const handleRefresh = async () => {
     await Promise.all([

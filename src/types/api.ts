@@ -8,6 +8,8 @@
 
 export type TokenPersistence = 'session' | 'persistent';
 
+export type ApiEntity<T extends object> = T & Record<string, unknown>;
+
 export type Permission =
   | 'printers:read' | 'printers:create' | 'printers:update' | 'printers:delete' | 'printers:control' | 'printers:files' | 'printers:ams_rfid' | 'printers:clear_plate'
   | 'archives:read' | 'archives:read_own' | 'archives:read_all' | 'archives:create'
@@ -126,6 +128,17 @@ export interface UserResponse {
   groups: GroupBrief[];
   permissions: Permission[];  // All permissions from groups
   created_at: string;
+}
+
+export interface AuthenticatedUserResponse extends Omit<UserResponse, 'groups'> {
+  groups: Array<GroupBrief & { permissions: Permission[] }>;
+}
+
+export interface AuthenticatedLoginResponse
+  extends Omit<LoginResponse, 'access_token' | 'token_type' | 'user'> {
+  access_token: string;
+  token_type: string;
+  user: AuthenticatedUserResponse;
 }
 
 export interface UserCreate {

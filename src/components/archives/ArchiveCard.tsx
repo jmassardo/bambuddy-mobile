@@ -18,7 +18,6 @@ import {
 } from '@/theme/tokens';
 import type { Archive } from '@/types/api';
 import {
-  formatCurrency,
   formatDateTime,
   formatDuration,
   formatWeight,
@@ -131,7 +130,7 @@ export function ArchiveCard({
       <View style={isGrid ? undefined : styles.listMediaWrap}>
         <Image
           source={{ uri: api.getArchiveThumbnail(archive.id) }}
-          style={isGrid ? styles.gridThumbnail : styles.listThumbnail}
+          style={[isGrid ? styles.gridThumbnail : styles.listThumbnail, { backgroundColor: colors.surface }]}
         />
         {selectionMode ? (
           <Pressable
@@ -151,7 +150,7 @@ export function ArchiveCard({
         ) : null}
         {archive.is_favorite ? (
           <View style={[styles.favoriteBadge, { backgroundColor: colors.overlay }]}> 
-            <Star size={14} color="#facc15" strokeWidth={2} />
+            <Star size={14} color={colors.warning} strokeWidth={2} />
           </View>
         ) : null}
         {archive.timelapse_path ? (
@@ -230,30 +229,6 @@ export function ArchiveCard({
               {formatWeight(archive.filament_used_grams)}
             </Text>
           </View>
-          <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>Cost</Text>
-            <Text style={[styles.metricValue, { color: colors.text }]}> 
-              {archive.cost != null ? formatCurrency(archive.cost) : '—'}
-            </Text>
-          </View>
-          <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>Layers</Text>
-            <Text style={[styles.metricValue, { color: colors.text }]}>
-              {archive.total_layers ? `${archive.total_layers}` : '—'}
-            </Text>
-          </View>
-          <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>Plate</Text>
-            <Text style={[styles.metricValue, { color: colors.text }]} numberOfLines={1}>
-              {archive.bed_type || 'Unknown'}
-            </Text>
-          </View>
-          <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>Runs</Text>
-            <Text style={[styles.metricValue, { color: colors.text }]}>
-              {archive.run_count}
-            </Text>
-          </View>
         </View>
 
         <View style={styles.badgesRow}>
@@ -295,10 +270,10 @@ export function ArchiveCard({
             <View
               style={[
                 styles.badgeChip,
-                { backgroundColor: '#8b5cf618', borderColor: '#8b5cf644' },
+                { backgroundColor: colors.highlightBg, borderColor: `${colors.highlight}44` },
               ]}
             >
-              <Text style={[styles.badgeChipText, { color: '#c4b5fd' }]}>+{archive.duplicate_count} duplicates</Text>
+              <Text style={[styles.badgeChipText, { color: colors.highlightLight }]}>+{archive.duplicate_count} duplicates</Text>
             </View>
           ) : null}
         </View>
@@ -330,16 +305,6 @@ export function ArchiveCard({
         ) : null}
 
         <View style={[styles.footer, { borderColor: colors.borderSubtle }]}> 
-          <View style={styles.footerMeta}>
-            {archive.created_by_username ? (
-              <Text style={[styles.footerText, { color: colors.textSecondary }]} numberOfLines={1}>
-                By {archive.created_by_username}
-              </Text>
-            ) : null}
-            <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-              {archive.file_size ? `${Math.round(archive.file_size / 1024 / 1024)} MB` : '—'}
-            </Text>
-          </View>
           <View style={styles.actionsRow}>
             <ArchiveAction label="Reprint" icon="printer" color={colors.accent} onPress={onReprint} />
             <ArchiveAction label="Time" icon="video" color={colors.info} onPress={onTimelapse} />
@@ -367,6 +332,8 @@ const styles = StyleSheet.create({
   },
   listMediaWrap: {
     width: 132,
+    height: 180,
+    overflow: 'hidden',
   },
   gridThumbnail: {
     width: '100%',
@@ -375,8 +342,7 @@ const styles = StyleSheet.create({
   },
   listThumbnail: {
     width: '100%',
-    height: '100%',
-    minHeight: 160,
+    height: 180,
     backgroundColor: '#1f2937',
   },
   selectBadge: {

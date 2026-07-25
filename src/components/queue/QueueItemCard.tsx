@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   Image,
   Pressable,
@@ -10,7 +10,6 @@ import {
   CheckCircle,
   Clock3,
   Layers,
-  Package,
   Pause,
   Play,
   Printer,
@@ -20,8 +19,8 @@ import {
   Trash2,
   X,
 } from 'lucide-react-native';
-import { api, getAuthToken } from '@/api/client';
-import { apiUrl, useServerStore } from '@/api/server';
+import { withStreamToken } from '@/api/client';
+import { useServerStore } from '@/api/server';
 import { StatusBadge } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import {
@@ -33,7 +32,6 @@ import {
 import type { PrintQueueItem } from '@/types/api';
 import {
   formatCurrency,
-  formatDateTime,
   formatDuration,
   formatWeight,
 } from '@/utils/data';
@@ -75,7 +73,7 @@ function statusPresentation(
   colors: ReturnType<typeof useTheme>['colors'],
 ) {
   if (item.status === 'pending' && item.waiting_reason) {
-    return { label: 'Waiting', color: '#a855f7' };
+    return { label: 'Waiting', color: colors.highlight };
   }
   if (item.status === 'printing' && printerState === 'PAUSE') {
     return { label: 'Paused', color: colors.statusPaused };
@@ -91,20 +89,12 @@ function statusPresentation(
     case 'failed':
       return { label: 'Failed', color: colors.error };
     case 'skipped':
-      return { label: 'Skipped', color: '#f97316' };
+      return { label: 'Skipped', color: colors.warning };
     case 'cancelled':
       return { label: 'Cancelled', color: colors.textTertiary };
     default:
       return { label: item.status, color: colors.info };
   }
-}
-
-function libraryThumbnailUrl(fileId: number | null | undefined): string | null {
-  const serverUrl = useServerStore.getState().serverUrl;
-  if (!serverUrl || !fileId) return null;
-  const token = getAuthToken();
-  const suffix = token ? `?token=${encodeURIComponent(token)}` : '';
-  return apiUrl(serverUrl, `/library/${fileId}/thumbnail${suffix}`);
 }
 
 function QueueActionButton({
@@ -179,12 +169,24 @@ export function QueueItemCard({
   onMoveDown,
 }: QueueItemCardProps) {
   const { colors } = useTheme();
-  const thumbnailSource = useMemo(() => {
+  const serverUrl = useServerStore(s => s.serverUrl);
+
+  const thumbnailUri = (() => {
+    if (!serverUrl) return null;
     if (item.archive_id && !item.archive_deleted) {
-      return api.getArchiveThumbnail(item.archive_id);
+      return item.plate_id != null
+        ? withStreamToken(`${serverUrl}/api/v1/archives/${item.archive_id}/plate-thumbnail/${item.plate_id}`)
+        : withStreamToken(`${serverUrl}/api/v1/archives/${item.archive_id}/thumbnail`);
     }
-    return libraryThumbnailUrl(item.library_file_id);
-  }, [item.archive_deleted, item.archive_id, item.library_file_id]);
+    if (item.library_file_id) {
+      return item.plate_id != null
+        ? withStreamToken(`${serverUrl}/api/v1/library/files/${item.library_file_id}/plate-thumbnail/${item.plate_id}`)
+        : withStreamToken(`${serverUrl}/api/v1/library/files/${item.library_file_id}/thumbnail`);
+    }
+    return null;
+  })();
+
+  const [thumbError, setThumbError] = useState(false);
 
   const status = statusPresentation(item, printerState, colors);
   const title =
@@ -196,9 +198,9 @@ export function QueueItemCard({
     : item.printer_name || (item.printer_id ? `Printer #${item.printer_id}` : 'Unassigned');
 
   const options = [
-    item.manual_start ? { label: 'Staged', color: '#a855f7' } : null,
+    item.manual_start ? { label: 'Staged', color: colors.highlight } : null,
     item.require_previous_success
-      ? { label: 'Requires previous success', color: '#f97316' }
+      ? { label: 'Requires previous success', color: colors.warning }
       : null,
     item.auto_off_after ? { label: 'Auto power off', color: colors.info } : null,
     item.gcode_injection ? { label: 'G-code injection', color: colors.accent } : null,
@@ -275,8 +277,14 @@ export function QueueItemCard({
               { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
             ]}
           >
-            {thumbnailSource ? (
-              <Image source={{ uri: thumbnailSource }} style={styles.thumbnail} />
+            {thumbnailUri && !thumbError ? (
+              <>
+                <Image
+                  source={{ uri: thumbnailUri }}
+                  style={styles.thumbnail}
+                  onError={() => setThumbError(true)}
+                />
+              </>
             ) : (
               <Layers size={20} color={colors.textTertiary} strokeWidth={2} />
             )}
@@ -290,10 +298,10 @@ export function QueueItemCard({
                 <View
                   style={[
                     styles.batchBadge,
-                    { backgroundColor: '#0891b222', borderColor: '#0891b277' },
+                    { backgroundColor: colors.infoBg, borderColor: `${colors.info}44` },
                   ]}
                 >
-                  <Text style={[styles.batchBadgeText, { color: '#67e8f9' }]}>Batch</Text>
+                  <Text style={[styles.batchBadgeText, { color: colors.infoLight }]}>Batch</Text>
                 </View>
               ) : null}
             </View>
@@ -316,13 +324,6 @@ export function QueueItemCard({
           <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Printer</Text>
           <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
             {printerLabel}
-          </Text>
-        </View>
-        <View style={styles.metaItem}>
-          <Layers size={14} color={colors.textTertiary} strokeWidth={2} />
-          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Plate</Text>
-          <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
-            {item.bed_type || 'Unknown'}
           </Text>
         </View>
         <View style={styles.metaItem}>
@@ -352,44 +353,7 @@ export function QueueItemCard({
             </Text>
           </View>
         </View>
-        <View style={styles.metaItem}>
-          <Package size={14} color={colors.textTertiary} strokeWidth={2} />
-          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Weight</Text>
-          <Text style={[styles.metaValue, { color: colors.text }]}> 
-            {formatWeight(item.filament_used_grams)}
-          </Text>
-        </View>
-        <View style={styles.metaItem}>
-          <Clock3 size={14} color={colors.textTertiary} strokeWidth={2} />
-          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Created</Text>
-          <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
-            {formatDateTime(item.created_at)}
-          </Text>
-        </View>
       </View>
-
-      {(item.started_at || item.completed_at || item.scheduled_time || item.created_by_username) ? (
-        <View style={[styles.timelineStrip, { borderColor: colors.borderSubtle }]}> 
-          {item.scheduled_time ? (
-            <Text style={[styles.timelineText, { color: colors.textSecondary }]}>
-              Scheduled {formatDateTime(item.scheduled_time)}
-            </Text>
-          ) : null}
-          {item.started_at ? (
-            <Text style={[styles.timelineText, { color: colors.textSecondary }]}>
-              Started {formatDateTime(item.started_at)}
-            </Text>
-          ) : null}
-          {item.completed_at ? (
-            <Text style={[styles.timelineText, { color: colors.textSecondary }]}>
-              Completed {formatDateTime(item.completed_at)}
-            </Text>
-          ) : null}
-          {item.created_by_username ? (
-            <Text style={[styles.timelineText, { color: colors.textSecondary }]}>By {item.created_by_username}</Text>
-          ) : null}
-        </View>
-      ) : null}
 
       {progressBar ? (
         <View style={styles.progressSection}>
@@ -416,7 +380,7 @@ export function QueueItemCard({
       ) : null}
 
       {item.waiting_reason ? (
-        <Text style={[styles.notice, { color: '#c084fc' }]}>{item.waiting_reason}</Text>
+        <Text style={[styles.notice, { color: colors.highlightLight }]}>{item.waiting_reason}</Text>
       ) : null}
       {item.filament_short ? (
         <Text style={[styles.notice, { color: colors.warning }]}>Filament short on assigned spool</Text>

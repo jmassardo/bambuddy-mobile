@@ -1,8 +1,8 @@
 # iOS
-app_identifier("com.bambuddy.mobile")
-apple_id(ENV["APPLE_ID"])
-team_id(ENV["APPLE_TEAM_ID"])
+app_identifier("com.dxrf.bambuddy")
+apple_id(ENV["APPLE_ID"] || "jenna@dxrf.com")
+team_id(ENV["APPLE_TEAM_ID"] || "6H29DVBLZ8")
 
 # Android
 json_key_file(ENV["GOOGLE_SERVICE_ACCOUNT_KEY_PATH"])
-package_name("com.bambuddy.mobile")
+package_name("com.dxrf.bambuddy")

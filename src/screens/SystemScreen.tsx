@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   Linking,
   RefreshControl,
@@ -39,7 +40,7 @@ function findCategory(data: ApiRecord, keys: string[]) {
 }
 
 export default function SystemScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'System'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'System' });
   }, [navigation]);

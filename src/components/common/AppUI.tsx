@@ -8,25 +8,32 @@ import {
   TextInput,
   TextInputProps,
   View,
+  type ViewStyle,
 } from 'react-native';
 import {
+  BarChart3,
   Bell,
   ChevronRight,
   Circle,
+  Copy,
+  Cpu,
   Download,
   Filter,
   Globe,
   KeyRound,
+  Layers,
   ListOrdered,
   Package,
   Plus,
   Power,
   Printer,
+  QrCode,
   Radio,
   Search,
   Settings,
   Shield,
   Users,
+  Wrench,
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
@@ -48,6 +55,12 @@ const APP_UI_ICONS: Record<
   users: Users,
   download: Download,
   plus: Plus,
+  wrench: Wrench,
+  layers: Layers,
+  copy: Copy,
+  'bar-chart': BarChart3,
+  cpu: Cpu,
+  'qr-code': QrCode,
 };
 
 export function SearchBar({
@@ -75,12 +88,16 @@ export function SearchBar({
           style={[styles.searchInput, { color: colors.inputText }]}
           autoCapitalize="none"
           autoCorrect={false}
+          accessibilityLabel={placeholder}
+          accessibilityRole="search"
         />
       </View>
       {onFilterPress ? (
         <Pressable
           onPress={onFilterPress}
           style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+          accessibilityLabel="Filters"
+          accessibilityRole="button"
         >
           <Filter size={18} color={colors.text} strokeWidth={2} />
         </Pressable>
@@ -89,7 +106,7 @@ export function SearchBar({
   );
 }
 
-export function SectionCard({
+export const SectionCard = React.memo(function SectionCard({
   title,
   subtitle,
   right,
@@ -116,17 +133,17 @@ export function SectionCard({
       {children}
     </View>
   );
-}
+});
 
-export function StatusBadge({ label, color }: { label: string; color: string }) {
+export const StatusBadge = React.memo(function StatusBadge({ label, color }: { label: string; color: string }) {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.badge, { backgroundColor: `${color}22`, borderColor: `${color}55` }]}>
+    <View style={[styles.badge, { backgroundColor: `${color}22`, borderColor: `${color}55` }]} accessibilityRole="text" accessibilityLabel={label}>
       <Text style={[styles.badgeText, { color: label ? color : colors.textSecondary }]}>{label}</Text>
     </View>
   );
-}
+});
 
 export function InlineTabBar<T extends string>({
   value,
@@ -154,6 +171,9 @@ export function InlineTabBar<T extends string>({
                 borderColor: active ? colors.accent : colors.border,
               },
             ]}
+            accessibilityLabel={tab.label}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
           >
             <Text style={[styles.inlineTabText, { color: active ? colors.accentLight : colors.textSecondary }]}>
               {tab.label}
@@ -165,7 +185,7 @@ export function InlineTabBar<T extends string>({
   );
 }
 
-export function Chip({
+export const Chip = React.memo(function Chip({
   label,
   selected,
   onPress,
@@ -186,11 +206,14 @@ export function Chip({
           borderColor: selected ? colors.accent : colors.border,
         },
       ]}
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
     >
       <Text style={[styles.chipText, { color: selected ? colors.accentLight : colors.textSecondary }]}>{label}</Text>
     </Pressable>
   );
-}
+});
 
 export function SettingRow({
   icon,
@@ -229,7 +252,7 @@ export function SettingRow({
 
   if (onPress) {
     return (
-      <Pressable style={[styles.rowPressable, { borderBottomColor: colors.borderSubtle }]} onPress={onPress}>
+      <Pressable style={[styles.rowPressable, { borderBottomColor: colors.borderSubtle }]} onPress={onPress} accessibilityLabel={description ? `${label}, ${description}` : label} accessibilityRole="button">
         {content}
       </Pressable>
     );
@@ -238,10 +261,10 @@ export function SettingRow({
   return <View style={[styles.rowPressable, { borderBottomColor: colors.borderSubtle }]}>{content}</View>;
 }
 
-export function StatCard({
+export const StatCard = React.memo(function StatCard({
   label,
   value,
-  helper,
+  helper: _helper,
   onPress,
 }: {
   label: string;
@@ -259,10 +282,10 @@ export function StatCard({
   );
 
   if (onPress) {
-    return <Pressable onPress={onPress} style={{ flex: 1 }}>{content}</Pressable>;
+    return <Pressable onPress={onPress} style={{ flex: 1 }} accessibilityLabel={`${label}: ${value}`} accessibilityRole="button">{content}</Pressable>;
   }
   return content;
-}
+});
 
 export function PrimaryButton({
   label,
@@ -296,6 +319,9 @@ export function PrimaryButton({
           opacity: loading ? 0.8 : 1,
         },
       ]}
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
     >
       {loading ? <ActivityIndicator size="small" color={palette.text} /> : <Text style={[styles.buttonText, { color: palette.text }]}>{label}</Text>}
     </Pressable>
@@ -313,7 +339,7 @@ export function TextField({
 
   return (
     <View style={styles.fieldGroup}>
-      <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} accessibilityRole="text">{label}</Text>
       <TextInput
         {...props}
         multiline={multiline}
@@ -348,14 +374,14 @@ export function FloatingActionButton({
   const IconComponent = APP_UI_ICONS[icon] ?? Circle;
 
   return (
-    <Pressable onPress={onPress} style={[styles.fab, { backgroundColor: colors.accent }]}> 
+    <Pressable onPress={onPress} style={[styles.fab, { backgroundColor: colors.accent }]} accessibilityLabel={label} accessibilityRole="button"> 
       <IconComponent size={18} color={colors.textInverse} strokeWidth={2} />
       <Text style={[styles.fabText, { color: colors.textInverse }]}>{label}</Text>
     </Pressable>
   );
 }
 
-export function KeyValueRow({ label, value }: { label: string; value: string }) {
+export const KeyValueRow = React.memo(function KeyValueRow({ label, value }: { label: string; value: string }) {
   const { colors } = useTheme();
 
   return (
@@ -364,7 +390,7 @@ export function KeyValueRow({ label, value }: { label: string; value: string }) 
       <Text style={[styles.keyValueValue, { color: colors.text }]}>{value}</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   searchRow: {
@@ -587,8 +613,9 @@ export function ProgressBar({
   trackColor?: string;
   height?: number;
 }) {
+  const { colors } = useTheme();
   return (
-    <View style={{ height, backgroundColor: trackColor || '#333', borderRadius: height / 2, overflow: 'hidden' }}>
+    <View style={{ height, backgroundColor: trackColor || colors.surfaceElevated, borderRadius: height / 2, overflow: 'hidden' }} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(progress) }}>
       <View
         style={{
           width: `${Math.max(0, Math.min(100, progress))}%`,
@@ -600,3 +627,333 @@ export function ProgressBar({
     </View>
   );
 }
+
+// --- Components consolidated from UIComponents.tsx ---
+
+type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+
+interface ButtonProps {
+  title: string;
+  onPress: () => void;
+  variant?: ButtonVariant;
+  disabled?: boolean;
+  loading?: boolean;
+  icon?: string;
+  style?: ViewStyle;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+export function Button({
+  title,
+  onPress,
+  variant = 'primary',
+  disabled = false,
+  loading = false,
+  icon,
+  style,
+  size = 'md',
+}: ButtonProps) {
+  const { colors } = useTheme();
+
+  const bgColors: Record<ButtonVariant, string> = {
+    primary: colors.accent,
+    secondary: colors.surfaceElevated,
+    danger: colors.error,
+    ghost: 'transparent',
+  };
+
+  const textColors: Record<ButtonVariant, string> = {
+    primary: colors.textInverse,
+    secondary: colors.text,
+    danger: colors.textInverse,
+    ghost: colors.accent,
+  };
+
+  const paddings = {
+    sm: { paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
+    md: { paddingVertical: spacing.md, paddingHorizontal: spacing.xl },
+    lg: { paddingVertical: spacing.lg, paddingHorizontal: spacing['2xl'] },
+  };
+
+  const fontSizes = { sm: fontSize.sm, md: fontSize.base, lg: fontSize.lg };
+
+  const IconComponent = icon ? APP_UI_ICONS[icon] ?? null : null;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled || loading}
+      style={({ pressed }) => [
+        consolidatedStyles.button,
+        paddings[size],
+        {
+          backgroundColor: bgColors[variant],
+          opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
+          borderWidth: variant === 'secondary' ? 1 : 0,
+          borderColor: variant === 'secondary' ? colors.border : undefined,
+        },
+        style,
+      ]}
+      accessibilityLabel={title}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={textColors[variant]} />
+      ) : (
+        <View style={consolidatedStyles.buttonContent}>
+          {IconComponent && (
+            <View style={{ marginRight: spacing.sm }}>
+              <IconComponent size={fontSizes[size]} color={textColors[variant]} strokeWidth={2} />
+            </View>
+          )}
+          <Text style={[consolidatedStyles.buttonText, { color: textColors[variant], fontSize: fontSizes[size] }]}>
+            {title}
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+interface InputProps extends TextInputProps {
+  label?: string;
+  error?: string;
+  containerStyle?: ViewStyle;
+}
+
+export function Input({ label, error, containerStyle, style, ...props }: InputProps) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={[consolidatedStyles.inputContainer, containerStyle]}>
+      {label && <Text style={[consolidatedStyles.inputLabel, { color: colors.textSecondary }]}>{label}</Text>}
+      <TextInput
+        {...props}
+        placeholderTextColor={colors.inputPlaceholder}
+        style={[
+          consolidatedStyles.input,
+          {
+            backgroundColor: colors.inputBg,
+            borderColor: error ? colors.error : colors.inputBorder,
+            color: colors.inputText,
+          },
+          style,
+        ]}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      {error && <Text style={[consolidatedStyles.inputError, { color: colors.error }]}>{error}</Text>}
+    </View>
+  );
+}
+
+interface CardProps {
+  children: React.ReactNode;
+  style?: ViewStyle;
+  onPress?: () => void;
+}
+
+export function Card({ children, style, onPress }: CardProps) {
+  const { colors } = useTheme();
+
+  const cardStyle = [
+    consolidatedStyles.card,
+    {
+      backgroundColor: colors.card,
+      borderColor: colors.cardBorder,
+    },
+    style,
+  ];
+
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [...cardStyle, { opacity: pressed ? 0.8 : 1 }]}
+        accessibilityRole="button"
+      >
+        {children}
+      </Pressable>
+    );
+  }
+
+  return <View style={cardStyle}>{children}</View>;
+}
+
+interface BadgeProps {
+  label: string;
+  color?: string;
+  backgroundColor?: string;
+}
+
+export function Badge({ label, color, backgroundColor }: BadgeProps) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={[consolidatedStyles.badge, { backgroundColor: backgroundColor || colors.accentBg }]} accessibilityRole="text" accessibilityLabel={label}>
+      <Text style={[consolidatedStyles.badgeText, { color: color || colors.accent }]}>{label}</Text>
+    </View>
+  );
+}
+
+interface SectionHeaderProps {
+  title: string;
+  action?: { label: string; onPress: () => void };
+}
+
+export function SectionHeader({ title, action }: SectionHeaderProps) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={consolidatedStyles.sectionHeader}>
+      <Text style={[consolidatedStyles.sectionTitle, { color: colors.text }]}>{title}</Text>
+      {action && (
+        <Pressable onPress={action.onPress} accessibilityLabel={action.label} accessibilityRole="button">
+          <Text style={[consolidatedStyles.sectionAction, { color: colors.accent }]}>{action.label}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+export function Divider() {
+  const { colors } = useTheme();
+  return <View style={[consolidatedStyles.divider, { backgroundColor: colors.borderSubtle }]} />;
+}
+
+interface MenuItemProps {
+  icon: string;
+  label: string;
+  subtitle?: string;
+  onPress: () => void;
+  badge?: string;
+  destructive?: boolean;
+}
+
+export const MenuItem = React.memo(function MenuItem({ icon, label, subtitle, onPress, badge, destructive }: MenuItemProps) {
+  const { colors } = useTheme();
+  const IconComponent = APP_UI_ICONS[icon] ?? Circle;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        consolidatedStyles.menuItem,
+        { backgroundColor: pressed ? colors.surfaceHover : 'transparent' },
+      ]}
+      accessibilityLabel={subtitle ? `${label}, ${subtitle}` : label}
+      accessibilityRole="button"
+    >
+      <View style={[consolidatedStyles.menuIconContainer, { backgroundColor: colors.accentBg }]}>
+        <IconComponent size={18} color={colors.accentLight} strokeWidth={2} />
+      </View>
+      <View style={consolidatedStyles.menuContent}>
+        <Text style={[consolidatedStyles.menuLabel, { color: destructive ? colors.error : colors.text }]}>
+          {label}
+        </Text>
+        {subtitle && (
+          <Text style={[consolidatedStyles.menuSubtitle, { color: colors.textTertiary }]}>{subtitle}</Text>
+        )}
+      </View>
+      {badge && <Badge label={badge} />}
+      <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} />
+    </Pressable>
+  );
+});
+
+const consolidatedStyles = StyleSheet.create({
+  button: {
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  buttonText: {
+    fontWeight: fontWeight.semibold,
+  },
+  inputContainer: {
+    marginBottom: spacing.lg,
+  },
+  inputLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    marginBottom: spacing.xs,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    fontSize: fontSize.base,
+    minHeight: 48,
+  },
+  inputError: {
+    fontSize: fontSize.xs,
+    marginTop: spacing.xs,
+  },
+  card: {
+    borderWidth: 1,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  badge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  badgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  sectionTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+  },
+  sectionAction: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  divider: {
+    height: 1,
+    marginHorizontal: spacing.lg,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    minHeight: 52,
+    gap: spacing.md,
+  },
+  menuIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuContent: {
+    flex: 1,
+  },
+  menuLabel: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.medium,
+  },
+  menuSubtitle: {
+    fontSize: fontSize.xs,
+    marginTop: 1,
+  },
+});

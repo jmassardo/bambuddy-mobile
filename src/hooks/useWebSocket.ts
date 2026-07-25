@@ -22,9 +22,11 @@ interface WebSocketMessage {
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
   const disposedRef = useRef(false);
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const { showToast } = useToast();
   const serverUrl = useServerStore((s) => s.serverUrl);
 
@@ -175,6 +177,8 @@ export function useWebSocket() {
 
     ws.onopen = () => {
       setIsConnected(true);
+      setIsReconnecting(false);
+      reconnectAttemptRef.current = 0;
       pingInterval = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ping' }));
@@ -198,7 +202,11 @@ export function useWebSocket() {
 
       if (disposedRef.current || event.code === WS_CLOSE_UNAUTHORIZED) return;
 
-      reconnectTimeoutRef.current = setTimeout(() => connect(), 3000);
+      setIsReconnecting(true);
+      const attempt = reconnectAttemptRef.current++;
+      const baseDelay = Math.min(1000 * Math.pow(2, attempt), 30000);
+      const jitter = baseDelay * 0.3 * Math.random();
+      reconnectTimeoutRef.current = setTimeout(() => connect(), baseDelay + jitter);
     };
 
     ws.onerror = () => ws.close();
@@ -210,6 +218,7 @@ export function useWebSocket() {
   useEffect(() => {
     const handleAppState = (state: AppStateStatus) => {
       if (state === 'active') {
+        reconnectAttemptRef.current = 0;
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
           connect();
         }
@@ -242,5 +251,5 @@ export function useWebSocket() {
     }
   }, []);
 
-  return { isConnected, sendMessage };
+  return { isConnected, isReconnecting, sendMessage };
 }

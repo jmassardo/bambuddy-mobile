@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Modal,
@@ -137,7 +138,7 @@ function buildFailureRates(items: ApiRecord[], keyFn: (item: ApiRecord) => strin
 }
 
 export default function StatsScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'Stats'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Statistics' });
   }, [navigation]);
@@ -188,10 +189,11 @@ export default function StatsScreen() {
     mutationFn: async (format: 'csv' | 'json') => {
       const filenameBase = `bambuddy-stats-${range}${selectedPrinterId ? `-printer-${selectedPrinterId}` : ''}${selectedUserId !== null ? `-user-${selectedUserId}` : ''}`;
       if (format === 'json') {
-        const blob = new Blob([JSON.stringify(archivesQuery.data ?? [], null, 2)], {
+        const blobOptions: BlobOptions = {
           type: 'application/json',
           lastModified: Date.now(),
-        } as any);
+        };
+        const blob = new Blob([JSON.stringify(archivesQuery.data ?? [], null, 2)], blobOptions);
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }

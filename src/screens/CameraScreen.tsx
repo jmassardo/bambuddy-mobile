@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -285,8 +286,8 @@ function clampTranslationOffset(value: number, axisSize: number, scale: number) 
 }
 
 export default function CameraScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const navigation = useNavigation<RootNavigationProp<'Camera'>>();
+  const route = useRoute<RootRouteProp<'Camera'>>();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const { hasPermission } = useAuth();

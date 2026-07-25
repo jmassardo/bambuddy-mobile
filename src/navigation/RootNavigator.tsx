@@ -7,6 +7,7 @@ import type { RootStackParamList } from './types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useServerStore } from '@/api/server';
 import { useTheme } from '@/theme';
+import { useStreamToken } from '@/hooks/useStreamToken';
 
 import MainNavigator from './MainNavigator';
 import ServerSetupScreen from '@/screens/ServerSetupScreen';
@@ -36,10 +37,14 @@ export default function RootNavigator() {
   const serverLoading = useServerStore((s) => s.loading);
   const theme = useTheme();
 
+  // Fetch stream token for thumbnail/camera URLs (must be after auth)
+  useStreamToken();
+
   const screenOptions = {
     headerStyle: { backgroundColor: theme.colors.surface },
     headerTintColor: theme.colors.text,
     headerTitleStyle: { color: theme.colors.text },
+    headerBackTitle: 'Back',
     contentStyle: { backgroundColor: theme.colors.background },
   };
 

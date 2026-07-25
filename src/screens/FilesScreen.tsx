@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Linking,
@@ -123,7 +124,7 @@ function sortEntries(entries: ApiRecord[], sort: FileSort) {
 }
 
 export default function FilesScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<MainTabNavigationProp<'Files'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Files' });
   }, [navigation]);

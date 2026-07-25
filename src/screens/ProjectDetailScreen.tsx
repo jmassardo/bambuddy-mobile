@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import {
   Image,
   Linking,
@@ -36,12 +37,12 @@ function isProjectModelFile(file: ApiRecord) {
 }
 
 export default function ProjectDetailScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<RootNavigationProp<'ProjectDetail'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Project' });
   }, [navigation]);
 
-  const route = useRoute<any>();
+  const route = useRoute<RootRouteProp<'ProjectDetail'>>();
   const projectId = Number(route.params?.id);
   const { colors } = useTheme();
   const { hasPermission } = useAuth();

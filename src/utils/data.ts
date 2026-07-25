@@ -77,7 +77,7 @@ export function pickRecordArray(source: unknown, paths: string[]): ApiRecord[] {
 export function pickId(source: unknown, paths: string[] = ['id']): string {
   const value = firstValue(source, paths);
   if (typeof value === 'string' || typeof value === 'number') return String(value);
-  return Math.random().toString(36).slice(2);
+  return '';
 }
 
 export function normalizeStatus(status: string): string {
@@ -113,8 +113,12 @@ export function formatDateTime(value: unknown): string {
 }
 
 export function formatDuration(value: unknown): string {
-  if (typeof value === 'string' && value.trim()) return value;
-  const seconds = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : 0;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return '—';
+    return formatDuration(parsed);
+  }
+  const seconds = typeof value === 'number' ? value : 0;
   if (!Number.isFinite(seconds) || seconds <= 0) return '—';
 
   const hours = Math.floor(seconds / 3600);
@@ -167,10 +171,20 @@ export function withCacheBuster(url: string, seed: number | string): string {
   return `${url}${url.includes('?') ? '&' : '?'}t=${encodeURIComponent(String(seed))}`;
 }
 
-/**
- * Returns the relative path to a printer model image based on the model string.
- * Mirrors the web UI's getPrinterImage() logic.
- */
+export function formatFileSize(bytes: number): string {
+  if (!bytes) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let unitIndex = 0;
+  let size = bytes;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+
+  return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`;
+}
+
 export function getPrinterModelImagePath(model: string | null | undefined): string {
   if (!model) return '/img/printers/default.png';
   const m = model.toLowerCase().replace(/\s+/g, '');

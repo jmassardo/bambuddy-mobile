@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {
   FlatList,
@@ -141,7 +142,7 @@ function SimpleModal({
 }
 
 export default function ArchivesScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<MainTabNavigationProp<'Archives'>>();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -317,13 +318,21 @@ export default function ArchivesScreen() {
     mutationFn: async () => {
       const filenameBase = `bambuddy-archives-${new Date().toISOString().slice(0, 10)}`;
       if (exportFormat === 'json') {
-        const blob = new Blob([JSON.stringify(filteredArchives, null, 2)], { type: 'application/json', lastModified: Date.now() } as any);
+        const jsonBlobOptions: BlobOptions = {
+          type: 'application/json',
+          lastModified: Date.now(),
+        };
+        const blob = new Blob([JSON.stringify(filteredArchives, null, 2)], jsonBlobOptions);
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
       if (hasUnsupportedServerExportFilters) {
         const csv = toCsv(archiveExportRows(filteredArchives));
-        const blob = new Blob([csv], { type: 'text/csv', lastModified: Date.now() } as any);
+        const csvBlobOptions: BlobOptions = {
+          type: 'text/csv',
+          lastModified: Date.now(),
+        };
+        const blob = new Blob([csv], csvBlobOptions);
         await shareBlob(blob, `${filenameBase}.csv`);
         return;
       }

@@ -1,6 +1,53 @@
 default_platform(:ios)
 
+def api_key
+  app_store_connect_api_key(
+    key_id: ENV["ASC_KEY_ID"] || "PNN76572ZY",
+    issuer_id: ENV["ASC_ISSUER_ID"] || "61e9d4b7-8267-4d4a-aed4-ba66aeace3b4",
+    key_filepath: ENV["ASC_KEY_FILEPATH"] || File.expand_path("~/Downloads/AuthKey_PNN76572ZY.p8"),
+    in_house: false
+  )
+end
+
 platform :ios do
+  desc "Register the App ID on the Developer Portal"
+  lane :create_app do
+    # Register bundle ID via App Store Connect API
+    key = api_key
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**key)
+    begin
+      Spaceship::ConnectAPI::BundleId.create(
+        name: "Bambuddy",
+        identifier: "com.dxrf.bambuddy",
+        platform: Spaceship::ConnectAPI::BundleIdPlatform::IOS
+      )
+      UI.success("✅ App ID com.dxrf.bambuddy created!")
+    rescue => e
+      if e.message.include?("already exists") || e.message.include?("ENTITY_ERROR")
+        UI.important("App ID already exists, continuing...")
+      else
+        UI.user_error!(e.message)
+      end
+    end
+
+    # Also create on App Store Connect (for TestFlight/App Store)
+    begin
+      Spaceship::ConnectAPI::App.create(
+        name: "Bambuddy",
+        bundle_id: "com.dxrf.bambuddy",
+        sku: "com.dxrf.bambuddy",
+        primary_locale: "en-US"
+      )
+      UI.success("✅ App created on App Store Connect!")
+    rescue => e
+      if e.message.include?("already exists") || e.message.include?("ENTITY_ERROR")
+        UI.important("App already exists on App Store Connect, continuing...")
+      else
+        UI.user_error!(e.message)
+      end
+    end
+  end
+
   desc "Build iOS debug"
   lane :build_debug do
     formatter = `which xcbeautify`.strip.empty? ? "cat" : "xcbeautify"
@@ -18,7 +65,7 @@ platform :ios do
 
   desc "Build iOS release"
   lane :build_release do
-    match(type: "appstore", readonly: true)
+    match(type: "appstore", readonly: true, api_key: api_key)
     build_ios_app(
       workspace: "ios/Bambuddy.xcworkspace",
       scheme: "Bambuddy",
@@ -33,6 +80,7 @@ platform :ios do
   lane :beta do
     build_release
     upload_to_testflight(
+      api_key: api_key,
       skip_waiting_for_build_processing: true
     )
   end
@@ -40,6 +88,7 @@ platform :ios do
   desc "Submit to App Store"
   lane :submit do
     upload_to_app_store(
+      api_key: api_key,
       skip_metadata: true,
       skip_screenshots: true,
       ipa: "ios/build/Bambuddy.ipa"
