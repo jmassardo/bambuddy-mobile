@@ -1184,7 +1184,11 @@ function InventoryCard({
   const gross = remaining + coreWeight;
   const remainingPct = labelWeight > 0 ? (remaining / labelWeight) * 100 : 0;
   const color = remainingPct <= lowStockThreshold ? colors.warning : colors.accent;
-  const swatchColor = pickString(spool, ['rgba'], colors.surfaceHover);
+  const rawRgba = pickString(spool, ['rgba']);
+  const swatchColor = rawRgba
+    ? (rawRgba.startsWith('#') ? rawRgba : `#${rawRgba}`)
+    : colors.surfaceHover;
+  const spoolType = pickString(spool, ['slicer_filament_name', 'subtype'], 'Unknown type');
   const tagValue = pickString(spool, ['tag_uid', 'tray_uuid'], 'Unlinked');
   return (
     <Pressable onPress={onPress} style={[styles.card, { backgroundColor: colors.card, borderColor: selected ? colors.accent : colors.cardBorder }]}> 
@@ -1217,6 +1221,8 @@ function InventoryCard({
 
       <ProgressBar progress={remainingPct} color={color} />
       <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>Remaining: {Math.round(remainingPct)}%</Text>
+      <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>Spool type: {spoolType}</Text>
+      <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>Spool weight: {formatWeight(labelWeight)}</Text>
       <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>Storage location: {pickString(spool, ['storage_location'], 'Unassigned')}</Text>
       <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>AMS mapping: {assignment || 'Not mapped to a printer slot'}</Text>
       <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>NFC / tag: {tagValue}</Text>
