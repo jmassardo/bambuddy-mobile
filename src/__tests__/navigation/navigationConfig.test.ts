@@ -32,6 +32,7 @@ describe('navigationConfig', () => {
       expect(layout.moreItems.map(item => item.id)).toEqual([
         'settings',
         'users',
+        'virtual-printers',
         'notifications',
         'inventory',
         'maintenance',

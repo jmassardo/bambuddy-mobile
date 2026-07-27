@@ -82,6 +82,7 @@ export type VirtualPrinterFormState = {
   name: string;
   model: string;
   model_name: string;
+  description: string;
   serial: string;
   serial_number: string;
   enabled: boolean;
