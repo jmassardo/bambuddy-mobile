@@ -43,6 +43,7 @@ import {
   pickArray,
   pickNumber,
 } from '@/utils/data';
+import { rowsToCsv } from '@/utils/csv';
 import { shareBlob } from '@/utils/share';
 
 
@@ -75,36 +76,23 @@ function tagsForArchive(archive: Archive) {
     .filter(Boolean) ?? [];
 }
 
-function rangeDateFrom(range: RangeFilter) {
-  const cutoff = rangeCutoff(range);
-  return cutoff > 0 ? new Date(cutoff).toISOString() : undefined;
-}
-
 function archiveExportRows(archives: Archive[]) {
   return archives.map(archive => ({
-    id: archive.id,
-    print_name: archive.print_name ?? '',
-    filename: archive.filename ?? '',
-    printer_name: archive.printer_name ?? '',
-    project_name: archive.project_name ?? '',
-    status: archive.status ?? '',
-    completed_at: archive.completed_at ?? archive.created_at ?? '',
-    filament_type: archive.filament_type ?? '',
-    filament_color: archive.filament_color ?? '',
+    print_name: archive.print_name ?? archive.filename ?? '',
+    duration_seconds: archive.actual_time_seconds ?? archive.print_time_seconds ?? '',
     filament_used_grams: archive.filament_used_grams ?? '',
     cost: archive.cost ?? '',
+    status: archive.status ?? '',
+    date: archive.completed_at ?? archive.started_at ?? archive.created_at ?? '',
+    printer: archive.printer_name ?? '',
+    user: archive.created_by_username ?? '',
+    archive_id: archive.id,
+    filename: archive.filename ?? '',
+    project_name: archive.project_name ?? '',
+    filament_type: archive.filament_type ?? '',
+    filament_color: archive.filament_color ?? '',
     tags: archive.tags ?? '',
   }));
-}
-
-function toCsv(rows: Array<Record<string, unknown>>) {
-  if (rows.length === 0) return '';
-  const headers = Object.keys(rows[0]);
-  const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-  return [
-    headers.join(','),
-    ...rows.map(row => headers.map(header => escape(row[header])).join(',')),
-  ].join('\n');
 }
 
 function SimpleModal({
@@ -310,10 +298,6 @@ export default function ArchivesScreen() {
     [archives, compareIds],
   );
 
-  const hasUnsupportedServerExportFilters = Boolean(
-    tagFilter || statusFilter === 'favorite' || statusFilter === 'duplicate',
-  );
-
   const exportMutation = useMutation({
     mutationFn: async () => {
       const filenameBase = `bambuddy-archives-${new Date().toISOString().slice(0, 10)}`;
@@ -326,30 +310,12 @@ export default function ArchivesScreen() {
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
-      if (hasUnsupportedServerExportFilters) {
-        const csv = toCsv(archiveExportRows(filteredArchives));
-        const csvBlobOptions: BlobOptions = {
-          type: 'text/csv',
-          lastModified: Date.now(),
-        };
-        const blob = new Blob([csv], csvBlobOptions);
-        await shareBlob(blob, `${filenameBase}.csv`);
-        return;
-      }
-      const blob = await api.exportArchives({
-        format: 'csv',
-        printerId: printerFilter === 'all' ? undefined : printerFilter,
-        status:
-          statusFilter === 'completed'
-            ? 'completed'
-            : statusFilter === 'failed'
-              ? 'failed'
-              : statusFilter === 'cancelled'
-                ? 'cancelled'
-                : undefined,
-        dateFrom: rangeDateFrom(rangeFilter),
-        search: search.trim() || undefined,
-      });
+      const csv = rowsToCsv(archiveExportRows(filteredArchives));
+      const csvBlobOptions: BlobOptions = {
+        type: 'text/csv',
+        lastModified: Date.now(),
+      };
+      const blob = new Blob([csv], csvBlobOptions);
       await shareBlob(blob, `${filenameBase}.csv`);
     },
     onSuccess: () => {
@@ -633,9 +599,7 @@ export default function ArchivesScreen() {
         <Text style={[styles.modalBodyText, { color: colors.textSecondary }]}>
           {exportFormat === 'json'
             ? 'JSON export mirrors the exact filtered results shown on this screen.'
-            : hasUnsupportedServerExportFilters
-              ? 'CSV export is generated from the currently filtered results to preserve tag, favorite, and duplicate filters.'
-              : 'CSV export uses the archive export endpoint with your current toolbar filters.'}
+            : 'CSV export is generated from the current filtered results shown on this screen.'}
         </Text>
         <View style={styles.modalFooter}>
           <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowExportModal(false)} />

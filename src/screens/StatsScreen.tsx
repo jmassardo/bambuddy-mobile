@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Download } from 'lucide-react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { SimpleBarChart } from '@/components/common/Charts';
@@ -20,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
+import { rowsToCsv } from '@/utils/csv';
 import { shareBlob } from '@/utils/share';
 import {
   formatCurrency,
@@ -118,12 +120,6 @@ function timeBucket(item: ApiRecord) {
   return 'Evening';
 }
 
-function getRangeDays(range: RangeKey) {
-  if (range === 'all') return undefined;
-  if (range === 'today') return 1;
-  return Number(range.replace('d', ''));
-}
-
 function buildFailureRates(items: ApiRecord[], keyFn: (item: ApiRecord) => string) {
   const rows = new Map<string, { label: string; total: number; failures: number; rate: number }>();
   items.forEach(item => {
@@ -137,11 +133,22 @@ function buildFailureRates(items: ApiRecord[], keyFn: (item: ApiRecord) => strin
   return Array.from(rows.values()).sort((a, b) => b.rate - a.rate || b.failures - a.failures).slice(0, 6);
 }
 
+function statsExportRows(items: ApiRecord[]) {
+  return items.map(item => ({
+    print_name: pickString(item, ['print_name', 'filename', 'archive_name']),
+    duration_seconds: pickNumber(item, ['actual_time_seconds', 'print_time_seconds', 'duration_seconds'], 0),
+    filament_used_grams: pickNumber(item, ['filament_used_grams', 'filament_used_g'], 0),
+    cost: pickNumber(item, ['cost', 'total_cost'], 0),
+    status: pickString(item, ['status']),
+    date: pickString(item, ['completed_at', 'started_at', 'created_at']),
+    printer: pickString(item, ['printer_name', 'printer']),
+    user: pickString(item, ['created_by_username', 'username', 'user_name']),
+    archive_id: pickNumber(item, ['id', 'archive_id'], 0),
+  }));
+}
+
 export default function StatsScreen() {
   const navigation = useNavigation<RootNavigationProp<'Stats'>>();
-  React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Statistics' });
-  }, [navigation]);
 
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -197,19 +204,33 @@ export default function StatsScreen() {
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
-      const blob = await api.exportArchiveStats({
-        format: 'csv',
-        days: getRangeDays(range),
-        dateFrom: queryParams.dateFrom,
-        dateTo: queryParams.dateTo,
-        printerId: selectedPrinterId ?? undefined,
-        createdById: isAdmin ? (selectedUserId ?? undefined) : undefined,
-      });
+      const csv = rowsToCsv(statsExportRows(archives));
+      const blobOptions: BlobOptions = {
+        type: 'text/csv',
+        lastModified: Date.now(),
+      };
+      const blob = new Blob([csv], blobOptions);
       await shareBlob(blob, `${filenameBase}.csv`);
     },
     onSuccess: (_data, format) => showToast(`${format.toUpperCase()} export ready to share.`, 'success'),
     onError: (error: Error) => showToast(error.message || 'Unable to export statistics.', 'error'),
   });
+
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      title: 'Statistics',
+      headerRight: () => (
+        <Pressable
+          onPress={() => void exportMutation.mutateAsync('csv')}
+          style={styles.headerButton}
+          hitSlop={8}
+          disabled={exportMutation.isPending}
+        >
+          <Download size={18} color={colors.text} strokeWidth={2} />
+        </Pressable>
+      ),
+    });
+  }, [colors.text, exportMutation, navigation]);
 
   const recalculateCostsMutation = useMutation({
     mutationFn: api.recalculateCosts,
@@ -758,6 +779,13 @@ const styles = StyleSheet.create({
     paddingBottom: spacing['3xl'],
   },
   header: { gap: spacing.xs },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontSize: fontSize['2xl'],
     fontWeight: fontWeight.bold,
