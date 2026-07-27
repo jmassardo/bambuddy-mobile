@@ -28,6 +28,7 @@ import ProjectsScreen from '@/screens/ProjectsScreen';
 import PrintLogScreen from '@/screens/PrintLogScreen';
 import StatsScreen from '@/screens/StatsScreen';
 import SystemScreen from '@/screens/SystemScreen';
+import SpoolBuddyScreen from '@/screens/SpoolBuddyScreen';
 import UsersScreen from '@/screens/UsersScreen';
 import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
 
@@ -166,6 +167,11 @@ export default function RootNavigator() {
         name="System"
         component={SystemScreen}
         options={{ title: 'System' }}
+      />
+      <Stack.Screen
+        name="SpoolBuddy"
+        component={SpoolBuddyScreen}
+        options={{ title: 'SpoolBuddy' }}
       />
       <Stack.Screen
         name="Users"

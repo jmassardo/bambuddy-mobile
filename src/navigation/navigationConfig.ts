@@ -17,6 +17,7 @@ export type BuiltInNavId =
   | 'makerworld'
   | 'stats'
   | 'system'
+  | 'spoolbuddy'
   | 'scanner';
 
 type NavLocation = 'tab' | 'more';
@@ -48,6 +49,7 @@ export const BUILT_IN_NAV_ITEMS: readonly BuiltInNavigationItem[] = [
   { id: 'makerworld', label: 'MakerWorld', subtitle: 'Resolve, import, and browse recent models', icon: 'globe', location: 'more', stackRoute: 'MakerWorld' },
   { id: 'stats', label: 'Stats', subtitle: 'Print activity, filament trends, breakdowns', icon: 'bar-chart', location: 'more', stackRoute: 'Stats' },
   { id: 'system', label: 'System', subtitle: 'Health, resources, logs, support tools', icon: 'cpu', location: 'more', stackRoute: 'System' },
+  { id: 'spoolbuddy', label: 'SpoolBuddy', subtitle: 'SpoolBuddy devices, status, and configuration', icon: 'nfc', location: 'more', stackRoute: 'SpoolBuddy', lockVisibility: true },
   { id: 'scanner', label: 'Scanner', subtitle: 'Scan QR and NFC related data', icon: 'qr-code', location: 'more', stackRoute: 'Scanner' },
 ];
 
