@@ -29,6 +29,7 @@ import PrintLogScreen from '@/screens/PrintLogScreen';
 import StatsScreen from '@/screens/StatsScreen';
 import SystemScreen from '@/screens/SystemScreen';
 import UsersScreen from '@/screens/UsersScreen';
+import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -170,6 +171,11 @@ export default function RootNavigator() {
         name="Users"
         component={UsersScreen}
         options={{ title: 'Users' }}
+      />
+      <Stack.Screen
+        name="ExternalLinkBrowser"
+        component={ExternalLinkBrowserScreen}
+        options={{ title: 'External Link' }}
       />
     </Stack.Navigator>
   );

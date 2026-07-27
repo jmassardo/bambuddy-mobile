@@ -7,6 +7,7 @@ export type SectionKey =
   | 'queue'
   | 'filament'
   | 'network'
+  | 'navigation'
   | 'apikeys'
   | 'virtual-printer'
   | 'spoolbuddy'
