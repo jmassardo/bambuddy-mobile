@@ -8,7 +8,7 @@ import { MenuItem, SectionHeader } from '@/components/common/UIComponents';
 import { useServerStore } from '@/api/server';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
-import { fontSize, fontWeight, spacing } from '@/theme/tokens';
+import { fontSize, fontWeight, spacing, borderRadius } from '@/theme/tokens';
 
 const MENU_GROUPS = [
   {
@@ -47,6 +47,7 @@ export default function MoreScreen() {
 
   const { colors } = useTheme();
   const { user, logout } = useAuth();
+  const demoMode = useServerStore(state => state.demoMode);
   const version = DeviceInfo.getVersion() || 'dev';
 
   const logoutMutation = useMutation({
@@ -71,6 +72,16 @@ export default function MoreScreen() {
         <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}> 
           Signed in as {user?.username ?? 'Guest'}
         </Text>
+        {demoMode ? (
+          <View
+            style={[styles.demoBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+          >
+            <Text style={[styles.demoBadgeText, { color: colors.text }]}>
+              Demo mode — you're exploring a shared sample server. Use “Exit
+              demo” below to connect your own.
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {MENU_GROUPS.map(group => (
@@ -93,8 +104,18 @@ export default function MoreScreen() {
       <View style={styles.accountCard}>
         <MenuItem
           icon="server"
-          label={changeServerMutation.isPending ? 'Disconnecting…' : 'Change server'}
-          subtitle="Disconnect and connect to a different Bambuddy server"
+          label={
+            changeServerMutation.isPending
+              ? 'Disconnecting…'
+              : demoMode
+                ? 'Exit demo'
+                : 'Change server'
+          }
+          subtitle={
+            demoMode
+              ? 'Leave the demo and connect to your own Bambuddy server'
+              : 'Disconnect and connect to a different Bambuddy server'
+          }
           onPress={() => void changeServerMutation.mutateAsync()}
         />
         <MenuItem
@@ -127,6 +148,15 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     fontSize: fontSize.base,
+  },
+  demoBadge: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+  },
+  demoBadgeText: {
+    fontSize: fontSize.sm,
   },
   group: {
     gap: spacing.sm,

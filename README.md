@@ -90,6 +90,39 @@ npm run beta:ios
 npm run beta:android
 ```
 
+### Demo mode (optional build-time configuration)
+
+The server setup screen can show a **Try the demo** button that connects to a
+hosted Bambuddy instance and signs in automatically, so evaluators and app
+store reviewers can explore the app without setting up a server.
+
+The demo settings are **not stored in this repository**. They are read from the
+environment and inlined into the bundle at build time by
+`babel-plugin-transform-inline-environment-variables` (see `babel.config.js`):
+
+| Variable | Description |
+| --- | --- |
+| `BAMBUDDY_DEMO_URL` | Base URL of the hosted demo instance |
+| `BAMBUDDY_DEMO_USERNAME` | Demo account username |
+| `BAMBUDDY_DEMO_PASSWORD` | Demo account password |
+
+If any of the three are unset, `isDemoConfigured()` returns `false` and the
+demo button is not rendered, so local and fork builds are unaffected.
+
+In CI these are supplied as repository secrets of the same names. For a local
+release build, export them first:
+
+```sh
+BAMBUDDY_DEMO_URL=https://demo.example.com \
+BAMBUDDY_DEMO_USERNAME=reviewer \
+BAMBUDDY_DEMO_PASSWORD=... \
+npm run build:ios:release
+```
+
+Because the values are compiled into the shipped binary they are extractable by
+anyone who downloads the app. Treat the demo account as public: it should be
+low-privilege, isolated from real data, and safe to reset.
+
 ## Testing
 
 ```sh

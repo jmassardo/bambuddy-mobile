@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SERVER_URL_KEY = 'bambuddy-server-url';
+const DEMO_MODE_KEY = 'bambuddy-demo-mode';
 type ServerUrlChangeHandler = (
   previousUrl: string | null,
   nextUrl: string | null,
@@ -20,8 +21,10 @@ export function registerServerUrlChangeHandler(
 
 interface ServerStore {
   serverUrl: string | null;
+  demoMode: boolean;
   loading: boolean;
   setServerUrl: (url: string) => Promise<void>;
+  setDemoMode: (enabled: boolean) => Promise<void>;
   clearServerUrl: () => Promise<void>;
   loadServerUrl: () => Promise<void>;
 }
@@ -33,6 +36,7 @@ export function isInsecureUrl(url: string): boolean {
 
 export const useServerStore = create<ServerStore>((set) => ({
   serverUrl: null,
+  demoMode: false,
   loading: true,
   setServerUrl: async (url: string) => {
     const previousUrl = useServerStore.getState().serverUrl;
@@ -47,17 +51,27 @@ export const useServerStore = create<ServerStore>((set) => ({
     }
     set({ serverUrl: normalized });
   },
+  setDemoMode: async (enabled: boolean) => {
+    if (enabled) {
+      await AsyncStorage.setItem(DEMO_MODE_KEY, 'true');
+    } else {
+      await AsyncStorage.removeItem(DEMO_MODE_KEY);
+    }
+    set({ demoMode: enabled });
+  },
   clearServerUrl: async () => {
     const previousUrl = useServerStore.getState().serverUrl;
     await AsyncStorage.removeItem(SERVER_URL_KEY);
+    await AsyncStorage.removeItem(DEMO_MODE_KEY);
     if (previousUrl !== null) {
       await serverUrlChangeHandler(previousUrl, null);
     }
-    set({ serverUrl: null });
+    set({ serverUrl: null, demoMode: false });
   },
   loadServerUrl: async () => {
     const stored = await AsyncStorage.getItem(SERVER_URL_KEY);
-    set({ serverUrl: stored, loading: false });
+    const demo = await AsyncStorage.getItem(DEMO_MODE_KEY);
+    set({ serverUrl: stored, demoMode: demo === 'true', loading: false });
   },
 }));
 
