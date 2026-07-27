@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { ApiKeysSettingsSection } from './ApiKeysSettingsSection';
 import { BackupSettingsSection } from './BackupSettingsSection';
+import { ExternalCamerasSettingsSection } from './ExternalCamerasSettingsSection';
 import { FailureDetectionSettingsSection } from './FailureDetectionSettingsSection';
 import { FilamentSettingsSection } from './FilamentSettingsSection';
 import { GeneralSettingsSection } from './GeneralSettingsSection';
@@ -35,6 +36,7 @@ export function SettingsSectionContent({ controller }: { controller: SettingsScr
       {section === 'network' ? <NetworkSettingsSection controller={controller} /> : null}
       {section === 'navigation' ? <NavigationSettingsSection controller={controller} /> : null}
       {section === 'apikeys' ? <ApiKeysSettingsSection controller={controller} /> : null}
+      {section === 'external-cameras' ? <ExternalCamerasSettingsSection controller={controller} /> : null}
       {section === 'virtual-printer' ? <VirtualPrinterSettingsSection controller={controller} /> : null}
       {section === 'spoolbuddy' ? <SpoolBuddySettingsSection controller={controller} /> : null}
       {section === 'failure-detection' ? <FailureDetectionSettingsSection controller={controller} /> : null}
