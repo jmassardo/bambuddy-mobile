@@ -284,6 +284,48 @@ describe('api client', () => {
       body: { theme: 'light', telemetry: true },
       response: { theme: 'light', telemetry: true },
     },
+    {
+      name: 'getSpoolmanConfig',
+      call: () => api.getSpoolmanConfig(),
+      endpoint: '/settings/spoolman',
+      method: 'GET',
+      response: { enabled: true, url: 'https://spoolman.local', auto_sync: false },
+    },
+    {
+      name: 'updateSpoolmanConfig',
+      call: () =>
+        api.updateSpoolmanConfig({
+          enabled: true,
+          url: 'https://spoolman.local',
+          auto_sync: true,
+        }),
+      endpoint: '/settings/spoolman',
+      method: 'PUT',
+      body: { enabled: true, url: 'https://spoolman.local', auto_sync: true },
+      response: { enabled: true, url: 'https://spoolman.local', auto_sync: true },
+    },
+    {
+      name: 'syncSpoolmanInventory',
+      call: () => api.syncSpoolmanInventory(),
+      endpoint: '/spoolman/sync',
+      method: 'POST',
+      response: { success: true, synced_count: 3, skipped_count: 0, skipped: [], errors: [] },
+    },
+    {
+      name: 'getSpoolmanSyncStatus',
+      call: () => api.getSpoolmanSyncStatus(),
+      endpoint: '/spoolman/sync/status',
+      method: 'GET',
+      response: {
+        status: 'idle',
+        last_sync_at: null,
+        last_sync: null,
+        in_progress: false,
+        auto_sync: true,
+        auto_sync_enabled: true,
+        last_result: null,
+      },
+    },
   ])('sends the correct inventory and settings request for $name', async ({ call, endpoint, method, body, response }) => {
     mockFetch.mockResolvedValue(createResponse(response));
 
@@ -309,6 +351,18 @@ describe('api client', () => {
       }),
     );
     await expect(api.updateSettings({ theme: 'broken' })).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it('falls back to legacy spoolman config endpoint when /settings/spoolman is missing', async () => {
+    mockFetch
+      .mockResolvedValueOnce(createResponse({ detail: 'not found' }, { ok: false, status: 404 }))
+      .mockResolvedValueOnce(createResponse({ enabled: true, connected: true, url: 'https://spoolman.local', auto_sync: true }));
+
+    const response = await api.getSpoolmanConfig();
+
+    expect(response).toEqual(expect.objectContaining({ enabled: true, url: 'https://spoolman.local' }));
+    expect(mockFetch.mock.calls[0]?.[0]).toBe('https://bambuddy.test/api/v1/settings/spoolman');
+    expect(mockFetch.mock.calls[1]?.[0]).toBe('https://bambuddy.test/api/v1/system/integrations/spoolman');
   });
 
   it('scopes keychain storage to the current server origin', async () => {

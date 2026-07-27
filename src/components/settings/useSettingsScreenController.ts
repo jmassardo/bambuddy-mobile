@@ -18,7 +18,7 @@ import type {
   TOTPSetupResponse,
   TwoFAStatus,
 } from '@/types/api';
-import { formatDateTime, pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
+import { formatDateTime, pickArray, pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
 import {
   DEFAULT_LDAP_FORM,
@@ -107,6 +107,16 @@ export function useSettingsScreenController() {
   const virtualPrinterListQuery = useQuery({ queryKey: ['virtualPrinterList'], queryFn: api.getVirtualPrinterList });
   const spoolbuddyQuery = useQuery({ queryKey: ['spoolbuddyDevices'], queryFn: api.getSpoolBuddyDevices });
   const spoolmanStatusQuery = useQuery({ queryKey: ['spoolmanStatus'], queryFn: api.getSpoolmanStatus });
+  const spoolmanConfigQuery = useQuery({
+    queryKey: ['spoolmanConfig'],
+    queryFn: api.getSpoolmanConfig,
+    enabled: section === 'filament',
+  });
+  const spoolmanSyncStatusQuery = useQuery({
+    queryKey: ['spoolmanSyncStatus'],
+    queryFn: api.getSpoolmanSyncStatus,
+    enabled: section === 'filament',
+  });
   const obicoQuery = useQuery({ queryKey: ['obicoStatus'], queryFn: api.getObicoStatus });
   const advancedAuthQuery = useQuery<AdvancedAuthStatus>({ queryKey: ['advancedAuthStatus'], queryFn: api.getAdvancedAuthStatus });
   const ldapStatusQuery = useQuery<LDAPStatus>({ queryKey: ['ldapStatus'], queryFn: api.getLDAPStatus });
@@ -216,6 +226,8 @@ export function useSettingsScreenController() {
       virtualPrinterListQuery.refetch(),
       spoolbuddyQuery.refetch(),
       spoolmanStatusQuery.refetch(),
+      spoolmanConfigQuery.refetch(),
+      spoolmanSyncStatusQuery.refetch(),
       obicoQuery.refetch(),
       advancedAuthQuery.refetch(),
       ldapStatusQuery.refetch(),
@@ -489,6 +501,51 @@ export function useSettingsScreenController() {
       showToast(pickString(data, ['message'], 'Spoolman connected.'), 'success');
     },
     onError: (error: Error) => showToast(error.message || 'Unable to connect to Spoolman.', 'error'),
+  });
+
+  const saveSpoolmanAutoSyncMutation = useMutation({
+    mutationFn: async (autoSync: boolean) =>
+      api.updateSpoolmanConfig({
+        enabled: Boolean(draft.spoolman_enabled),
+        url: String(draft.spoolman_url ?? '').trim() || null,
+        auto_sync: autoSync,
+      }),
+    onSuccess: async data => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['spoolmanConfig'] }),
+        queryClient.invalidateQueries({ queryKey: ['spoolmanStatus'] }),
+        queryClient.invalidateQueries({ queryKey: ['settings'] }),
+      ]);
+      setDraft(current => ({
+        ...current,
+        spoolman_enabled: pickBoolean(data, ['enabled'], Boolean(current.spoolman_enabled)),
+        spoolman_url: pickString(data, ['url'], String(current.spoolman_url ?? '')),
+      }));
+      showToast('Spoolman auto-sync updated.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to update Spoolman auto-sync.', 'error'),
+  });
+
+  const syncSpoolmanMutation = useMutation({
+    mutationFn: async () => api.syncSpoolmanInventory(),
+    onSuccess: async data => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['spoolmanSyncStatus'] }),
+        queryClient.invalidateQueries({ queryKey: ['spoolmanStatus'] }),
+        queryClient.invalidateQueries({ queryKey: ['inventorySpools'] }),
+        queryClient.invalidateQueries({ queryKey: ['inventoryAssignments'] }),
+      ]);
+      const addedCount = pickNumber(data, ['added_count'], 0);
+      const updatedCount = pickNumber(data, ['updated_count'], 0);
+      const removedCount = pickNumber(data, ['removed_count'], 0);
+      const skippedCount = pickNumber(data, ['skipped_count'], 0);
+      const errorCount = pickArray(data, ['errors']).length;
+      showToast(
+        `Spoolman sync complete. Added ${addedCount}, updated ${updatedCount}, removed ${removedCount}, skipped ${skippedCount}, errors ${errorCount}.`,
+        pickBoolean(data, ['success'], errorCount === 0) ? 'success' : 'warning',
+      );
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to sync Spoolman inventory.', 'error'),
   });
 
   const testObicoMutation = useMutation({
@@ -1044,6 +1101,8 @@ export function useSettingsScreenController() {
       virtualPrinterListQuery,
       spoolbuddyQuery,
       spoolmanStatusQuery,
+      spoolmanConfigQuery,
+      spoolmanSyncStatusQuery,
       obicoQuery,
       advancedAuthQuery,
       ldapStatusQuery,
@@ -1082,6 +1141,8 @@ export function useSettingsScreenController() {
       toggleLDAPMutation,
       testLDAPMutation,
       testSpoolmanMutation,
+      saveSpoolmanAutoSyncMutation,
+      syncSpoolmanMutation,
       testObicoMutation,
       createOIDCProviderMutation,
       updateOIDCProviderMutation,
