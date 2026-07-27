@@ -32,11 +32,13 @@ import {
   type ThemeColors,
 } from '@/theme/tokens';
 import {
+  InlineTabBar,
   KeyValueRow,
   PrimaryButton,
   SectionCard,
   StatusBadge,
 } from '@/components/common/AppUI';
+import { MultiSeriesLineChart } from '@/components/common/Charts';
 import { ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import {
   formatDuration,
@@ -66,6 +68,30 @@ const JOG_SPEED_OPTIONS = [
 ] as const;
 
 type JogSpeed = (typeof JOG_SPEED_OPTIONS)[number]['value'];
+type HeaterRangeKey = '1h' | '6h' | '24h' | '7d';
+type SupportedHeaterKind = 'nozzle' | 'bed' | 'chamber';
+
+const HEATER_RANGE_OPTIONS: Array<{ key: HeaterRangeKey; label: string; hours: number }> = [
+  { key: '1h', label: '1h', hours: 1 },
+  { key: '6h', label: '6h', hours: 6 },
+  { key: '24h', label: '24h', hours: 24 },
+  { key: '7d', label: '7d', hours: 168 },
+];
+
+const HEATER_KINDS: SupportedHeaterKind[] = ['nozzle', 'bed', 'chamber'];
+
+function isSupportedHeaterKind(kind: string): kind is SupportedHeaterKind {
+  return HEATER_KINDS.includes(kind as SupportedHeaterKind);
+}
+
+function formatHeaterPointLabel(recordedAt: string, range: HeaterRangeKey) {
+  const date = new Date(recordedAt);
+  if (Number.isNaN(date.getTime())) return '—';
+  if (range === '7d') {
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+  }
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
 
 function stringifyDebugValue(value: unknown) {
   if (value == null) return '—';
@@ -136,6 +162,7 @@ export default function PrinterDetailScreen() {
     1,
   );
   const [jogSpeed, setJogSpeed] = React.useState<JogSpeed>('normal');
+  const [heaterRange, setHeaterRange] = React.useState<HeaterRangeKey>('24h');
 
   const printerQuery = useQuery({
     queryKey: ['printer', printerId],
@@ -170,6 +197,17 @@ export default function PrinterDetailScreen() {
     retry: false,
   });
 
+  const selectedHeaterRange =
+    HEATER_RANGE_OPTIONS.find(option => option.key === heaterRange) ?? HEATER_RANGE_OPTIONS[2];
+
+  const heaterHistoryQuery = useQuery({
+    queryKey: ['heaterHistory', printerId, selectedHeaterRange.hours],
+    queryFn: () =>
+      api.getPrinterSensorHistory(printerId, selectedHeaterRange.hours, HEATER_KINDS),
+    enabled: Number.isFinite(printerId),
+    refetchInterval: 60_000,
+  });
+
   const printerName = pickString(
     (printerQuery.data ?? {}) as ApiRecord,
     ['name'],
@@ -181,7 +219,11 @@ export default function PrinterDetailScreen() {
   }, [navigation, printerName]);
 
   const refreshAll = async () => {
-    await Promise.all([printerQuery.refetch(), statusQuery.refetch()]);
+    await Promise.all([
+      printerQuery.refetch(),
+      statusQuery.refetch(),
+      heaterHistoryQuery.refetch(),
+    ]);
   };
 
   const invalidatePrinterStatus = React.useCallback(async () => {
@@ -248,6 +290,90 @@ export default function PrinterDetailScreen() {
     onError: error =>
       showToast(getErrorMessage(error, 'Unable to home the printer.'), 'error'),
   });
+
+  const heaterHistorySeries = heaterHistoryQuery.data?.series ?? [];
+  const heaterHistory = React.useMemo(() => {
+    const pointsByKind: Record<
+      SupportedHeaterKind,
+      Map<string, { value: number | null; target: number | null }>
+    > = {
+      nozzle: new Map(),
+      bed: new Map(),
+      chamber: new Map(),
+    };
+    const timestampSet = new Set<string>();
+
+    heaterHistorySeries.forEach(seriesItem => {
+      if (!isSupportedHeaterKind(seriesItem.sensor_kind)) return;
+      const byTimestamp = pointsByKind[seriesItem.sensor_kind];
+      seriesItem.data.forEach(point => {
+        timestampSet.add(point.recorded_at);
+        byTimestamp.set(point.recorded_at, {
+          value: point.value,
+          target: point.target,
+        });
+      });
+    });
+
+    const timestamps = Array.from(timestampSet).sort(
+      (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+    );
+
+    const points = timestamps.map(timestamp => {
+      const nozzlePoint = pointsByKind.nozzle.get(timestamp);
+      const bedPoint = pointsByKind.bed.get(timestamp);
+      const chamberPoint = pointsByKind.chamber.get(timestamp);
+      return {
+        label: formatHeaterPointLabel(timestamp, heaterRange),
+        values: {
+          nozzle_actual: nozzlePoint?.value,
+          nozzle_target: nozzlePoint?.target,
+          bed_actual: bedPoint?.value,
+          bed_target: bedPoint?.target,
+          chamber_actual: chamberPoint?.value,
+          chamber_target: chamberPoint?.target,
+        },
+      };
+    });
+
+    const chamberHasData = points.some(
+      point =>
+        typeof point.values.chamber_actual === 'number' ||
+        typeof point.values.chamber_target === 'number',
+    );
+
+    return {
+      points,
+      chamberHasData,
+    };
+  }, [heaterHistorySeries, heaterRange]);
+
+  const heaterChartSeries = React.useMemo(
+    () => [
+      { key: 'nozzle_actual', label: 'Nozzle actual', color: colors.warning },
+      {
+        key: 'nozzle_target',
+        label: 'Nozzle target',
+        color: `${colors.warning}99`,
+        dashed: true,
+      },
+      { key: 'bed_actual', label: 'Bed actual', color: colors.accent },
+      {
+        key: 'bed_target',
+        label: 'Bed target',
+        color: `${colors.accent}99`,
+        dashed: true,
+      },
+      { key: 'chamber_actual', label: 'Chamber actual', color: colors.info },
+      {
+        key: 'chamber_target',
+        label: 'Chamber target',
+        color: `${colors.info}99`,
+        dashed: true,
+      },
+    ],
+    [colors],
+  );
 
   if (printerQuery.isLoading || statusQuery.isLoading) {
     return <LoadingScreen message="Loading printer details…" />;
@@ -670,6 +796,40 @@ export default function PrinterDetailScreen() {
             0,
           ).toFixed(0)}°`}
         />
+      </SectionCard>
+
+      <SectionCard
+        title="Heater history"
+        subtitle="Historical nozzle, bed, and chamber temperatures."
+      >
+        <InlineTabBar
+          value={heaterRange}
+          tabs={HEATER_RANGE_OPTIONS.map(option => ({
+            key: option.key,
+            label: option.label,
+          }))}
+          onChange={value => setHeaterRange(value as HeaterRangeKey)}
+        />
+        {heaterHistoryQuery.isLoading ? (
+          <ActivityIndicator color={colors.accent} />
+        ) : heaterHistoryQuery.isError ? (
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            Unable to load heater history.
+          </Text>
+        ) : heaterHistory.points.length === 0 ? (
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            No heater history samples are available for this time range.
+          </Text>
+        ) : (
+          <>
+            <MultiSeriesLineChart points={heaterHistory.points} series={heaterChartSeries} />
+            {!heaterHistory.chamberHasData ? (
+              <Text style={[styles.heaterHistoryNote, { color: colors.textTertiary }]}>
+                Chamber history is unavailable for this printer in the selected range.
+              </Text>
+            ) : null}
+          </>
+        )}
       </SectionCard>
 
       <SectionCard title="Fan Speeds">
@@ -1144,6 +1304,9 @@ const styles = StyleSheet.create({
   selectorChipText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
+  },
+  heaterHistoryNote: {
+    fontSize: fontSize.xs,
   },
   disabledButton: {
     opacity: 0.5,
