@@ -4,6 +4,9 @@ import type {
   InventorySpool,
   LinkedSpoolsMap,
   ObicoStatus,
+  SpoolmanConfig,
+  SpoolmanSyncResult,
+  SpoolmanSyncStatus,
   SpoolBuddyDevice,
   SpoolmanStatus,
   StorageUsageResponse,
@@ -110,8 +113,36 @@ export const systemApi = {
 
   getSpoolmanStatus: async () => request<SpoolmanStatus>('/spoolman/status'),
 
+  getSpoolmanConfig: async () =>
+    requestWithFallback<SpoolmanConfig>(
+      { endpoint: '/settings/spoolman' },
+      { endpoint: '/system/integrations/spoolman' },
+    ),
+
+  updateSpoolmanConfig: async (data: {
+    enabled?: boolean;
+    url?: string | null;
+    auto_sync?: boolean;
+  }) =>
+    request<SpoolmanConfig>('/settings/spoolman', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
   connectSpoolman: async () =>
     request<Record<string, unknown>>('/spoolman/connect', { method: 'POST' }),
+
+  syncSpoolmanInventory: async () =>
+    requestWithFallback<SpoolmanSyncResult>(
+      { endpoint: '/spoolman/sync', options: { method: 'POST' } },
+      { endpoint: '/inventory/spools/sync-from-spoolman', options: { method: 'POST' } },
+    ),
+
+  getSpoolmanSyncStatus: async () =>
+    requestWithFallback<SpoolmanSyncStatus>(
+      { endpoint: '/spoolman/sync/status' },
+      { endpoint: '/system/integrations/spoolman/sync/status' },
+    ),
 
   disconnectSpoolman: async () =>
     request<Record<string, unknown>>('/spoolman/disconnect', { method: 'POST' }),

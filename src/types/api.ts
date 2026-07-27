@@ -1698,6 +1698,12 @@ export interface SpoolmanStatus {
   url: string | null;
 }
 
+export interface SpoolmanConfig {
+  enabled: boolean;
+  url: string | null;
+  auto_sync: boolean;
+}
+
 export interface SkippedSpool {
   location: string;
   reason: string;
@@ -1709,8 +1715,21 @@ export interface SpoolmanSyncResult {
   success: boolean;
   synced_count: number;
   skipped_count: number;
+  added_count?: number;
+  updated_count?: number;
+  removed_count?: number;
   skipped: SkippedSpool[];
   errors: string[];
+}
+
+export interface SpoolmanSyncStatus {
+  status: string | null;
+  last_sync_at: string | null;
+  last_sync: string | null;
+  in_progress: boolean;
+  auto_sync: boolean | null;
+  auto_sync_enabled: boolean | null;
+  last_result: SpoolmanSyncResult | null;
 }
 
 export interface UnlinkedSpool {
