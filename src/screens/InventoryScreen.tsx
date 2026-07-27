@@ -31,7 +31,13 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDateTime, formatWeight, pickArray, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
-import type { Printer, SpoolKProfile, SpoolLabelTemplate, SpoolUsageRecord } from '@/types/api';
+import type {
+  Printer,
+  SpoolKProfile,
+  SpoolLabelTemplate,
+  SpoolUsageRecord,
+  StorageLocation,
+} from '@/types/api';
 
 type ArchiveFilter = 'active' | 'archived';
 type ViewMode = 'cards' | 'forecast';
@@ -84,6 +90,7 @@ export default function InventoryScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [materialFilter, setMaterialFilter] = useState('All');
   const [brandFilter, setBrandFilter] = useState('All');
+  const [locationFilter, setLocationFilter] = useState('All');
   const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'tagged'>('all');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -372,8 +379,23 @@ export default function InventoryScreen() {
     () => ((assignmentsQuery.data ?? []) as unknown as ApiRecord[]),
     [assignmentsQuery.data],
   );
+  const locations = useMemo(
+    () => locationsQuery.data ?? ([] as StorageLocation[]),
+    [locationsQuery.data],
+  );
   const materials = useMemo(() => ['All', ...new Set(spools.map(spool => pickString(spool, ['material'], 'Unknown')).filter(Boolean))], [spools]);
   const brands = useMemo(() => ['All', ...new Set(spools.map(spool => pickString(spool, ['brand'], 'Unknown')).filter(Boolean))], [spools]);
+  const locationFilters = useMemo(() => {
+    const names = new Set<string>();
+    locations.forEach(location => {
+      if (location.name) names.add(location.name);
+    });
+    spools.forEach(spool => {
+      const locationName = pickString(spool, ['storage_location']);
+      if (locationName) names.add(locationName);
+    });
+    return ['All', 'Unassigned', ...Array.from(names).sort((a, b) => a.localeCompare(b))];
+  }, [locations, spools]);
   const lowStockThreshold = pickNumber(settingsQuery.data, ['low_stock_threshold'], 20);
   const leadTimeDays = pickNumber(settingsQuery.data, ['forecast_global_lead_time_days'], 14);
 
@@ -439,6 +461,9 @@ export default function InventoryScreen() {
       if (archiveFilter === 'archived' && !archived) return false;
       if (materialFilter !== 'All' && pickString(spool, ['material'], 'Unknown') !== materialFilter) return false;
       if (brandFilter !== 'All' && pickString(spool, ['brand'], 'Unknown') !== brandFilter) return false;
+      const storageLocation = pickString(spool, ['storage_location']);
+      if (locationFilter === 'Unassigned' && storageLocation) return false;
+      if (locationFilter !== 'All' && locationFilter !== 'Unassigned' && storageLocation !== locationFilter) return false;
       const remaining = Math.max(0, pickNumber(spool, ['label_weight'], 0) - pickNumber(spool, ['weight_used'], 0));
       const remainingPct = pickNumber(spool, ['label_weight'], 0) > 0 ? (remaining / pickNumber(spool, ['label_weight'], 1)) * 100 : 0;
       if (stockFilter === 'low' && remainingPct > lowStockThreshold) return false;
@@ -457,7 +482,7 @@ export default function InventoryScreen() {
         .toLowerCase()
         .includes(term);
     });
-  }, [archiveFilter, assignmentMap, brandFilter, lowStockThreshold, materialFilter, search, spools, stockFilter]);
+  }, [archiveFilter, assignmentMap, brandFilter, locationFilter, lowStockThreshold, materialFilter, search, spools, stockFilter]);
 
   const forecastRows = useMemo<Array<{
     spoolId: number;
@@ -632,6 +657,11 @@ export default function InventoryScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
               {brands.map(item => (
                 <FilterChip key={item} selected={brandFilter === item} label={item} onPress={() => setBrandFilter(item)} colors={colors} />
+              ))}
+            </ScrollView>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+              {locationFilters.map(item => (
+                <FilterChip key={item} selected={locationFilter === item} label={item} onPress={() => setLocationFilter(item)} colors={colors} />
               ))}
             </ScrollView>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
@@ -964,7 +994,32 @@ export default function InventoryScreen() {
               </View>
               <View style={styles.splitRow}>
                 <View style={styles.splitField}><TextField label="Category" value={form.category} onChangeText={value => setForm(current => ({ ...current, category: value }))} /></View>
-                <View style={styles.splitField}><TextField label="Storage location" value={form.storageLocation} onChangeText={value => setForm(current => ({ ...current, storageLocation: value }))} placeholder={pickString(locationsQuery.data, ['0.name'], 'Shelf A')} /></View>
+                <View style={styles.splitField}>
+                  <TextField
+                    label="Storage location"
+                    value={form.storageLocation}
+                    onChangeText={value => setForm(current => ({ ...current, storageLocation: value }))}
+                    placeholder={locations[0]?.name ?? 'Shelf A'}
+                  />
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                    <FilterChip
+                      key="unassigned"
+                      selected={!form.storageLocation.trim()}
+                      label="Unassigned"
+                      onPress={() => setForm(current => ({ ...current, storageLocation: '' }))}
+                      colors={colors}
+                    />
+                    {locations.map(location => (
+                      <FilterChip
+                        key={location.id}
+                        selected={form.storageLocation === location.name}
+                        label={location.name}
+                        onPress={() => setForm(current => ({ ...current, storageLocation: location.name }))}
+                        colors={colors}
+                      />
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
               <TextField label="NFC tag UID" value={form.tagUid} onChangeText={value => setForm(current => ({ ...current, tagUid: value }))} />
               <TextField label="AMS tray UUID" value={form.trayUuid} onChangeText={value => setForm(current => ({ ...current, trayUuid: value }))} />
@@ -990,6 +1045,17 @@ export default function InventoryScreen() {
               <Text style={[styles.modalTitle, { color: colors.text }]}>Bulk edit {selectedIds.length} spools</Text>
               <TextField label="Brand" value={bulkBrand} onChangeText={setBulkBrand} />
               <TextField label="Storage location" value={bulkLocation} onChangeText={setBulkLocation} />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                {locations.map(location => (
+                  <FilterChip
+                    key={`bulk-location-${location.id}`}
+                    selected={bulkLocation === location.name}
+                    label={location.name}
+                    onPress={() => setBulkLocation(location.name)}
+                    colors={colors}
+                  />
+                ))}
+              </ScrollView>
               <TextField label="Category" value={bulkCategory} onChangeText={setBulkCategory} />
               <View style={styles.actions}>
                 <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowBulkEdit(false)} />

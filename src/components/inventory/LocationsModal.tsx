@@ -36,7 +36,7 @@ export function LocationsModal({
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<StorageLocation | null>(null);
   const [name, setName] = useState('');
-  const [identifier, setIdentifier] = useState('');
+  const [description, setDescription] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<StorageLocation | null>(null);
 
   const locationsQuery = useQuery({
@@ -46,7 +46,7 @@ export function LocationsModal({
   });
 
   const locations = useMemo(
-    () => (Array.isArray(locationsQuery.data) ? (locationsQuery.data as unknown as StorageLocation[]) : []),
+    () => locationsQuery.data ?? [],
     [locationsQuery.data],
   );
 
@@ -54,7 +54,7 @@ export function LocationsModal({
     if (!visible) {
       setEditing(null);
       setName('');
-      setIdentifier('');
+      setDescription('');
       setDeleteTarget(null);
     }
   }, [visible]);
@@ -70,7 +70,7 @@ export function LocationsModal({
     mutationFn: () => {
       const payload = {
         name: name.trim(),
-        identifier: identifier.trim() || null,
+        identifier: description.trim() || null,
       };
       if (editing) return api.updateLocation(editing.id, payload);
       return api.createLocation(payload);
@@ -80,7 +80,7 @@ export function LocationsModal({
       showToast(editing ? 'Location updated.' : 'Location created.', 'success');
       setEditing(null);
       setName('');
-      setIdentifier('');
+      setDescription('');
     },
     onError: (error: Error) => showToast(error.message || 'Unable to save the location.', 'error'),
   });
@@ -110,7 +110,7 @@ export function LocationsModal({
   const startEdit = (location: StorageLocation) => {
     setEditing(location);
     setName(location.name);
-    setIdentifier(location.identifier ?? '');
+    setDescription(location.identifier ?? '');
   };
 
   return (
@@ -130,7 +130,7 @@ export function LocationsModal({
 
             <SectionCard title={editing ? 'Edit location' : 'Add location'}>
               <TextField label="Name" value={name} onChangeText={setName} placeholder="Shelf A" />
-              <TextField label="Identifier" value={identifier} onChangeText={setIdentifier} placeholder="A-1" />
+              <TextField label="Description" value={description} onChangeText={setDescription} placeholder="Top shelf near dryer" />
               <View style={styles.formActions}>
                 {editing ? (
                   <PrimaryButton
@@ -139,7 +139,7 @@ export function LocationsModal({
                     onPress={() => {
                       setEditing(null);
                       setName('');
-                      setIdentifier('');
+                      setDescription('');
                     }}
                   />
                 ) : null}
@@ -164,7 +164,7 @@ export function LocationsModal({
                     <View style={styles.locationText}>
                       <Text style={[styles.locationName, { color: colors.text }]}>{location.name}</Text>
                       <Text style={[styles.locationMeta, { color: colors.textSecondary }]}>
-                        {location.identifier || 'No identifier'} • {location.spool_count} spool{location.spool_count === 1 ? '' : 's'}
+                        {location.identifier || 'No description'} • {location.spool_count} spool{location.spool_count === 1 ? '' : 's'}
                       </Text>
                     </View>
                     <View style={styles.rowActions}>

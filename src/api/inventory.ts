@@ -1,5 +1,6 @@
 import type {
   InventorySpool,
+  StorageLocation,
   SpoolAssignment,
   SpoolKProfile,
   SpoolLabelTemplate,
@@ -13,6 +14,11 @@ interface InventoryLabelTemplateOption {
   label?: string;
   name?: string;
   hint?: string;
+}
+
+interface StorageLocationPayload {
+  name: string;
+  identifier?: string | null;
 }
 
 export const inventoryApi = {
@@ -102,25 +108,25 @@ export const inventoryApi = {
   deleteColorCatalogEntry: async (id: number) =>
     request<void>(`/inventory/colors/${id}`, { method: 'DELETE' }),
 
-  getLocations: async () => request<Record<string, unknown>[]>('/inventory/locations'),
+  getLocations: async () => request<StorageLocation[]>('/inventory/locations'),
 
-  createLocation: async (data: { name: string; identifier?: string | null }) =>
-    request<Record<string, unknown>>('/inventory/locations', {
+  createLocation: async (data: StorageLocationPayload) =>
+    request<StorageLocation>('/inventory/locations', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   updateLocation: async (
     id: number,
-    data: { name?: string; identifier?: string | null },
+    data: Partial<StorageLocationPayload>,
   ) =>
-    request<Record<string, unknown>>(`/inventory/locations/${id}`, {
+    request<StorageLocation>(`/inventory/locations/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
 
   deleteLocation: async (id: number) =>
-    request<Record<string, unknown>>(`/inventory/locations/${id}`, {
+    request<void>(`/inventory/locations/${id}`, {
       method: 'DELETE' },
     ),
 
