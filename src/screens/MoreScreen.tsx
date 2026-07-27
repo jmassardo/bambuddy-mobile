@@ -37,6 +37,15 @@ export default function MoreScreen() {
     }),
     [externalLinksQuery.data, settingsQuery.data],
   );
+  const insightItemIds = React.useMemo(() => new Set(['stats', 'energy']), []);
+  const insightItems = React.useMemo(
+    () => layout.moreItems.filter(item => insightItemIds.has(item.id)),
+    [insightItemIds, layout.moreItems],
+  );
+  const pageItems = React.useMemo(
+    () => layout.moreItems.filter(item => !insightItemIds.has(item.id)),
+    [insightItemIds, layout.moreItems],
+  );
 
   const logoutMutation = useMutation({
     mutationFn: logout,
@@ -83,10 +92,29 @@ export default function MoreScreen() {
         </Text>
       </View>
 
+      {insightItems.length > 0 ? (
+        <View style={styles.group}>
+          <SectionHeader title="Insights" />
+          <SectionCard>
+            {insightItems.map(item =>
+              item.stackRoute ? (
+                <MenuItem
+                  key={item.id}
+                  icon={item.icon}
+                  label={item.label}
+                  subtitle={item.subtitle}
+                  onPress={() => navigation.navigate(item.stackRoute as never)}
+                />
+              ) : null,
+            )}
+          </SectionCard>
+        </View>
+      ) : null}
+
       <View style={styles.group}>
         <SectionHeader title="Pages" />
         <SectionCard>
-          {layout.moreItems.map(item =>
+          {pageItems.map(item =>
             item.stackRoute ? (
               <MenuItem
                 key={item.id}
@@ -97,7 +125,7 @@ export default function MoreScreen() {
               />
             ) : null,
           )}
-          {layout.moreItems.length === 0 ? (
+          {pageItems.length === 0 ? (
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>
               No additional pages are currently visible.
             </Text>

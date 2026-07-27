@@ -895,6 +895,29 @@ export interface ArchiveStats {
   energy_data_warming_up?: boolean;
 }
 
+export interface EnergyDataPoint {
+  date: string;
+  energy_kwh: number;
+  energy_cost: number;
+}
+
+export interface EnergyPrinterBreakdown {
+  printer_id: number | null;
+  printer_name: string;
+  energy_kwh: number;
+  energy_cost: number;
+}
+
+export interface EnergyStats {
+  total_energy_kwh: number;
+  total_energy_cost: number;
+  energy_cost_per_kwh?: number | null;
+  currency?: string | null;
+  daily_data?: EnergyDataPoint[];
+  per_printer?: EnergyPrinterBreakdown[];
+  energy_data_warming_up?: boolean;
+}
+
 export interface TagInfo {
   name: string;
   count: number;

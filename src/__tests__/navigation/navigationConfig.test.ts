@@ -39,6 +39,7 @@ describe('navigationConfig', () => {
         'profiles',
         'makerworld',
         'stats',
+        'energy',
         'system',
         'scanner',
       ]);

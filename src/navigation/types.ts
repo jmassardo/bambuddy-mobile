@@ -35,6 +35,7 @@ export type RootStackParamList = {
   Projects: undefined;
   PrintLog: undefined;
   Stats: undefined;
+  Energy: undefined;
   System: undefined;
   SpoolBuddy: undefined;
   Users: undefined;
