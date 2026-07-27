@@ -2,6 +2,7 @@ import type {
   ApiEntity,
   Archive,
   ArchiveComparison,
+  EnergyStats,
   PrintLogEntry,
   PrintLogResponse,
 } from '@/types/api';
@@ -90,6 +91,18 @@ export const archivesApi = {
     }
     if (params?.printerId) searchParams.set('printer_id', String(params.printerId));
     return request<Record<string, unknown>>(`/archives/stats?${searchParams}`);
+  },
+
+  getArchiveEnergyStats: async (params?: {
+    dateFrom?: string;
+    dateTo?: string;
+    printerId?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.dateFrom) searchParams.set('date_from', params.dateFrom);
+    if (params?.dateTo) searchParams.set('date_to', params.dateTo);
+    if (params?.printerId) searchParams.set('printer_id', String(params.printerId));
+    return request<ApiEntity<EnergyStats>>(`/archives/stats/energy?${searchParams}`);
   },
 
   getTags: async () => request<{ name: string; count: number }[]>('/archives/tags'),

@@ -16,6 +16,7 @@ export type BuiltInNavId =
   | 'profiles'
   | 'makerworld'
   | 'stats'
+  | 'energy'
   | 'system'
   | 'scanner';
 
@@ -47,6 +48,7 @@ export const BUILT_IN_NAV_ITEMS: readonly BuiltInNavigationItem[] = [
   { id: 'profiles', label: 'Profiles', subtitle: 'Cloud, Orca, local, and K profiles', icon: 'copy', location: 'more', stackRoute: 'Profiles' },
   { id: 'makerworld', label: 'MakerWorld', subtitle: 'Resolve, import, and browse recent models', icon: 'globe', location: 'more', stackRoute: 'MakerWorld' },
   { id: 'stats', label: 'Stats', subtitle: 'Print activity, filament trends, breakdowns', icon: 'bar-chart', location: 'more', stackRoute: 'Stats' },
+  { id: 'energy', label: 'Energy', subtitle: 'Power consumption trends and per-printer usage', icon: 'power', location: 'more', stackRoute: 'Energy' },
   { id: 'system', label: 'System', subtitle: 'Health, resources, logs, support tools', icon: 'cpu', location: 'more', stackRoute: 'System' },
   { id: 'scanner', label: 'Scanner', subtitle: 'Scan QR and NFC related data', icon: 'qr-code', location: 'more', stackRoute: 'Scanner' },
 ];

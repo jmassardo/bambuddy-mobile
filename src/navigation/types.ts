@@ -35,6 +35,7 @@ export type RootStackParamList = {
   Projects: undefined;
   PrintLog: undefined;
   Stats: undefined;
+  Energy: undefined;
   System: undefined;
   Users: undefined;
   ExternalLinkBrowser: { url: string; title?: string };

@@ -27,6 +27,7 @@ import ProfilesScreen from '@/screens/ProfilesScreen';
 import ProjectsScreen from '@/screens/ProjectsScreen';
 import PrintLogScreen from '@/screens/PrintLogScreen';
 import StatsScreen from '@/screens/StatsScreen';
+import EnergyScreen from '@/screens/EnergyScreen';
 import SystemScreen from '@/screens/SystemScreen';
 import UsersScreen from '@/screens/UsersScreen';
 import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
@@ -161,6 +162,11 @@ export default function RootNavigator() {
         name="Stats"
         component={StatsScreen}
         options={{ title: 'Statistics' }}
+      />
+      <Stack.Screen
+        name="Energy"
+        component={EnergyScreen}
+        options={{ title: 'Energy' }}
       />
       <Stack.Screen
         name="System"
