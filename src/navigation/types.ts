@@ -39,6 +39,7 @@ export type RootStackParamList = {
   System: undefined;
   SpoolBuddy: undefined;
   Users: undefined;
+  VirtualPrinters: undefined;
   ExternalLinkBrowser: { url: string; title?: string };
 };
 

@@ -9,6 +9,7 @@ export type BuiltInNavId =
   | 'more'
   | 'settings'
   | 'users'
+  | 'virtual-printers'
   | 'notifications'
   | 'inventory'
   | 'maintenance'
@@ -42,6 +43,7 @@ export const BUILT_IN_NAV_ITEMS: readonly BuiltInNavigationItem[] = [
   { id: 'more', label: 'More', subtitle: 'Additional pages and tools', icon: 'menu', location: 'tab', tabRoute: 'More', lockVisibility: true },
   { id: 'settings', label: 'Settings', subtitle: 'Server, integrations, backup, API keys', icon: 'settings', location: 'more', stackRoute: 'Settings', lockVisibility: true },
   { id: 'users', label: 'Users', subtitle: 'Accounts, roles, LDAP, password reset', icon: 'users', location: 'more', stackRoute: 'Users' },
+  { id: 'virtual-printers', label: 'Virtual Printers', subtitle: 'Manage virtual printer status and lifecycle', icon: 'printer', location: 'more', stackRoute: 'VirtualPrinters' },
   { id: 'notifications', label: 'Notifications', subtitle: 'Email delivery preferences', icon: 'bell', location: 'more', stackRoute: 'Notifications' },
   { id: 'inventory', label: 'Inventory', subtitle: 'Spools, locations, bulk edits, forecast', icon: 'package', location: 'more', stackRoute: 'Inventory' },
   { id: 'maintenance', label: 'Maintenance', subtitle: 'Per-printer tasks and service intervals', icon: 'wrench', location: 'more', stackRoute: 'Maintenance' },

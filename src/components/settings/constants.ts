@@ -155,6 +155,7 @@ export const EMPTY_VIRTUAL_PRINTER_FORM: VirtualPrinterFormState = {
   name: 'Bambuddy',
   model: 'BL-P001',
   model_name: 'BL-P001',
+  description: '',
   serial: '',
   serial_number: '',
   enabled: false,

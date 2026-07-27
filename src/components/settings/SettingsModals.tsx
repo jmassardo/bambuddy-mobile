@@ -159,12 +159,13 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
         </ScrollView>
       </SimpleModal>
 
-      <SimpleModal visible={virtualPrinterModalVisible} title={editingVirtualPrinter ? 'Edit virtual printer' : 'Create virtual printer'} subtitle="Name, printer model, serial number, and enabled state." onClose={actions.closeVirtualPrinterModal}>
+      <SimpleModal visible={virtualPrinterModalVisible} title={editingVirtualPrinter ? 'Edit virtual printer' : 'Create virtual printer'} subtitle="Name, model, description, access code, and enabled state." onClose={actions.closeVirtualPrinterModal}>
         <ScrollView contentContainerStyle={settingsStyles.modalBody}>
           <TextField label="Name" value={virtualPrinterForm.name} onChangeText={value => actions.setVirtualPrinterForm(current => ({ ...current, name: value }))} />
-          <OptionChipsField label="Model" value={virtualPrinterForm.model_name} options={controller.derived.virtualPrinterModels} onChange={value => actions.setVirtualPrinterForm(current => ({ ...current, model_name: value }))} />
-          <TextField label="Custom model" value={virtualPrinterForm.model_name} onChangeText={value => actions.setVirtualPrinterForm(current => ({ ...current, model_name: value }))} />
-          <TextField label="Serial number" value={virtualPrinterForm.serial_number} onChangeText={value => actions.setVirtualPrinterForm(current => ({ ...current, serial_number: value }))} autoCapitalize="characters" />
+          <OptionChipsField label="Model" value={virtualPrinterForm.model_name} options={controller.derived.virtualPrinterModels} onChange={value => actions.setVirtualPrinterForm(current => ({ ...current, model: value, model_name: value }))} />
+          <TextField label="Custom model" value={virtualPrinterForm.model_name} onChangeText={value => actions.setVirtualPrinterForm(current => ({ ...current, model: value, model_name: value }))} />
+          <TextField label="Description" value={virtualPrinterForm.description} onChangeText={value => actions.setVirtualPrinterForm(current => ({ ...current, description: value }))} multiline />
+          <TextField label="Access code" value={virtualPrinterForm.serial_number} onChangeText={value => actions.setVirtualPrinterForm(current => ({ ...current, serial: value, serial_number: value }))} autoCapitalize="characters" />
           <SwitchRow label="Enabled" value={virtualPrinterForm.enabled} onValueChange={value => actions.setVirtualPrinterForm(current => ({ ...current, enabled: value }))} />
           <View style={settingsStyles.modalFooter}>
             <PrimaryButton label="Cancel" variant="secondary" onPress={actions.closeVirtualPrinterModal} />

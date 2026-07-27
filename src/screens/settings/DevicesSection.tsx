@@ -15,6 +15,7 @@ type VirtualPrinterFormState = {
   name: string;
   model: string;
   model_name: string;
+  description: string;
   serial: string;
   serial_number: string;
   enabled: boolean;
@@ -24,6 +25,7 @@ const EMPTY_VIRTUAL_PRINTER_FORM: VirtualPrinterFormState = {
   name: 'Bambuddy',
   model: 'BL-P001',
   model_name: 'BL-P001',
+  description: '',
   serial: '',
   serial_number: '',
   enabled: false,
@@ -65,13 +67,18 @@ function VirtualPrinterSection() {
 
   const saveVirtualPrinterMutation = useMutation({
     mutationFn: () => {
+      const model = virtualPrinterForm.model_name.trim() || virtualPrinterForm.model.trim();
+      const accessCode = virtualPrinterForm.serial_number.trim() || virtualPrinterForm.serial.trim();
       const payload: Record<string, unknown> = {
         name: virtualPrinterForm.name.trim() || 'Bambuddy',
-        model: virtualPrinterForm.model.trim() || undefined,
+        model: model || undefined,
         enabled: virtualPrinterForm.enabled,
       };
-      if (virtualPrinterForm.serial.trim()) {
-        payload.access_code = virtualPrinterForm.serial.trim();
+      if (virtualPrinterForm.description.trim()) {
+        payload.description = virtualPrinterForm.description.trim();
+      }
+      if (accessCode) {
+        payload.access_code = accessCode;
       }
       return editingVirtualPrinter
         ? api.updateVirtualPrinter(pickNumber(editingVirtualPrinter, ['id']), payload)
@@ -107,9 +114,10 @@ function VirtualPrinterSection() {
       setVirtualPrinterForm({
         name: pickString(printer, ['name'], 'Bambuddy'),
         model: pickString(printer, ['model'], 'BL-P001'),
-        model_name: pickString(printer, ['model', 'model_name'], 'BL-P001'),
-        serial: pickString(printer, ['serial'], ''),
-        serial_number: pickString(printer, ['serial', 'serial_number'], ''),
+        model_name: pickString(printer, ['model_name', 'model'], 'BL-P001'),
+        description: pickString(printer, ['description'], ''),
+        serial: pickString(printer, ['serial', 'serial_number'], ''),
+        serial_number: pickString(printer, ['serial_number', 'serial'], ''),
         enabled: pickBoolean(printer, ['enabled', 'status.running']),
       });
     } else {
@@ -168,14 +176,15 @@ function VirtualPrinterSection() {
       <SimpleModal
         visible={virtualPrinterModalVisible}
         title={editingVirtualPrinter ? 'Edit virtual printer' : 'Create virtual printer'}
-        subtitle="Name, printer model, serial number, and enabled state."
+        subtitle="Name, model, description, access code, and enabled state."
         onClose={closeVirtualPrinterModal}
       >
         <ScrollView contentContainerStyle={styles.modalBody}>
           <TextField label="Name" value={virtualPrinterForm.name} onChangeText={value => setVirtualPrinterForm(current => ({ ...current, name: value }))} />
-          <OptionChipsField label="Model" value={virtualPrinterForm.model_name} options={virtualPrinterModels} onChange={value => setVirtualPrinterForm(current => ({ ...current, model_name: value }))} />
-          <TextField label="Custom model" value={virtualPrinterForm.model_name} onChangeText={value => setVirtualPrinterForm(current => ({ ...current, model_name: value }))} />
-          <TextField label="Serial number" value={virtualPrinterForm.serial_number} onChangeText={value => setVirtualPrinterForm(current => ({ ...current, serial_number: value }))} autoCapitalize="characters" />
+          <OptionChipsField label="Model" value={virtualPrinterForm.model_name} options={virtualPrinterModels} onChange={value => setVirtualPrinterForm(current => ({ ...current, model: value, model_name: value }))} />
+          <TextField label="Custom model" value={virtualPrinterForm.model_name} onChangeText={value => setVirtualPrinterForm(current => ({ ...current, model: value, model_name: value }))} />
+          <TextField label="Description" value={virtualPrinterForm.description} onChangeText={value => setVirtualPrinterForm(current => ({ ...current, description: value }))} multiline />
+          <TextField label="Access code" value={virtualPrinterForm.serial_number} onChangeText={value => setVirtualPrinterForm(current => ({ ...current, serial: value, serial_number: value }))} autoCapitalize="characters" />
           <SwitchRow label="Enabled" value={virtualPrinterForm.enabled} onValueChange={value => setVirtualPrinterForm(current => ({ ...current, enabled: value }))} />
           <View style={styles.modalFooter}>
             <PrimaryButton label="Cancel" variant="secondary" onPress={closeVirtualPrinterModal} />

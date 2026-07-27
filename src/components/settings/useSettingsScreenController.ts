@@ -450,13 +450,18 @@ export function useSettingsScreenController() {
 
   const saveVirtualPrinterMutation = useMutation({
     mutationFn: async () => {
+      const model = virtualPrinterForm.model_name.trim() || virtualPrinterForm.model.trim();
+      const accessCode = virtualPrinterForm.serial_number.trim() || virtualPrinterForm.serial.trim();
       const payload: Record<string, unknown> = {
         name: virtualPrinterForm.name.trim() || 'Bambuddy',
-        model: virtualPrinterForm.model.trim() || undefined,
+        model: model || undefined,
         enabled: virtualPrinterForm.enabled,
       };
-      if (virtualPrinterForm.serial.trim()) {
-        payload.access_code = virtualPrinterForm.serial.trim();
+      if (virtualPrinterForm.description.trim()) {
+        payload.description = virtualPrinterForm.description.trim();
+      }
+      if (accessCode) {
+        payload.access_code = accessCode;
       }
       return editingVirtualPrinter
         ? api.updateVirtualPrinter(pickNumber(editingVirtualPrinter, ['id']), payload)
@@ -830,9 +835,10 @@ export function useSettingsScreenController() {
       setVirtualPrinterForm({
         name: pickString(printer, ['name'], 'Bambuddy'),
         model: pickString(printer, ['model'], 'BL-P001'),
-        model_name: pickString(printer, ['model', 'model_name'], 'BL-P001'),
-        serial: pickString(printer, ['serial'], ''),
-        serial_number: pickString(printer, ['serial', 'serial_number'], ''),
+        model_name: pickString(printer, ['model_name', 'model'], 'BL-P001'),
+        description: pickString(printer, ['description'], ''),
+        serial: pickString(printer, ['serial', 'serial_number'], ''),
+        serial_number: pickString(printer, ['serial_number', 'serial'], ''),
         enabled: pickBoolean(printer, ['enabled', 'status.running']),
       });
     } else {
