@@ -3944,6 +3944,26 @@ export interface SpoolBuddyDevice {
   online: boolean;
 }
 
+export interface SpoolBuddyDeviceCreateRequest {
+  device_id: string;
+  hostname?: string | null;
+  ip_address?: string | null;
+  backend_url?: string | null;
+  api_key?: string | null;
+}
+
+export interface SpoolBuddyDeviceUpdateRequest {
+  hostname?: string | null;
+  ip_address?: string | null;
+  backend_url?: string | null;
+  api_key?: string | null;
+  display_brightness?: number;
+  display_blank_timeout?: number;
+  has_backlight?: boolean;
+  calibration_factor?: number;
+  tare_offset?: number;
+}
+
 export interface DaemonUpdateCheck {
   current_version: string;
   latest_version: string | null;

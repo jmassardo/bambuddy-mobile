@@ -4,7 +4,9 @@ import type {
   InventorySpool,
   LinkedSpoolsMap,
   ObicoStatus,
+  SpoolBuddyDeviceCreateRequest,
   SpoolBuddyDevice,
+  SpoolBuddyDeviceUpdateRequest,
   SpoolmanStatus,
   StorageUsageResponse,
   SystemHealthResult,
@@ -194,6 +196,23 @@ export const systemApi = {
 
   getSpoolBuddyDevice: async (id: string) =>
     request<ApiEntity<SpoolBuddyDevice>>(`/spoolbuddy/devices/${id}`),
+
+  createSpoolBuddyDevice: async (data: SpoolBuddyDeviceCreateRequest) =>
+    request<ApiEntity<SpoolBuddyDevice>>('/spoolbuddy/devices', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateSpoolBuddyDevice: async (id: string, data: SpoolBuddyDeviceUpdateRequest) =>
+    request<ApiEntity<SpoolBuddyDevice>>(`/spoolbuddy/devices/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteSpoolBuddyDevice: async (id: string) =>
+    request<void>(`/spoolbuddy/devices/${id}`, {
+      method: 'DELETE',
+    }),
 
   writeSpoolBuddyTag: async (deviceId: string, data: Record<string, unknown>) =>
     request<void>('/spoolbuddy/nfc/write-tag', {
