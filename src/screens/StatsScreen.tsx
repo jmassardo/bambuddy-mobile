@@ -43,6 +43,38 @@ type SelectorOption = {
   value: number | null;
 };
 
+export function buildStatsQueryParams({
+  baseParams,
+  selectedPrinterId,
+  selectedUserId,
+  isAdmin,
+}: {
+  baseParams: { dateFrom?: string; dateTo?: string };
+  selectedPrinterId: number | null;
+  selectedUserId: number | null;
+  isAdmin: boolean;
+}) {
+  return {
+    ...baseParams,
+    ...(selectedPrinterId ? { printerId: selectedPrinterId } : {}),
+    ...(isAdmin && selectedUserId !== null ? { createdById: selectedUserId } : {}),
+  };
+}
+
+export function buildStatsExportFilenameBase({
+  range,
+  selectedPrinterId,
+  selectedUserId,
+  isAdmin,
+}: {
+  range: RangeKey;
+  selectedPrinterId: number | null;
+  selectedUserId: number | null;
+  isAdmin: boolean;
+}) {
+  return `bambuddy-stats-${range}${selectedPrinterId ? `-printer-${selectedPrinterId}` : ''}${isAdmin && selectedUserId !== null ? `-user-${selectedUserId}` : ''}`;
+}
+
 function getRangeParams(range: RangeKey) {
   const now = new Date();
   const end = now.toISOString().split('T')[0];
@@ -159,11 +191,16 @@ export default function StatsScreen() {
   const [selector, setSelector] = useState<SelectorKey>(null);
 
   const params = getRangeParams(range);
-  const queryParams = useMemo(() => ({
-    ...params,
-    ...(selectedPrinterId ? { printerId: selectedPrinterId } : {}),
-    ...(isAdmin && selectedUserId !== null ? { createdById: selectedUserId } : {}),
-  }), [isAdmin, params, selectedPrinterId, selectedUserId]);
+  const queryParams = useMemo(
+    () =>
+      buildStatsQueryParams({
+        baseParams: params,
+        selectedPrinterId,
+        selectedUserId,
+        isAdmin,
+      }),
+    [isAdmin, params, selectedPrinterId, selectedUserId],
+  );
 
   const statsQuery = useQuery({
     queryKey: ['archiveStats', queryParams],
@@ -194,7 +231,12 @@ export default function StatsScreen() {
 
   const exportMutation = useMutation({
     mutationFn: async (format: 'csv' | 'json') => {
-      const filenameBase = `bambuddy-stats-${range}${selectedPrinterId ? `-printer-${selectedPrinterId}` : ''}${selectedUserId !== null ? `-user-${selectedUserId}` : ''}`;
+      const filenameBase = buildStatsExportFilenameBase({
+        range,
+        selectedPrinterId,
+        selectedUserId,
+        isAdmin,
+      });
       if (format === 'json') {
         const blobOptions: BlobOptions = {
           type: 'application/json',
@@ -261,7 +303,8 @@ export default function StatsScreen() {
   const userOptions = useMemo<SelectorOption[]>(() => {
     const options: SelectorOption[] = [{ key: 'all', label: 'All users', value: null }];
     ((usersQuery.data ?? []) as ApiRecord[]).forEach(row => {
-      const id = pickNumber(row, ['id']);
+      const id = pickNumber(row, ['id'], Number.NaN);
+      if (!Number.isFinite(id) || id <= 0) return;
       options.push({
         key: String(id),
         label: pickString(row, ['full_name', 'username', 'email'], `User ${id}`),
@@ -454,12 +497,20 @@ export default function StatsScreen() {
 
         <SectionCard title="Filters & export" subtitle="Limit statistics by printer or user, then export the current view.">
           <View style={styles.filterGrid}>
-            <Pressable style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setSelector('printer')}>
+            <Pressable
+              testID="stats-printer-filter"
+              style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              onPress={() => setSelector('printer')}
+            >
               <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Printer</Text>
               <Text style={[styles.filterValue, { color: colors.text }]} numberOfLines={1}>{selectedPrinterLabel}</Text>
             </Pressable>
             {isAdmin ? (
-              <Pressable style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setSelector('user')}>
+              <Pressable
+                testID="stats-user-filter"
+                style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                onPress={() => setSelector('user')}
+              >
                 <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>User</Text>
                 <Text style={[styles.filterValue, { color: colors.text }]} numberOfLines={1}>{selectedUserLabel}</Text>
               </Pressable>
@@ -597,7 +648,7 @@ export default function StatsScreen() {
         <SectionCard title="Print habits" subtitle="Which days do you print most?">
           {habitsData.some(d => d.value > 0) ? (
             <SimpleBarChart
-              data={habitsData.map(d => ({ label: d.label, value: d.value, color: '#3b82f6' }))}
+              data={habitsData.map(d => ({ label: d.label, value: d.value, color: colors.accent }))}
               height={160}
             />
           ) : (
@@ -608,7 +659,7 @@ export default function StatsScreen() {
         <SectionCard title="Time of day" subtitle="When you start prints during the day.">
           {hourlyData.some(d => d.value > 0) ? (
             <SimpleBarChart
-              data={hourlyData.filter((_, i) => i % 2 === 0).map(d => ({ label: d.label, value: d.value, color: '#f59e0b' }))}
+              data={hourlyData.filter((_, i) => i % 2 === 0).map(d => ({ label: d.label, value: d.value, color: colors.warning }))}
               height={160}
             />
           ) : (
@@ -621,6 +672,7 @@ export default function StatsScreen() {
         visible={selector === 'printer'}
         title="Select printer"
         options={printerOptions}
+        testIDPrefix="stats-printer"
         selectedValue={selectedPrinterId}
         onClose={() => setSelector(null)}
         onSelect={value => {
@@ -633,6 +685,7 @@ export default function StatsScreen() {
         visible={selector === 'user'}
         title="Select user"
         options={userOptions}
+        testIDPrefix="stats-user"
         selectedValue={selectedUserId}
         onClose={() => setSelector(null)}
         onSelect={value => {
@@ -724,6 +777,7 @@ function SelectionModal({
   visible,
   title,
   options,
+  testIDPrefix,
   selectedValue,
   onClose,
   onSelect,
@@ -731,6 +785,7 @@ function SelectionModal({
   visible: boolean;
   title: string;
   options: SelectorOption[];
+  testIDPrefix?: string;
   selectedValue: number | null;
   onClose: () => void;
   onSelect: (value: number | null) => void;
@@ -749,6 +804,7 @@ function SelectionModal({
               const selected = item.value === selectedValue;
               return (
                 <Pressable
+                  testID={testIDPrefix ? `${testIDPrefix}-option-${item.key}` : undefined}
                   style={[
                     styles.modalOption,
                     {
