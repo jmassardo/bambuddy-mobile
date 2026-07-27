@@ -9,23 +9,76 @@ import {
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
-import { InlineTabBar, PrimaryButton, SectionCard, StatusBadge, TextField } from '@/components/common/AppUI';
-import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
+import { api, ApiError } from '@/api/client';
+import {
+  InlineTabBar,
+  PrimaryButton,
+  SectionCard,
+  StatusBadge,
+  TextField,
+} from '@/components/common/AppUI';
+import { CloudProfileDetailModal } from '@/components/profiles/CloudProfileDetailModal';
+import { CloudProfileDiffModal } from '@/components/profiles/CloudProfileDiffModal';
+import {
+  EmptyState,
+  ErrorState,
+  LoadingScreen,
+} from '@/components/common/StateScreens';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
-import { formatDateTime, pickArray, pickBoolean, pickString, statusColor, type ApiRecord } from '@/utils/data';
+import type { CloudProfileDiffField } from '@/types/api';
+import {
+  formatDateTime,
+  pickArray,
+  pickBoolean,
+  pickString,
+  statusColor,
+  type ApiRecord,
+} from '@/utils/data';
 
 type ProfileTab = 'cloud' | 'orca' | 'local' | 'kprofiles';
 type CloudStep = 'login' | 'code' | 'token';
 
 function normalizeProfiles(source: unknown): ApiRecord[] {
   if (Array.isArray(source)) {
-    return source.filter((item): item is ApiRecord => typeof item === 'object' && item !== null);
+    return source.filter(
+      (item): item is ApiRecord => typeof item === 'object' && item !== null,
+    );
   }
-  const records = pickArray(source, ['profiles', 'items', 'results']);
-  return records.filter((item): item is ApiRecord => typeof item === 'object' && item !== null);
+
+  if (typeof source === 'object' && source !== null) {
+    const record = source as ApiRecord;
+    const profiles = pickArray(record, ['profiles', 'items', 'results']);
+    return profiles.filter(
+      (item): item is ApiRecord => typeof item === 'object' && item !== null,
+    );
+  }
+
+  return [];
+}
+
+function normalizeDiffFields(source: unknown): CloudProfileDiffField[] {
+  const asRecord =
+    typeof source === 'object' && source !== null ? (source as ApiRecord) : null;
+
+  const items = asRecord
+    ? pickArray(asRecord, ['fields', 'differences', 'changed_fields'])
+    : [];
+
+  return items
+    .filter((item): item is ApiRecord => typeof item === 'object' && item !== null)
+    .map(item => ({
+      path: pickString(item, ['path', 'field', 'key'], 'unknown'),
+      left_value: item.left_value ?? item.left ?? item.current,
+      right_value: item.right_value ?? item.right ?? item.template,
+      category: pickString(item, ['category']) || null,
+      severity: pickString(item, ['severity']) || null,
+    }));
+}
+
+function toRecord(value: unknown): ApiRecord | null {
+  return typeof value === 'object' && value !== null ? (value as ApiRecord) : null;
 }
 
 export default function ProfilesScreen() {
@@ -48,10 +101,19 @@ export default function ProfilesScreen() {
   const [verificationType, setVerificationType] = useState('email');
   const [orcaEmail, setOrcaEmail] = useState('');
   const [orcaPassword, setOrcaPassword] = useState('');
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [selectedCloudProfile, setSelectedCloudProfile] = useState<ApiRecord | null>(null);
+  const [compareVisible, setCompareVisible] = useState(false);
+  const [compareSelection, setCompareSelection] = useState<string[]>([]);
 
   const cloudStatusQuery = useQuery({
     queryKey: ['cloudStatus'],
     queryFn: () => api.getCloudStatus(),
+  });
+  const cloudSyncStatusQuery = useQuery({
+    queryKey: ['cloudProfileSyncStatus'],
+    queryFn: () => api.getCloudProfileSyncStatus(),
+    enabled: tab === 'cloud',
   });
   const orcaStatusQuery = useQuery({
     queryKey: ['orcaCloudStatus'],
@@ -78,9 +140,32 @@ export default function ProfilesScreen() {
     enabled: tab === 'kprofiles',
   });
 
+  const selectedCloudSettingId =
+    pickString(selectedCloudProfile, ['setting_id', 'id']) || null;
+
+  const cloudProfileDetailQuery = useQuery({
+    queryKey: ['cloudProfileDetail', selectedCloudSettingId],
+    queryFn: () => {
+      if (!selectedCloudSettingId) {
+        throw new Error('Cloud profile setting ID is required.');
+      }
+      return api.getCloudProfileDetail(selectedCloudSettingId);
+    },
+    enabled: detailVisible && tab === 'cloud' && Boolean(selectedCloudSettingId),
+    retry: false,
+  });
+
+  const cloudDiffQuery = useQuery({
+    queryKey: ['cloudProfileDiff', compareSelection[0], compareSelection[1]],
+    queryFn: () => api.compareCloudProfiles(compareSelection[0], compareSelection[1]),
+    enabled: compareVisible && tab === 'cloud' && compareSelection.length === 2,
+    retry: false,
+  });
+
   const refreshAll = async () => {
     await Promise.all([
       cloudStatusQuery.refetch(),
+      cloudSyncStatusQuery.refetch(),
       orcaStatusQuery.refetch(),
       cloudProfilesQuery.refetch(),
       orcaProfilesQuery.refetch(),
@@ -138,9 +223,38 @@ export default function ProfilesScreen() {
   const cloudLogoutMutation = useMutation({
     mutationFn: () => api.cloudLogout(),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['cloudStatus'] });
-      await queryClient.invalidateQueries({ queryKey: ['cloudProfiles'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['cloudStatus'] }),
+        queryClient.invalidateQueries({ queryKey: ['cloudProfileSyncStatus'] }),
+        queryClient.invalidateQueries({ queryKey: ['cloudProfiles'] }),
+      ]);
+      setCompareSelection([]);
+      setCompareVisible(false);
+      setDetailVisible(false);
+      setSelectedCloudProfile(null);
       showToast('Bambu Cloud disconnected.', 'success');
+    },
+  });
+
+  const cloudSyncMutation = useMutation({
+    mutationFn: () => api.syncCloudProfiles(),
+    onSuccess: async data => {
+      const message = pickString(data, ['message'], 'Cloud profile sync started.');
+      showToast(message, 'success');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['cloudProfileSyncStatus'] }),
+        queryClient.invalidateQueries({ queryKey: ['cloudProfiles'] }),
+      ]);
+    },
+    onError: error => {
+      if (error instanceof ApiError && error.status === 404) {
+        showToast('Cloud profile sync endpoint is not available on this server.', 'error');
+        return;
+      }
+      showToast(
+        error instanceof Error ? error.message : 'Unable to trigger cloud sync.',
+        'error',
+      );
     },
   });
 
@@ -174,20 +288,86 @@ export default function ProfilesScreen() {
 
   const profiles = useMemo(() => normalizeProfiles(activeQuery.data), [activeQuery.data]);
 
+  const cloudProfileById = useMemo(() => {
+    const map = new Map<string, ApiRecord>();
+    profiles.forEach(profile => {
+      const settingId = pickString(profile, ['setting_id', 'id']);
+      if (settingId) {
+        map.set(settingId, profile);
+      }
+    });
+    return map;
+  }, [profiles]);
+
+  const syncStatusSource = useMemo(() => {
+    const syncRecord = toRecord(cloudSyncStatusQuery.data);
+    if (syncRecord) return syncRecord;
+    const profileRecord = toRecord(cloudProfilesQuery.data);
+    return profileRecord;
+  }, [cloudProfilesQuery.data, cloudSyncStatusQuery.data]);
+
+  const syncStatusLabel =
+    pickString(syncStatusSource, ['status', 'sync_state']) || 'Not available';
+  const syncLastTimeRaw = pickString(syncStatusSource, [
+    'last_sync_at',
+    'last_synced_at',
+    'last_successful_sync_at',
+  ]);
+  const syncLastTime = syncLastTimeRaw
+    ? formatDateTime(syncLastTimeRaw)
+    : 'Not available';
+
+  const diffFields = useMemo(
+    () => normalizeDiffFields(cloudDiffQuery.data),
+    [cloudDiffQuery.data],
+  );
+
+  const detailProfileName = pickString(selectedCloudProfile, ['name', 'profile_name'], 'Profile');
+  const compareLeftName =
+    pickString(cloudProfileById.get(compareSelection[0]), ['name', 'profile_name']) ||
+    compareSelection[0] ||
+    'Left profile';
+  const compareRightName =
+    pickString(cloudProfileById.get(compareSelection[1]), ['name', 'profile_name']) ||
+    compareSelection[1] ||
+    'Right profile';
+
+  const isCloudAuthenticated = pickBoolean(cloudStatusQuery.data, ['is_authenticated']);
+  const canCompare = compareSelection.length === 2;
+
+  const toggleCompareSelection = (settingId: string) => {
+    setCompareSelection(current => {
+      if (current.includes(settingId)) {
+        return current.filter(id => id !== settingId);
+      }
+      if (current.length >= 2) {
+        return [current[1], settingId];
+      }
+      return [...current, settingId];
+    });
+  };
+
   if (activeQuery.isLoading && tab !== 'cloud' && tab !== 'orca') {
     return <LoadingScreen message="Loading profiles…" />;
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}> 
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
         data={profiles}
-        keyExtractor={(item, index) => `${tab}-${pickString(item, ['setting_id', 'id', 'name'], String(index))}`}
+        keyExtractor={(item, index) =>
+          `${tab}-${pickString(item, ['setting_id', 'id', 'name'], String(index))}`
+        }
         contentContainerStyle={styles.content}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         refreshControl={
           <RefreshControl
-            refreshing={activeQuery.isRefetching || cloudStatusQuery.isRefetching || orcaStatusQuery.isRefetching}
+            refreshing={
+              activeQuery.isRefetching ||
+              cloudStatusQuery.isRefetching ||
+              cloudSyncStatusQuery.isRefetching ||
+              orcaStatusQuery.isRefetching
+            }
             onRefresh={() => void refreshAll()}
             tintColor={colors.accent}
           />
@@ -208,50 +388,149 @@ export default function ProfilesScreen() {
             {tab === 'cloud' ? (
               <SectionCard
                 title="Bambu Cloud"
-                subtitle={pickBoolean(cloudStatusQuery.data, ['is_authenticated'])
+                subtitle={isCloudAuthenticated
                   ? `Signed in as ${pickString(cloudStatusQuery.data, ['email'], 'Unknown user')}`
                   : 'Sign in to sync Bambu Cloud slicer profiles.'}
                 right={
                   <StatusBadge
-                    label={pickBoolean(cloudStatusQuery.data, ['is_authenticated']) ? 'connected' : 'disconnected'}
-                    color={statusColor(pickBoolean(cloudStatusQuery.data, ['is_authenticated']) ? 'success' : 'offline', colors)}
+                    label={isCloudAuthenticated ? 'connected' : 'disconnected'}
+                    color={statusColor(
+                      isCloudAuthenticated ? 'success' : 'offline',
+                      colors,
+                    )}
                   />
                 }
               >
-                {pickBoolean(cloudStatusQuery.data, ['is_authenticated']) ? (
-                  <PrimaryButton
-                    label={cloudLogoutMutation.isPending ? 'Disconnecting…' : 'Disconnect'}
-                    variant="secondary"
-                    onPress={() => void cloudLogoutMutation.mutateAsync()}
-                  />
+                <View
+                  style={[
+                    styles.syncMetaCard,
+                    {
+                      backgroundColor: colors.surfaceElevated,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.syncMetaTitle, { color: colors.text }]}>
+                    Sync status
+                  </Text>
+                  <View style={styles.syncMetaRow}>
+                    <Text
+                      style={[styles.syncMetaLabel, { color: colors.textSecondary }]}
+                    >
+                      Status
+                    </Text>
+                    <Text style={[styles.syncMetaValue, { color: colors.text }]}>
+                      {syncStatusLabel}
+                    </Text>
+                  </View>
+                  <View style={styles.syncMetaRow}>
+                    <Text
+                      style={[styles.syncMetaLabel, { color: colors.textSecondary }]}
+                    >
+                      Last sync
+                    </Text>
+                    <Text style={[styles.syncMetaValue, { color: colors.text }]}>
+                      {syncLastTime}
+                    </Text>
+                  </View>
+                </View>
+
+                {isCloudAuthenticated ? (
+                  <View style={styles.cloudActions}>
+                    <PrimaryButton
+                      label={cloudSyncMutation.isPending ? 'Syncing…' : 'Sync now'}
+                      onPress={() => void cloudSyncMutation.mutateAsync()}
+                      disabled={cloudSyncMutation.isPending}
+                      loading={cloudSyncMutation.isPending}
+                    />
+                    <PrimaryButton
+                      label={
+                        canCompare
+                          ? 'Compare selected templates'
+                          : `Select ${2 - compareSelection.length} more profile(s)`
+                      }
+                      variant="secondary"
+                      onPress={() => setCompareVisible(true)}
+                      disabled={!canCompare}
+                    />
+                    <PrimaryButton
+                      label={
+                        cloudLogoutMutation.isPending
+                          ? 'Disconnecting…'
+                          : 'Disconnect'
+                      }
+                      variant="secondary"
+                      onPress={() => void cloudLogoutMutation.mutateAsync()}
+                    />
+                  </View>
                 ) : (
                   <View style={styles.loginWrap}>
                     {cloudStep === 'login' ? (
                       <>
-                        <TextField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-                        <TextField label="Password" value={password} onChangeText={setPassword} secureTextEntry />
-                        <TextField label="Region" value={region} onChangeText={setRegion} placeholder="global or china" />
+                        <TextField
+                          label="Email"
+                          value={email}
+                          onChangeText={setEmail}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                        />
+                        <TextField
+                          label="Password"
+                          value={password}
+                          onChangeText={setPassword}
+                          secureTextEntry
+                        />
+                        <TextField
+                          label="Region"
+                          value={region}
+                          onChangeText={setRegion}
+                          placeholder="global or china"
+                        />
                         <View style={styles.actions}>
                           <PrimaryButton
-                            label={cloudLoginMutation.isPending ? 'Signing in…' : 'Sign in'}
+                            label={
+                              cloudLoginMutation.isPending ? 'Signing in…' : 'Sign in'
+                            }
                             onPress={() => void cloudLoginMutation.mutateAsync()}
-                            disabled={!email.trim() || !password || cloudLoginMutation.isPending}
+                            disabled={
+                              !email.trim() || !password || cloudLoginMutation.isPending
+                            }
                             loading={cloudLoginMutation.isPending}
                           />
-                          <PrimaryButton label="Use token" variant="secondary" onPress={() => setCloudStep('token')} />
+                          <PrimaryButton
+                            label="Use token"
+                            variant="secondary"
+                            onPress={() => setCloudStep('token')}
+                          />
                         </View>
                       </>
                     ) : null}
                     {cloudStep === 'code' ? (
                       <>
-                        <Text style={[styles.helper, { color: colors.textSecondary }]}>Enter the {verificationType === 'totp' ? 'TOTP' : 'verification'} code for {email}.</Text>
-                        <TextField label="Verification code" value={code} onChangeText={setCode} keyboardType="number-pad" />
+                        <Text style={[styles.helper, { color: colors.textSecondary }]}>
+                          Enter the {verificationType === 'totp' ? 'TOTP' : 'verification'}{' '}
+                          code for {email}.
+                        </Text>
+                        <TextField
+                          label="Verification code"
+                          value={code}
+                          onChangeText={setCode}
+                          keyboardType="number-pad"
+                        />
                         <View style={styles.actions}>
-                          <PrimaryButton label="Back" variant="secondary" onPress={() => setCloudStep('login')} />
                           <PrimaryButton
-                            label={cloudVerifyMutation.isPending ? 'Verifying…' : 'Verify'}
+                            label="Back"
+                            variant="secondary"
+                            onPress={() => setCloudStep('login')}
+                          />
+                          <PrimaryButton
+                            label={
+                              cloudVerifyMutation.isPending ? 'Verifying…' : 'Verify'
+                            }
                             onPress={() => void cloudVerifyMutation.mutateAsync()}
-                            disabled={!code.trim() || cloudVerifyMutation.isPending}
+                            disabled={
+                              !code.trim() || cloudVerifyMutation.isPending
+                            }
                             loading={cloudVerifyMutation.isPending}
                           />
                         </View>
@@ -259,14 +538,33 @@ export default function ProfilesScreen() {
                     ) : null}
                     {cloudStep === 'token' ? (
                       <>
-                        <TextField label="Access token" value={token} onChangeText={setToken} multiline autoCapitalize="none" />
-                        <TextField label="Region" value={region} onChangeText={setRegion} placeholder="global or china" />
+                        <TextField
+                          label="Access token"
+                          value={token}
+                          onChangeText={setToken}
+                          multiline
+                          autoCapitalize="none"
+                        />
+                        <TextField
+                          label="Region"
+                          value={region}
+                          onChangeText={setRegion}
+                          placeholder="global or china"
+                        />
                         <View style={styles.actions}>
-                          <PrimaryButton label="Back" variant="secondary" onPress={() => setCloudStep('login')} />
                           <PrimaryButton
-                            label={cloudTokenMutation.isPending ? 'Saving…' : 'Save token'}
+                            label="Back"
+                            variant="secondary"
+                            onPress={() => setCloudStep('login')}
+                          />
+                          <PrimaryButton
+                            label={
+                              cloudTokenMutation.isPending ? 'Saving…' : 'Save token'
+                            }
                             onPress={() => void cloudTokenMutation.mutateAsync()}
-                            disabled={!token.trim() || cloudTokenMutation.isPending}
+                            disabled={
+                              !token.trim() || cloudTokenMutation.isPending
+                            }
                             loading={cloudTokenMutation.isPending}
                           />
                         </View>
@@ -285,8 +583,17 @@ export default function ProfilesScreen() {
                   : 'Sign in to sync Orca Cloud slicer profiles.'}
                 right={
                   <StatusBadge
-                    label={pickBoolean(orcaStatusQuery.data, ['connected']) ? 'connected' : 'disconnected'}
-                    color={statusColor(pickBoolean(orcaStatusQuery.data, ['connected']) ? 'success' : 'offline', colors)}
+                    label={
+                      pickBoolean(orcaStatusQuery.data, ['connected'])
+                        ? 'connected'
+                        : 'disconnected'
+                    }
+                    color={statusColor(
+                      pickBoolean(orcaStatusQuery.data, ['connected'])
+                        ? 'success'
+                        : 'offline',
+                      colors,
+                    )}
                   />
                 }
               >
@@ -298,12 +605,25 @@ export default function ProfilesScreen() {
                   />
                 ) : (
                   <View style={styles.loginWrap}>
-                    <TextField label="Email" value={orcaEmail} onChangeText={setOrcaEmail} keyboardType="email-address" autoCapitalize="none" />
-                    <TextField label="Password" value={orcaPassword} onChangeText={setOrcaPassword} secureTextEntry />
+                    <TextField
+                      label="Email"
+                      value={orcaEmail}
+                      onChangeText={setOrcaEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                    <TextField
+                      label="Password"
+                      value={orcaPassword}
+                      onChangeText={setOrcaPassword}
+                      secureTextEntry
+                    />
                     <PrimaryButton
                       label={orcaLoginMutation.isPending ? 'Signing in…' : 'Sign in'}
                       onPress={() => void orcaLoginMutation.mutateAsync()}
-                      disabled={!orcaEmail.trim() || !orcaPassword || orcaLoginMutation.isPending}
+                      disabled={
+                        !orcaEmail.trim() || !orcaPassword || orcaLoginMutation.isPending
+                      }
                       loading={orcaLoginMutation.isPending}
                     />
                   </View>
@@ -314,17 +634,58 @@ export default function ProfilesScreen() {
         }
         renderItem={({ item }) => {
           const state = pickString(item, ['status', 'source', 'type'], tab);
+          const settingId = pickString(item, ['setting_id', 'id']) || '';
+          const isSelectedForCompare = compareSelection.includes(settingId);
           return (
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}> 
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.cardBorder },
+              ]}
+            >
               <View style={styles.cardHeader}>
                 <View style={styles.cardText}>
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>{pickString(item, ['name', 'profile_name'], 'Unnamed profile')}</Text>
-                  <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>{pickString(item, ['type', 'printer_model', 'material'], 'Profile')}</Text>
+                  <Text style={[styles.cardTitle, { color: colors.text }]}>
+                    {pickString(item, ['name', 'profile_name'], 'Unnamed profile')}
+                  </Text>
+                  <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
+                    {pickString(item, ['type', 'printer_model', 'material'], 'Profile')}
+                  </Text>
                 </View>
                 <StatusBadge label={state} color={statusColor(state, colors)} />
               </View>
-              <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>{pickString(item, ['description', 'path', 'setting_id', 'source'], 'No profile details available.')}</Text>
-              <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>{formatDateTime(pickString(item, ['updated_time', 'updated_at', 'created_at']))}</Text>
+              <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
+                {pickString(
+                  item,
+                  ['description', 'path', 'setting_id', 'source'],
+                  'No profile details available.',
+                )}
+              </Text>
+              <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>
+                {formatDateTime(
+                  pickString(item, ['updated_time', 'updated_at', 'created_at']),
+                )}
+              </Text>
+
+              {tab === 'cloud' ? (
+                <View style={styles.cardActions}>
+                  <PrimaryButton
+                    label="Details"
+                    variant="secondary"
+                    onPress={() => {
+                      setSelectedCloudProfile(item);
+                      setDetailVisible(true);
+                    }}
+                    disabled={!settingId}
+                  />
+                  <PrimaryButton
+                    label={isSelectedForCompare ? 'Selected' : 'Select to compare'}
+                    variant={isSelectedForCompare ? 'primary' : 'secondary'}
+                    onPress={() => toggleCompareSelection(settingId)}
+                    disabled={!settingId}
+                  />
+                </View>
+              ) : null}
             </View>
           );
         }}
@@ -332,11 +693,45 @@ export default function ProfilesScreen() {
           activeQuery.isLoading ? (
             <LoadingScreen message="Loading profiles…" />
           ) : activeQuery.isError ? (
-            <ErrorState message="Unable to load profiles." onRetry={() => void activeQuery.refetch()} />
+            <ErrorState
+              message="Unable to load profiles."
+              onRetry={() => void activeQuery.refetch()}
+            />
           ) : (
-            <EmptyState icon="🗂" title="No profiles found" message="Switch sources or sign in to view available profiles." />
+            <EmptyState
+              icon="🗂"
+              title="No profiles found"
+              message="Switch sources or sign in to view available profiles."
+            />
           )
         }
+      />
+
+      <CloudProfileDetailModal
+        visible={detailVisible}
+        profileName={detailProfileName}
+        detail={cloudProfileDetailQuery.data ?? null}
+        isLoading={cloudProfileDetailQuery.isLoading || cloudProfileDetailQuery.isFetching}
+        errorMessage={
+          cloudProfileDetailQuery.error instanceof Error
+            ? cloudProfileDetailQuery.error.message
+            : null
+        }
+        onRetry={() => void cloudProfileDetailQuery.refetch()}
+        onClose={() => setDetailVisible(false)}
+      />
+
+      <CloudProfileDiffModal
+        visible={compareVisible}
+        leftLabel={compareLeftName}
+        rightLabel={compareRightName}
+        fields={diffFields}
+        isLoading={cloudDiffQuery.isFetching}
+        errorMessage={
+          cloudDiffQuery.error instanceof Error ? cloudDiffQuery.error.message : null
+        }
+        onRetry={() => void cloudDiffQuery.refetch()}
+        onClose={() => setCompareVisible(false)}
       />
     </View>
   );
@@ -364,6 +759,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
   },
+  cloudActions: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  syncMetaCard: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  syncMetaTitle: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
+  },
+  syncMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  syncMetaLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+  },
+  syncMetaValue: {
+    fontSize: fontSize.sm,
+    flex: 1,
+    textAlign: 'right',
+  },
   card: {
     borderWidth: 1,
     borderRadius: borderRadius.xl,
@@ -385,5 +808,10 @@ const styles = StyleSheet.create({
   },
   cardMeta: {
     fontSize: fontSize.sm,
+  },
+  cardActions: {
+    marginTop: spacing.xs,
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
 });

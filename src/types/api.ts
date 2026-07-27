@@ -2798,6 +2798,65 @@ export interface SlicerSettingDetail {
   setting_id?: string | null;
 }
 
+export type CloudProfileSyncState =
+  | 'idle'
+  | 'syncing'
+  | 'ok'
+  | 'failed'
+  | 'not_authenticated'
+  | 'not_available';
+
+export interface CloudProfileSyncStatus {
+  status?: CloudProfileSyncState | string | null;
+  sync_state?: CloudProfileSyncState | string | null;
+  last_sync_at?: string | null;
+  last_synced_at?: string | null;
+  last_successful_sync_at?: string | null;
+  syncing?: boolean | null;
+  in_progress?: boolean | null;
+  error?: string | null;
+  message?: string | null;
+}
+
+export interface CloudProfile extends SlicerSetting {
+  description?: string | null;
+  base_id?: string | null;
+  printer_model?: string | null;
+  material?: string | null;
+}
+
+export interface CloudProfilesResponse extends CloudProfileSyncStatus {
+  profiles: CloudProfile[];
+}
+
+export interface CloudProfileDetail extends SlicerSettingDetail {
+  profile_type?: string | null;
+  compatible_printers?: string[] | null;
+  inherits_from?: string | null;
+}
+
+export interface CloudProfileDiffField {
+  path: string;
+  left_value: unknown;
+  right_value: unknown;
+  category?: string | null;
+  severity?: 'info' | 'warning' | 'critical' | string | null;
+}
+
+export interface CloudProfileDiffResult {
+  left_profile_id: string;
+  right_profile_id: string;
+  left_profile_name?: string | null;
+  right_profile_name?: string | null;
+  fields: CloudProfileDiffField[];
+  summary?: {
+    total_fields?: number;
+    changed_fields?: number;
+    added_fields?: number;
+    removed_fields?: number;
+  } | null;
+}
+
 export interface SlicerSettingCreate {
   type: string;  // 'filament', 'print', or 'printer'
   name: string;
