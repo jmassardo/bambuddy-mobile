@@ -1,5 +1,7 @@
 import type {
   ApiEntity,
+  KProfile,
+  KProfileCreate,
   KProfilesResponse,
   MakerworldRecentImport,
   MakerworldResolvedModel,
@@ -93,14 +95,14 @@ export const profilesApi = {
     );
   },
 
-  createKProfile: async (data: Record<string, unknown>) =>
-    request<Record<string, unknown>>('/kprofiles/', {
+  createKProfile: async (data: KProfileCreate) =>
+    request<KProfile>('/kprofiles/', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  updateKProfile: async (id: number, data: Record<string, unknown>) =>
-    request<Record<string, unknown>>(`/kprofiles/${id}`, {
+  updateKProfile: async (id: number, data: KProfileCreate) =>
+    request<KProfile>(`/kprofiles/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
