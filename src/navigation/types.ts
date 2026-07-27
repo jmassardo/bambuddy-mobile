@@ -37,6 +37,7 @@ export type RootStackParamList = {
   Stats: undefined;
   System: undefined;
   Users: undefined;
+  ExternalLinkBrowser: { url: string; title?: string };
 };
 
 export type RootNavigationProp<

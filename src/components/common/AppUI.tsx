@@ -23,6 +23,8 @@ import {
   KeyRound,
   Layers,
   ListOrdered,
+  Link2,
+  Menu,
   Package,
   Plus,
   Power,
@@ -30,6 +32,7 @@ import {
   QrCode,
   Radio,
   Search,
+  Server,
   Settings,
   Shield,
   Users,
@@ -61,6 +64,9 @@ const APP_UI_ICONS: Record<
   'bar-chart': BarChart3,
   cpu: Cpu,
   'qr-code': QrCode,
+  link: Link2,
+  menu: Menu,
+  server: Server,
 };
 
 export function SearchBar({

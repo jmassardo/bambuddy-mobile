@@ -17,6 +17,7 @@ import type {
   SmartPlugType,
   VirtualPrinterFormState,
 } from './types';
+import { getNavigationLayout } from '@/navigation/navigationConfig';
 
 export const SECTION_ITEMS: SectionItem[] = [
   { key: 'general', icon: 'settings', title: 'General', description: 'Locale, archive defaults, print defaults, pricing, and update settings.' },
@@ -25,6 +26,7 @@ export const SECTION_ITEMS: SectionItem[] = [
   { key: 'queue', icon: 'list-ordered', title: 'Queue', description: 'Default print options, preheat, staggering, and slicer preferences.' },
   { key: 'filament', icon: 'package', title: 'Filament', description: 'Warnings, Spoolman, RFID handling, and forecasting defaults.' },
   { key: 'network', icon: 'globe', title: 'Network', description: 'External URLs, MQTT, FTP retry, Prometheus, and Home Assistant.' },
+  { key: 'navigation', icon: 'menu', title: 'Navigation', description: 'Show or hide pages and control their order across tabs and More.' },
   { key: 'apikeys', icon: 'key', title: 'API Keys', description: 'Create and revoke API keys for scripts and integrations.' },
   { key: 'virtual-printer', icon: 'printer', title: 'Virtual Printer', description: 'Virtual printer status plus start and stop controls.' },
   { key: 'spoolbuddy', icon: 'nfc', title: 'SpoolBuddy', description: 'Devices, NFC/scales, and calibration shortcuts.' },
@@ -201,6 +203,10 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
       return `Low stock ${pickNumber(settings, ['low_stock_threshold'], 20)}%`;
     case 'network':
       return pickBoolean(settings, ['mqtt_enabled']) ? 'MQTT enabled' : 'MQTT disabled';
+    case 'navigation': {
+      const layout = getNavigationLayout({ defaultSidebarOrder: pickString(settings, ['default_sidebar_order']) });
+      return `${layout.orderedBuiltIns.length} visible • ${layout.hiddenBuiltIns.length} hidden`;
+    }
     case 'apikeys':
       return `${(queries.apiKeys ?? []).length} keys • ${(queries.cameraTokens ?? []).length} camera tokens`;
     case 'virtual-printer':

@@ -4,12 +4,34 @@ import { EmptyState } from '@/components/common/StateScreens';
 import { PrimaryButton, SectionCard, StatusBadge, TextField } from '@/components/common/AppUI';
 import { settingsStyles, SwitchRow, stringifyNumberField } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
-import { pickBoolean, pickString, type ApiRecord } from '@/utils/data';
+import { pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 
 export function NetworkSettingsSection({ controller }: { controller: SettingsScreenController }) {
   const { draft } = controller.state;
   const { setDraft, openExternalLinkModal, setPendingDeleteExternalLink } = controller.actions;
-  const externalLinks = (controller.queries.externalLinksQuery.data ?? []) as ApiRecord[];
+  const externalLinks = React.useMemo(
+    () =>
+      ([...(controller.queries.externalLinksQuery.data ?? [])] as ApiRecord[]).sort((a, b) => {
+        const sortDiff = pickNumber(a, ['sort_order']) - pickNumber(b, ['sort_order']);
+        if (sortDiff !== 0) return sortDiff;
+        return pickString(a, ['name']).localeCompare(pickString(b, ['name']));
+      }),
+    [controller.queries.externalLinksQuery.data],
+  );
+
+  const moveExternalLink = React.useCallback(
+    (id: number, direction: -1 | 1) => {
+      const index = externalLinks.findIndex(link => pickNumber(link, ['id']) === id);
+      if (index < 0) return;
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= externalLinks.length) return;
+      const ids = externalLinks.map(link => pickNumber(link, ['id']));
+      const [moved] = ids.splice(index, 1);
+      ids.splice(targetIndex, 0, moved);
+      void controller.mutations.reorderExternalLinksMutation.mutateAsync(ids);
+    },
+    [controller.mutations.reorderExternalLinksMutation, externalLinks],
+  );
 
   return (
     <>
@@ -33,6 +55,18 @@ export function NetworkSettingsSection({ controller }: { controller: SettingsScr
               </View>
               <View style={settingsStyles.actions}>
                 <PrimaryButton label="Edit" variant="secondary" onPress={() => openExternalLinkModal(link)} />
+                <PrimaryButton
+                  label="Move up"
+                  variant="secondary"
+                  onPress={() => moveExternalLink(pickNumber(link, ['id']), -1)}
+                  disabled={controller.mutations.reorderExternalLinksMutation.isPending || externalLinks[0] === link}
+                />
+                <PrimaryButton
+                  label="Move down"
+                  variant="secondary"
+                  onPress={() => moveExternalLink(pickNumber(link, ['id']), 1)}
+                  disabled={controller.mutations.reorderExternalLinksMutation.isPending || externalLinks[externalLinks.length - 1] === link}
+                />
                 <PrimaryButton label="Delete" variant="danger" onPress={() => setPendingDeleteExternalLink(link)} />
               </View>
             </View>

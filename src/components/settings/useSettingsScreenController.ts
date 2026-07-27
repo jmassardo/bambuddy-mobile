@@ -319,6 +319,15 @@ export function useSettingsScreenController() {
     onError: (error: Error) => showToast(error.message || 'Unable to delete external link.', 'error'),
   });
 
+  const reorderExternalLinksMutation = useMutation({
+    mutationFn: async (ids: number[]) => api.reorderExternalLinks(ids),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['externalLinks'] });
+      showToast('External links reordered.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to reorder external links.', 'error'),
+  });
+
   const backupMutation = useMutation({
     mutationFn: async () => api.triggerLocalBackup(),
     onSuccess: async () => {
@@ -675,6 +684,7 @@ export function useSettingsScreenController() {
     section === 'queue' ||
     section === 'filament' ||
     section === 'network' ||
+    section === 'navigation' ||
     section === 'failure-detection' ||
     section === 'backup' ||
     (section === 'users' && userPanel === 'auth');
@@ -899,18 +909,33 @@ export function useSettingsScreenController() {
   };
 
   const handleSaveExternalLink = () => {
-    if (!externalLinkForm.name.trim() || !externalLinkForm.url.trim()) {
+    const normalizedName = externalLinkForm.name.trim();
+    const normalizedUrl = externalLinkForm.url.trim();
+    if (!normalizedName || !normalizedUrl) {
       showToast('Name and URL are required.', 'error');
       return;
     }
+    if (!/^https?:\/\//i.test(normalizedUrl)) {
+      showToast('URL must start with http:// or https://', 'error');
+      return;
+    }
+
+    const payload: ExternalLinkFormState = {
+      name: normalizedName,
+      url: normalizedUrl,
+      icon: externalLinkForm.icon.trim() || 'link',
+      open_in_new_tab: externalLinkForm.open_in_new_tab,
+      sort_order: String(Math.max(0, Number(externalLinkForm.sort_order) || 0)),
+    };
+
     if (editingExternalLink) {
       updateExternalLinkMutation.mutate({
         id: pickNumber(editingExternalLink, ['id']),
-        payload: externalLinkForm,
+        payload,
       });
       return;
     }
-    createExternalLinkMutation.mutate(externalLinkForm);
+    createExternalLinkMutation.mutate(payload);
   };
 
   const handleSaveVirtualPrinter = () => {
@@ -1067,6 +1092,7 @@ export function useSettingsScreenController() {
       createExternalLinkMutation,
       updateExternalLinkMutation,
       deleteExternalLinkMutation,
+      reorderExternalLinksMutation,
       backupMutation,
       exportBackupMutation,
       githubBackupMutation,

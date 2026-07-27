@@ -1,44 +1,20 @@
 import React from 'react';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import type { MainTabNavigationProp } from '@/navigation/types';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import DeviceInfo from 'react-native-device-info';
-import { useMutation } from '@tanstack/react-query';
-import { MenuItem, SectionHeader } from '@/components/common/UIComponents';
+import { MenuItem, SectionCard, SectionHeader } from '@/components/common/AppUI';
+import type { MainTabNavigationProp } from '@/navigation/types';
+import { getNavigationLayout } from '@/navigation/navigationConfig';
+import { api } from '@/api/client';
 import { useServerStore } from '@/api/server';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { fontSize, fontWeight, spacing } from '@/theme/tokens';
+import { pickString } from '@/utils/data';
 
-const MENU_GROUPS = [
-  {
-    title: 'Configuration',
-    items: [
-      { icon: 'settings', label: 'Settings', subtitle: 'Server, integrations, backup, API keys', route: 'Settings' },
-      { icon: 'users', label: 'Users', subtitle: 'Accounts, roles, LDAP, password reset', route: 'Users' },
-      { icon: 'bell', label: 'Notifications', subtitle: 'Email delivery preferences', route: 'Notifications' },
-    ],
-  },
-  {
-    title: 'Operations',
-    items: [
-      { icon: 'package', label: 'Inventory', subtitle: 'Spools, locations, bulk edits, forecast', route: 'Inventory' },
-      { icon: 'wrench', label: 'Maintenance', subtitle: 'Per-printer tasks and service intervals', route: 'Maintenance' },
-      { icon: 'layers', label: 'Projects', subtitle: 'Project plans, BOMs, print progress', route: 'Projects' },
-      { icon: 'copy', label: 'Profiles', subtitle: 'Cloud, Orca, local, and K profiles', route: 'Profiles' },
-      { icon: 'globe', label: 'MakerWorld', subtitle: 'Resolve, import, and browse recent models', route: 'MakerWorld' },
-    ],
-  },
-  {
-    title: 'Insights & tools',
-    items: [
-      { icon: 'list-ordered', label: 'Print Log', subtitle: 'Chronological print events with filtering and search', route: 'PrintLog' },
-      { icon: 'bar-chart', label: 'Stats', subtitle: 'Print activity, filament trends, breakdowns', route: 'Stats' },
-      { icon: 'cpu', label: 'System', subtitle: 'Health, resources, logs, support tools', route: 'System' },
-      { icon: 'qr-code', label: 'Scanner', subtitle: 'Scan QR and NFC related data', route: 'Scanner' },
-    ],
-  },
-] as const;
+const URL_PROTOCOL_REGEX = /^https?:\/\//i;
 
 export default function MoreScreen() {
   const navigation = useNavigation<MainTabNavigationProp<'More'>>();
@@ -47,12 +23,23 @@ export default function MoreScreen() {
   }, [navigation]);
 
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const { user, logout } = useAuth();
   const version = DeviceInfo.getVersion() || 'dev';
 
+  const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: api.getSettings });
+  const externalLinksQuery = useQuery({ queryKey: ['externalLinks'], queryFn: api.getExternalLinks });
+
+  const layout = React.useMemo(
+    () => getNavigationLayout({
+      defaultSidebarOrder: pickString(settingsQuery.data, ['default_sidebar_order']),
+      externalLinks: externalLinksQuery.data ?? [],
+    }),
+    [externalLinksQuery.data, settingsQuery.data],
+  );
+
   const logoutMutation = useMutation({
     mutationFn: logout,
-    // RootNavigator automatically switches to Login when user is cleared
   });
 
   const changeServerMutation = useMutation({
@@ -62,6 +49,28 @@ export default function MoreScreen() {
     },
   });
 
+  const openExternalLink = React.useCallback(
+    async (input: { url: string; name: string; openInNewTab: boolean }) => {
+      const url = input.url.trim();
+      if (!URL_PROTOCOL_REGEX.test(url)) {
+        showToast('External links must start with http:// or https://', 'error');
+        return;
+      }
+
+      if (input.openInNewTab) {
+        try {
+          await Linking.openURL(url);
+        } catch {
+          showToast('Unable to open the external link.', 'error');
+        }
+        return;
+      }
+
+      navigation.navigate('ExternalLinkBrowser', { url, title: input.name });
+    },
+    [navigation, showToast],
+  );
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -69,29 +78,54 @@ export default function MoreScreen() {
     >
       <View style={styles.hero}>
         <Text style={[styles.heroTitle, { color: colors.text }]}>More</Text>
-        <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}> 
+        <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
           Signed in as {user?.username ?? 'Guest'}
         </Text>
       </View>
 
-      {MENU_GROUPS.map(group => (
-        <View key={group.title} style={styles.group}>
-          <SectionHeader title={group.title} />
-          <View>
-            {group.items.map(item => (
+      <View style={styles.group}>
+        <SectionHeader title="Pages" />
+        <SectionCard>
+          {layout.moreItems.map(item =>
+            item.stackRoute ? (
               <MenuItem
-                key={item.label}
+                key={item.id}
                 icon={item.icon}
                 label={item.label}
                 subtitle={item.subtitle}
-                onPress={() => navigation.navigate(item.route as never)}
+                onPress={() => navigation.navigate(item.stackRoute as never)}
               />
-            ))}
-          </View>
-        </View>
-      ))}
+            ) : null,
+          )}
+          {layout.moreItems.length === 0 ? (
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              No additional pages are currently visible.
+            </Text>
+          ) : null}
+        </SectionCard>
+      </View>
 
-      <View style={styles.accountCard}>
+      <View style={styles.group}>
+        <SectionHeader title="External links" />
+        <SectionCard>
+          {layout.externalLinks.map(link => (
+            <MenuItem
+              key={String(link.id)}
+              icon={link.icon || 'globe'}
+              label={link.name}
+              subtitle={link.url}
+              onPress={() => void openExternalLink({ url: link.url, name: link.name, openInNewTab: link.open_in_new_tab })}
+            />
+          ))}
+          {layout.externalLinks.length === 0 ? (
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              No external links configured.
+            </Text>
+          ) : null}
+        </SectionCard>
+      </View>
+
+      <SectionCard>
         <MenuItem
           icon="server"
           label={changeServerMutation.isPending ? 'Disconnecting…' : 'Change server'}
@@ -105,7 +139,7 @@ export default function MoreScreen() {
           onPress={() => void logoutMutation.mutateAsync()}
           destructive
         />
-      </View>
+      </SectionCard>
 
       <Text style={[styles.version, { color: colors.textTertiary }]}>Bambuddy Mobile v{version}</Text>
     </ScrollView>
@@ -132,8 +166,10 @@ const styles = StyleSheet.create({
   group: {
     gap: spacing.sm,
   },
-  accountCard: {
-    marginTop: spacing.sm,
+  helperText: {
+    fontSize: fontSize.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
   version: {
     textAlign: 'center',
