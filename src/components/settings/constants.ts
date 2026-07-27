@@ -5,6 +5,8 @@ import type {
 import { pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import type {
   CameraTokenFormState,
+  ExternalCameraFormState,
+  ExternalCameraType,
   ExternalLinkFormState,
   GitHubBackupFormState,
   LDAPFormState,
@@ -28,6 +30,7 @@ export const SECTION_ITEMS: SectionItem[] = [
   { key: 'network', icon: 'globe', title: 'Network', description: 'External URLs, MQTT, FTP retry, Prometheus, and Home Assistant.' },
   { key: 'navigation', icon: 'menu', title: 'Navigation', description: 'Show or hide pages and control their order across tabs and More.' },
   { key: 'apikeys', icon: 'key', title: 'API Keys', description: 'Create and revoke API keys for scripts and integrations.' },
+  { key: 'external-cameras', icon: 'camera', title: 'External Cameras', description: 'Configure IP camera streams, test connectivity, and map cameras to printers.' },
   { key: 'virtual-printer', icon: 'printer', title: 'Virtual Printer', description: 'Virtual printer status plus start and stop controls.' },
   { key: 'spoolbuddy', icon: 'nfc', title: 'SpoolBuddy', description: 'Devices, NFC/scales, and calibration shortcuts.' },
   { key: 'failure-detection', icon: 'shield', title: 'Failure Detection', description: 'Obico service status and model settings.' },
@@ -90,6 +93,12 @@ export const SMART_PLUG_TYPE_OPTIONS: Array<OptionItem<SmartPlugType>> = [
   { key: 'rest', label: 'REST' },
 ];
 
+export const EXTERNAL_CAMERA_TYPE_OPTIONS: Array<OptionItem<ExternalCameraType>> = [
+  { key: 'mjpeg', label: 'MJPEG' },
+  { key: 'rtsp', label: 'RTSP' },
+  { key: 'snapshot', label: 'Snapshot' },
+];
+
 export const DEFAULT_SMTP_SETTINGS: SMTPSettings = {
   smtp_host: '',
   smtp_port: 587,
@@ -133,6 +142,13 @@ export const EMPTY_EXTERNAL_LINK_FORM: ExternalLinkFormState = {
   icon: 'link',
   open_in_new_tab: true,
   sort_order: '0',
+};
+
+export const EMPTY_EXTERNAL_CAMERA_FORM: ExternalCameraFormState = {
+  name: '',
+  stream_url: '',
+  camera_type: 'mjpeg',
+  printer_id: '',
 };
 
 export const EMPTY_VIRTUAL_PRINTER_FORM: VirtualPrinterFormState = {
@@ -181,6 +197,7 @@ export type SectionSummaryQueries = {
   notificationProviders?: ApiRecord[];
   apiKeys?: ApiRecord[];
   cameraTokens?: ApiRecord[];
+  externalCameras?: ApiRecord[];
   virtualPrinters?: ApiRecord[];
   spoolbuddyDevices?: ApiRecord[];
   obicoStatus?: unknown;
@@ -209,6 +226,8 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
     }
     case 'apikeys':
       return `${(queries.apiKeys ?? []).length} keys • ${(queries.cameraTokens ?? []).length} camera tokens`;
+    case 'external-cameras':
+      return `${(queries.externalCameras ?? []).length} configured`;
     case 'virtual-printer':
       return `${(queries.virtualPrinters ?? []).length} virtual printers`;
     case 'spoolbuddy':

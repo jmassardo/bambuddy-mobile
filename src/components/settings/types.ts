@@ -1,4 +1,4 @@
-import type { SMTPSettings, SmartPlug } from '@/types/api';
+import type { ExternalCamera, SMTPSettings, SmartPlug } from '@/types/api';
 
 export type SectionKey =
   | 'general'
@@ -9,6 +9,7 @@ export type SectionKey =
   | 'network'
   | 'navigation'
   | 'apikeys'
+  | 'external-cameras'
   | 'virtual-printer'
   | 'spoolbuddy'
   | 'failure-detection'
@@ -66,6 +67,15 @@ export type ExternalLinkFormState = {
   icon: string;
   open_in_new_tab: boolean;
   sort_order: string;
+};
+
+export type ExternalCameraType = ExternalCamera['camera_type'];
+
+export type ExternalCameraFormState = {
+  name: string;
+  stream_url: string;
+  camera_type: ExternalCameraType;
+  printer_id: string;
 };
 
 export type VirtualPrinterFormState = {

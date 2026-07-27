@@ -3661,6 +3661,35 @@ export interface UpdateStatus {
   error: string | null;
 }
 
+export interface ExternalCamera {
+  id: number;
+  name: string;
+  stream_url: string;
+  camera_type: 'mjpeg' | 'rtsp' | 'snapshot';
+  printer_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExternalCameraCreate {
+  name: string;
+  stream_url: string;
+  camera_type: ExternalCamera['camera_type'];
+  printer_id?: number | null;
+}
+
+export interface ExternalCameraUpdate {
+  name?: string;
+  stream_url?: string;
+  camera_type?: ExternalCamera['camera_type'];
+  printer_id?: number | null;
+}
+
+export interface ExternalCameraTestResult {
+  success: boolean;
+  message: string;
+}
+
 export interface ExternalLink {
   id: number;
   name: string;

@@ -38,6 +38,8 @@ export default function SettingsScreen() {
               controller.queries.apiKeysQuery.isRefetching ||
               controller.queries.cameraTokensQuery.isRefetching ||
               controller.queries.externalLinksQuery.isRefetching ||
+              controller.queries.externalCamerasQuery.isRefetching ||
+              controller.queries.printersQuery.isRefetching ||
               controller.queries.virtualPrinterListQuery.isRefetching
             }
             onRefresh={() => void controller.actions.refreshAll()}
