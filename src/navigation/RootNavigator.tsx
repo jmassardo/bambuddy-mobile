@@ -25,6 +25,7 @@ import MaintenanceScreen from '@/screens/MaintenanceScreen';
 import MakerWorldScreen from '@/screens/MakerWorldScreen';
 import ProfilesScreen from '@/screens/ProfilesScreen';
 import ProjectsScreen from '@/screens/ProjectsScreen';
+import PrintLogScreen from '@/screens/PrintLogScreen';
 import StatsScreen from '@/screens/StatsScreen';
 import SystemScreen from '@/screens/SystemScreen';
 import UsersScreen from '@/screens/UsersScreen';
@@ -149,6 +150,11 @@ export default function RootNavigator() {
         name="Projects"
         component={ProjectsScreen}
         options={{ title: 'Projects' }}
+      />
+      <Stack.Screen
+        name="PrintLog"
+        component={PrintLogScreen}
+        options={{ title: 'Print Log' }}
       />
       <Stack.Screen
         name="Stats"

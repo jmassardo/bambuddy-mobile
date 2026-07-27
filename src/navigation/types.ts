@@ -33,6 +33,7 @@ export type RootStackParamList = {
   MakerWorld: undefined;
   Profiles: undefined;
   Projects: undefined;
+  PrintLog: undefined;
   Stats: undefined;
   System: undefined;
   Users: undefined;

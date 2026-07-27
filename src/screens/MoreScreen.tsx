@@ -32,6 +32,7 @@ const MENU_GROUPS = [
   {
     title: 'Insights & tools',
     items: [
+      { icon: 'list-ordered', label: 'Print Log', subtitle: 'Chronological print events with filtering and search', route: 'PrintLog' },
       { icon: 'bar-chart', label: 'Stats', subtitle: 'Print activity, filament trends, breakdowns', route: 'Stats' },
       { icon: 'cpu', label: 'System', subtitle: 'Health, resources, logs, support tools', route: 'System' },
       { icon: 'qr-code', label: 'Scanner', subtitle: 'Scan QR and NFC related data', route: 'Scanner' },
