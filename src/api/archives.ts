@@ -1,4 +1,10 @@
-import type { ApiEntity, Archive, ArchiveComparison, PrintLogResponse } from '@/types/api';
+import type {
+  ApiEntity,
+  Archive,
+  ArchiveComparison,
+  PrintLogEntry,
+  PrintLogResponse,
+} from '@/types/api';
 import { buildMediaUrl, ApiError, request, requestBlob, uploadFile, type UploadableFile } from './http';
 
 export const archivesApi = {
@@ -222,13 +228,40 @@ export const archivesApi = {
     offset?: number;
     printerId?: number;
     status?: string;
+    dateFrom?: string;
+    dateTo?: string;
   }) => {
     const searchParams = new URLSearchParams();
     if (params?.limit) searchParams.set('limit', String(params.limit));
     if (params?.offset) searchParams.set('offset', String(params.offset));
     if (params?.printerId) searchParams.set('printer_id', String(params.printerId));
     if (params?.status) searchParams.set('status', params.status);
-    return request<Record<string, unknown>>(`/print-log/?${searchParams}`);
+    if (params?.dateFrom) searchParams.set('date_from', params.dateFrom);
+    if (params?.dateTo) searchParams.set('date_to', params.dateTo);
+
+    const response = await request<
+      ApiEntity<PrintLogResponse> | PrintLogEntry[] | Record<string, unknown>
+    >(`/print-log/?${searchParams}`);
+
+    if (Array.isArray(response)) {
+      return {
+        items: response as PrintLogEntry[],
+        total: response.length,
+      };
+    }
+
+    const rawItems = Array.isArray(response.items)
+      ? (response.items as PrintLogEntry[])
+      : [];
+    const rawTotal =
+      typeof response.total === 'number' && Number.isFinite(response.total)
+        ? response.total
+        : rawItems.length;
+
+    return {
+      items: rawItems,
+      total: rawTotal,
+    };
   },
 
   clearPrintLog: async () => request<void>('/print-log/', { method: 'DELETE' }),
