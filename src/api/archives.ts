@@ -79,7 +79,7 @@ export const archivesApi = {
     const searchParams = new URLSearchParams();
     if (params?.dateFrom) searchParams.set('date_from', params.dateFrom);
     if (params?.dateTo) searchParams.set('date_to', params.dateTo);
-    if (params?.createdById) {
+    if (params?.createdById !== undefined) {
       searchParams.set('created_by_id', String(params.createdById));
     }
     if (params?.printerId) searchParams.set('printer_id', String(params.printerId));
@@ -241,7 +241,7 @@ export const archivesApi = {
     const searchParams = new URLSearchParams();
     if (params?.dateFrom) searchParams.set('date_from', params.dateFrom);
     if (params?.dateTo) searchParams.set('date_to', params.dateTo);
-    if (params?.createdById) {
+    if (params?.createdById !== undefined) {
       searchParams.set('created_by_id', String(params.createdById));
     }
     return request<Record<string, unknown>>(`/archives/stats?${searchParams}`);
