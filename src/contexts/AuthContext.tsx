@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!authEnabled) return true;
       if (!user) return false;
       if (user.is_admin) return true;
-      return user.groups.some((g) => g.permissions.includes(permission));
+      return user.groups?.some((g) => g.permissions?.includes(permission)) ?? false;
     },
     [authEnabled, user],
   );
