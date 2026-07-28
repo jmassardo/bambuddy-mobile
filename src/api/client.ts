@@ -8,6 +8,7 @@ import {
   buildMediaUrl,
   checkAuthStatus,
   clearAuthTokenForServer,
+  DEFAULT_TIMEOUT_MS,
   getCameraStreamToken,
   getAuthToken,
   loadAuthToken,
@@ -21,6 +22,7 @@ import {
   setStreamToken,
   uploadFile,
   uploadFileWithProgress,
+  UPLOAD_TIMEOUT_MS,
   withStreamToken,
 } from './http';
 import { inventoryApi } from './inventory';
@@ -54,6 +56,7 @@ export {
   buildMediaUrl,
   checkAuthStatus,
   clearAuthTokenForServer,
+  DEFAULT_TIMEOUT_MS,
   getCameraStreamToken,
   getAuthToken,
   loadAuthToken,
@@ -67,5 +70,6 @@ export {
   setStreamToken,
   uploadFile,
   uploadFileWithProgress,
+  UPLOAD_TIMEOUT_MS,
   withStreamToken,
 };

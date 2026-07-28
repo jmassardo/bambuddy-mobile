@@ -1,4 +1,4 @@
-import { ApiError, api, setAuthToken } from '@/api/client';
+import { ApiError, api, setAuthToken, request, DEFAULT_TIMEOUT_MS } from '@/api/client';
 import { useServerStore } from '@/api/server';
 import * as Keychain from 'react-native-keychain';
 
@@ -15,6 +15,7 @@ const mockFetch = jest.fn();
 
 function createResponse(data: unknown, options: MockResponseOptions = {}) {
   const { ok = true, status = 200, contentLength = data === undefined ? '0' : '1' } = options;
+  const jsonStr = data !== undefined ? JSON.stringify(data) : '';
 
   return {
     ok,
@@ -23,6 +24,7 @@ function createResponse(data: unknown, options: MockResponseOptions = {}) {
       get: (name: string) => (name.toLowerCase() === 'content-length' ? contentLength : null),
     },
     json: jest.fn().mockResolvedValue(data),
+    text: jest.fn().mockResolvedValue(jsonStr),
   } as unknown as Response;
 }
 
@@ -375,5 +377,115 @@ describe('api client', () => {
       'server-token',
       { service: 'bambuddy-auth-token:https://bambuddy.test' },
     );
+  });
+});
+
+describe('request timeouts and JSON guard', () => {
+  beforeEach(async () => {
+    jest.useFakeTimers();
+    mockFetch.mockReset();
+    useServerStore.setState({ serverUrl: 'https://bambuddy.test', loading: false });
+    // Set auth token without fake timer interference
+    jest.useRealTimers();
+    mockFetch.mockResolvedValue(createResponse({ token: 'media-token' }));
+    await setAuthToken('secret-token');
+    mockFetch.mockReset();
+    jest.useFakeTimers();
+  });
+
+  afterEach(async () => {
+    jest.useRealTimers();
+    await setAuthToken(null);
+  });
+
+  it('rejects with a timeout ApiError when server does not respond within DEFAULT_TIMEOUT_MS', async () => {
+    mockFetch.mockImplementation(
+      (_url: string, options?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          if (options?.signal) {
+            options.signal.addEventListener('abort', () => {
+              const err = new Error('The operation was aborted.');
+              err.name = 'AbortError';
+              reject(err);
+            });
+          }
+        }),
+    );
+
+    const promise = request('/test');
+    jest.advanceTimersByTime(DEFAULT_TIMEOUT_MS);
+
+    await expect(promise).rejects.toThrow(ApiError);
+    await expect(promise).rejects.toMatchObject({
+      code: 'timeout',
+      status: 0,
+    });
+  });
+
+  it('succeeds when server responds before the timeout', async () => {
+    mockFetch.mockImplementation(
+      (_url: string, _options?: RequestInit) =>
+        new Promise<Response>(resolve => {
+          setTimeout(() => resolve(createResponse({ ok: true })), 29_000);
+        }),
+    );
+
+    const promise = request<{ ok: boolean }>('/test');
+    jest.advanceTimersByTime(29_000);
+
+    const result = await promise;
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('throws ApiError with code invalid_response for non-JSON body (not SyntaxError)', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === 'content-length'
+            ? '100'
+            : name.toLowerCase() === 'content-type'
+              ? 'text/html'
+              : null,
+      },
+      text: jest.fn().mockResolvedValue('<html><body>Captive Portal</body></html>'),
+    });
+
+    let caught: unknown;
+    try {
+      await request('/test');
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(ApiError);
+    expect((caught as ApiError).code).toBe('invalid_response');
+    expect((caught as ApiError).message).toContain('text/html');
+  });
+
+  it('resolves to undefined for an empty response body', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === 'content-length' ? '5' : null,
+      },
+      text: jest.fn().mockResolvedValue(''),
+    });
+
+    const result = await request('/test');
+    expect(result).toBeUndefined();
+  });
+
+  it('clears the timeout timer on successful response (no leaked handles)', async () => {
+    jest.useRealTimers();
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    mockFetch.mockResolvedValue(createResponse({ data: 1 }));
+
+    await request('/test');
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
   });
 });
