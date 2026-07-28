@@ -33,6 +33,7 @@ export function useWebSocket() {
   // Debounced invalidation
   const pendingInvalidations = useRef<Set<string>>(new Set());
   const invalidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const debouncedInvalidate = useCallback(
     (queryKey: string) => {
@@ -173,13 +174,11 @@ export function useWebSocket() {
 
     const ws = new WebSocket(wsUrl(serverUrl, token));
 
-    let pingInterval: ReturnType<typeof setInterval> | null = null;
-
     ws.onopen = () => {
       setIsConnected(true);
       setIsReconnecting(false);
       reconnectAttemptRef.current = 0;
-      pingInterval = setInterval(() => {
+      pingIntervalRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ping' }));
         }
@@ -196,7 +195,10 @@ export function useWebSocket() {
     };
 
     ws.onclose = (event) => {
-      if (pingInterval) clearInterval(pingInterval);
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
       setIsConnected(false);
       wsRef.current = null;
 
@@ -241,6 +243,7 @@ export function useWebSocket() {
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (invalidationTimeoutRef.current) clearTimeout(invalidationTimeoutRef.current);
       if (printerStatusTimeoutRef.current) clearTimeout(printerStatusTimeoutRef.current);
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
       wsRef.current?.close();
     };
   }, [connect, serverUrl]);

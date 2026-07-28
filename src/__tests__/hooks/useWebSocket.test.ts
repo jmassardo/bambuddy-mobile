@@ -48,7 +48,11 @@ class MockWebSocket {
   onerror: (() => void) | null = null;
   send = jest.fn();
   close = jest.fn(() => {
+    if (this.readyState === 3) return; // already closed
     this.readyState = 3;
+    // Real WebSocket fires onclose after close() — match that behavior
+    // so tests exercise the cleanup path (e.g. clearing pingInterval).
+    this.onclose?.({ code: 1000 });
   });
 
   constructor(url: string) {
