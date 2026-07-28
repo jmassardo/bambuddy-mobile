@@ -152,9 +152,12 @@ export default function ServerConfigScreen() {
           autoCorrect={false}
           placeholder="https://bambuddy.example.com"
         />
+        {/* ATS posture: NSAllowsLocalNetworking permits cleartext HTTP only to
+           local/private-network addresses. Public servers must use HTTPS. */}
         {isInsecureUrl(serverUrl.trim()) ? (
           <Text style={[styles.warning, { color: colors.warning }]}>
-            ⚠️ This URL uses an unencrypted HTTP connection.
+            ⚠️ Plain HTTP is only supported for servers on your local network.
+            Public servers require HTTPS.
           </Text>
         ) : null}
         {error ? (
