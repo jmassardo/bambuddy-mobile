@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import { api, request } from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -24,6 +24,7 @@ import {
   DEFAULT_LDAP_FORM,
   DEFAULT_SMTP_SETTINGS,
   EMPTY_CAMERA_TOKEN_FORM,
+  EMPTY_EXTERNAL_CAMERA_FORM,
   EMPTY_EXTERNAL_LINK_FORM,
   EMPTY_GITHUB_BACKUP_FORM,
   EMPTY_PROVIDER_FORM,
@@ -33,6 +34,7 @@ import {
 } from './constants';
 import type {
   CameraTokenFormState,
+  ExternalCameraFormState,
   ExternalLinkFormState,
   GitHubBackupFormState,
   LDAPFormState,
@@ -42,6 +44,14 @@ import type {
   UserPanelKey,
   VirtualPrinterFormState,
 } from './types';
+
+/** Local type — ExternalCameraCreate was lost from types/api.ts along with the feature */
+type ExternalCameraCreate = {
+  name: string;
+  stream_url: string;
+  camera_type: 'mjpeg' | 'rtsp' | 'snapshot';
+  printer_id?: number | null;
+};
 
 export function useSettingsScreenController() {
   const { colors, mode, setMode } = useTheme();
@@ -61,6 +71,10 @@ export function useSettingsScreenController() {
   const [externalLinkModalVisible, setExternalLinkModalVisible] = useState(false);
   const [externalLinkForm, setExternalLinkForm] = useState<ExternalLinkFormState>(EMPTY_EXTERNAL_LINK_FORM);
   const [pendingDeleteExternalLink, setPendingDeleteExternalLink] = useState<ApiRecord | null>(null);
+  const [editingExternalCamera, setEditingExternalCamera] = useState<ApiRecord | null>(null);
+  const [externalCameraModalVisible, setExternalCameraModalVisible] = useState(false);
+  const [externalCameraForm, setExternalCameraForm] = useState<ExternalCameraFormState>(EMPTY_EXTERNAL_CAMERA_FORM);
+  const [pendingDeleteExternalCamera, setPendingDeleteExternalCamera] = useState<ApiRecord | null>(null);
   const [virtualPrinterModalVisible, setVirtualPrinterModalVisible] = useState(false);
   const [editingVirtualPrinter, setEditingVirtualPrinter] = useState<ApiRecord | null>(null);
   const [virtualPrinterForm, setVirtualPrinterForm] = useState<VirtualPrinterFormState>(EMPTY_VIRTUAL_PRINTER_FORM);
@@ -104,6 +118,15 @@ export function useSettingsScreenController() {
     queryFn: () => (isAdmin ? api.listAllLongLivedCameraTokens() : api.listMyLongLivedCameraTokens()),
   });
   const externalLinksQuery = useQuery({ queryKey: ['externalLinks'], queryFn: api.getExternalLinks });
+  const externalCamerasQuery = useQuery({
+    queryKey: ['externalCameras'],
+    queryFn: () => request<ApiRecord[]>('/settings/cameras'),
+  });
+  const printersQuery = useQuery({
+    queryKey: ['printers', 'settings'],
+    queryFn: api.getPrinters,
+    enabled: section === 'external-cameras',
+  });
   const virtualPrinterListQuery = useQuery({ queryKey: ['virtualPrinterList'], queryFn: api.getVirtualPrinterList });
   const spoolbuddyQuery = useQuery({ queryKey: ['spoolbuddyDevices'], queryFn: api.getSpoolBuddyDevices });
   const spoolmanStatusQuery = useQuery({ queryKey: ['spoolmanStatus'], queryFn: api.getSpoolmanStatus });
@@ -223,6 +246,8 @@ export function useSettingsScreenController() {
       apiKeysQuery.refetch(),
       cameraTokensQuery.refetch(),
       externalLinksQuery.refetch(),
+      externalCamerasQuery.refetch(),
+      printersQuery.refetch(),
       virtualPrinterListQuery.refetch(),
       spoolbuddyQuery.refetch(),
       spoolmanStatusQuery.refetch(),
@@ -329,6 +354,46 @@ export function useSettingsScreenController() {
       showToast('External link removed.', 'success');
     },
     onError: (error: Error) => showToast(error.message || 'Unable to delete external link.', 'error'),
+  });
+
+  const createExternalCameraMutation = useMutation({
+    mutationFn: async (payload: ExternalCameraCreate) =>
+      request<ApiRecord>('/settings/cameras', { method: 'POST', body: JSON.stringify(payload) }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
+      closeExternalCameraModal();
+      showToast('External camera saved.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to save external camera.', 'error'),
+  });
+
+  const updateExternalCameraMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: Partial<ExternalCameraCreate> }) =>
+      request<ApiRecord>(`/settings/cameras/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
+      closeExternalCameraModal();
+      showToast('External camera updated.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to update external camera.', 'error'),
+  });
+
+  const deleteExternalCameraMutation = useMutation({
+    mutationFn: async (id: number) =>
+      request<void>(`/settings/cameras/${id}`, { method: 'DELETE' }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
+      setPendingDeleteExternalCamera(null);
+      showToast('External camera deleted.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to delete external camera.', 'error'),
+  });
+
+  const testExternalCameraMutation = useMutation({
+    mutationFn: async (id: number) =>
+      request<{ success: boolean; message: string }>(`/settings/cameras/${id}/test`, { method: 'POST' }),
+    onSuccess: result => showToast(result.message || 'Camera test completed.', result.success ? 'success' : 'error'),
+    onError: (error: Error) => showToast(error.message || 'Unable to test camera connection.', 'error'),
   });
 
   const backupMutation = useMutation({
@@ -707,6 +772,7 @@ export function useSettingsScreenController() {
       notificationProviders: providersQuery.data as ApiRecord[] | undefined,
       apiKeys: apiKeysQuery.data as ApiRecord[] | undefined,
       cameraTokens: cameraTokensQuery.data as ApiRecord[] | undefined,
+      externalCameras: externalCamerasQuery.data as ApiRecord[] | undefined,
       virtualPrinters: Array.isArray(virtualPrinterListQuery.data?.printers) ? (virtualPrinterListQuery.data.printers as ApiRecord[]) : [],
       spoolbuddyDevices: spoolbuddyQuery.data as ApiRecord[] | undefined,
       obicoStatus: obicoQuery.data,
@@ -717,6 +783,7 @@ export function useSettingsScreenController() {
       advancedAuthQuery.data,
       apiKeysQuery.data,
       cameraTokensQuery.data,
+      externalCamerasQuery.data,
       githubBackupQuery.data,
       obicoQuery.data,
       providersQuery.data,
@@ -810,6 +877,28 @@ export function useSettingsScreenController() {
       setExternalLinkForm(EMPTY_EXTERNAL_LINK_FORM);
     }
     setExternalLinkModalVisible(true);
+  }
+
+  function closeExternalCameraModal() {
+    setExternalCameraModalVisible(false);
+    setEditingExternalCamera(null);
+    setExternalCameraForm(EMPTY_EXTERNAL_CAMERA_FORM);
+  }
+
+  function openExternalCameraModal(camera?: ApiRecord) {
+    if (camera) {
+      setEditingExternalCamera(camera);
+      setExternalCameraForm({
+        name: pickString(camera, ['name']),
+        stream_url: pickString(camera, ['stream_url']),
+        camera_type: pickString(camera, ['camera_type'], 'mjpeg') as ExternalCameraFormState['camera_type'],
+        printer_id: pickString(camera, ['printer_id']),
+      });
+    } else {
+      setEditingExternalCamera(null);
+      setExternalCameraForm(EMPTY_EXTERNAL_CAMERA_FORM);
+    }
+    setExternalCameraModalVisible(true);
   }
 
   function closeVirtualPrinterModal() {
@@ -970,6 +1059,35 @@ export function useSettingsScreenController() {
     createExternalLinkMutation.mutate(externalLinkForm);
   };
 
+  const handleSaveExternalCamera = () => {
+    const normalizedName = externalCameraForm.name.trim();
+    const normalizedStreamUrl = externalCameraForm.stream_url.trim();
+    if (!normalizedName || !normalizedStreamUrl) {
+      showToast('Name and stream URL are required.', 'error');
+      return;
+    }
+    if (!/^(https?|rtsp):\/\//i.test(normalizedStreamUrl)) {
+      showToast('Stream URL must start with http://, https://, or rtsp://', 'error');
+      return;
+    }
+    const parsedPrinterId = Number(externalCameraForm.printer_id);
+    const payload: ExternalCameraCreate = {
+      name: normalizedName,
+      stream_url: normalizedStreamUrl,
+      camera_type: externalCameraForm.camera_type,
+      printer_id: Number.isFinite(parsedPrinterId) && parsedPrinterId > 0 ? parsedPrinterId : null,
+    };
+
+    if (editingExternalCamera) {
+      updateExternalCameraMutation.mutate({
+        id: pickNumber(editingExternalCamera, ['id']),
+        payload,
+      });
+      return;
+    }
+    createExternalCameraMutation.mutate(payload);
+  };
+
   const handleSaveVirtualPrinter = () => {
     if (!virtualPrinterForm.name.trim()) {
       showToast('Virtual printer name is required.', 'error');
@@ -1001,6 +1119,23 @@ export function useSettingsScreenController() {
     const source = (virtualPrinterListQuery.data?.models ?? {}) as Record<string, unknown>;
     return Object.entries(source).map(([key, value]) => ({ key, label: String(value) }));
   }, [virtualPrinterListQuery.data]);
+  const externalCameraItems = useMemo(() => (externalCamerasQuery.data ?? []) as ApiRecord[], [externalCamerasQuery.data]);
+  const printerOptions = useMemo(
+    () =>
+      ((printersQuery.data ?? []) as ApiRecord[]).map(printer => ({
+        key: String(pickNumber(printer, ['id'])),
+        label: pickString(printer, ['name'], `Printer ${pickNumber(printer, ['id'])}`),
+      })),
+    [printersQuery.data],
+  );
+  const printerLabelById = useMemo(
+    () =>
+      printerOptions.reduce<Record<string, string>>((acc, option) => {
+        acc[option.key] = option.label;
+        return acc;
+      }, {}),
+    [printerOptions],
+  );
   const currentUserRow = useMemo(
     () => ((usersQuery.data ?? []) as ApiRecord[]).find(row => pickNumber(row, ['id']) === user?.id) ?? null,
     [user?.id, usersQuery.data],
@@ -1056,6 +1191,10 @@ export function useSettingsScreenController() {
       externalLinkModalVisible,
       externalLinkForm,
       pendingDeleteExternalLink,
+      editingExternalCamera,
+      externalCameraModalVisible,
+      externalCameraForm,
+      pendingDeleteExternalCamera,
       virtualPrinterModalVisible,
       editingVirtualPrinter,
       virtualPrinterForm,
@@ -1098,6 +1237,8 @@ export function useSettingsScreenController() {
       apiKeysQuery,
       cameraTokensQuery,
       externalLinksQuery,
+      externalCamerasQuery,
+      printersQuery,
       virtualPrinterListQuery,
       spoolbuddyQuery,
       spoolmanStatusQuery,
@@ -1126,6 +1267,10 @@ export function useSettingsScreenController() {
       createExternalLinkMutation,
       updateExternalLinkMutation,
       deleteExternalLinkMutation,
+      createExternalCameraMutation,
+      updateExternalCameraMutation,
+      deleteExternalCameraMutation,
+      testExternalCameraMutation,
       backupMutation,
       exportBackupMutation,
       githubBackupMutation,
@@ -1166,6 +1311,9 @@ export function useSettingsScreenController() {
       twoFAStatus,
       virtualPrinterItems,
       virtualPrinterModels,
+      externalCameraItems,
+      printerOptions,
+      printerLabelById,
       currentUserRow,
       securityRows,
       smtpPortBySecurity: SMTP_PORT_BY_SECURITY,
@@ -1184,6 +1332,13 @@ export function useSettingsScreenController() {
       setExternalLinkModalVisible,
       setExternalLinkForm,
       setPendingDeleteExternalLink,
+      setEditingExternalCamera,
+      setExternalCameraModalVisible,
+      setExternalCameraForm,
+      setPendingDeleteExternalCamera,
+      closeExternalCameraModal,
+      openExternalCameraModal,
+      handleSaveExternalCamera,
       setVirtualPrinterModalVisible,
       setEditingVirtualPrinter,
       setVirtualPrinterForm,
