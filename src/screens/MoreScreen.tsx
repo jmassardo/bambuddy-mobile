@@ -68,7 +68,6 @@ export default function MoreScreen() {
       contentContainerStyle={styles.content}
     >
       <View style={styles.hero}>
-        <Text style={[styles.heroTitle, { color: colors.text }]}>More</Text>
         <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}> 
           Signed in as {user?.username ?? 'Guest'}
         </Text>

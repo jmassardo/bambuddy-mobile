@@ -8,8 +8,40 @@ import {
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
+import {
+  Settings,
+  Users,
+  Bell,
+  Package,
+  Wrench,
+  Layers,
+  Copy,
+  Globe,
+  BarChart2,
+  Cpu,
+  QrCode,
+  Server,
+  Power,
+  ChevronRight,
+} from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
+
+const ICON_MAP: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
+  settings: Settings,
+  users: Users,
+  bell: Bell,
+  package: Package,
+  wrench: Wrench,
+  layers: Layers,
+  copy: Copy,
+  globe: Globe,
+  'bar-chart': BarChart2,
+  cpu: Cpu,
+  'qr-code': QrCode,
+  server: Server,
+  power: Power,
+};
 
 // --- Button ---
 
@@ -273,7 +305,18 @@ export function MenuItem({ icon, label, subtitle, onPress, badge, destructive }:
         { backgroundColor: pressed ? colors.surfaceHover : 'transparent' },
       ]}
     >
-      <Text style={styles.menuIcon}>{icon}</Text>
+      {(() => {
+        const IconComponent = ICON_MAP[icon];
+        return IconComponent ? (
+          <View style={styles.menuIcon}>
+            <IconComponent size={20} color={destructive ? colors.error : colors.textSecondary} />
+          </View>
+        ) : (
+          <View style={styles.menuIcon}>
+            <Text style={{ color: colors.textSecondary }}>{icon}</Text>
+          </View>
+        );
+      })()}
       <View style={styles.menuContent}>
         <Text style={[styles.menuLabel, { color: destructive ? colors.error : colors.text }]}>
           {label}
@@ -283,7 +326,7 @@ export function MenuItem({ icon, label, subtitle, onPress, badge, destructive }:
         )}
       </View>
       {badge && <Badge label={badge} />}
-      <Text style={[styles.menuChevron, { color: colors.textTertiary }]}>›</Text>
+      <ChevronRight size={16} color={colors.textTertiary} />
     </Pressable>
   );
 }
@@ -394,9 +437,9 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   menuIcon: {
-    fontSize: 22,
     width: 32,
-    textAlign: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   menuContent: {
     flex: 1,
@@ -409,10 +452,5 @@ const styles = StyleSheet.create({
   menuSubtitle: {
     fontSize: fontSize.xs,
     marginTop: 1,
-  },
-  menuChevron: {
-    fontSize: 24,
-    fontWeight: fontWeight.medium,
-    marginLeft: spacing.sm,
   },
 });

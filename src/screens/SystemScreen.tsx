@@ -302,7 +302,7 @@ export default function SystemScreen() {
           />
         </View>
 
-        <View style={[styles.logBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+        <ScrollView style={[styles.logBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} nestedScrollEnabled>
           {logEntries.length > 0 ? (
             logEntries.map((entry, index) => (
               <Text key={`${index}-${entry}`} style={[styles.logLine, { color: colors.textSecondary }]}>
@@ -312,7 +312,7 @@ export default function SystemScreen() {
           ) : (
             <Text style={[styles.logLine, { color: colors.textSecondary }]}>Recent logs are unavailable for this server.</Text>
           )}
-        </View>
+        </ScrollView>
       </SectionCard>
 
       <SectionCard title="Submit bug report" subtitle="Send recent diagnostics and open the resulting report when available.">
@@ -439,7 +439,8 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     gap: spacing.sm,
-    maxHeight: 260,
+    maxHeight: 320,
+    overflow: 'hidden',
   },
   logLine: {
     fontSize: fontSize.xs,
