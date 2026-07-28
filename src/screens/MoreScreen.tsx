@@ -21,7 +21,6 @@ import { getNavigationLayout } from '@/navigation/navigationConfig';
  *   - #71 removes 'ExternalLinkBrowser'
  */
 const UNREGISTERED_ROUTES: Array<keyof RootStackParamList> = [
-  'Energy',
   'VirtualPrinters',
   'SpoolBuddy',
   'ExternalLinkBrowser',
