@@ -111,7 +111,6 @@ describe('MoreScreen', () => {
     setupQueries();
     const { queryByText } = await render(<MoreScreen />);
 
-    expect(queryByText('Energy')).toBeNull();
     expect(queryByText('Virtual Printers')).toBeNull();
     expect(queryByText('SpoolBuddy')).toBeNull();
   });

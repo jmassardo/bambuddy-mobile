@@ -28,6 +28,7 @@ import ProjectsScreen from '@/screens/ProjectsScreen';
 import StatsScreen from '@/screens/StatsScreen';
 import SystemScreen from '@/screens/SystemScreen';
 import UsersScreen from '@/screens/UsersScreen';
+import EnergyScreen from '@/screens/EnergyScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -164,6 +165,11 @@ export default function RootNavigator() {
         name="Users"
         component={UsersScreen}
         options={{ title: 'Users' }}
+      />
+      <Stack.Screen
+        name="Energy"
+        component={EnergyScreen}
+        options={{ title: 'Energy' }}
       />
     </Stack.Navigator>
   );
