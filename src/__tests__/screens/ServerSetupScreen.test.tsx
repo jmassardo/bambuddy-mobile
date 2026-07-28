@@ -15,6 +15,8 @@ const mockSetDemoMode = jest.fn();
 const mockClearServerUrl = jest.fn();
 const mockIsDemoConfigured = jest.fn();
 
+let mockServerUrl: string | null = null;
+
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate, setOptions: mockSetOptions }),
 }));
@@ -27,7 +29,7 @@ jest.mock('@/api/server', () => ({
   isInsecureUrl: (url: string) => /^http:\/\//i.test(url),
   useServerStore: Object.assign(
     (selector: (state: { serverUrl: string | null }) => unknown) =>
-      selector({ serverUrl: null }),
+      selector({ serverUrl: mockServerUrl }),
     {
       getState: () => ({
         setServerUrl: (...args: unknown[]) => mockSetServerUrl(...args),
@@ -120,6 +122,7 @@ async function render() {
 describe('ServerSetupScreen demo button', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockServerUrl = null;
     mockIsDemoConfigured.mockReturnValue(true);
     mockGetAuthStatus.mockResolvedValue({ auth_enabled: true, requires_setup: false });
     mockLogin.mockResolvedValue({ access_token: 'token', user: { id: 1, username: 'reviewer' } });
@@ -175,5 +178,34 @@ describe('ServerSetupScreen demo button', () => {
 
     expect(mockSetDemoMode).not.toHaveBeenCalled();
     expect(mockClearServerUrl).toHaveBeenCalled();
+  });
+});
+
+describe('ServerSetupScreen insecure URL warning', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockServerUrl = null;
+    mockIsDemoConfigured.mockReturnValue(false);
+    mockGetAuthStatus.mockResolvedValue({ auth_enabled: true, requires_setup: false });
+  });
+
+  it('shows an HTTP warning when the stored URL uses plain HTTP', async () => {
+    mockServerUrl = 'http://192.168.1.100:8080';
+    const root = await render();
+    const warning = findText(
+      root,
+      '⚠️ Plain HTTP is only supported for servers on your local network. Public servers require HTTPS.',
+    );
+    expect(warning).not.toBeNull();
+  });
+
+  it('does not show an HTTP warning when the stored URL uses HTTPS', async () => {
+    mockServerUrl = 'https://bambuddy.example.com';
+    const root = await render();
+    const warning = findText(
+      root,
+      '⚠️ Plain HTTP is only supported for servers on your local network. Public servers require HTTPS.',
+    );
+    expect(warning).toBeNull();
   });
 });

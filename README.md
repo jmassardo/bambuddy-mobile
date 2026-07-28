@@ -123,6 +123,27 @@ Because the values are compiled into the shipped binary they are extractable by
 anyone who downloads the app. Treat the demo account as public: it should be
 low-privilege, isolated from real data, and safe to reset.
 
+## Network Security
+
+Bambuddy Companion is designed to work with self-hosted servers that may live on
+a local network. To support this while keeping public traffic secure, cleartext
+HTTP is **only** allowed for local/private network addresses:
+
+- **iOS:** The `Info.plist` sets `NSAllowsLocalNetworking = true` inside the
+  `NSAppTransportSecurity` dictionary. This permits cleartext HTTP to link-local
+  and private-range IP addresses while enforcing HTTPS for all other hosts.
+- **Android:** The `network_security_config.xml` allows cleartext traffic only
+  to RFC 1918 / RFC 4193 private IP ranges (`10.0.0.0/8`, `172.16.0.0/12`,
+  `192.168.0.0/16`, and `fc00::/7`). All public hosts require HTTPS.
+
+Public Bambuddy servers **must** use HTTPS. The app displays a warning when a
+user enters a plain HTTP URL and shows a confirmation dialog before connecting.
+
+This is intentional: many users run Bambu Lab printers on an isolated LAN with a
+self-hosted Bambuddy instance that has no TLS certificate. The local-networking
+exception lets those setups work out of the box without compromising security for
+traffic that leaves the local network.
+
 ## Testing
 
 ```sh
