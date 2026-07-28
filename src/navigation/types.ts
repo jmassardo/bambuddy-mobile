@@ -36,6 +36,10 @@ export type RootStackParamList = {
   Stats: undefined;
   System: undefined;
   Users: undefined;
+  Energy: undefined;
+  VirtualPrinters: undefined;
+  SpoolBuddy: undefined;
+  ExternalLinkBrowser: { url: string; title?: string };
 };
 
 export type RootNavigationProp<
