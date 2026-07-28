@@ -1,1 +1,0 @@
-export { ModelViewer } from './ModelViewer';
