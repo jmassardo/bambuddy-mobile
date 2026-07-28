@@ -8,6 +8,7 @@ export type SectionKey =
   | 'filament'
   | 'network'
   | 'apikeys'
+  | 'external-cameras'
   | 'virtual-printer'
   | 'spoolbuddy'
   | 'failure-detection'
@@ -65,6 +66,15 @@ export type ExternalLinkFormState = {
   icon: string;
   open_in_new_tab: boolean;
   sort_order: string;
+};
+
+export type ExternalCameraType = 'mjpeg' | 'rtsp' | 'snapshot';
+
+export type ExternalCameraFormState = {
+  name: string;
+  stream_url: string;
+  camera_type: ExternalCameraType;
+  printer_id: string;
 };
 
 export type VirtualPrinterFormState = {
