@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -272,6 +273,7 @@ function DiagnosticSheet({
 }
 
 const MAX_CAMERA_ZOOM = 4;
+export const CAMERA_STREAM_TIMEOUT_MS = 15_000;
 const DEFAULT_PLATE_ROI: PlateDetectionROI = {
   x: 0.18,
   y: 0.2,
@@ -301,6 +303,7 @@ export default function CameraScreen() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [plateDetectionEnabled, setPlateDetectionEnabled] = useState(false);
   const [plateSensitivity, setPlateSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
+  const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -328,6 +331,30 @@ export default function CameraScreen() {
     savedTranslateY.value = 0;
     setZoomLevel(1);
   }, [savedScale, savedTranslateX, savedTranslateY, scale, translateX, translateY]);
+
+  const clearStreamTimeout = useCallback(() => {
+    if (streamTimeoutRef.current == null) return;
+    clearTimeout(streamTimeoutRef.current);
+    streamTimeoutRef.current = null;
+  }, []);
+
+  const armStreamTimeout = useCallback(() => {
+    clearStreamTimeout();
+    streamTimeoutRef.current = setTimeout(() => {
+      streamTimeoutRef.current = null;
+      setStreamLoading(false);
+      setStreamError(true);
+      resetZoom();
+    }, CAMERA_STREAM_TIMEOUT_MS);
+  }, [clearStreamTimeout, resetZoom]);
+
+  const handleStreamLoadStart = useCallback(() => {
+    setStreamLoading(true);
+    setStreamError(false);
+    armStreamTimeout();
+  }, [armStreamTimeout]);
+
+  useEffect(() => clearStreamTimeout, [clearStreamTimeout]);
 
   const printerQuery = useQuery({
     queryKey: ['printer', printerId],
@@ -408,16 +435,17 @@ export default function CameraScreen() {
   });
 
   const refreshCamera = useCallback(async () => {
+    clearStreamTimeout();
     setStreamError(false);
     setStreamLoading(true);
-    setStreamSeed(Date.now());
+    setStreamSeed(current => Math.max(Date.now(), current + 1));
     resetZoom();
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['printer', printerId] }),
       queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] }),
       queryClient.invalidateQueries({ queryKey: ['plateDetectionStatus', printerId] }),
     ]);
-  }, [printerId, queryClient, resetZoom]);
+  }, [clearStreamTimeout, printerId, queryClient, resetZoom]);
 
   const printer = printerQuery.data ?? null;
 
@@ -565,6 +593,18 @@ export default function CameraScreen() {
         ? 'Camera is unavailable for this printer.'
         : null;
 
+  useEffect(() => {
+    if (
+      streamUrl &&
+      !cameraUnavailableReason &&
+      streamLoading &&
+      !streamError &&
+      streamTimeoutRef.current == null
+    ) {
+      armStreamTimeout();
+    }
+  }, [armStreamTimeout, cameraUnavailableReason, streamError, streamLoading, streamUrl]);
+
   const plateRoi = printer?.plate_detection_roi ?? DEFAULT_PLATE_ROI;
   const plateStatus = plateStatusQuery.data;
   const plateStatusLabel = plateStatusQuery.isError
@@ -626,8 +666,10 @@ export default function CameraScreen() {
       ) : streamError ? (
         renderState(
           'Unable to load stream',
-          'The live camera stream failed to start.',
-          'Retry stream',
+          Platform.OS === 'ios'
+            ? 'The live camera stream did not respond. Check Settings → Privacy → Local Network and allow Bambuddy, then retry.'
+            : 'The live camera stream did not respond. Check that the printer is reachable on your local network, then retry.',
+          'Retry',
           () => void refreshCamera(),
           'Diagnose',
           openDiagnostic,
@@ -643,15 +685,17 @@ export default function CameraScreen() {
           >
             <Animated.View style={[styles.streamTransform, animatedStreamStyle]}>
               <Image
+                testID="camera-stream-image"
                 source={{ uri: streamUrl }}
                 style={styles.stream}
                 resizeMode={fullscreen ? 'cover' : 'contain'}
-                onLoadStart={() => {
-                  setStreamLoading(true);
-                  setStreamError(false);
+                onLoadStart={handleStreamLoadStart}
+                onLoad={() => {
+                  clearStreamTimeout();
+                  setStreamLoading(false);
                 }}
-                onLoad={() => setStreamLoading(false)}
                 onError={() => {
+                  clearStreamTimeout();
                   setStreamLoading(false);
                   setStreamError(true);
                   resetZoom();
