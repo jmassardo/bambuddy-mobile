@@ -41,7 +41,7 @@ describe('ExternalLinkBrowserScreen', () => {
       'http://*',
       'https://*',
     ]);
-    expect(webView.props.javaScriptEnabled).toBe(false);
+    expect(webView.props.javaScriptEnabled).toBe(true);
     expect(webView.props.allowFileAccess).toBe(false);
     expect(webView.props.setSupportMultipleWindows).toBe(false);
   });

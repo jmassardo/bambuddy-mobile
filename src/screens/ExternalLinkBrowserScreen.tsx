@@ -21,7 +21,7 @@ export default function ExternalLinkBrowserScreen() {
         testID="external-link-webview"
         source={{ uri: route.params.url }}
         originWhitelist={['http://*', 'https://*']}
-        javaScriptEnabled={false}
+        javaScriptEnabled={true}
         allowFileAccess={false}
         setSupportMultipleWindows={false}
       />
