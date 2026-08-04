@@ -47,7 +47,7 @@ describe('shared parity API contract', () => {
       call: () => settingsApi.updateExternalCamera(4, { name: 'Updated camera' }),
       path: '/settings/cameras/4',
       options: {
-        method: 'PATCH',
+        method: 'PUT',
         body: JSON.stringify({ name: 'Updated camera' }),
       },
     },

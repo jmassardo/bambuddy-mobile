@@ -112,7 +112,7 @@ export const settingsApi = {
 
   updateExternalCamera: async (id: number, data: ExternalCameraUpdate) =>
     request<ApiEntity<ExternalCamera>>(`/settings/cameras/${id}`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(data),
     }),
 
