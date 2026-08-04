@@ -26,6 +26,9 @@ let mediaToken: string | null = null;
 let tokenLoaded = false;
 let loadedTokenService: string | null = null;
 let mediaTokenServerOrigin: string | null = null;
+let mediaTokenReady = false;
+let mediaTokenVersion = 0;
+const mediaTokenListeners = new Set<() => void>();
 
 function getServerOrigin(serverUrl: string): string {
   try {
@@ -52,10 +55,29 @@ async function resetStoredAuthToken(serverUrl: string | null): Promise<void> {
 
 function resetLoadedTokens(): void {
   authToken = null;
-  mediaToken = null;
   tokenLoaded = false;
   loadedTokenService = null;
-  mediaTokenServerOrigin = null;
+  updateMediaToken(null, null, false);
+}
+
+function updateMediaToken(
+  token: string | null,
+  serverOrigin: string | null,
+  ready: boolean,
+): void {
+  if (
+    mediaToken === token &&
+    mediaTokenServerOrigin === serverOrigin &&
+    mediaTokenReady === ready
+  ) {
+    return;
+  }
+
+  mediaToken = token;
+  mediaTokenServerOrigin = serverOrigin;
+  mediaTokenReady = ready;
+  mediaTokenVersion += 1;
+  mediaTokenListeners.forEach(listener => listener());
 }
 
 function getServerUrl(): string {
@@ -156,12 +178,17 @@ async function safeParseJson<T>(response: Response): Promise<T> {
   }
 }
 
-async function refreshMediaToken(): Promise<void> {
+async function refreshMediaToken(): Promise<boolean> {
   const serverUrl = getCurrentServerUrl();
-  if (!authToken || !serverUrl) {
-    mediaToken = null;
-    mediaTokenServerOrigin = null;
-    return;
+  if (!serverUrl) {
+    updateMediaToken(null, null, false);
+    return false;
+  }
+
+  const serverOrigin = getServerOrigin(serverUrl);
+  if (!authToken) {
+    updateMediaToken(null, serverOrigin, true);
+    return true;
   }
 
   try {
@@ -169,24 +196,41 @@ async function refreshMediaToken(): Promise<void> {
       method: 'POST',
       body: JSON.stringify({ scope: MEDIA_TOKEN_SCOPE }),
     });
-    mediaToken = typeof response.token === 'string' ? response.token : null;
-    mediaTokenServerOrigin = getServerOrigin(serverUrl);
+    updateMediaToken(
+      typeof response.token === 'string' ? response.token : null,
+      serverOrigin,
+      true,
+    );
+    return true;
   } catch {
-    mediaToken = null;
-    mediaTokenServerOrigin = null;
+    updateMediaToken(null, serverOrigin, true);
+    return false;
   }
 }
 
-function getScopedMediaToken(): string | null {
+export function getScopedMediaToken(): string | null {
   const serverUrl = getCurrentServerUrl();
   if (!serverUrl) return null;
   const serverOrigin = getServerOrigin(serverUrl);
-  if (mediaTokenServerOrigin !== serverOrigin) {
-    mediaToken = null;
-    mediaTokenServerOrigin = null;
-    return null;
-  }
-  return mediaToken;
+  return mediaTokenServerOrigin === serverOrigin ? mediaToken : null;
+}
+
+export function isScopedMediaTokenReady(): boolean {
+  const serverUrl = getCurrentServerUrl();
+  if (!serverUrl) return false;
+  return (
+    mediaTokenReady &&
+    mediaTokenServerOrigin === getServerOrigin(serverUrl)
+  );
+}
+
+export function subscribeToMediaToken(listener: () => void): () => void {
+  mediaTokenListeners.add(listener);
+  return () => mediaTokenListeners.delete(listener);
+}
+
+export function getMediaTokenVersion(): number {
+  return mediaTokenVersion;
 }
 
 export function buildMediaUrl(path: string, params?: URLSearchParams): string {
@@ -202,16 +246,25 @@ export function buildMediaUrl(path: string, params?: URLSearchParams): string {
 
 export async function getCameraStreamToken(): Promise<{ token: string | null }> {
   if (!getScopedMediaToken() && getAuthToken()) {
-    await refreshMediaToken();
+    const refreshed = await refreshMediaToken();
+    if (!refreshed) {
+      throw new ApiError(
+        'Unable to fetch a media access token',
+        0,
+        'media_token_unavailable',
+      );
+    }
   }
   return { token: getScopedMediaToken() };
 }
 
 export function setStreamToken(token: string | null): void {
-  mediaToken = token;
   const serverUrl = getCurrentServerUrl();
-  mediaTokenServerOrigin =
-    token && serverUrl ? getServerOrigin(serverUrl) : null;
+  updateMediaToken(
+    token,
+    serverUrl ? getServerOrigin(serverUrl) : null,
+    Boolean(serverUrl),
+  );
 }
 
 export function withStreamToken(url: string): string {
@@ -261,8 +314,7 @@ export async function setAuthToken(token: string | null): Promise<void> {
   const serverUrl = getCurrentServerUrl();
   const service = getAuthTokenService(serverUrl);
   authToken = token;
-  mediaToken = null;
-  mediaTokenServerOrigin = null;
+  updateMediaToken(null, null, false);
   loadedTokenService = service;
   tokenLoaded = true;
   try {
