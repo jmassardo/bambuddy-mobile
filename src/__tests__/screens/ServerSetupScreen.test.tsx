@@ -1,8 +1,12 @@
 import React from 'react';
 import { Text } from 'react-native';
 import ReactTestRenderer, { act, type ReactTestInstance } from 'react-test-renderer';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import ServerSetupScreen from '@/screens/ServerSetupScreen';
+import {
+  clearTestQueryClients,
+  createTestQueryClient,
+} from '@/testUtils/queryClient';
 
 const mockNavigate = jest.fn();
 const mockSetOptions = jest.fn();
@@ -103,9 +107,7 @@ function findPressableForText(root: ReactTestRenderer.ReactTestRenderer, value: 
 }
 
 async function render() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  const client = createTestQueryClient();
   let root!: ReactTestRenderer.ReactTestRenderer;
   await act(async () => {
     root = ReactTestRenderer.create(
@@ -130,6 +132,8 @@ describe('ServerSetupScreen demo button', () => {
     mockSetDemoMode.mockResolvedValue(undefined);
     mockClearServerUrl.mockResolvedValue(undefined);
   });
+
+  afterEach(clearTestQueryClients);
 
   it('is hidden when the build has no demo configuration', async () => {
     mockIsDemoConfigured.mockReturnValue(false);
@@ -188,6 +192,8 @@ describe('ServerSetupScreen insecure URL warning', () => {
     mockIsDemoConfigured.mockReturnValue(false);
     mockGetAuthStatus.mockResolvedValue({ auth_enabled: true, requires_setup: false });
   });
+
+  afterEach(clearTestQueryClients);
 
   it('shows an HTTP warning when the stored URL uses plain HTTP', async () => {
     mockServerUrl = 'http://192.168.1.100:8080';
