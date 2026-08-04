@@ -8,6 +8,7 @@ import { FailureDetectionSettingsSection } from './FailureDetectionSettingsSecti
 import { FilamentSettingsSection } from './FilamentSettingsSection';
 import { GeneralSettingsSection } from './GeneralSettingsSection';
 import { NetworkSettingsSection } from './NetworkSettingsSection';
+import { NavigationSettingsSection } from './NavigationSettingsSection';
 import { NotificationsSettingsSection } from './NotificationsSettingsSection';
 import { QueueSettingsSection } from './QueueSettingsSection';
 import { SmartPlugsSection } from './SmartPlugsSection';
@@ -33,6 +34,7 @@ export function SettingsSectionContent({ controller }: { controller: SettingsScr
       {section === 'queue' ? <QueueSettingsSection controller={controller} /> : null}
       {section === 'filament' ? <FilamentSettingsSection controller={controller} /> : null}
       {section === 'network' ? <NetworkSettingsSection controller={controller} /> : null}
+      {section === 'navigation' ? <NavigationSettingsSection controller={controller} /> : null}
       {section === 'apikeys' ? <ApiKeysSettingsSection controller={controller} /> : null}
       {section === 'external-cameras' ? <ExternalCamerasSettingsSection controller={controller} /> : null}
       {section === 'virtual-printer' ? <VirtualPrinterSettingsSection controller={controller} /> : null}

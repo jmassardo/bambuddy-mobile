@@ -27,6 +27,7 @@ export const SECTION_ITEMS: SectionItem[] = [
   { key: 'queue', icon: 'list-ordered', title: 'Queue', description: 'Default print options, preheat, staggering, and slicer preferences.' },
   { key: 'filament', icon: 'package', title: 'Filament', description: 'Warnings, Spoolman, RFID handling, and forecasting defaults.' },
   { key: 'network', icon: 'globe', title: 'Network', description: 'External URLs, MQTT, FTP retry, Prometheus, and Home Assistant.' },
+  { key: 'navigation', icon: 'menu', title: 'Navigation', description: 'Choose which pages appear and arrange tabs and the More menu.' },
   { key: 'apikeys', icon: 'key', title: 'API Keys', description: 'Create and revoke API keys for scripts and integrations.' },
   { key: 'external-cameras', icon: 'camera', title: 'External Cameras', description: 'Configure IP camera streams, test connectivity, and map cameras to printers.' },
   { key: 'virtual-printer', icon: 'printer', title: 'Virtual Printer', description: 'Virtual printer status plus start and stop controls.' },
@@ -218,6 +219,8 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
       return `Low stock ${pickNumber(settings, ['low_stock_threshold'], 20)}%`;
     case 'network':
       return pickBoolean(settings, ['mqtt_enabled']) ? 'MQTT enabled' : 'MQTT disabled';
+    case 'navigation':
+      return pickString(settings, ['default_sidebar_order']) ? 'Customized' : 'Default order';
     case 'apikeys':
       return `${(queries.apiKeys ?? []).length} keys • ${(queries.cameraTokens ?? []).length} camera tokens`;
     case 'external-cameras':

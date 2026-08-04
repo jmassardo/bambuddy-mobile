@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Restore external camera management support in the mobile app (#111)
+- Customize navigation visibility and ordering, with external links opening in-app or in the system browser (#71)
 
 ### Changed
 

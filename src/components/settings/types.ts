@@ -7,6 +7,7 @@ export type SectionKey =
   | 'queue'
   | 'filament'
   | 'network'
+  | 'navigation'
   | 'apikeys'
   | 'external-cameras'
   | 'virtual-printer'

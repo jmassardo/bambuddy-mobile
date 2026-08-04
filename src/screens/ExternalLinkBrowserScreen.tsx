@@ -1,12 +1,36 @@
-import { EmptyState } from '@/components/common/StateScreens';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { WebView } from 'react-native-webview';
+import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 
-// Placeholder for issue #71. Replace this screen rather than extending it.
 export default function ExternalLinkBrowserScreen() {
+  const navigation =
+    useNavigation<RootNavigationProp<'ExternalLinkBrowser'>>();
+  const route = useRoute<RootRouteProp<'ExternalLinkBrowser'>>();
+
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      title: route.params.title?.trim() || 'External Link',
+    });
+  }, [navigation, route.params.title]);
+
   return (
-    <EmptyState
-      icon="globe"
-      title="External Link"
-      message="In-app external links are coming soon."
-    />
+    <View style={styles.container}>
+      <WebView
+        testID="external-link-webview"
+        source={{ uri: route.params.url }}
+        originWhitelist={['http://*', 'https://*']}
+        javaScriptEnabled={false}
+        allowFileAccess={false}
+        setSupportMultipleWindows={false}
+      />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
