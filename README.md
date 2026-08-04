@@ -152,6 +152,13 @@ npm run lint
 npm run typecheck
 ```
 
+## Changelog
+
+Every user-facing pull request adds one user-focused line under
+[`## [Unreleased]`](CHANGELOG.md#unreleased). At release time, the release agent
+promotes those entries to a versioned section and starts a new empty Unreleased
+section.
+
 ## Links
 
 - Website: https://dxrf.com/bambuddy-companion
