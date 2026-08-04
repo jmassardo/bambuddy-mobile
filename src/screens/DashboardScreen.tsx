@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MainTabNavigationProp } from '@/navigation/types';
 import {
   FlatList,
@@ -53,6 +54,17 @@ const FILTERS = [
 ] as const;
 
 type FilterMode = (typeof FILTERS)[number]['key'];
+type PrinterMode = Exclude<FilterMode, 'all'>;
+export type PrinterSortMode = 'name' | 'status';
+
+const PRINTER_SORT_STORAGE_KEY = 'bambuddy-printer-sort';
+const STATUS_SORT_RANK: Record<PrinterMode, number> = {
+  issues: 0,
+  printing: 1,
+  paused: 2,
+  idle: 3,
+  offline: 4,
+};
 
 interface MaintenanceSummary {
   dueCount: number;
@@ -171,7 +183,7 @@ function classifyPrinter(
   printer: Printer,
   status: PrinterStatus | undefined,
   maintenance: MaintenanceSummary | undefined,
-) {
+): PrinterMode {
   if (printer.is_active === false) return 'issues';
   if (!status?.connected) return 'offline';
   if ((status.hms_errors?.length ?? 0) > 0) return 'issues';
@@ -180,6 +192,33 @@ function classifyPrinter(
   if (status.state === 'PAUSE') return 'paused';
   if (status.state === 'FAILED') return 'issues';
   return 'idle';
+}
+
+export function comparePrinters(
+  first: Printer,
+  second: Printer,
+  sortBy: PrinterSortMode,
+  statusByPrinter: ReadonlyMap<number, PrinterStatus | undefined>,
+  maintenanceByPrinter: ReadonlyMap<number, MaintenanceSummary | undefined>,
+) {
+  const compareNames = () =>
+    first.name.localeCompare(second.name, undefined, { sensitivity: 'base' }) ||
+    first.id - second.id;
+
+  if (sortBy === 'name') return compareNames();
+
+  const firstMode = classifyPrinter(
+    first,
+    statusByPrinter.get(first.id),
+    maintenanceByPrinter.get(first.id),
+  );
+  const secondMode = classifyPrinter(
+    second,
+    statusByPrinter.get(second.id),
+    maintenanceByPrinter.get(second.id),
+  );
+
+  return STATUS_SORT_RANK[firstMode] - STATUS_SORT_RANK[secondMode] || compareNames();
 }
 
 export default function PrintersDashboardScreen() {
@@ -195,6 +234,7 @@ export default function PrintersDashboardScreen() {
   const { isConnected: wsConnected } = useWebSocket();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
+  const [sortBy, setSortBy] = useState<PrinterSortMode>('status');
   const [viewMode, setViewMode] = useState<'normal' | 'compact'>('normal');
   const [snapshotSeed, setSnapshotSeed] = useState(0);
   const [printPrinterId, setPrintPrinterId] = useState<number | null>(null);
@@ -208,6 +248,29 @@ export default function PrintersDashboardScreen() {
       queryClient.invalidateQueries({ queryKey: ['printers'] });
     },
   });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSortPreference = async () => {
+      try {
+        const storedSort = await AsyncStorage.getItem(PRINTER_SORT_STORAGE_KEY);
+        if (!cancelled && (storedSort === 'name' || storedSort === 'status')) {
+          setSortBy(storedSort);
+        }
+      } catch {
+        if (!cancelled) {
+          showToast('Unable to restore the printer sort preference.', 'warning');
+        }
+      }
+    };
+
+    void loadSortPreference();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showToast]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -306,24 +369,33 @@ export default function PrintersDashboardScreen() {
   const filteredPrinters = useMemo(() => {
     const term = search.trim().toLowerCase();
 
-    return printers.filter(printer => {
-      const status = statusByPrinter.get(printer.id);
-      const maintenance = maintenanceByPrinter.get(printer.id);
-      const mode = classifyPrinter(printer, status, maintenance);
-      const matchesSearch =
-        !term ||
-        [printer.name, printer.model, printer.location]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-          .includes(term);
+    return printers
+      .filter(printer => {
+        const status = statusByPrinter.get(printer.id);
+        const maintenance = maintenanceByPrinter.get(printer.id);
+        const mode = classifyPrinter(printer, status, maintenance);
+        const matchesSearch =
+          !term ||
+          [printer.name, printer.model, printer.location]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+            .includes(term);
 
-      if (!matchesSearch) return false;
-      if (filter === 'all') return true;
-      if (filter === 'issues') return mode === 'issues';
-      return mode === filter;
-    });
-  }, [filter, maintenanceByPrinter, printers, search, statusByPrinter]);
+        if (!matchesSearch) return false;
+        if (filter === 'all') return true;
+        return mode === filter;
+      })
+      .sort((first, second) =>
+        comparePrinters(
+          first,
+          second,
+          sortBy,
+          statusByPrinter,
+          maintenanceByPrinter,
+        ),
+      );
+  }, [filter, maintenanceByPrinter, printers, search, sortBy, statusByPrinter]);
 
   // TODO: summary stats for future dashboard summary widget
   // const summary = useMemo(() => {
@@ -359,6 +431,13 @@ export default function PrintersDashboardScreen() {
         ? current.filter(id => id !== printerId)
         : [...current, printerId],
     );
+  };
+
+  const handleSortChange = (nextSort: PrinterSortMode) => {
+    setSortBy(nextSort);
+    void AsyncStorage.setItem(PRINTER_SORT_STORAGE_KEY, nextSort).catch(() => {
+      showToast('Unable to save the printer sort preference.', 'warning');
+    });
   };
 
   const bulkActionMutation = useMutation({
@@ -619,6 +698,43 @@ export default function PrintersDashboardScreen() {
               tabs={FILTERS.map(item => ({ key: item.key, label: item.label }))}
               onChange={setFilter}
             />
+            <View style={styles.sortRow}>
+              <Text style={[styles.sortLabel, { color: colors.textSecondary }]}>Sort</Text>
+              <View
+                style={[
+                  styles.sortControl,
+                  { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                ]}
+              >
+                {(['name', 'status'] as const).map(option => {
+                  const selected = sortBy === option;
+                  const label = option === 'name' ? 'Name' : 'Status';
+
+                  return (
+                    <Pressable
+                      key={option}
+                      onPress={() => handleSortChange(option)}
+                      style={[
+                        styles.sortOption,
+                        selected && { backgroundColor: colors.accentBg },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Sort printers by ${label}`}
+                      accessibilityState={{ selected }}
+                    >
+                      <Text
+                        style={[
+                          styles.sortOptionLabel,
+                          { color: selected ? colors.accentLight : colors.textSecondary },
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -731,6 +847,36 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+  },
+  sortLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  sortControl: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    padding: 2,
+  },
+  sortOption: {
+    minHeight: 28,
+    minWidth: 64,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sortOptionLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
   },
   addBtn: {
     width: 32,
