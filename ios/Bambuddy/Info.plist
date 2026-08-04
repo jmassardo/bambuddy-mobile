@@ -33,6 +33,13 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Bambuddy may use your location to identify nearby printers on your local network.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Bambuddy connects to your printer and Bambuddy server on your local network to show the live camera feed and control your printer.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+		<string>_https._tcp</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Bambuddy uses the camera to scan QR codes for printer setup and to view your printer's live camera feed.</string>
 	<key>NSFaceIDUsageDescription</key>
