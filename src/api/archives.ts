@@ -26,8 +26,15 @@ export const archivesApi = {
 
   getArchive: async (id: number) => request<ApiEntity<Archive>>(`/archives/${id}`),
 
-  getArchiveRuns: async (id: number) =>
-    request<Record<string, unknown>>(`/archives/${id}/runs`),
+  getArchiveRuns: async (id: number): Promise<Record<string, unknown>[]> => {
+    const response = await request<
+      Record<string, unknown> | Record<string, unknown>[] | null
+    >(`/archives/${id}/runs`);
+    if (Array.isArray(response)) return response;
+    return response && Array.isArray(response.items)
+      ? (response.items as Record<string, unknown>[])
+      : [];
+  },
 
   searchArchives: async (
     query: string,
