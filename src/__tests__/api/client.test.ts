@@ -248,6 +248,38 @@ describe('api client', () => {
     expectLastRequest(endpoint, method, body);
   });
 
+  describe('getArchiveRuns', () => {
+    const runs = [
+      { id: 1, status: 'completed' },
+      { id: 2, status: 'completed' },
+    ];
+
+    it('returns a bare-array response', async () => {
+      mockFetch.mockResolvedValue(createResponse(runs));
+
+      await expect(api.getArchiveRuns(4)).resolves.toEqual(runs);
+      expectLastRequest('/archives/4/runs');
+    });
+
+    it('unwraps runs from a paginated response', async () => {
+      mockFetch.mockResolvedValue(createResponse({ items: runs, total: 2 }));
+
+      await expect(api.getArchiveRuns(4)).resolves.toEqual(runs);
+      expectLastRequest('/archives/4/runs');
+    });
+
+    it.each([
+      ['an empty object', {}],
+      ['a null response', null],
+      ['non-array items', { items: { id: 1 } }],
+    ])('returns an empty array for %s', async (_name, response) => {
+      mockFetch.mockResolvedValue(createResponse(response));
+
+      await expect(api.getArchiveRuns(4)).resolves.toEqual([]);
+      expectLastRequest('/archives/4/runs');
+    });
+  });
+
   it.each([
     {
       name: 'getSpools',
