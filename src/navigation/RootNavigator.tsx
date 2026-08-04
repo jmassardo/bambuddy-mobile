@@ -29,6 +29,9 @@ import StatsScreen from '@/screens/StatsScreen';
 import SystemScreen from '@/screens/SystemScreen';
 import UsersScreen from '@/screens/UsersScreen';
 import EnergyScreen from '@/screens/EnergyScreen';
+import VirtualPrintersScreen from '@/screens/VirtualPrintersScreen';
+import SpoolBuddyScreen from '@/screens/SpoolBuddyScreen';
+import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -170,6 +173,21 @@ export default function RootNavigator() {
         name="Energy"
         component={EnergyScreen}
         options={{ title: 'Energy' }}
+      />
+      <Stack.Screen
+        name="VirtualPrinters"
+        component={VirtualPrintersScreen}
+        options={{ title: 'Virtual Printers' }}
+      />
+      <Stack.Screen
+        name="SpoolBuddy"
+        component={SpoolBuddyScreen}
+        options={{ title: 'SpoolBuddy' }}
+      />
+      <Stack.Screen
+        name="ExternalLinkBrowser"
+        component={ExternalLinkBrowserScreen}
+        options={{ title: 'External Link' }}
       />
     </Stack.Navigator>
   );

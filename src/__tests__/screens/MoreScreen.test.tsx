@@ -107,12 +107,12 @@ describe('MoreScreen', () => {
     expect(getByText('Insights & tools')).toBeTruthy();
   });
 
-  it('filters out unregistered routes', async () => {
+  it('shows the newly registered parity routes', async () => {
     setupQueries();
-    const { queryByText } = await render(<MoreScreen />);
+    const { getByText } = await render(<MoreScreen />);
 
-    expect(queryByText('Virtual Printers')).toBeNull();
-    expect(queryByText('SpoolBuddy')).toBeNull();
+    expect(getByText('Virtual Printers')).toBeTruthy();
+    expect(getByText('SpoolBuddy')).toBeTruthy();
   });
 
   it('respects custom sidebar order from settings', async () => {

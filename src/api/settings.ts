@@ -1,6 +1,10 @@
 import type {
   ApiEntity,
   AppSettings,
+  ExternalCamera,
+  ExternalCameraCreate,
+  ExternalCameraTestResult,
+  ExternalCameraUpdate,
   ExternalLink,
   NotificationProvider,
   NotificationTemplate,
@@ -96,6 +100,27 @@ export const settingsApi = {
       method: 'POST',
       body: JSON.stringify({ token }),
     }),
+
+  getExternalCameras: async () =>
+    request<Array<ApiEntity<ExternalCamera>>>('/settings/cameras'),
+
+  createExternalCamera: async (data: ExternalCameraCreate) =>
+    request<ApiEntity<ExternalCamera>>('/settings/cameras', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateExternalCamera: async (id: number, data: ExternalCameraUpdate) =>
+    request<ApiEntity<ExternalCamera>>(`/settings/cameras/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  deleteExternalCamera: async (id: number) =>
+    request<void>(`/settings/cameras/${id}`, { method: 'DELETE' }),
+
+  testExternalCamera: async (id: number) =>
+    request<ExternalCameraTestResult>(`/settings/cameras/${id}/test`, { method: 'POST' }),
 
   getExternalLinks: async () =>
     request<Array<ApiEntity<ExternalLink>>>('/external-links/'),

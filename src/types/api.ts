@@ -3762,6 +3762,35 @@ export interface UpdateStatus {
   error: string | null;
 }
 
+export interface ExternalCamera {
+  id: number;
+  name: string;
+  stream_url: string;
+  camera_type: 'mjpeg' | 'rtsp' | 'snapshot';
+  printer_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExternalCameraCreate {
+  name: string;
+  stream_url: string;
+  camera_type: ExternalCamera['camera_type'];
+  printer_id?: number | null;
+}
+
+export interface ExternalCameraUpdate {
+  name?: string;
+  stream_url?: string;
+  camera_type?: ExternalCamera['camera_type'];
+  printer_id?: number | null;
+}
+
+export interface ExternalCameraTestResult {
+  success: boolean;
+  message: string;
+}
+
 export interface ExternalLink {
   id: number;
   name: string;
@@ -4014,6 +4043,26 @@ export interface SpoolBuddyDevice {
     system_uptime_s?: number;
   } | null;
   online: boolean;
+}
+
+export interface SpoolBuddyDeviceCreateRequest {
+  device_id: string;
+  hostname?: string | null;
+  ip_address?: string | null;
+  backend_url?: string | null;
+  api_key?: string | null;
+}
+
+export interface SpoolBuddyDeviceUpdateRequest {
+  hostname?: string | null;
+  ip_address?: string | null;
+  backend_url?: string | null;
+  api_key?: string | null;
+  display_brightness?: number;
+  display_blank_timeout?: number;
+  has_backlight?: boolean;
+  calibration_factor?: number;
+  tare_offset?: number;
 }
 
 export interface DaemonUpdateCheck {
