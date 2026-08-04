@@ -81,6 +81,46 @@ function toRecord(value: unknown): ApiRecord | null {
   return typeof value === 'object' && value !== null ? (value as ApiRecord) : null;
 }
 
+function formatProfileValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return '';
+}
+
+export function formatKProfileDetail(item: ApiRecord): {
+  subtitle: string;
+  detail: string;
+} {
+  const kValue = formatProfileValue(item.k_value);
+  const nCoef = formatProfileValue(item.n_coef);
+  const nozzleDiameter = formatProfileValue(item.nozzle_diameter);
+  const filamentId = formatProfileValue(item.filament_id);
+  const amsId = formatProfileValue(item.ams_id);
+  const trayId = formatProfileValue(item.tray_id);
+
+  const subtitle = [
+    nozzleDiameter ? `${nozzleDiameter} mm nozzle` : '',
+    filamentId ? `Filament ${filamentId}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const calibration = [kValue ? `K ${kValue}` : '', nCoef ? `N ${nCoef}` : '']
+    .filter(Boolean)
+    .join(' · ');
+  const placement = [amsId ? `AMS ${amsId}` : '', trayId ? `Tray ${trayId}` : '']
+    .filter(Boolean)
+    .join(' · ');
+
+  return {
+    subtitle: subtitle || 'K-Profile',
+    detail: [calibration, placement].filter(Boolean).join('\n'),
+  };
+}
+
 export default function ProfilesScreen() {
   const navigation = useNavigation<RootNavigationProp<'Profiles'>>();
   React.useLayoutEffect(() => {
@@ -636,6 +676,8 @@ export default function ProfilesScreen() {
           const state = pickString(item, ['status', 'source', 'type'], tab);
           const settingId = pickString(item, ['setting_id', 'id']) || '';
           const isSelectedForCompare = compareSelection.includes(settingId);
+          const kProfileDetail =
+            tab === 'kprofiles' ? formatKProfileDetail(item) : null;
           return (
             <View
               style={[
@@ -649,17 +691,23 @@ export default function ProfilesScreen() {
                     {pickString(item, ['name', 'profile_name'], 'Unnamed profile')}
                   </Text>
                   <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
-                    {pickString(item, ['type', 'printer_model', 'material'], 'Profile')}
+                    {kProfileDetail?.subtitle ??
+                      pickString(
+                        item,
+                        ['type', 'printer_model', 'material'],
+                        'Profile',
+                      )}
                   </Text>
                 </View>
                 <StatusBadge label={state} color={statusColor(state, colors)} />
               </View>
               <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
-                {pickString(
-                  item,
-                  ['description', 'path', 'setting_id', 'source'],
-                  'No profile details available.',
-                )}
+                {kProfileDetail?.detail ??
+                  pickString(
+                    item,
+                    ['description', 'path', 'setting_id', 'source'],
+                    'No profile details available.',
+                  )}
               </Text>
               <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>
                 {formatDateTime(
