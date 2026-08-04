@@ -50,6 +50,7 @@ import type {
 } from '@/types/api';
 import { withCacheBuster } from '@/utils/data';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useMediaToken } from '@/hooks/useStreamToken';
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
@@ -295,6 +296,7 @@ export default function CameraScreen() {
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const { token: mediaToken, isReady: mediaTokenReady } = useMediaToken();
   const [fullscreen, setFullscreen] = useState(false);
   const [streamSeed, setStreamSeed] = useState(() => Date.now());
   const [streamLoading, setStreamLoading] = useState(true);
@@ -355,6 +357,12 @@ export default function CameraScreen() {
   }, [armStreamTimeout]);
 
   useEffect(() => clearStreamTimeout, [clearStreamTimeout]);
+
+  useEffect(() => {
+    clearStreamTimeout();
+    setStreamError(false);
+    setStreamLoading(true);
+  }, [clearStreamTimeout, mediaToken, mediaTokenReady]);
 
   const printerQuery = useQuery({
     queryKey: ['printer', printerId],
@@ -444,6 +452,7 @@ export default function CameraScreen() {
       queryClient.invalidateQueries({ queryKey: ['printer', printerId] }),
       queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] }),
       queryClient.invalidateQueries({ queryKey: ['plateDetectionStatus', printerId] }),
+      queryClient.invalidateQueries({ queryKey: ['camera-stream-token'] }),
     ]);
   }, [clearStreamTimeout, printerId, queryClient, resetZoom]);
 
@@ -582,9 +591,18 @@ export default function CameraScreen() {
           ? colors.success
           : colors.error;
   const streamUrl = useMemo(() => {
-    if (!validPrinterId) return null;
-    return withCacheBuster(api.getCameraStreamUrl(printerId), streamSeed);
-  }, [printerId, streamSeed, validPrinterId]);
+    if (!validPrinterId || !mediaTokenReady) return null;
+    return withCacheBuster(
+      api.getCameraStreamUrl(printerId),
+      `${mediaToken ?? 'public'}-${streamSeed}`,
+    );
+  }, [
+    mediaToken,
+    mediaTokenReady,
+    printerId,
+    streamSeed,
+    validPrinterId,
+  ]);
   const cameraUnavailableReason = !validPrinterId
     ? 'Missing printer id.'
     : !status?.connected
@@ -663,6 +681,10 @@ export default function CameraScreen() {
           printer ? 'Diagnose' : undefined,
           printer ? openDiagnostic : undefined,
         )
+      ) : !mediaTokenReady ? (
+        <View style={styles.stateWrap}>
+          <ActivityIndicator size="large" color={colors.accent} />
+        </View>
       ) : streamError ? (
         renderState(
           'Unable to load stream',

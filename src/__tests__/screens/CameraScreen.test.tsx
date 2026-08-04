@@ -67,6 +67,13 @@ jest.mock('@/api/client', () => ({
   },
 }));
 
+jest.mock('@/hooks/useStreamToken', () => ({
+  useMediaToken: () => ({
+    token: 'media-token',
+    isReady: true,
+  }),
+}));
+
 jest.mock('@/components/common/AppUI', () => ({
   PrimaryButton: ({
     label,
