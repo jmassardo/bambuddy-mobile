@@ -2,23 +2,24 @@ import React, { useMemo } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import type { MainTabNavigationProp, RootStackParamList } from '@/navigation/types';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { MenuItem, SectionHeader } from '@/components/common/UIComponents';
 import { useServerStore } from '@/api/server';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { fontSize, fontWeight, spacing, borderRadius } from '@/theme/tokens';
 import { api } from '@/api/client';
 import { getNavigationLayout } from '@/navigation/navigationConfig';
 
 /**
- * Routes hidden from navigation until their full screen implementation lands:
- *   - #71 removes 'ExternalLinkBrowser'
+ * Routes hidden from navigation until their full screen implementation lands.
+ * No routes are currently hidden.
  */
-const UNREGISTERED_ROUTES: Array<keyof RootStackParamList> = [
-  'ExternalLinkBrowser',
-];
+const UNREGISTERED_ROUTES: Array<keyof RootStackParamList> = [];
+
+const URL_PROTOCOL_REGEX = /^https?:\/\//i;
 
 export default function MoreScreen() {
   const navigation = useNavigation<MainTabNavigationProp<'More'>>();
@@ -27,6 +28,7 @@ export default function MoreScreen() {
   }, [navigation]);
 
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const { user, logout } = useAuth();
   const demoMode = useServerStore(state => state.demoMode);
   const version = DeviceInfo.getVersion() || 'dev';
@@ -65,6 +67,38 @@ export default function MoreScreen() {
       await useServerStore.getState().clearServerUrl();
     },
   });
+
+  const openExternalLink = React.useCallback(
+    async (input: {
+      url: string;
+      name: string;
+      openInNewTab: boolean;
+    }) => {
+      const url = input.url.trim();
+      if (!URL_PROTOCOL_REGEX.test(url)) {
+        showToast(
+          'External links must start with http:// or https://',
+          'error',
+        );
+        return;
+      }
+
+      if (input.openInNewTab) {
+        try {
+          await Linking.openURL(url);
+        } catch {
+          showToast('Unable to open the external link.', 'error');
+        }
+        return;
+      }
+
+      navigation.navigate('ExternalLinkBrowser', {
+        url,
+        title: input.name,
+      });
+    },
+    [navigation, showToast],
+  );
 
   return (
     <ScrollView
@@ -131,7 +165,13 @@ export default function MoreScreen() {
                 icon={link.icon || 'external-link'}
                 label={link.name}
                 subtitle={link.url}
-                onPress={() => (navigation as any).navigate('ExternalLinkBrowser', { url: link.url, title: link.name })}
+                onPress={() =>
+                  void openExternalLink({
+                    url: link.url,
+                    name: link.name,
+                    openInNewTab: link.open_in_new_tab,
+                  })
+                }
               />
             ))}
           </View>

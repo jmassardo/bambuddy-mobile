@@ -1,10 +1,18 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import MoreScreen from '@/screens/MoreScreen';
 
 const mockNavigate = jest.fn();
 const mockSetOptions = jest.fn();
 const mockUseQuery = jest.fn();
+const mockShowToast = jest.fn();
+const mockOpenURL = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('react-native/Libraries/Linking/Linking', () => ({
+  __esModule: true,
+  default: { openURL: mockOpenURL },
+  openURL: mockOpenURL,
+}));
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate, setOptions: mockSetOptions }),
@@ -29,6 +37,10 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { username: 'testuser' }, logout: jest.fn() }),
 }));
 
+jest.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}));
+
 jest.mock('@/api/server', () => ({
   useServerStore: Object.assign(
     (selector: (state: { demoMode: boolean }) => boolean) => selector({ demoMode: false }),
@@ -41,17 +53,17 @@ jest.mock('react-native-device-info', () => ({
 }));
 
 jest.mock('@/components/common/UIComponents', () => {
-  const React = require('react');
+  const ReactModule = require('react');
   const { Text, View } = require('react-native');
 
   return {
-    MenuItem: ({ label, subtitle }: { label: string; subtitle?: string }) =>
-      React.createElement(View, { testID: 'menu-item-' + label },
-        React.createElement(Text, null, label),
-        subtitle ? React.createElement(Text, null, subtitle) : null,
+    MenuItem: ({ label, subtitle, onPress }: { label: string; subtitle?: string; onPress: () => void }) =>
+      ReactModule.createElement(View, { testID: 'menu-item-' + label, onPress },
+        ReactModule.createElement(Text, null, label),
+        subtitle ? ReactModule.createElement(Text, null, subtitle) : null,
       ),
     SectionHeader: ({ title }: { title: string }) =>
-      React.createElement(Text, { testID: 'section-' + title }, title),
+      ReactModule.createElement(Text, { testID: 'section-' + title }, title),
   };
 });
 
@@ -115,8 +127,8 @@ describe('MoreScreen', () => {
     expect(getByText('SpoolBuddy')).toBeTruthy();
   });
 
-  it('respects custom sidebar order from settings', async () => {
-    setupQueries({ settings: { default_sidebar_order: 'stats,settings' } });
+  it('ignores removed ids while honoring the remaining custom order', async () => {
+    setupQueries({ settings: { default_sidebar_order: 'stats,removed-route,settings' } });
     const { getByText, queryByText } = await render(<MoreScreen />);
 
     expect(getByText('Stats')).toBeTruthy();
@@ -132,16 +144,52 @@ describe('MoreScreen', () => {
     expect(getByText('Stats')).toBeTruthy();
   });
 
-  it('does not show external links section when ExternalLinkBrowser is unregistered', async () => {
+  it('opens in-app external links in ExternalLinkBrowser', async () => {
     setupQueries({
       externalLinks: [
-        { id: 1, name: 'My Link', url: 'https://example.com', icon: 'link', open_in_new_tab: true, custom_icon: null, sort_order: 1, created_at: '', updated_at: '' },
+        { id: 1, name: 'My Link', url: 'https://example.com', icon: 'link', open_in_new_tab: false, custom_icon: null, sort_order: 1, created_at: '', updated_at: '' },
       ],
     });
-    const { queryByText } = await render(<MoreScreen />);
+    const { getByTestId, getByText } = await render(<MoreScreen />);
 
-    expect(queryByText('Links')).toBeNull();
-    expect(queryByText('My Link')).toBeNull();
+    expect(getByText('Links')).toBeTruthy();
+    fireEvent.press(getByTestId('menu-item-My Link'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('ExternalLinkBrowser', {
+      url: 'https://example.com',
+      title: 'My Link',
+    });
+    expect(mockOpenURL).not.toHaveBeenCalled();
+  });
+
+  it('opens links flagged as external in the system browser', async () => {
+    setupQueries({
+      externalLinks: [
+        { id: 2, name: 'External Link', url: ' https://example.com/help ', icon: 'link', open_in_new_tab: true, custom_icon: null, sort_order: 1, created_at: '', updated_at: '' },
+      ],
+    });
+    const { getByTestId } = await render(<MoreScreen />);
+
+    fireEvent.press(getByTestId('menu-item-External Link'));
+
+    await waitFor(() =>
+      expect(mockOpenURL).toHaveBeenCalledWith('https://example.com/help'),
+    );
+    expect(mockNavigate).not.toHaveBeenCalledWith(
+      'ExternalLinkBrowser',
+      expect.anything(),
+    );
+  });
+
+  it('still renders locked items when every hideable item is hidden', async () => {
+    setupQueries({
+      settings: { default_sidebar_order: 'more,settings,spoolbuddy' },
+    });
+    const { getByText, queryByText } = await render(<MoreScreen />);
+
+    expect(getByText('Settings')).toBeTruthy();
+    expect(getByText('SpoolBuddy')).toBeTruthy();
+    expect(queryByText('Users')).toBeNull();
   });
 
   it('shows signed-in user and version', async () => {

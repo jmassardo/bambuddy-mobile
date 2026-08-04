@@ -3,6 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import {
+  BUILT_IN_NAV_ITEMS,
+  getNavigationLayout,
+  serializeNavigationOrder,
+  type BuiltInNavId,
+} from '@/navigation/navigationConfig';
 import { useTheme } from '@/theme';
 import type {
   AdvancedAuthStatus,
@@ -47,6 +53,26 @@ import type {
   VirtualPrinterFormState,
 } from './types';
 
+const DEFAULT_NAVIGATION_ORDER = BUILT_IN_NAV_ITEMS.map(item => item.id);
+
+function getNavigationOrderDraft(
+  defaultSidebarOrder: string | null | undefined,
+): BuiltInNavId[] {
+  return getNavigationLayout({ defaultSidebarOrder }).orderedBuiltIns.map(
+    item => item.id,
+  );
+}
+
+function serializeNavigationOrderDraft(ids: BuiltInNavId[]): string {
+  const normalizedIds = getNavigationOrderDraft(serializeNavigationOrder(ids));
+  const matchesDefault =
+    normalizedIds.length === DEFAULT_NAVIGATION_ORDER.length &&
+    normalizedIds.every(
+      (id, index) => id === DEFAULT_NAVIGATION_ORDER[index],
+    );
+  return matchesDefault ? '' : serializeNavigationOrder(normalizedIds);
+}
+
 export function useSettingsScreenController() {
   const { colors, mode, setMode } = useTheme();
   const { isAdmin, authEnabled, user, hasPermission } = useAuth();
@@ -56,6 +82,9 @@ export function useSettingsScreenController() {
   const [section, setSection] = useState<SectionKey | null>(null);
   const [userPanel, setUserPanel] = useState<UserPanelKey>('auth');
   const [draft, setDraft] = useState<ApiRecord>({});
+  const [navigationOrderDraft, setNavigationOrderDraft] = useState<
+    BuiltInNavId[]
+  >([...DEFAULT_NAVIGATION_ORDER]);
   const [newApiKeyName, setNewApiKeyName] = useState('');
   const [createdApiKey, setCreatedApiKey] = useState('');
   const [cameraTokenForm, setCameraTokenForm] = useState<CameraTokenFormState>(EMPTY_CAMERA_TOKEN_FORM);
@@ -180,6 +209,9 @@ export function useSettingsScreenController() {
   useEffect(() => {
     if (settingsQuery.data) {
       setDraft(settingsQuery.data);
+      setNavigationOrderDraft(
+        getNavigationOrderDraft(settingsQuery.data.default_sidebar_order),
+      );
       setLdapForm({
         ldap_server_url: pickString(settingsQuery.data, ['ldap_server_url']),
         ldap_bind_dn: pickString(settingsQuery.data, ['ldap_bind_dn']),
@@ -270,6 +302,35 @@ export function useSettingsScreenController() {
       showToast('Settings saved.', 'success');
     },
     onError: (error: Error) => showToast(error.message || 'Unable to save settings.', 'error'),
+  });
+
+  const saveNavigationOrderMutation = useMutation({
+    mutationFn: async () =>
+      api.updateSettings({
+        ...draft,
+        default_sidebar_order:
+          serializeNavigationOrderDraft(navigationOrderDraft),
+      }),
+    onSuccess: async data => {
+      setDraft(data);
+      setNavigationOrderDraft(
+        getNavigationOrderDraft(data.default_sidebar_order),
+      );
+      await queryClient.invalidateQueries({ queryKey: ['settings'] });
+      showToast('Navigation saved.', 'success');
+    },
+    onError: (error: Error) => {
+      const persistedOrder = settingsQuery.data?.default_sidebar_order ?? '';
+      setDraft(current => ({
+        ...current,
+        default_sidebar_order: persistedOrder,
+      }));
+      setNavigationOrderDraft(getNavigationOrderDraft(persistedOrder));
+      showToast(
+        error.message || 'Unable to save navigation.',
+        'error',
+      );
+    },
   });
 
   const createApiKeyMutation = useMutation({
@@ -1173,6 +1234,7 @@ export function useSettingsScreenController() {
       section,
       userPanel,
       draft,
+      navigationOrderDraft,
       newApiKeyName,
       createdApiKey,
       cameraTokenForm,
@@ -1251,6 +1313,7 @@ export function useSettingsScreenController() {
     },
     mutations: {
       saveSettingsMutation,
+      saveNavigationOrderMutation,
       createApiKeyMutation,
       deleteApiKeyMutation,
       createCameraTokenMutation,
@@ -1314,6 +1377,7 @@ export function useSettingsScreenController() {
       setSection,
       setUserPanel,
       setDraft,
+      setNavigationOrderDraft,
       setNewApiKeyName,
       setCreatedApiKey,
       setCameraTokenForm,
