@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, request } from '@/api/client';
+import { api } from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import type {
   AdvancedAuthStatus,
   BackupCodesResponse,
+  ExternalCameraCreate,
+  ExternalCameraUpdate,
   LDAPStatus,
   OIDCLink,
   OIDCProvider,
@@ -44,14 +46,6 @@ import type {
   UserPanelKey,
   VirtualPrinterFormState,
 } from './types';
-
-/** Local type — ExternalCameraCreate was lost from types/api.ts along with the feature */
-type ExternalCameraCreate = {
-  name: string;
-  stream_url: string;
-  camera_type: 'mjpeg' | 'rtsp' | 'snapshot';
-  printer_id?: number | null;
-};
 
 export function useSettingsScreenController() {
   const { colors, mode, setMode } = useTheme();
@@ -120,7 +114,7 @@ export function useSettingsScreenController() {
   const externalLinksQuery = useQuery({ queryKey: ['externalLinks'], queryFn: api.getExternalLinks });
   const externalCamerasQuery = useQuery({
     queryKey: ['externalCameras'],
-    queryFn: () => request<ApiRecord[]>('/settings/cameras'),
+    queryFn: api.getExternalCameras,
   });
   const printersQuery = useQuery({
     queryKey: ['printers', 'settings'],
@@ -357,8 +351,7 @@ export function useSettingsScreenController() {
   });
 
   const createExternalCameraMutation = useMutation({
-    mutationFn: async (payload: ExternalCameraCreate) =>
-      request<ApiRecord>('/settings/cameras', { method: 'POST', body: JSON.stringify(payload) }),
+    mutationFn: api.createExternalCamera,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
       closeExternalCameraModal();
@@ -368,8 +361,8 @@ export function useSettingsScreenController() {
   });
 
   const updateExternalCameraMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: number; payload: Partial<ExternalCameraCreate> }) =>
-      request<ApiRecord>(`/settings/cameras/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    mutationFn: ({ id, payload }: { id: number; payload: ExternalCameraUpdate }) =>
+      api.updateExternalCamera(id, payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
       closeExternalCameraModal();
@@ -379,8 +372,7 @@ export function useSettingsScreenController() {
   });
 
   const deleteExternalCameraMutation = useMutation({
-    mutationFn: async (id: number) =>
-      request<void>(`/settings/cameras/${id}`, { method: 'DELETE' }),
+    mutationFn: api.deleteExternalCamera,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
       setPendingDeleteExternalCamera(null);
@@ -390,8 +382,7 @@ export function useSettingsScreenController() {
   });
 
   const testExternalCameraMutation = useMutation({
-    mutationFn: async (id: number) =>
-      request<{ success: boolean; message: string }>(`/settings/cameras/${id}/test`, { method: 'POST' }),
+    mutationFn: api.testExternalCamera,
     onSuccess: result => showToast(result.message || 'Camera test completed.', result.success ? 'success' : 'error'),
     onError: (error: Error) => showToast(error.message || 'Unable to test camera connection.', 'error'),
   });

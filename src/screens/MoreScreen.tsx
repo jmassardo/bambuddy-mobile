@@ -13,16 +13,10 @@ import { api } from '@/api/client';
 import { getNavigationLayout } from '@/navigation/navigationConfig';
 
 /**
- * Routes that are declared in RootStackParamList but do NOT yet have a registered
- * Stack.Screen component. Each downstream issue removes its entry when it lands:
- *   - #67 removes 'Energy'
- *   - #68 removes 'VirtualPrinters'
- *   - #69 removes 'SpoolBuddy'
+ * Routes hidden from navigation until their full screen implementation lands:
  *   - #71 removes 'ExternalLinkBrowser'
  */
 const UNREGISTERED_ROUTES: Array<keyof RootStackParamList> = [
-  'VirtualPrinters',
-  'SpoolBuddy',
   'ExternalLinkBrowser',
 ];
 
