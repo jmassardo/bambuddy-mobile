@@ -90,6 +90,15 @@ npm run beta:ios
 npm run beta:android
 ```
 
+### Release version checklist
+
+Keep the app version and build number synchronized before cutting a release:
+
+- Update `package.json` `version`.
+- Update both `versionName` and the incremented `versionCode` in `android/app/build.gradle`.
+- Update `MARKETING_VERSION` in `ios/Bambuddy.xcodeproj/project.pbxproj`. This key appears twice, once for each build configuration, and both occurrences must change.
+- Update `CURRENT_PROJECT_VERSION` in `ios/Bambuddy.xcodeproj/project.pbxproj` to match Android's `versionCode`. This key also appears twice, and both occurrences must change.
+
 ### Demo mode (optional build-time configuration)
 
 The server setup screen can show a **Try the demo** button that connects to a
