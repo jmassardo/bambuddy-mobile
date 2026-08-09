@@ -34,6 +34,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { WebView as NativeWebView } from 'react-native-webview';
 import { api, ApiError } from '@/api/client';
 import { PrimaryButton, StatusBadge } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
@@ -136,6 +137,54 @@ function cameraSummary(result: CameraDiagnoseResult) {
     default:
       return 'The camera diagnostic found a stream problem.';
   }
+}
+
+type CameraWebViewProps = React.ComponentProps<typeof NativeWebView> & {
+  onError?: () => void;
+  onLoadStart?: () => void;
+  onMessage?: (event: { nativeEvent: { data: string } }) => void;
+  scrollEnabled?: boolean;
+  bounces?: boolean;
+};
+
+const CameraWebView = NativeWebView as React.ComponentType<CameraWebViewProps>;
+
+function escapeHtmlAttribute(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+export function buildCameraStreamHtml(streamUrl: string, fillViewport: boolean) {
+  const escapedStreamUrl = escapeHtmlAttribute(streamUrl);
+  const objectFit = fillViewport ? 'cover' : 'contain';
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <style>
+      html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+      #stream { display: block; width: 100%; height: 100%; object-fit: ${objectFit}; }
+    </style>
+  </head>
+  <body>
+    <img id="stream" alt="" data-src="${escapedStreamUrl}">
+    <script>
+      (function () {
+        var stream = document.getElementById('stream');
+        var post = function (type, reason) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: type, reason: reason }));
+        };
+        stream.addEventListener('load', function () { post('stream-loaded'); });
+        stream.addEventListener('error', function () { post('stream-error', 'image-error'); });
+        stream.src = stream.getAttribute('data-src');
+      }());
+    </script>
+  </body>
+</html>`;
 }
 
 function DiagnosticSheet({
@@ -355,6 +404,19 @@ export default function CameraScreen() {
     setStreamError(false);
     armStreamTimeout();
   }, [armStreamTimeout]);
+
+  const handleStreamLoaded = useCallback(() => {
+    clearStreamTimeout();
+    setStreamLoading(false);
+  }, [clearStreamTimeout]);
+
+  const handleStreamFailure = useCallback((reason: 'image-error' | 'webview-error') => {
+    console.warn('[Camera] Stream renderer failed:', reason);
+    clearStreamTimeout();
+    setStreamLoading(false);
+    setStreamError(true);
+    resetZoom();
+  }, [clearStreamTimeout, resetZoom]);
 
   useEffect(() => clearStreamTimeout, [clearStreamTimeout]);
 
@@ -603,6 +665,10 @@ export default function CameraScreen() {
     streamSeed,
     validPrinterId,
   ]);
+  const iosStreamSource = useMemo(
+    () => streamUrl ? { html: buildCameraStreamHtml(streamUrl, fullscreen) } : undefined,
+    [fullscreen, streamUrl],
+  );
   const cameraUnavailableReason = !validPrinterId
     ? 'Missing printer id.'
     : !status?.connected
@@ -706,23 +772,47 @@ export default function CameraScreen() {
             }}
           >
             <Animated.View style={[styles.streamTransform, animatedStreamStyle]}>
-              <Image
-                testID="camera-stream-image"
-                source={{ uri: streamUrl }}
-                style={styles.stream}
-                resizeMode={fullscreen ? 'cover' : 'contain'}
-                onLoadStart={handleStreamLoadStart}
-                onLoad={() => {
-                  clearStreamTimeout();
-                  setStreamLoading(false);
-                }}
-                onError={() => {
-                  clearStreamTimeout();
-                  setStreamLoading(false);
-                  setStreamError(true);
-                  resetZoom();
-                }}
-              />
+              {Platform.OS === 'ios' ? (
+                <CameraWebView
+                  key={`camera-stream-${streamSeed}`}
+                  testID="camera-stream-webview"
+                  source={iosStreamSource}
+                  style={styles.stream}
+                  javaScriptEnabled
+                  allowFileAccess={false}
+                  setSupportMultipleWindows={false}
+                  scrollEnabled={false}
+                  bounces={false}
+                  pointerEvents="none"
+                  onLoadStart={handleStreamLoadStart}
+                  onMessage={event => {
+                    try {
+                      const message = JSON.parse(event.nativeEvent.data) as {
+                        type?: unknown;
+                        reason?: unknown;
+                      };
+                      if (message.type === 'stream-loaded') {
+                        handleStreamLoaded();
+                      } else if (message.type === 'stream-error') {
+                        handleStreamFailure('image-error');
+                      }
+                    } catch {
+                      handleStreamFailure('webview-error');
+                    }
+                  }}
+                  onError={() => handleStreamFailure('webview-error')}
+                />
+              ) : (
+                <Image
+                  testID="camera-stream-image"
+                  source={{ uri: streamUrl }}
+                  style={styles.stream}
+                  resizeMode={fullscreen ? 'cover' : 'contain'}
+                  onLoadStart={handleStreamLoadStart}
+                  onLoad={handleStreamLoaded}
+                  onError={() => handleStreamFailure('image-error')}
+                />
+              )}
             </Animated.View>
             {plateDetectionEnabled ? (
               <View pointerEvents="none" style={styles.calibrationOverlay}>
