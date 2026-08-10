@@ -1,7 +1,10 @@
 import React from 'react';
 import { Platform } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
-import CameraScreen, { CAMERA_STREAM_TIMEOUT_MS } from '@/screens/CameraScreen';
+import CameraScreen, {
+  buildCameraStreamHtml,
+  CAMERA_STREAM_TIMEOUT_MS,
+} from '@/screens/CameraScreen';
 
 const mockInvalidateQueries = jest.fn(() => Promise.resolve());
 const mockDiagnoseMutate = jest.fn();
@@ -176,6 +179,67 @@ async function renderCamera(os: 'ios' | 'android') {
   renderResult = await render(<CameraScreen />);
 }
 
+function runCameraStreamScript() {
+  const html = buildCameraStreamHtml('https://example.com/stream?token=secret', false);
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  if (!script) throw new Error('Camera stream script was not generated');
+
+  const streamListeners = new Map<string, () => void>();
+  const windowListeners = new Map<string, () => void>();
+  const stream = {
+    naturalWidth: 0,
+    naturalHeight: 0,
+    src: '',
+    getAttribute: jest.fn(() => 'https://example.com/stream?token=secret'),
+    addEventListener: jest.fn((name: string, listener: () => void) => {
+      streamListeners.set(name, listener);
+    }),
+    removeEventListener: jest.fn((name: string) => {
+      streamListeners.delete(name);
+    }),
+  };
+  const postMessage = jest.fn();
+  const intervalCallbacks = new Map<number, () => void>();
+  let nextIntervalId = 0;
+  const setIntervalMock = jest.fn((callback: () => void) => {
+    nextIntervalId += 1;
+    intervalCallbacks.set(nextIntervalId, callback);
+    return nextIntervalId;
+  });
+  const clearIntervalMock = jest.fn((intervalId: number) => {
+    intervalCallbacks.delete(intervalId);
+  });
+  const window = {
+    ReactNativeWebView: { postMessage },
+    addEventListener: jest.fn((name: string, listener: () => void) => {
+      windowListeners.set(name, listener);
+    }),
+    removeEventListener: jest.fn((name: string) => {
+      windowListeners.delete(name);
+    }),
+  };
+  const runInNewContext = require('node:vm').runInNewContext as (
+    source: string,
+    context: Record<string, unknown>,
+  ) => void;
+  runInNewContext(script, {
+    document: { getElementById: () => stream },
+    window,
+    setInterval: setIntervalMock,
+    clearInterval: clearIntervalMock,
+  });
+
+  return {
+    clearIntervalMock,
+    intervalCallbacks,
+    postMessage,
+    stream,
+    streamListeners,
+    window,
+    windowListeners,
+  };
+}
+
 describe('CameraScreen iOS stream renderer', () => {
   beforeEach(async () => {
     jest.useFakeTimers();
@@ -200,6 +264,68 @@ describe('CameraScreen iOS stream renderer', () => {
       'data-src="https://example.com/printers/1/camera/stream?token=media-token&amp;t=media-token-',
     );
     expect(html).not.toContain('token=media-token&t=');
+  });
+
+  it('detects an ongoing MJPEG first frame without an image load event and posts once', () => {
+    const bridge = runCameraStreamScript();
+
+    expect(bridge.streamListeners.has('load')).toBe(false);
+    expect(bridge.postMessage).not.toHaveBeenCalled();
+    expect(bridge.intervalCallbacks.size).toBe(1);
+
+    bridge.stream.naturalWidth = 640;
+    bridge.stream.naturalHeight = 480;
+    const pollForFirstFrame = [...bridge.intervalCallbacks.values()][0];
+    pollForFirstFrame();
+    pollForFirstFrame();
+
+    expect(bridge.postMessage).toHaveBeenCalledTimes(1);
+    expect(bridge.postMessage).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'stream-loaded' }),
+    );
+    expect(bridge.clearIntervalMock).toHaveBeenCalledTimes(1);
+    expect(bridge.intervalCallbacks.size).toBe(0);
+    expect(bridge.streamListeners.size).toBe(0);
+    expect(bridge.windowListeners.size).toBe(0);
+  });
+
+  it('posts an explicit image error once and cleans up polling and unload listeners', () => {
+    const bridge = runCameraStreamScript();
+    const handleImageError = bridge.streamListeners.get('error');
+    expect(handleImageError).toBeDefined();
+
+    handleImageError?.();
+    handleImageError?.();
+
+    expect(bridge.postMessage).toHaveBeenCalledTimes(1);
+    expect(bridge.postMessage).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'stream-error', reason: 'image-error' }),
+    );
+    expect(bridge.clearIntervalMock).toHaveBeenCalledTimes(1);
+    expect(bridge.stream.removeEventListener).toHaveBeenCalledWith(
+      'error',
+      expect.any(Function),
+    );
+    expect(bridge.window.removeEventListener).toHaveBeenCalledWith(
+      'pagehide',
+      expect.any(Function),
+    );
+    expect(bridge.window.removeEventListener).toHaveBeenCalledWith(
+      'beforeunload',
+      expect.any(Function),
+    );
+  });
+
+  it('cleans up polling and listeners when the page unloads', () => {
+    const bridge = runCameraStreamScript();
+
+    bridge.windowListeners.get('beforeunload')?.();
+
+    expect(bridge.clearIntervalMock).toHaveBeenCalledTimes(1);
+    expect(bridge.intervalCallbacks.size).toBe(0);
+    expect(bridge.streamListeners.size).toBe(0);
+    expect(bridge.windowListeners.size).toBe(0);
+    expect(bridge.postMessage).not.toHaveBeenCalled();
   });
 
   it('shows retry and diagnostic actions when the first frame times out', async () => {
@@ -302,6 +428,22 @@ describe('CameraScreen iOS stream renderer', () => {
 
     await fireEvent(renderResult.getByTestId('camera-stream-webview'), 'error', {
       nativeEvent: { description: 'request failed' },
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Camera] Stream renderer failed:',
+      'webview-error',
+    );
+    expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('media-token');
+    expect(renderResult.getByText('Unable to load stream')).toBeTruthy();
+    warnSpy.mockRestore();
+  });
+
+  it('fails safely when the WebView posts a malformed message', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    await fireEvent(renderResult.getByTestId('camera-stream-webview'), 'message', {
+      nativeEvent: { data: '{not-json' },
     });
 
     expect(warnSpy).toHaveBeenCalledWith(

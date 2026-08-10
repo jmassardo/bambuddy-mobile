@@ -175,12 +175,42 @@ export function buildCameraStreamHtml(streamUrl: string, fillViewport: boolean) 
     <script>
       (function () {
         var stream = document.getElementById('stream');
+        var pollInterval;
+        var settled = false;
         var post = function (type, reason) {
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: type, reason: reason }));
         };
-        stream.addEventListener('load', function () { post('stream-loaded'); });
-        stream.addEventListener('error', function () { post('stream-error', 'image-error'); });
+        var cleanup = function () {
+          if (pollInterval !== undefined) {
+            clearInterval(pollInterval);
+            pollInterval = undefined;
+          }
+          stream.removeEventListener('error', handleError);
+          window.removeEventListener('pagehide', cleanup);
+          window.removeEventListener('beforeunload', cleanup);
+        };
+        var finish = function (type, reason) {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          post(type, reason);
+        };
+        var detectFirstFrame = function () {
+          if (stream.naturalWidth > 0 && stream.naturalHeight > 0) {
+            finish('stream-loaded');
+          }
+        };
+        var handleError = function () {
+          finish('stream-error', 'image-error');
+        };
+        stream.addEventListener('error', handleError);
+        window.addEventListener('pagehide', cleanup);
+        window.addEventListener('beforeunload', cleanup);
         stream.src = stream.getAttribute('data-src');
+        detectFirstFrame();
+        if (!settled) {
+          pollInterval = setInterval(detectFirstFrame, 100);
+        }
       }());
     </script>
   </body>
