@@ -26,57 +26,42 @@ enum CameraTransportError: String {
   case nativeUnavailable = "native_unavailable"
 }
 
-struct MJPEGFrameCadencer {
-  enum Action {
-    case decode(Data)
-    case schedule(TimeInterval)
-    case none
+private final class MJPEGTransportGeneration {
+  private let lock = NSLock()
+  private var active = true
+
+  func performIfActive(_ action: () -> Void) -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    guard active else { return false }
+    action()
+    return true
   }
 
-  static let minimumDecodeInterval: TimeInterval = 0.2
-
-  private(set) var pendingFrame: Data?
-  private var lastDecodeTime: TimeInterval?
-  private var decodeScheduled = false
-
-  mutating func offer(_ frame: Data, at time: TimeInterval) -> Action {
-    guard let lastDecodeTime else {
-      self.lastDecodeTime = time
-      return .decode(frame)
-    }
-    pendingFrame = frame
-    guard !decodeScheduled else { return .none }
-    decodeScheduled = true
-    return .schedule(max(0, Self.minimumDecodeInterval - (time - lastDecodeTime)))
+  func invalidate() -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    guard active else { return false }
+    active = false
+    return true
   }
 
-  mutating func takePending(at time: TimeInterval) -> Action {
-    guard let lastDecodeTime else {
-      decodeScheduled = false
-      guard let frame = pendingFrame else { return .none }
-      pendingFrame = nil
-      self.lastDecodeTime = time
-      return .decode(frame)
-    }
-    let remaining = Self.minimumDecodeInterval - (time - lastDecodeTime)
-    guard remaining <= 0 else { return .schedule(remaining) }
-    decodeScheduled = false
-    guard let frame = pendingFrame else { return .none }
-    pendingFrame = nil
-    self.lastDecodeTime = time
-    return .decode(frame)
-  }
-
-  mutating func reset() {
-    pendingFrame = nil
-    lastDecodeTime = nil
-    decodeScheduled = false
+  var isActive: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return active
   }
 }
 
 final class MJPEGStreamTransport: NSObject {
   typealias EventHandler = ([String: Any]) -> Void
   typealias ImageHandler = (UIImage) -> Void
+  typealias Clock = () -> TimeInterval
+  typealias Scheduler = (TimeInterval, @escaping () -> Void) -> Void
+  typealias DeliveryScheduler = (@escaping () -> Void) -> Void
+  typealias FrameDecoder = (Data) -> UIImage?
+
+  static let minimumDecodeInterval: TimeInterval = 0.2
 
   private enum RequestKind {
     case snapshotPreflight
@@ -107,6 +92,17 @@ final class MJPEGStreamTransport: NSObject {
     }
   }
 
+  private enum IncomingFrameSlot {
+    case compressed(id: UInt64, data: Data)
+    case decoded(id: UInt64, image: UIImage)
+
+    var id: UInt64 {
+      switch self {
+      case let .compressed(id, _), let .decoded(id, _): return id
+      }
+    }
+  }
+
   private static let logger = Logger(
     subsystem: Bundle.main.bundleIdentifier ?? "Bambuddy",
     category: "CameraTransport"
@@ -122,6 +118,11 @@ final class MJPEGStreamTransport: NSObject {
   private let firstFrameTimeout: TimeInterval
   private let eventHandler: EventHandler
   private let imageHandler: ImageHandler
+  private let clock: Clock
+  private let scheduler: Scheduler
+  private let deliveryScheduler: DeliveryScheduler
+  private let frameDecoder: FrameDecoder
+  private let generation = MJPEGTransportGeneration()
   private let startedAt = Date()
   private let delegateQueue: OperationQueue
   private var session: URLSession!
@@ -135,10 +136,14 @@ final class MJPEGStreamTransport: NSObject {
   private var fallbackMode = false
   private var pendingFallbackReason: String?
   private var redirectCounts: [Int: Int] = [:]
-  private var frameCadencer = MJPEGFrameCadencer()
   private var frameDecodeWorkItem: DispatchWorkItem?
-  private let imageDeliveryLock = NSLock()
-  private var pendingImage: UIImage?
+  private var lastDecodeAttemptTime: TimeInterval?
+  private var frameDecodeScheduled = false
+  private let incomingFrameLock = NSLock()
+  private var incomingFrameSlot: IncomingFrameSlot?
+  private var nextIncomingFrameID: UInt64 = 0
+  private var maximumIncomingFrameCount = 0
+  private var offeredIncomingFrameCount = 0
   private var imageDeliveryScheduled = false
 
   init(
@@ -148,6 +153,17 @@ final class MJPEGStreamTransport: NSObject {
     snapshotFallbackIntervalMs: Double,
     firstFrameTimeoutMs: Double,
     configuration: URLSessionConfiguration? = nil,
+    clock: @escaping Clock = { ProcessInfo.processInfo.systemUptime },
+    scheduler: @escaping Scheduler = { delay, action in
+      DispatchQueue.global(qos: .userInitiated).asyncAfter(
+        deadline: .now() + delay,
+        execute: action
+      )
+    },
+    deliveryScheduler: @escaping DeliveryScheduler = { action in
+      DispatchQueue.main.async(execute: action)
+    },
+    frameDecoder: @escaping FrameDecoder = { UIImage(data: $0) },
     eventHandler: @escaping EventHandler,
     imageHandler: @escaping ImageHandler
   ) {
@@ -156,6 +172,10 @@ final class MJPEGStreamTransport: NSObject {
     self.attemptID = attemptID
     fallbackInterval = max(snapshotFallbackIntervalMs, 1) / 1_000
     firstFrameTimeout = max(firstFrameTimeoutMs, 1) / 1_000
+    self.clock = clock
+    self.scheduler = scheduler
+    self.deliveryScheduler = deliveryScheduler
+    self.frameDecoder = frameDecoder
     self.eventHandler = eventHandler
     self.imageHandler = imageHandler
     delegateQueue = OperationQueue()
@@ -196,7 +216,7 @@ final class MJPEGStreamTransport: NSObject {
 
   func start() {
     delegateQueue.addOperation { [weak self] in
-      guard let self, !self.stopped, self.currentTask == nil else { return }
+      guard let self, self.generation.isActive, !self.stopped, self.currentTask == nil else { return }
       Self.logger.notice("camera.transport.started")
       Self.incrementCounter("camera_stream_attempt_total{snapshot-preflight}")
       self.startRequest(url: self.snapshotURL, kind: .snapshotPreflight)
@@ -204,9 +224,29 @@ final class MJPEGStreamTransport: NSObject {
   }
 
   func cancel() {
+    guard generation.invalidate() else { return }
+    clearIncomingFrame()
     delegateQueue.addOperation { [weak self] in
       self?.stop(emitCancellation: true)
     }
+  }
+
+  var retainedIncomingFrameCountForTesting: Int {
+    incomingFrameLock.lock()
+    defer { incomingFrameLock.unlock() }
+    return incomingFrameSlot == nil ? 0 : 1
+  }
+
+  var maximumRetainedIncomingFrameCountForTesting: Int {
+    incomingFrameLock.lock()
+    defer { incomingFrameLock.unlock() }
+    return maximumIncomingFrameCount
+  }
+
+  var offeredIncomingFrameCountForTesting: Int {
+    incomingFrameLock.lock()
+    defer { incomingFrameLock.unlock() }
+    return offeredIncomingFrameCount
   }
 
   private func startRequest(url: URL, kind: RequestKind) {
@@ -281,10 +321,8 @@ final class MJPEGStreamTransport: NSObject {
     fallbackWorkItem?.cancel()
     frameDecodeWorkItem?.cancel()
     frameDecodeWorkItem = nil
-    frameCadencer.reset()
-    imageDeliveryLock.lock()
-    pendingImage = nil
-    imageDeliveryLock.unlock()
+    frameDecodeScheduled = false
+    clearIncomingFrame()
     currentTask?.cancel()
     currentTask = nil
     states.removeAll()
@@ -498,7 +536,11 @@ final class MJPEGStreamTransport: NSObject {
       if state.kind == .snapshotFallback { scheduleFallback() }
       return
     }
-    guard let image = UIImage(data: state.data) else {
+    if state.kind == .snapshotFallback, retainedIncomingFrameCountForTesting > 0 {
+      scheduleFallback()
+      return
+    }
+    guard let image = decodeSnapshotFrame(state.data) else {
       emitFailure(
         .decodeFailed,
         mode: state.kind.mode,
@@ -509,7 +551,6 @@ final class MJPEGStreamTransport: NSObject {
       if state.kind == .snapshotFallback { scheduleFallback() }
       return
     }
-    deliver(image)
     if state.kind == .snapshotPreflight {
       snapshotPreflightSucceeded = true
       Self.logger.notice("camera.transport.first_frame")
@@ -540,25 +581,15 @@ final class MJPEGStreamTransport: NSObject {
   }
 
   private func receiveStreamFrame(_ frame: Data, state: TaskState, dataTask: URLSessionDataTask) {
-    handleCadencerAction(
-      frameCadencer.offer(frame, at: ProcessInfo.processInfo.systemUptime),
-      state: state,
-      dataTask: dataTask
-    )
-  }
-
-  private func handleCadencerAction(
-    _ action: MJPEGFrameCadencer.Action,
-    state: TaskState,
-    dataTask: URLSessionDataTask
-  ) {
-    switch action {
-    case let .decode(frame):
-      decodeStreamFrame(frame, state: state, dataTask: dataTask)
-    case let .schedule(delay):
+    guard generation.isActive, reserveIncomingFrame(frame) else { return }
+    let now = clock()
+    let delay = lastDecodeAttemptTime.map {
+      max(0, Self.minimumDecodeInterval - (now - $0))
+    } ?? 0
+    if delay > 0 {
       schedulePendingDecode(after: delay, state: state, dataTask: dataTask)
-    case .none:
-      break
+    } else {
+      decodePendingStreamFrame(state: state, dataTask: dataTask)
     }
   }
 
@@ -567,28 +598,43 @@ final class MJPEGStreamTransport: NSObject {
     state: TaskState,
     dataTask: URLSessionDataTask
   ) {
+    guard !frameDecodeScheduled else { return }
     frameDecodeWorkItem?.cancel()
+    frameDecodeScheduled = true
     let workItem = DispatchWorkItem { [weak self, weak dataTask] in
       guard let self, let dataTask, !self.stopped else { return }
       self.frameDecodeWorkItem = nil
-      self.handleCadencerAction(
-        self.frameCadencer.takePending(at: ProcessInfo.processInfo.systemUptime),
-        state: state,
-        dataTask: dataTask
-      )
+      self.frameDecodeScheduled = false
+      let remaining = self.lastDecodeAttemptTime.map {
+        Self.minimumDecodeInterval - (self.clock() - $0)
+      } ?? 0
+      if remaining > 0 {
+        self.schedulePendingDecode(after: remaining, state: state, dataTask: dataTask)
+      } else {
+        self.decodePendingStreamFrame(state: state, dataTask: dataTask)
+      }
     }
     frameDecodeWorkItem = workItem
-    DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + delay) { [weak self] in
+    scheduler(delay) { [weak self] in
       self?.delegateQueue.addOperation { workItem.perform() }
     }
   }
 
-  private func decodeStreamFrame(
-    _ frame: Data,
+  private func decodePendingStreamFrame(
     state: TaskState,
     dataTask: URLSessionDataTask
   ) {
-    guard let image = UIImage(data: frame) else {
+    guard generation.isActive, let (frameID, frame) = compressedIncomingFrame() else { return }
+    lastDecodeAttemptTime = clock()
+    var decodedImage: UIImage?
+    let decoded = generation.performIfActive {
+      decodedImage = frameDecoder(frame)
+    }
+    guard decoded, let image = decodedImage else {
+      if generation.isActive {
+        clearIncomingFrame(id: frameID)
+      }
+      guard generation.isActive else { return }
       state.terminalError = .decodeFailed
       emitFailure(
         .decodeFailed,
@@ -600,7 +646,8 @@ final class MJPEGStreamTransport: NSObject {
       dataTask.cancel()
       return
     }
-    deliver(image)
+    guard transitionIncomingFrameToDecoded(image, id: frameID) else { return }
+    scheduleImageDelivery()
     if !receivedStreamFrame {
       receivedStreamFrame = true
       timeoutWorkItem?.cancel()
@@ -618,27 +665,89 @@ final class MJPEGStreamTransport: NSObject {
     }
   }
 
-  private func deliver(_ image: UIImage) {
-    imageDeliveryLock.lock()
-    pendingImage = image
+  private func decodeSnapshotFrame(_ data: Data) -> UIImage? {
+    guard generation.isActive, reserveIncomingFrame(data),
+          let (frameID, frame) = compressedIncomingFrame() else {
+      return nil
+    }
+    var decodedImage: UIImage?
+    let decoded = generation.performIfActive {
+      decodedImage = frameDecoder(frame)
+    }
+    guard decoded, let image = decodedImage,
+          transitionIncomingFrameToDecoded(image, id: frameID) else {
+      clearIncomingFrame(id: frameID)
+      return nil
+    }
+    scheduleImageDelivery()
+    return image
+  }
+
+  private func reserveIncomingFrame(_ data: Data) -> Bool {
+    incomingFrameLock.lock()
+    defer { incomingFrameLock.unlock() }
+    offeredIncomingFrameCount += 1
+    guard incomingFrameSlot == nil else { return false }
+    nextIncomingFrameID &+= 1
+    incomingFrameSlot = .compressed(id: nextIncomingFrameID, data: data)
+    maximumIncomingFrameCount = max(maximumIncomingFrameCount, 1)
+    return true
+  }
+
+  private func compressedIncomingFrame() -> (UInt64, Data)? {
+    incomingFrameLock.lock()
+    defer { incomingFrameLock.unlock() }
+    guard case let .compressed(id, data) = incomingFrameSlot else { return nil }
+    return (id, data)
+  }
+
+  private func transitionIncomingFrameToDecoded(_ image: UIImage, id: UInt64) -> Bool {
+    guard generation.isActive else { return false }
+    incomingFrameLock.lock()
+    defer { incomingFrameLock.unlock() }
+    guard incomingFrameSlot?.id == id else { return false }
+    incomingFrameSlot = .decoded(id: id, image: image)
+    return true
+  }
+
+  private func scheduleImageDelivery() {
+    incomingFrameLock.lock()
     guard !imageDeliveryScheduled else {
-      imageDeliveryLock.unlock()
+      incomingFrameLock.unlock()
       return
     }
     imageDeliveryScheduled = true
-    imageDeliveryLock.unlock()
+    incomingFrameLock.unlock()
 
-    DispatchQueue.main.async { [weak self] in
+    deliveryScheduler { [weak self] in
       guard let self else { return }
-      self.imageDeliveryLock.lock()
-      let image = self.pendingImage
-      self.pendingImage = nil
-      self.imageDeliveryScheduled = false
-      self.imageDeliveryLock.unlock()
-      if let image {
+      _ = self.generation.performIfActive {
+        self.incomingFrameLock.lock()
+        defer { self.incomingFrameLock.unlock() }
+        guard case let .decoded(_, image) = self.incomingFrameSlot else {
+          self.imageDeliveryScheduled = false
+          return
+        }
         self.imageHandler(image)
+        self.incomingFrameSlot = nil
+        self.imageDeliveryScheduled = false
       }
     }
+  }
+
+  private func clearIncomingFrame(id: UInt64? = nil) {
+    incomingFrameLock.lock()
+    defer { incomingFrameLock.unlock() }
+    if let id, incomingFrameSlot?.id != id { return }
+    incomingFrameSlot = nil
+    imageDeliveryScheduled = false
+  }
+
+  private func clearCompressedIncomingFrame() {
+    incomingFrameLock.lock()
+    defer { incomingFrameLock.unlock() }
+    guard case .compressed = incomingFrameSlot else { return }
+    incomingFrameSlot = nil
   }
 }
 
@@ -853,7 +962,8 @@ extension MJPEGStreamTransport: URLSessionDataDelegate, URLSessionTaskDelegate {
     if state.kind == .stream {
       frameDecodeWorkItem?.cancel()
       frameDecodeWorkItem = nil
-      frameCadencer.reset()
+      frameDecodeScheduled = false
+      clearCompressedIncomingFrame()
     }
     redirectCounts.removeValue(forKey: task.taskIdentifier)
     if currentTask?.taskIdentifier == task.taskIdentifier {

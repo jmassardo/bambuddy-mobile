@@ -16,6 +16,7 @@ final class BambuddyMJPEGView: UIView {
   private var applicationIsActive = true
   private var activeConfiguration: String?
   private var reportedInvalidAttempt: String?
+  private var transportGeneration: UInt64 = 0
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -115,6 +116,7 @@ final class BambuddyMJPEGView: UIView {
 
     stopTransport()
     activeConfiguration = configuration
+    let generation = transportGeneration
     let newTransport = MJPEGStreamTransport(
       streamURL: streamURL,
       snapshotURL: snapshotURL,
@@ -122,10 +124,12 @@ final class BambuddyMJPEGView: UIView {
       snapshotFallbackIntervalMs: snapshotFallbackIntervalMs.doubleValue,
       firstFrameTimeoutMs: firstFrameTimeoutMs.doubleValue,
       eventHandler: { [weak self] event in
-        self?.onCameraEvent?(event)
+        guard let self, self.transportGeneration == generation else { return }
+        self.onCameraEvent?(event)
       },
       imageHandler: { [weak self] image in
-        self?.imageView.image = image
+        guard let self, self.transportGeneration == generation else { return }
+        self.imageView.image = image
       }
     )
     transport = newTransport
@@ -133,6 +137,7 @@ final class BambuddyMJPEGView: UIView {
   }
 
   private func stopTransport() {
+    transportGeneration &+= 1
     activeConfiguration = nil
     transport?.cancel()
     transport = nil
