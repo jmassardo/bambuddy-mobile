@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Modal,
   Platform,
   Pressable,
@@ -34,6 +33,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { WebView } from 'react-native-webview';
 import { api, ApiError } from '@/api/client';
 import { PrimaryButton, StatusBadge } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
@@ -274,13 +274,81 @@ function DiagnosticSheet({
 }
 
 const MAX_CAMERA_ZOOM = 4;
-export const CAMERA_STREAM_TIMEOUT_MS = 15_000;
 const DEFAULT_PLATE_ROI: PlateDetectionROI = {
   x: 0.18,
   y: 0.2,
   w: 0.64,
   h: 0.44,
 };
+
+type StreamFailureReason =
+  | 'snapshot_http'
+  | 'snapshot_mime'
+  | 'snapshot_empty'
+  | 'snapshot_network'
+  | 'webview_http'
+  | 'webview_native'
+  | 'webview_process';
+
+type CameraWebViewProps = React.ComponentProps<typeof WebView> & {
+  allowFileAccessFromFileURLs?: boolean;
+  allowUniversalAccessFromFileURLs?: boolean;
+  cacheEnabled?: boolean;
+  cacheMode?: 'LOAD_NO_CACHE';
+  domStorageEnabled?: boolean;
+  incognito?: boolean;
+  mixedContentMode?: 'never';
+  onContentProcessDidTerminate?: () => void;
+  onError?: () => void;
+  onHttpError?: (event: { nativeEvent: { statusCode: number } }) => void;
+  onRenderProcessGone?: () => void;
+  onShouldStartLoadWithRequest?: (request: {
+    url: string;
+    isTopFrame: boolean;
+  }) => boolean;
+  sharedCookiesEnabled?: boolean;
+  showsHorizontalScrollIndicator?: boolean;
+  showsVerticalScrollIndicator?: boolean;
+  thirdPartyCookiesEnabled?: boolean;
+};
+
+const CameraWebView = WebView as React.ComponentType<CameraWebViewProps>;
+
+function parseStreamUrl(streamUrl: string) {
+  if (streamUrl.includes('#')) return null;
+  const schemeSeparator = streamUrl.indexOf('://');
+  const scheme = streamUrl.slice(0, schemeSeparator).toLowerCase();
+  if ((scheme !== 'http' && scheme !== 'https') || schemeSeparator < 0) return null;
+
+  const pathStart = streamUrl.indexOf('/', schemeSeparator + 3);
+  if (pathStart < 0) return null;
+  const authority = streamUrl.slice(schemeSeparator + 3, pathStart);
+  if (!authority || authority.includes('@') || /[\s\\]/.test(authority)) return null;
+
+  const queryStart = streamUrl.indexOf('?', pathStart);
+  const pathname =
+    queryStart < 0 ? streamUrl.slice(pathStart) : streamUrl.slice(pathStart, queryStart);
+
+  return {
+    origin: `${scheme}://${authority}`,
+    pathname,
+  };
+}
+
+function isAllowedStreamNavigation(
+  requestedUrl: string,
+  isTopFrame: boolean,
+  streamUrl: string,
+  printerId: number,
+) {
+  if (!isTopFrame) return false;
+  const configured = parseStreamUrl(streamUrl);
+  return (
+    configured != null &&
+    configured.pathname === `/api/v1/printers/${printerId}/camera/stream` &&
+    requestedUrl === streamUrl
+  );
+}
 
 function clampTranslationOffset(value: number, axisSize: number, scale: number) {
   'worklet';
@@ -296,7 +364,7 @@ export default function CameraScreen() {
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { token: mediaToken, isReady: mediaTokenReady } = useMediaToken();
+  const { isReady: mediaTokenReady } = useMediaToken();
   const [fullscreen, setFullscreen] = useState(false);
   const [streamSeed, setStreamSeed] = useState(() => Date.now());
   const [streamLoading, setStreamLoading] = useState(true);
@@ -305,7 +373,6 @@ export default function CameraScreen() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [plateDetectionEnabled, setPlateDetectionEnabled] = useState(false);
   const [plateSensitivity, setPlateSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
-  const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -333,36 +400,6 @@ export default function CameraScreen() {
     savedTranslateY.value = 0;
     setZoomLevel(1);
   }, [savedScale, savedTranslateX, savedTranslateY, scale, translateX, translateY]);
-
-  const clearStreamTimeout = useCallback(() => {
-    if (streamTimeoutRef.current == null) return;
-    clearTimeout(streamTimeoutRef.current);
-    streamTimeoutRef.current = null;
-  }, []);
-
-  const armStreamTimeout = useCallback(() => {
-    clearStreamTimeout();
-    streamTimeoutRef.current = setTimeout(() => {
-      streamTimeoutRef.current = null;
-      setStreamLoading(false);
-      setStreamError(true);
-      resetZoom();
-    }, CAMERA_STREAM_TIMEOUT_MS);
-  }, [clearStreamTimeout, resetZoom]);
-
-  const handleStreamLoadStart = useCallback(() => {
-    setStreamLoading(true);
-    setStreamError(false);
-    armStreamTimeout();
-  }, [armStreamTimeout]);
-
-  useEffect(() => clearStreamTimeout, [clearStreamTimeout]);
-
-  useEffect(() => {
-    clearStreamTimeout();
-    setStreamError(false);
-    setStreamLoading(true);
-  }, [clearStreamTimeout, mediaToken, mediaTokenReady]);
 
   const printerQuery = useQuery({
     queryKey: ['printer', printerId],
@@ -443,7 +480,6 @@ export default function CameraScreen() {
   });
 
   const refreshCamera = useCallback(async () => {
-    clearStreamTimeout();
     setStreamError(false);
     setStreamLoading(true);
     setStreamSeed(current => Math.max(Date.now(), current + 1));
@@ -454,7 +490,7 @@ export default function CameraScreen() {
       queryClient.invalidateQueries({ queryKey: ['plateDetectionStatus', printerId] }),
       queryClient.invalidateQueries({ queryKey: ['camera-stream-token'] }),
     ]);
-  }, [clearStreamTimeout, printerId, queryClient, resetZoom]);
+  }, [printerId, queryClient, resetZoom]);
 
   const printer = printerQuery.data ?? null;
 
@@ -590,19 +626,18 @@ export default function CameraScreen() {
         : status?.connected
           ? colors.success
           : colors.error;
-  const streamUrl = useMemo(() => {
-    if (!validPrinterId || !mediaTokenReady) return null;
-    return withCacheBuster(
-      api.getCameraStreamUrl(printerId),
-      `${mediaToken ?? 'public'}-${streamSeed}`,
-    );
-  }, [
-    mediaToken,
-    mediaTokenReady,
-    printerId,
-    streamSeed,
-    validPrinterId,
-  ]);
+  const streamUrl =
+    validPrinterId && mediaTokenReady
+      ? withCacheBuster(api.getCameraStreamUrl(printerId), streamSeed)
+      : null;
+  const snapshotUrl =
+    validPrinterId && mediaTokenReady
+      ? withCacheBuster(api.getCameraSnapshotUrl(printerId), streamSeed)
+      : null;
+  const streamOrigin = useMemo(() => {
+    if (!streamUrl) return null;
+    return parseStreamUrl(streamUrl)?.origin ?? null;
+  }, [streamUrl]);
   const cameraUnavailableReason = !validPrinterId
     ? 'Missing printer id.'
     : !status?.connected
@@ -611,17 +646,68 @@ export default function CameraScreen() {
         ? 'Camera is unavailable for this printer.'
         : null;
 
+  const handleStreamFailure = useCallback(
+    (reason: StreamFailureReason, httpStatus?: number) => {
+      const safeStatus =
+        httpStatus != null && Number.isFinite(httpStatus) ? httpStatus : undefined;
+      console.warn(
+        'Camera stream failure.',
+        safeStatus == null ? { reason } : { reason, status: safeStatus },
+      );
+      setStreamLoading(false);
+      setStreamError(true);
+      resetZoom();
+    },
+    [resetZoom],
+  );
+
   useEffect(() => {
-    if (
-      streamUrl &&
-      !cameraUnavailableReason &&
-      streamLoading &&
-      !streamError &&
-      streamTimeoutRef.current == null
-    ) {
-      armStreamTimeout();
-    }
-  }, [armStreamTimeout, cameraUnavailableReason, streamError, streamLoading, streamUrl]);
+    if (!snapshotUrl || !streamUrl || cameraUnavailableReason) return;
+
+    const controller = new AbortController();
+    let active = true;
+    setStreamLoading(true);
+    setStreamError(false);
+
+    const preflight = async () => {
+      try {
+        const requestOptions: RequestInit & { cache: 'no-store' } = {
+          cache: 'no-store',
+          signal: controller.signal,
+        };
+        const response = await fetch(snapshotUrl, requestOptions);
+        if (!active) return;
+        if (!response.ok) {
+          handleStreamFailure('snapshot_http', response.status);
+          return;
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (contentType?.split(';', 1)[0].trim().toLowerCase() !== 'image/jpeg') {
+          handleStreamFailure('snapshot_mime');
+          return;
+        }
+
+        const body = await response.arrayBuffer();
+        if (!active) return;
+        if (body.byteLength === 0) {
+          handleStreamFailure('snapshot_empty');
+          return;
+        }
+
+        setStreamLoading(false);
+      } catch (error) {
+        if (!active || (error instanceof Error && error.name === 'AbortError')) return;
+        handleStreamFailure('snapshot_network');
+      }
+    };
+
+    preflight().catch(() => undefined);
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [cameraUnavailableReason, handleStreamFailure, snapshotUrl, streamUrl]);
 
   const plateRoi = printer?.plate_detection_roi ?? DEFAULT_PLATE_ROI;
   const plateStatus = plateStatusQuery.data;
@@ -696,7 +782,7 @@ export default function CameraScreen() {
           'Diagnose',
           openDiagnostic,
         )
-      ) : streamUrl ? (
+      ) : streamUrl && streamOrigin ? (
         <GestureDetector gesture={cameraGesture}>
           <View
             style={styles.streamViewport}
@@ -706,23 +792,45 @@ export default function CameraScreen() {
             }}
           >
             <Animated.View style={[styles.streamTransform, animatedStreamStyle]}>
-              <Image
-                testID="camera-stream-image"
-                source={{ uri: streamUrl }}
-                style={styles.stream}
-                resizeMode={fullscreen ? 'cover' : 'contain'}
-                onLoadStart={handleStreamLoadStart}
-                onLoad={() => {
-                  clearStreamTimeout();
-                  setStreamLoading(false);
-                }}
-                onError={() => {
-                  clearStreamTimeout();
-                  setStreamLoading(false);
-                  setStreamError(true);
-                  resetZoom();
-                }}
-              />
+              {!streamLoading ? (
+                <CameraWebView
+                  key={streamSeed}
+                  testID="camera-stream-webview"
+                  source={{ uri: streamUrl }}
+                  style={styles.stream}
+                  originWhitelist={[streamOrigin]}
+                  onShouldStartLoadWithRequest={request =>
+                    isAllowedStreamNavigation(
+                      request.url,
+                      request.isTopFrame,
+                      streamUrl,
+                      printerId,
+                    )
+                  }
+                  onError={() => handleStreamFailure('webview_native')}
+                  onHttpError={event =>
+                    handleStreamFailure('webview_http', event.nativeEvent.statusCode)
+                  }
+                  onContentProcessDidTerminate={() =>
+                    handleStreamFailure('webview_process')
+                  }
+                  onRenderProcessGone={() => handleStreamFailure('webview_process')}
+                  javaScriptEnabled={false}
+                  domStorageEnabled={false}
+                  allowFileAccess={false}
+                  allowFileAccessFromFileURLs={false}
+                  allowUniversalAccessFromFileURLs={false}
+                  sharedCookiesEnabled={false}
+                  thirdPartyCookiesEnabled={false}
+                  setSupportMultipleWindows={false}
+                  mixedContentMode="never"
+                  cacheEnabled={false}
+                  cacheMode="LOAD_NO_CACHE"
+                  incognito
+                  showsHorizontalScrollIndicator={false}
+                  showsVerticalScrollIndicator={false}
+                />
+              ) : null}
             </Animated.View>
             {plateDetectionEnabled ? (
               <View pointerEvents="none" style={styles.calibrationOverlay}>
