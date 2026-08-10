@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import CameraScreen from '@/screens/CameraScreen';
+import CameraScreen, { CAMERA_STREAM_TIMEOUT_MS } from '@/screens/CameraScreen';
 
 const STREAM_TOKEN = 'sentinel-camera-token';
 const SERVER_HOST = 'camera.internal.example';
@@ -18,6 +18,9 @@ const mockDiagnoseMutate = jest.fn();
 const mockDiagnoseReset = jest.fn();
 const mockFetch = jest.fn();
 const mockWebViewProps = jest.fn();
+const mockGestureInstances: Array<Record<string, (...args: unknown[]) => unknown>> = [];
+let mockStreamBaseUrl = STREAM_BASE_URL;
+let mockSnapshotBaseUrl = SNAPSHOT_BASE_URL;
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
@@ -76,8 +79,8 @@ jest.mock('@tanstack/react-query', () => ({
 jest.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {},
   api: {
-    getCameraSnapshotUrl: () => SNAPSHOT_BASE_URL,
-    getCameraStreamUrl: () => STREAM_BASE_URL,
+    getCameraSnapshotUrl: () => mockSnapshotBaseUrl,
+    getCameraStreamUrl: () => mockStreamBaseUrl,
   },
 }));
 
@@ -146,14 +149,25 @@ jest.mock('react-native-safe-area-context', () => ({
 
 jest.mock('react-native-gesture-handler', () => {
   const { View: MockView } = require('react-native');
-  const chain = new Proxy(
-    {},
-    {
-      get: () => () => chain,
-    },
-  );
+  const makeGesture = () => {
+    const handlers: Record<string, (...args: unknown[]) => unknown> = {};
+    const chain = new Proxy(handlers, {
+      get: (target, property: string) => (callback?: (...args: unknown[]) => unknown) => {
+        if (property.startsWith('on') && callback) target[property] = callback;
+        return chain;
+      },
+    });
+    mockGestureInstances.push(handlers);
+    return chain;
+  };
   return {
-    Gesture: new Proxy({}, { get: () => () => chain }),
+    Gesture: {
+      Pinch: makeGesture,
+      Pan: makeGesture,
+      Tap: makeGesture,
+      Exclusive: makeGesture,
+      Simultaneous: makeGesture,
+    },
     GestureDetector: ({ children }: { children: React.ReactNode }) => (
       <MockView>{children}</MockView>
     ),
@@ -224,6 +238,9 @@ describe('CameraScreen direct MJPEG WebView', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGestureInstances.length = 0;
+    mockStreamBaseUrl = STREAM_BASE_URL;
+    mockSnapshotBaseUrl = SNAPSHOT_BASE_URL;
     const realDateNow = Date.now.bind(Date);
     jest
       .spyOn(Date, 'now')
@@ -247,7 +264,7 @@ describe('CameraScreen direct MJPEG WebView', () => {
     expect(result.getByText('Connecting to live stream…')).toBeTruthy();
     expect(result.queryByTestId('camera-stream-webview')).toBeNull();
     expect(mockFetch).toHaveBeenCalledWith(
-      `${SNAPSHOT_BASE_URL}&t=${NOW}`,
+      `${SNAPSHOT_BASE_URL}&t=${encodeURIComponent(`${STREAM_TOKEN}-${NOW}`)}`,
       expect.objectContaining({
         cache: 'no-store',
         signal: expect.any(AbortSignal),
@@ -261,28 +278,48 @@ describe('CameraScreen direct MJPEG WebView', () => {
 
     const webView = result.getByTestId('camera-stream-webview');
     expect(webView.props.source).toEqual({
-      uri: `${STREAM_BASE_URL}&t=${NOW}`,
+      uri: `${STREAM_BASE_URL}&t=${encodeURIComponent(`${STREAM_TOKEN}-${NOW}`)}`,
     });
     expect(webView.props.source.html).toBeUndefined();
     expect(webView.props.injectedJavaScript).toBeUndefined();
     expect(result.queryByText('Connecting to live stream…')).toBeNull();
   });
 
-  it.each(['ios', 'android'] as const)(
-    'uses the same WebView path on %s',
-    async platform => {
-      Object.defineProperty(Platform, 'OS', {
-        configurable: true,
-        value: platform,
-      });
-      const result = await renderReadyCamera();
+  it('uses only the direct top-level WebView path on iOS', async () => {
+    const result = await renderReadyCamera();
 
-      expect(result.getByTestId('camera-stream-webview').props.source.uri).toBe(
-        `${STREAM_BASE_URL}&t=${NOW}`,
-      );
-      expect(result.queryByTestId('camera-stream-image')).toBeNull();
-    },
-  );
+    expect(result.getByTestId('camera-stream-webview').props.source.uri).toBe(
+      `${STREAM_BASE_URL}&t=${encodeURIComponent(`${STREAM_TOKEN}-${NOW}`)}`,
+    );
+    expect(result.queryByTestId('camera-stream-image')).toBeNull();
+  });
+
+  it('preserves the React Native Image stream path on Android without WebView or preflight', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(NOW);
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: 'android',
+    });
+    const result = await renderCamera();
+    const image = result.getByTestId('camera-stream-image');
+
+    expect(image.props.source.uri).toBe(
+      `${STREAM_BASE_URL}&t=${encodeURIComponent(`${STREAM_TOKEN}-${NOW}`)}`,
+    );
+    expect(result.queryByTestId('camera-stream-webview')).toBeNull();
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    await fireEvent(image, 'load');
+    expect(result.queryByText('Connecting to live stream…')).toBeNull();
+    await fireEvent(image, 'loadStart');
+    await act(async () => {
+      jest.advanceTimersByTime(CAMERA_STREAM_TIMEOUT_MS);
+    });
+    expect(result.getByText('Unable to load stream')).toBeTruthy();
+    result.unmount();
+    jest.useRealTimers();
+  });
 
   it('does not depend on a terminal event from the endless MJPEG response', async () => {
     const result = await renderReadyCamera();
@@ -299,7 +336,7 @@ describe('CameraScreen direct MJPEG WebView', () => {
     await renderReadyCamera();
     const props = mockWebViewProps.mock.calls.at(-1)?.[0];
 
-    expect(props.originWhitelist).toEqual([`https://${SERVER_HOST}`]);
+    expect(props.originWhitelist).toEqual(['*']);
     expect(props.javaScriptEnabled).toBe(false);
     expect(props.domStorageEnabled).toBe(false);
     expect(props.allowFileAccess).toBe(false);
@@ -312,13 +349,16 @@ describe('CameraScreen direct MJPEG WebView', () => {
     expect(props.cacheEnabled).toBe(false);
     expect(props.cacheMode).toBe('LOAD_NO_CACHE');
     expect(props.incognito).toBe(true);
+    expect(props.onOpenWindow).toEqual(expect.any(Function));
+    expect(props.onFileDownload).toEqual(expect.any(Function));
   });
 
   it('allows only the exact top-frame stream URL including its complete query', async () => {
     const result = await renderReadyCamera();
     const shouldStart =
       result.getByTestId('camera-stream-webview').props.onShouldStartLoadWithRequest;
-    const exactUrl = `${STREAM_BASE_URL}&t=${NOW}`;
+    const exactUrl =
+      `${STREAM_BASE_URL}&t=${encodeURIComponent(`${STREAM_TOKEN}-${NOW}`)}`;
 
     expect(shouldStart({ url: exactUrl, isTopFrame: true })).toBe(true);
     expect(shouldStart({ url: exactUrl, isTopFrame: false })).toBe(false);
@@ -330,7 +370,7 @@ describe('CameraScreen direct MJPEG WebView', () => {
     ).toBe(false);
     expect(
       shouldStart({
-        url: `${STREAM_BASE_URL}&t=${NOW}&extra=true`,
+        url: `${exactUrl}&extra=true`,
         isTopFrame: true,
       }),
     ).toBe(false);
@@ -338,9 +378,9 @@ describe('CameraScreen direct MJPEG WebView', () => {
 
   it.each([
     `https://${SERVER_HOST}/login`,
-    `https://${SERVER_HOST}/api/v1/printers/2/camera/stream?camera_token=${STREAM_TOKEN}&scope=camera_stream&t=${NOW}`,
-    `https://external.example/api/v1/printers/1/camera/stream?camera_token=${STREAM_TOKEN}&scope=camera_stream&t=${NOW}`,
-    `http://${SERVER_HOST}/api/v1/printers/1/camera/stream?camera_token=${STREAM_TOKEN}&scope=camera_stream&t=${NOW}`,
+    `https://${SERVER_HOST}/api/v1/printers/2/camera/stream?camera_token=${STREAM_TOKEN}&scope=camera_stream`,
+    `https://external.example/api/v1/printers/1/camera/stream?camera_token=${STREAM_TOKEN}&scope=camera_stream`,
+    `http://${SERVER_HOST}/api/v1/printers/1/camera/stream?camera_token=${STREAM_TOKEN}&scope=camera_stream`,
     'file:///camera',
     'mailto:camera@example.com',
     'not a valid URL',
@@ -350,6 +390,26 @@ describe('CameraScreen direct MJPEG WebView', () => {
       result.getByTestId('camera-stream-webview').props.onShouldStartLoadWithRequest;
 
     expect(shouldStart({ url: blockedUrl, isTopFrame: true })).toBe(false);
+  });
+
+  it('allows an exact local HTTP stream URL without permitting alternate navigation', async () => {
+    mockStreamBaseUrl =
+      'http://192.168.1.20/api/v1/printers/1/camera/stream' +
+      '?camera_token=sentinel-camera-token&scope=camera_stream';
+    mockSnapshotBaseUrl =
+      'http://192.168.1.20/api/v1/printers/1/camera/snapshot' +
+      '?camera_token=sentinel-camera-token&scope=camera_stream';
+    const result = await renderReadyCamera();
+    const webView = result.getByTestId('camera-stream-webview');
+    const shouldStart = webView.props.onShouldStartLoadWithRequest;
+
+    expect(shouldStart({ url: webView.props.source.uri, isTopFrame: true })).toBe(true);
+    expect(
+      shouldStart({
+        url: webView.props.source.uri.replace('http://', 'https://'),
+        isTopFrame: true,
+      }),
+    ).toBe(false);
   });
 
   it.each([
@@ -486,15 +546,47 @@ describe('CameraScreen direct MJPEG WebView', () => {
     expect(visibleAndLogged).not.toContain('private-response');
   });
 
+  it.each(['openWindow', 'fileDownload'])(
+    'fails closed with redacted telemetry for iOS WebView %s requests',
+    async eventName => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const result = await renderReadyCamera();
+      const webView = result.getByTestId('camera-stream-webview');
+
+      await act(async () => {
+        fireEvent(webView, eventName, {
+          nativeEvent: {
+            targetUrl: `https://${SERVER_HOST}/private?token=${STREAM_TOKEN}`,
+            downloadUrl: `${STREAM_BASE_URL}&private=true`,
+          },
+        });
+      });
+
+      expect(result.getByText('Unable to load stream')).toBeTruthy();
+      expect(warn).toHaveBeenCalledWith('Camera stream failure.', {
+        reason: 'webview_native',
+      });
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(STREAM_TOKEN);
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(SERVER_HOST);
+    },
+  );
+
   it('unmounts the old WebView, ignores stale preflight work, and remounts on Retry', async () => {
     const result = await renderReadyCamera();
     const initialWebView = result.getByTestId('camera-stream-webview');
     const initialUri = initialWebView.props.source.uri;
     await act(async () => {
+      mockGestureInstances[0].onUpdate({ scale: 2 });
+      mockGestureInstances[0].onEnd();
+    });
+    expect(result.getByText('2.0×')).toBeTruthy();
+
+    await act(async () => {
       fireEvent(initialWebView, 'error', {
         nativeEvent: { description: 'failed' },
       });
     });
+    expect(result.getByText('1.0×')).toBeTruthy();
 
     const retryPreflight = deferred<ReturnType<typeof snapshotResponse>>();
     mockFetch.mockReturnValueOnce(retryPreflight.promise);
@@ -513,6 +605,7 @@ describe('CameraScreen direct MJPEG WebView', () => {
     const retriedWebView = result.getByTestId('camera-stream-webview');
     expect(retriedWebView.props.source.uri).not.toBe(initialUri);
     expect(retriedWebView).not.toBe(initialWebView);
+    expect(result.getByText('1.0×')).toBeTruthy();
   });
 
   it('ignores a stale snapshot rejection after Retry starts a new generation', async () => {
@@ -555,10 +648,15 @@ describe('CameraScreen direct MJPEG WebView', () => {
       configurable: true,
       value: 'android',
     });
-    mockFetch.mockRejectedValueOnce(new Error('offline'));
     const androidResult = await renderCamera();
+    await fireEvent(androidResult.getByTestId('camera-stream-image'), 'loadStart');
+    await act(async () => {
+      fireEvent(androidResult.getByTestId('camera-stream-image'), 'error');
+    });
     await waitFor(() =>
-      expect(androidResult.getByText(/printer is reachable on your local network/)).toBeTruthy(),
+      expect(
+        androidResult.getByText(/printer is reachable on your local network/),
+      ).toBeTruthy(),
     );
   });
 });
