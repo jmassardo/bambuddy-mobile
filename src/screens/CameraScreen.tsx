@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -34,7 +34,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { api, ApiError } from '@/api/client';
+import { api, ApiError, getAuthToken } from '@/api/client';
+import { useServerStore } from '@/api/server';
 import { PrimaryButton, StatusBadge } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -51,6 +52,30 @@ import type {
 import { withCacheBuster } from '@/utils/data';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMediaToken } from '@/hooks/useStreamToken';
+import { WebView } from 'react-native-webview';
+
+interface CameraWebViewProps {
+  key?: number;
+  source: { uri: string };
+  style: object;
+  originWhitelist: string[];
+  injectedJavaScriptBeforeContentLoaded?: string;
+  javaScriptEnabled: boolean;
+  incognito: boolean;
+  sharedCookiesEnabled: boolean;
+  useSharedProcessPool: boolean;
+  javaScriptCanOpenWindowsAutomatically: boolean;
+  allowFileAccessFromFileURLs: boolean;
+  allowUniversalAccessFromFileURLs: boolean;
+  onShouldStartLoadWithRequest: (request: { url: string }) => boolean;
+  onOpenWindow: () => void;
+  onFileDownload: () => void;
+  onError: () => void;
+  onHttpError: (event: { nativeEvent?: { statusCode?: number } }) => void;
+  onContentProcessDidTerminate: () => void;
+}
+
+const CameraWebView = WebView as React.ComponentType<CameraWebViewProps>;
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
@@ -282,6 +307,14 @@ const DEFAULT_PLATE_ROI: PlateDetectionROI = {
   h: 0.44,
 };
 
+function createCameraBootstrap(token: string) {
+  const serializedToken = JSON.stringify(token)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+  return `window.sessionStorage.setItem("auth_token", ${serializedToken}); true;`;
+}
+
 function clampTranslationOffset(value: number, axisSize: number, scale: number) {
   'worklet';
   const maxOffset = Math.max(0, ((axisSize * scale) - axisSize) / 2);
@@ -293,7 +326,8 @@ export default function CameraScreen() {
   const route = useRoute<RootRouteProp<'Camera'>>();
   const { colors } = useTheme();
   const { showToast } = useToast();
-  const { hasPermission } = useAuth();
+  const { authEnabled, hasPermission, user } = useAuth();
+  const serverUrl = useServerStore(state => state.serverUrl);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { token: mediaToken, isReady: mediaTokenReady } = useMediaToken();
@@ -305,6 +339,13 @@ export default function CameraScreen() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [plateDetectionEnabled, setPlateDetectionEnabled] = useState(false);
   const [plateSensitivity, setPlateSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
+  const [webAuthToken, setWebAuthToken] = useState<string | null>(() =>
+    Platform.OS === 'ios' ? getAuthToken() : null,
+  );
+  const webAuthTokenRef = useRef(webAuthToken);
+  const [webViewGeneration, setWebViewGeneration] = useState(0);
+  const [webCameraErrorStatus, setWebCameraErrorStatus] = useState<number | null>(null);
+  const [webCameraFailed, setWebCameraFailed] = useState(false);
   const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scale = useSharedValue(1);
@@ -323,6 +364,91 @@ export default function CameraScreen() {
   const { id } = (route.params ?? {}) as { id?: string | number };
   const printerId = Number(id);
   const validPrinterId = Number.isFinite(printerId) && printerId > 0;
+
+  const synchronizeWebAuthToken = useCallback((forceRemount: boolean) => {
+    if (Platform.OS !== 'ios') return;
+    const currentToken = getAuthToken();
+    if (!forceRemount && currentToken === webAuthTokenRef.current) return;
+    webAuthTokenRef.current = currentToken;
+    setWebAuthToken(currentToken);
+    setWebViewGeneration(current => current + 1);
+  }, []);
+
+  useEffect(() => {
+    synchronizeWebAuthToken(false);
+  }, [authEnabled, synchronizeWebAuthToken, user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      synchronizeWebAuthToken(false);
+    }, [synchronizeWebAuthToken]),
+  );
+
+  const webCamera = useMemo(() => {
+    if (Platform.OS !== 'ios' || !validPrinterId || !serverUrl) return null;
+    try {
+      const configuredUrl = new URL(serverUrl);
+      if (
+        (configuredUrl.protocol !== 'http:' && configuredUrl.protocol !== 'https:') ||
+        configuredUrl.username ||
+        configuredUrl.password
+      ) {
+        return null;
+      }
+      const pathname = `/camera/${encodeURIComponent(String(printerId))}`;
+      return {
+        origin: configuredUrl.origin,
+        pathname,
+        uri: `${configuredUrl.origin}${pathname}`,
+      };
+    } catch {
+      return null;
+    }
+  }, [printerId, serverUrl, validPrinterId]);
+
+  const cameraBootstrap = useMemo(
+    () => (webAuthToken == null ? undefined : createCameraBootstrap(webAuthToken)),
+    [webAuthToken],
+  );
+
+  const allowCameraNavigation = useCallback(
+    (request: { url: string }) => {
+      if (!webCamera) return false;
+      try {
+        const candidate = new URL(request.url);
+        return (
+          (candidate.protocol === 'http:' || candidate.protocol === 'https:') &&
+          candidate.username === '' &&
+          candidate.password === '' &&
+          candidate.origin === webCamera.origin &&
+          candidate.pathname === webCamera.pathname &&
+          candidate.search === '' &&
+          candidate.hash === ''
+        );
+      } catch {
+        return false;
+      }
+    },
+    [webCamera],
+  );
+
+  const handleWebCameraFailure = useCallback(() => {
+    setWebCameraErrorStatus(null);
+    setWebCameraFailed(true);
+  }, []);
+
+  const handleWebCameraHttpFailure = useCallback(
+    (event: { nativeEvent?: { statusCode?: number } }) => {
+      const statusCode = event.nativeEvent?.statusCode;
+      setWebCameraErrorStatus(
+        Number.isInteger(statusCode) && statusCode != null && statusCode > 0
+          ? statusCode
+          : null,
+      );
+      setWebCameraFailed(true);
+    },
+    [],
+  );
 
   const resetZoom = useCallback(() => {
     scale.value = withTiming(1);
@@ -446,6 +572,9 @@ export default function CameraScreen() {
     clearStreamTimeout();
     setStreamError(false);
     setStreamLoading(true);
+    setWebCameraErrorStatus(null);
+    setWebCameraFailed(false);
+    synchronizeWebAuthToken(true);
     setStreamSeed(current => Math.max(Date.now(), current + 1));
     resetZoom();
     await Promise.all([
@@ -454,7 +583,7 @@ export default function CameraScreen() {
       queryClient.invalidateQueries({ queryKey: ['plateDetectionStatus', printerId] }),
       queryClient.invalidateQueries({ queryKey: ['camera-stream-token'] }),
     ]);
-  }, [clearStreamTimeout, printerId, queryClient, resetZoom]);
+  }, [clearStreamTimeout, printerId, queryClient, resetZoom, synchronizeWebAuthToken]);
 
   const printer = printerQuery.data ?? null;
 
@@ -591,7 +720,7 @@ export default function CameraScreen() {
           ? colors.success
           : colors.error;
   const streamUrl = useMemo(() => {
-    if (!validPrinterId || !mediaTokenReady) return null;
+    if (Platform.OS !== 'android' || !validPrinterId || !mediaTokenReady) return null;
     return withCacheBuster(
       api.getCameraStreamUrl(printerId),
       `${mediaToken ?? 'public'}-${streamSeed}`,
@@ -681,6 +810,56 @@ export default function CameraScreen() {
           printer ? 'Diagnose' : undefined,
           printer ? openDiagnostic : undefined,
         )
+      ) : Platform.OS === 'ios' && (!webCamera || (authEnabled && webAuthToken == null)) ? (
+        renderState(
+          'Camera unavailable',
+          'The Web camera is not available yet.',
+          'Retry',
+          () => void refreshCamera(),
+        )
+      ) : Platform.OS === 'ios' && webCameraFailed ? (
+        renderState(
+          'Unable to load Web camera',
+          webCameraErrorStatus == null
+            ? 'The Web camera page could not be loaded.'
+            : `The Web camera page could not be loaded (HTTP ${webCameraErrorStatus}).`,
+          'Retry',
+          () => void refreshCamera(),
+        )
+      ) : Platform.OS === 'ios' && webCamera ? (
+        <View style={styles.streamViewport}>
+          <CameraWebView
+            key={webViewGeneration}
+            source={{ uri: webCamera.uri }}
+            style={styles.stream}
+            originWhitelist={['*']}
+            injectedJavaScriptBeforeContentLoaded={cameraBootstrap}
+            javaScriptEnabled
+            incognito
+            sharedCookiesEnabled={false}
+            useSharedProcessPool={false}
+            javaScriptCanOpenWindowsAutomatically={false}
+            allowFileAccessFromFileURLs={false}
+            allowUniversalAccessFromFileURLs={false}
+            onShouldStartLoadWithRequest={allowCameraNavigation}
+            onOpenWindow={() => undefined}
+            onFileDownload={() => undefined}
+            onError={handleWebCameraFailure}
+            onHttpError={handleWebCameraHttpFailure}
+            onContentProcessDidTerminate={handleWebCameraFailure}
+          />
+          <View
+            pointerEvents="none"
+            style={[
+              styles.webCameraMarker,
+              { backgroundColor: colors.overlay, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.webCameraMarkerText, { color: colors.text }]}>
+              Web camera · iOS
+            </Text>
+          </View>
+        </View>
       ) : !mediaTokenReady ? (
         <View style={styles.stateWrap}>
           <ActivityIndicator size="large" color={colors.accent} />
@@ -761,6 +940,8 @@ export default function CameraScreen() {
         </GestureDetector>
       ) : null}
 
+      {Platform.OS === 'android' ? (
+        <>
       <View style={[styles.topBar, { top: insets.top + spacing.md }]}> 
         <Pressable
           onPress={() => navigation.goBack()}
@@ -1015,6 +1196,23 @@ export default function CameraScreen() {
         result={diagnoseMutation.data ?? null}
         printer={printer}
       />
+        </>
+      ) : (
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={[
+            styles.iconButton,
+            styles.iosCloseButton,
+            {
+              top: insets.top + spacing.md,
+              backgroundColor: colors.overlay,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <X size={20} color={colors.text} strokeWidth={2} />
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -1034,6 +1232,19 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
+  },
+  webCameraMarker: {
+    position: 'absolute',
+    top: spacing.md,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  webCameraMarkerText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
   },
   calibrationOverlay: {
     ...StyleSheet.absoluteFill,
@@ -1080,6 +1291,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iosCloseButton: {
+    position: 'absolute',
+    left: spacing.lg,
   },
   toolbarButton: {
     minHeight: 44,
