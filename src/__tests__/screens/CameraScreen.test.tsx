@@ -5,11 +5,13 @@ import * as ReactNative from 'react-native';
 import CameraScreen, {
   CAMERA_STREAM_TIMEOUT_MS,
   isCameraLandscape,
+  shouldHideCameraStatusBar,
 } from '@/screens/CameraScreen';
 
 interface MockWebViewProps {
   source: { uri: string };
   injectedJavaScriptBeforeContentLoaded?: string;
+  injectedJavaScriptBeforeContentLoadedForMainFrameOnly: boolean;
   injectedJavaScript: string;
   originWhitelist: string[];
   javaScriptEnabled: boolean;
@@ -19,6 +21,7 @@ interface MockWebViewProps {
   javaScriptCanOpenWindowsAutomatically: boolean;
   allowFileAccessFromFileURLs: boolean;
   allowUniversalAccessFromFileURLs: boolean;
+  allowsLinkPreview: boolean;
   onShouldStartLoadWithRequest: (request: { url: string }) => boolean;
   onOpenWindow: (event: object) => void;
   onFileDownload: (event: object) => void;
@@ -52,6 +55,7 @@ let mockAppState: 'active' | 'background' | 'inactive';
 let mockAppStateCallback: ((state: 'active' | 'background' | 'inactive') => void) | null;
 let mockReduceMotion: boolean;
 let mockInjectJavaScript: jest.Mock;
+let mockWithTiming: jest.Mock;
 
 jest
   .spyOn(ReactNative.AccessibilityInfo, 'isReduceMotionEnabled')
@@ -260,7 +264,7 @@ jest.mock('react-native-reanimated', () => {
     useAnimatedStyle: (callback: () => unknown) => callback(),
     useSharedValue: (value: unknown) =>
       MockReact.useRef({ value }).current,
-    withTiming: (value: unknown) => value,
+    withTiming: (value: unknown) => mockWithTiming(value),
   };
 });
 
@@ -287,8 +291,8 @@ function setPlatform(os: 'ios' | 'android') {
   });
 }
 
-function setWindowDimensions(width: number, height: number) {
-  const size = { width, height, scale: 1, fontScale: 1 };
+function setWindowDimensions(width: number, height: number, fontScale = 1) {
+  const size = { width, height, scale: 1, fontScale };
   Dimensions.set({ window: size, screen: size });
 }
 
@@ -458,6 +462,7 @@ beforeEach(() => {
   mockAppStateCallback = null;
   mockReduceMotion = false;
   mockInjectJavaScript = jest.fn();
+  mockWithTiming = jest.fn((value: unknown) => value);
   mockGetAuthToken.mockReturnValue('mobile-auth-token');
 });
 
@@ -480,7 +485,9 @@ describe('CameraScreen iOS Web camera', () => {
     expect(props.javaScriptCanOpenWindowsAutomatically).toBe(false);
     expect(props.allowFileAccessFromFileURLs).toBe(false);
     expect(props.allowUniversalAccessFromFileURLs).toBe(false);
-    expect(props.originWhitelist).toEqual(['https://bambuddy.example']);
+    expect(props.originWhitelist).toEqual(['*']);
+    expect(props.injectedJavaScriptBeforeContentLoadedForMainFrameOnly).toBe(true);
+    expect(props.allowsLinkPreview).toBe(false);
     expect(result.queryByText('Web camera · iOS')).toBeNull();
     expect(result.getByLabelText('Close camera')).toBeTruthy();
     expect(result.getByLabelText('More camera actions')).toBeTruthy();
@@ -537,8 +544,8 @@ describe('CameraScreen iOS Web camera', () => {
     expect(fixture.errorOverlay.querySelector('button')?.textContent).toBe('Retry');
   });
 
-  it('keeps a compact non-wrapping portrait hierarchy at 320 points', async () => {
-    setWindowDimensions(320, 700);
+  it('keeps a compact non-wrapping portrait hierarchy at 320 points and 200% text', async () => {
+    setWindowDimensions(320, 700, 2);
     const result = await render(<CameraScreen />);
     const dock = result.getByLabelText('Camera controls');
 
@@ -600,6 +607,26 @@ describe('CameraScreen iOS Web camera', () => {
       mockPinchEnd?.();
     });
     expect(result.getByText('2.0× · Reset')).toBeTruthy();
+  });
+
+  it('resets double-tap zoom without timing animation under Reduce Motion', async () => {
+    mockReduceMotion = true;
+    const result = await render(<CameraScreen />);
+    await act(async () => {
+      await Promise.resolve();
+      mockPinchBegin?.();
+      mockPinchUpdate?.({ scale: 2 });
+      mockPinchEnd?.();
+    });
+    expect(result.getByText('2.0× · Reset')).toBeTruthy();
+    mockWithTiming.mockClear();
+
+    await act(async () => {
+      mockDoubleTapEnd?.();
+    });
+
+    expect(mockWithTiming).not.toHaveBeenCalled();
+    expect(result.queryByLabelText('Reset zoom')).toBeNull();
   });
 
   it.each([
@@ -858,19 +885,41 @@ describe('CameraScreen iOS credential lifecycle', () => {
     );
     expect(mockWebViewMounts).toBe(2);
     expect(result.getByLabelText('Fill camera viewport')).toBeTruthy();
+
+    await act(async () => {
+      mockPinchBegin?.();
+      mockPinchUpdate?.({ scale: 2 });
+      mockPinchEnd?.();
+    });
+    expect(result.getByText('2.0× · Reset')).toBeTruthy();
+    await pressAndFlush(result.getByLabelText('More camera actions'));
+    expect(result.getByText('Camera actions')).toBeTruthy();
+    const source = requireWebViewProps().source;
+
+    await act(async () => {
+      setWindowDimensions(844, 390);
+    });
+
+    expect(result.queryByText('Camera actions')).toBeNull();
+    expect(result.queryByLabelText('Printer One, Camera')).toBeNull();
+    expect(result.queryByText('4%')).toBeNull();
+    expect(result.getByLabelText('Refresh camera')).toBeTruthy();
+    expect(mockWebViewMounts).toBe(2);
+    expect(requireWebViewProps().source).toEqual(source);
+
+    await act(async () => {
+      setWindowDimensions(390, 844);
+    });
+    expect(result.getByLabelText('Printer One, Camera')).toBeTruthy();
+    expect(result.getByLabelText('Fill camera viewport')).toBeTruthy();
+    expect(result.getByText('2.0× · Reset')).toBeTruthy();
+    expect(mockWebViewMounts).toBe(2);
   });
 });
 
 describe('CameraScreen Android renderer', () => {
   beforeEach(() => {
     setPlatform('android');
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-08-04T12:00:00Z'));
-  });
-
-  afterEach(() => {
-    jest.clearAllTimers();
-    jest.useRealTimers();
   });
 
   it('retains the Image renderer, controls, plate overlay, and no WebView', async () => {
@@ -924,6 +973,8 @@ describe('CameraScreen Android renderer', () => {
   });
 
   it('shows recovery actions after timeout and reseeds the Image on Retry', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-08-04T12:00:00Z'));
     const result = await render(<CameraScreen />);
     const initialUri = result.getByTestId('camera-stream-image').props.source.uri;
     await fireEvent(result.getByTestId('camera-stream-image'), 'loadStart');
@@ -936,9 +987,13 @@ describe('CameraScreen Android renderer', () => {
 
     await pressAndFlush(result.getByText('Retry'));
     expect(result.getByTestId('camera-stream-image').props.source.uri).not.toBe(initialUri);
+    await result.unmount();
+    jest.clearAllTimers();
+    jest.useRealTimers();
   });
 
   it('clears the timeout when the first frame loads and when unmounted', async () => {
+    jest.useFakeTimers();
     const clearTimeoutSpy = jest.spyOn(globalThis, 'clearTimeout');
     const result = await render(<CameraScreen />);
     const image = result.getByTestId('camera-stream-image');
@@ -950,6 +1005,33 @@ describe('CameraScreen Android renderer', () => {
     await result.unmount();
     expect(clearTimeoutSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
     clearTimeoutSpy.mockRestore();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it('isolates stream, zoom, and recovery state when switching printers', async () => {
+    const result = await render(<CameraScreen />);
+    const firstImage = result.getByTestId('camera-stream-image');
+    await act(async () => {
+      mockPinchBegin?.();
+      mockPinchUpdate?.({ scale: 2 });
+      mockPinchEnd?.();
+    });
+    expect(result.getByText('2.0× · Reset')).toBeTruthy();
+    await fireEvent(firstImage, 'error');
+    expect(result.getByText('Unable to load stream')).toBeTruthy();
+
+    mockRouteId = '2';
+    await result.rerender(<CameraScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.queryByText('Unable to load stream')).toBeNull();
+    expect(result.queryByLabelText('Reset zoom')).toBeNull();
+    expect(result.getByTestId('camera-stream-image').props.source.uri).toContain(
+      '/printers/2/camera/stream',
+    );
   });
 });
 
@@ -988,7 +1070,9 @@ describe('Camera iPhone orientation configuration', () => {
     expect(navigator).toContain(
       "locksIPhoneToPortrait ? { orientation: 'default' as const } : {}",
     );
-    expect(cameraScreen).toContain('hidden={isFocused && isLandscape}');
+    expect(cameraScreen).toContain(
+      'hidden={shouldHideCameraStatusBar(isFocused, isLandscape)}',
+    );
     expect(cameraScreen).toContain('animated={false}');
     expect(cameraScreen).toContain('key={`${printerId}:${webViewGeneration}`}');
     expect(cameraScreen).not.toContain('key={`${width}');
@@ -998,5 +1082,8 @@ describe('Camera iPhone orientation configuration', () => {
     expect(isCameraLandscape(844, 390)).toBe(true);
     expect(isCameraLandscape(390, 844)).toBe(false);
     expect(isCameraLandscape(390, 390)).toBe(false);
+    expect(shouldHideCameraStatusBar(true, true)).toBe(true);
+    expect(shouldHideCameraStatusBar(true, false)).toBe(false);
+    expect(shouldHideCameraStatusBar(false, true)).toBe(false);
   });
 });

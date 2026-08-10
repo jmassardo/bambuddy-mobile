@@ -69,6 +69,7 @@ interface CameraWebViewProps {
   style: object;
   originWhitelist: string[];
   injectedJavaScriptBeforeContentLoaded?: string;
+  injectedJavaScriptBeforeContentLoadedForMainFrameOnly: boolean;
   injectedJavaScript: string;
   javaScriptEnabled: boolean;
   incognito: boolean;
@@ -77,6 +78,7 @@ interface CameraWebViewProps {
   javaScriptCanOpenWindowsAutomatically: boolean;
   allowFileAccessFromFileURLs: boolean;
   allowUniversalAccessFromFileURLs: boolean;
+  allowsLinkPreview: boolean;
   onShouldStartLoadWithRequest: (request: { url: string }) => boolean;
   onOpenWindow: () => void;
   onFileDownload: () => void;
@@ -99,6 +101,13 @@ function clamp(value: number, min = 0, max = 100) {
 
 export function isCameraLandscape(width: number, height: number) {
   return width > height;
+}
+
+export function shouldHideCameraStatusBar(
+  isFocused: boolean,
+  isLandscape: boolean,
+) {
+  return isFocused && isLandscape;
 }
 
 function stripExtension(name: string | null | undefined) {
@@ -594,7 +603,7 @@ export default function CameraScreen() {
   const { id } = (route.params ?? {}) as { id?: string | number };
   const printerId = Number(id);
   const validPrinterId = Number.isFinite(printerId) && printerId > 0;
-  const webPrinterIdRef = useRef(printerId);
+  const activePrinterIdRef = useRef(printerId);
 
   const synchronizeWebAuthToken = useCallback((forceRemount: boolean) => {
     if (Platform.OS !== 'ios') return;
@@ -750,19 +759,22 @@ export default function CameraScreen() {
     translateY,
   ]);
 
-  useEffect(() => {
-    if (Platform.OS !== 'ios' || webPrinterIdRef.current === printerId) return;
-    webPrinterIdRef.current = printerId;
-    setWebCameraErrorStatus(null);
-    setWebCameraFailed(false);
-    resetZoom();
-  }, [printerId, resetZoom]);
-
   const clearStreamTimeout = useCallback(() => {
     if (streamTimeoutRef.current == null) return;
     clearTimeout(streamTimeoutRef.current);
     streamTimeoutRef.current = null;
   }, []);
+
+  useEffect(() => {
+    if (activePrinterIdRef.current === printerId) return;
+    activePrinterIdRef.current = printerId;
+    setWebCameraErrorStatus(null);
+    setWebCameraFailed(false);
+    setStreamError(false);
+    setStreamLoading(true);
+    clearStreamTimeout();
+    resetZoom();
+  }, [clearStreamTimeout, printerId, resetZoom]);
 
   const armStreamTimeout = useCallback(() => {
     clearStreamTimeout();
@@ -989,10 +1001,10 @@ export default function CameraScreen() {
   const doubleTapGesture = Gesture.Tap()
     .numberOfTaps(2)
     .onEnd(() => {
-      scale.value = withTiming(1);
+      scale.value = reduceMotionEnabled ? 1 : withTiming(1);
       savedScale.value = 1;
-      translateX.value = withTiming(0);
-      translateY.value = withTiming(0);
+      translateX.value = reduceMotionEnabled ? 0 : withTiming(0);
+      translateY.value = reduceMotionEnabled ? 0 : withTiming(0);
       savedTranslateX.value = 0;
       savedTranslateY.value = 0;
       runOnJS(setZoomLevel)(1);
@@ -1126,7 +1138,7 @@ export default function CameraScreen() {
   return (
     <View style={styles.container}>
       <StatusBar
-        hidden={isFocused && isLandscape}
+        hidden={shouldHideCameraStatusBar(isFocused, isLandscape)}
         animated={false}
         barStyle="light-content"
       />
@@ -1175,8 +1187,9 @@ export default function CameraScreen() {
                 key={`${printerId}:${webViewGeneration}`}
                 source={{ uri: webCamera.uri }}
                 style={styles.stream}
-                originWhitelist={[webCamera.origin]}
+                originWhitelist={['*']}
                 injectedJavaScriptBeforeContentLoaded={cameraBootstrap}
+                injectedJavaScriptBeforeContentLoadedForMainFrameOnly
                 injectedJavaScript={cameraPresentationScript}
                 javaScriptEnabled
                 incognito
@@ -1185,6 +1198,7 @@ export default function CameraScreen() {
                 javaScriptCanOpenWindowsAutomatically={false}
                 allowFileAccessFromFileURLs={false}
                 allowUniversalAccessFromFileURLs={false}
+                allowsLinkPreview={false}
                 onShouldStartLoadWithRequest={allowCameraNavigation}
                 onOpenWindow={() => undefined}
                 onFileDownload={() => undefined}
