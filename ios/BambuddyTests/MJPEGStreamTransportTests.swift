@@ -357,6 +357,83 @@ final class MJPEGStreamTransportTests: XCTestCase {
     transport.cancel()
   }
 
+  func testSnapshotFallbackSharesTransportWideDecodeCadence() {
+    let jpeg = makeJPEG()
+    CameraURLProtocol.handler = { request in
+      if request.url?.path == self.streamURL.path {
+        return self.stub(
+          url: request.url!,
+          status: 200,
+          mime: "multipart/x-mixed-replace; boundary=cam",
+          chunks: []
+        )
+      }
+      return self.stub(
+        url: request.url!,
+        status: 200,
+        mime: "image/jpeg",
+        chunks: [jpeg]
+      )
+    }
+
+    let clock = ControlledClock(now: 40)
+    let cadenceScheduler = ControlledScheduler()
+    let deliveryScheduler = ControlledScheduler()
+    let fallbackResponse = expectation(description: "fallback snapshot response")
+    fallbackResponse.assertForOverFulfill = false
+    let fallbackFrame = expectation(description: "cadenced fallback frame")
+    let decodeLock = NSLock()
+    var decodeTimes: [TimeInterval] = []
+    let transport = makeTransport(
+      fallbackMs: 20,
+      clock: { clock.now },
+      scheduler: cadenceScheduler.schedule,
+      deliveryScheduler: { deliveryScheduler.schedule(after: 0, action: $0) },
+      frameDecoder: { data in
+        decodeLock.lock()
+        decodeTimes.append(clock.now)
+        decodeLock.unlock()
+        return UIImage(data: data)
+      }
+    ) { event in
+      if event["type"] as? String == "response",
+         event["mode"] as? String == "snapshot-fallback",
+         event["phase"] as? String == "response" {
+        fallbackResponse.fulfill()
+      }
+      if event["type"] as? String == "first-frame",
+         event["mode"] as? String == "snapshot-fallback" {
+        fallbackFrame.fulfill()
+      }
+    }
+
+    transport.start()
+    XCTAssertTrue(waitUntil { deliveryScheduler.count == 1 })
+    deliveryScheduler.runNext()
+    wait(for: [fallbackResponse], timeout: 1)
+    XCTAssertTrue(waitUntil { cadenceScheduler.count == 1 })
+
+    decodeLock.lock()
+    XCTAssertEqual(decodeTimes, [40])
+    decodeLock.unlock()
+    XCTAssertEqual(cadenceScheduler.delays.first!, 0.2, accuracy: 0.000_001)
+
+    clock.now = 40.1
+    cadenceScheduler.runNext()
+    XCTAssertTrue(waitUntil { cadenceScheduler.count == 1 })
+    XCTAssertEqual(cadenceScheduler.delays.first!, 0.1, accuracy: 0.000_001)
+
+    clock.now = 40.201
+    cadenceScheduler.runNext()
+    wait(for: [fallbackFrame], timeout: 1)
+
+    decodeLock.lock()
+    XCTAssertEqual(decodeTimes, [40, 40.201])
+    XCTAssertGreaterThanOrEqual(decodeTimes[1] - decodeTimes[0], 0.2)
+    decodeLock.unlock()
+    transport.cancel()
+  }
+
   func testCustomProtocolSameOriginRedirectAndCrossHostRejection() {
     let jpeg = makeJPEG()
     let followed = expectation(description: "same-origin redirect followed")

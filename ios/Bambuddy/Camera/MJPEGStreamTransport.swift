@@ -136,6 +136,7 @@ final class MJPEGStreamTransport: NSObject {
   private var fallbackMode = false
   private var pendingFallbackReason: String?
   private var redirectCounts: [Int: Int] = [:]
+  private var snapshotDecodeWorkItem: DispatchWorkItem?
   private var frameDecodeWorkItem: DispatchWorkItem?
   private var lastDecodeAttemptTime: TimeInterval?
   private var frameDecodeScheduled = false
@@ -319,6 +320,8 @@ final class MJPEGStreamTransport: NSObject {
     stopped = true
     timeoutWorkItem?.cancel()
     fallbackWorkItem?.cancel()
+    snapshotDecodeWorkItem?.cancel()
+    snapshotDecodeWorkItem = nil
     frameDecodeWorkItem?.cancel()
     frameDecodeWorkItem = nil
     frameDecodeScheduled = false
@@ -540,6 +543,13 @@ final class MJPEGStreamTransport: NSObject {
       scheduleFallback()
       return
     }
+    let decodeDelay = lastDecodeAttemptTime.map {
+      max(0, Self.minimumDecodeInterval - (clock() - $0))
+    } ?? 0
+    if decodeDelay > 0 {
+      scheduleSnapshotDecode(after: decodeDelay, task: task, state: state)
+      return
+    }
     guard let image = decodeSnapshotFrame(state.data) else {
       emitFailure(
         .decodeFailed,
@@ -577,6 +587,23 @@ final class MJPEGStreamTransport: NSObject {
         image: image
       )
       scheduleFallback()
+    }
+  }
+
+  private func scheduleSnapshotDecode(
+    after delay: TimeInterval,
+    task: URLSessionTask,
+    state: TaskState
+  ) {
+    snapshotDecodeWorkItem?.cancel()
+    let workItem = DispatchWorkItem { [weak self] in
+      guard let self, self.generation.isActive, !self.stopped else { return }
+      self.snapshotDecodeWorkItem = nil
+      self.finishSnapshot(task: task, state: state)
+    }
+    snapshotDecodeWorkItem = workItem
+    scheduler(delay) { [weak self] in
+      self?.delegateQueue.addOperation { workItem.perform() }
     }
   }
 
