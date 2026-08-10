@@ -62,7 +62,6 @@ interface CameraWebViewProps {
   injectedJavaScriptBeforeContentLoaded?: string;
   injectedJavaScript: string;
   javaScriptEnabled: boolean;
-  domStorageEnabled: boolean;
   incognito: boolean;
   sharedCookiesEnabled: boolean;
   useSharedProcessPool: boolean;
@@ -977,7 +976,6 @@ export default function CameraScreen() {
                 injectedJavaScriptBeforeContentLoaded={cameraBootstrap}
                 injectedJavaScript={cameraPresentationScript}
                 javaScriptEnabled
-                domStorageEnabled
                 incognito
                 sharedCookiesEnabled={false}
                 useSharedProcessPool={false}

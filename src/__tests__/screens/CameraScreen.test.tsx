@@ -8,7 +8,6 @@ interface MockWebViewProps {
   injectedJavaScriptBeforeContentLoaded?: string;
   injectedJavaScript: string;
   javaScriptEnabled: boolean;
-  domStorageEnabled: boolean;
   incognito: boolean;
   sharedCookiesEnabled: boolean;
   useSharedProcessPool: boolean;
@@ -422,7 +421,6 @@ describe('CameraScreen iOS Web camera', () => {
     expect(props.source.uri).not.toContain('mobile-auth-token');
     expect(props.source.uri).not.toMatch(/[?#]|stream|snapshot|html/i);
     expect(props.javaScriptEnabled).toBe(true);
-    expect(props.domStorageEnabled).toBe(true);
     expect(props.incognito).toBe(true);
     expect(props.sharedCookiesEnabled).toBe(false);
     expect(props.useSharedProcessPool).toBe(false);
