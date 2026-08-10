@@ -24,6 +24,7 @@ interface MockWebViewProps {
 const mockInvalidateQueries = jest.fn(() => Promise.resolve());
 const mockDiagnoseMutate = jest.fn();
 const mockDiagnoseReset = jest.fn();
+const mockMutationMutateAsync = jest.fn(() => Promise.resolve());
 const mockGetCameraStreamUrl = jest.fn(
   (printerId: number) => `https://example.com/printers/${printerId}/camera/stream`,
 );
@@ -36,6 +37,10 @@ let mockAuthEnabled: boolean;
 let mockUser: object | null;
 let mockRouteId: string | number | undefined;
 let mockPlateDetectionEnabled: boolean;
+let mockPinchBegin: (() => void) | null;
+let mockPinchUpdate: ((event: { scale: number }) => void) | null;
+let mockPinchEnd: (() => void) | null;
+let mockDoubleTapEnd: (() => void) | null;
 
 jest.mock('@react-navigation/native', () => ({
   useFocusEffect: (callback: () => void) => {
@@ -99,7 +104,7 @@ jest.mock('@tanstack/react-query', () => ({
     data: null,
     isPending: false,
     mutate: mockDiagnoseMutate,
-    mutateAsync: jest.fn(() => Promise.resolve()),
+    mutateAsync: mockMutationMutateAsync,
     reset: mockDiagnoseReset,
   }),
 }));
@@ -173,14 +178,37 @@ jest.mock('react-native-safe-area-context', () => ({
 
 jest.mock('react-native-gesture-handler', () => {
   const { View: MockView } = require('react-native');
-  const chain = new Proxy(
-    {},
-    {
-      get: () => () => chain,
-    },
-  );
+  const createChain = (kind: 'pinch' | 'pan' | 'tap') => {
+    const chain = new Proxy(
+      {},
+      {
+        get: (_target, property) => (callback?: (...args: never[]) => void) => {
+          if (kind === 'pinch' && property === 'onBegin') {
+            mockPinchBegin = (callback as typeof mockPinchBegin) ?? null;
+          }
+          if (kind === 'pinch' && property === 'onUpdate') {
+            mockPinchUpdate = (callback as typeof mockPinchUpdate) ?? null;
+          }
+          if (kind === 'pinch' && property === 'onEnd') {
+            mockPinchEnd = (callback as typeof mockPinchEnd) ?? null;
+          }
+          if (kind === 'tap' && property === 'onEnd') {
+            mockDoubleTapEnd = (callback as typeof mockDoubleTapEnd) ?? null;
+          }
+          return chain;
+        },
+      },
+    );
+    return chain;
+  };
   return {
-    Gesture: new Proxy({}, { get: () => () => chain }),
+    Gesture: {
+      Pinch: () => createChain('pinch'),
+      Pan: () => createChain('pan'),
+      Tap: () => createChain('tap'),
+      Exclusive: (...gestures: unknown[]) => gestures,
+      Simultaneous: (...gestures: unknown[]) => gestures,
+    },
     GestureDetector: ({ children }: { children: React.ReactNode }) => (
       <MockView>{children}</MockView>
     ),
@@ -247,6 +275,10 @@ beforeEach(() => {
   mockUser = { id: 7 };
   mockRouteId = '1';
   mockPlateDetectionEnabled = false;
+  mockPinchBegin = null;
+  mockPinchUpdate = null;
+  mockPinchEnd = null;
+  mockDoubleTapEnd = null;
   mockGetAuthToken.mockReturnValue('mobile-auth-token');
 });
 
@@ -440,7 +472,7 @@ describe('CameraScreen iOS Web camera', () => {
     mockGetAuthToken.mockReturnValue(null);
     mockUser = null;
     await act(async () => {
-      mockFocusCallback?.();
+      result.rerender(<CameraScreen />);
       await Promise.resolve();
     });
 
@@ -473,6 +505,42 @@ describe('CameraScreen Android renderer', () => {
     expect(result.getAllByText('Diagnose').length).toBeGreaterThan(0);
     expect(result.getByText('Refresh')).toBeTruthy();
     expect(mockGetAuthToken).not.toHaveBeenCalled();
+  });
+
+  it('retains zoom gestures, Diagnose, fullscreen, light, and plate controls', async () => {
+    const result = await render(<CameraScreen />);
+
+    await act(async () => {
+      mockPinchBegin?.();
+      mockPinchUpdate?.({ scale: 2 });
+      mockPinchEnd?.();
+    });
+    expect(result.getByText('2.0×')).toBeTruthy();
+
+    await act(async () => {
+      mockDoubleTapEnd?.();
+    });
+    expect(result.getByText('1.0×')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(result.getByText('Diagnose'));
+    });
+    expect(mockDiagnoseMutate).toHaveBeenCalled();
+    expect(mockDiagnoseReset).toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.press(result.getByText('Light off'));
+    });
+    expect(mockDiagnoseMutate).toHaveBeenCalledTimes(2);
+
+    await pressAndFlush(result.getAllByText('Plate detection')[0]);
+    expect(mockMutationMutateAsync).toHaveBeenCalledWith(true);
+
+    await act(async () => {
+      fireEvent.press(result.getByText('Fill'));
+    });
+    expect(result.queryByText('Fill')).toBeNull();
+    await result.unmount();
   });
 
   it('shows recovery actions after timeout and reseeds the Image on Retry', async () => {
