@@ -55,12 +55,14 @@ import { useMediaToken } from '@/hooks/useStreamToken';
 import { WebView } from 'react-native-webview';
 
 interface CameraWebViewProps {
-  key?: number;
+  key?: string;
   source: { uri: string };
   style: object;
   originWhitelist: string[];
   injectedJavaScriptBeforeContentLoaded?: string;
+  injectedJavaScript: string;
   javaScriptEnabled: boolean;
+  domStorageEnabled: boolean;
   incognito: boolean;
   sharedCookiesEnabled: boolean;
   useSharedProcessPool: boolean;
@@ -312,7 +314,125 @@ function createCameraBootstrap(token: string) {
     .replace(/</g, '\\u003c')
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029');
-  return `window.sessionStorage.setItem("auth_token", ${serializedToken}); true;`;
+  return `window.sessionStorage.removeItem("auth_token"); window.sessionStorage.setItem("auth_token", ${serializedToken}); true;`;
+}
+
+function createCameraPresentationScript(objectFit: 'contain' | 'cover') {
+  return `
+    (() => {
+      const namespace = '__bambuddyMobileCameraStyling';
+      const styleId = 'bambuddy-mobile-camera-style';
+      const maximumMutations = 80;
+      const maximumLifetimeMs = 10000;
+      const previous = window[namespace];
+      if (previous && typeof previous.cleanup === 'function') previous.cleanup();
+
+      let mutationCount = 0;
+      let observer = null;
+      let cleanupTimer = null;
+      let stopped = false;
+
+      const cleanup = () => {
+        if (stopped) return;
+        stopped = true;
+        if (observer) observer.disconnect();
+        if (cleanupTimer !== null) window.clearTimeout(cleanupTimer);
+      };
+
+      const apply = () => {
+        let style = document.getElementById(styleId);
+        if (!style) {
+          style = document.createElement('style');
+          style.id = styleId;
+          style.textContent = \`
+            html, body, #root {
+              width: 100% !important;
+              height: 100% !important;
+              min-height: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              overflow: hidden !important;
+              background: #000 !important;
+            }
+            [data-bambuddy-mobile-camera-page],
+            [data-bambuddy-mobile-camera-content],
+            [data-bambuddy-mobile-camera-stream] {
+              width: 100% !important;
+              height: 100% !important;
+              min-width: 0 !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              overflow: hidden !important;
+            }
+            [data-bambuddy-mobile-camera-page] {
+              display: flex !important;
+              flex-direction: column !important;
+            }
+            [data-bambuddy-mobile-camera-content] {
+              display: flex !important;
+              flex: 1 1 0% !important;
+            }
+            [data-bambuddy-mobile-camera-stream] {
+              position: relative !important;
+              display: flex !important;
+              flex: 1 1 0% !important;
+              align-items: center !important;
+              justify-content: center !important;
+            }
+            [data-bambuddy-mobile-camera-stream] > img {
+              width: 100% !important;
+              height: 100% !important;
+              max-width: none !important;
+              max-height: none !important;
+              object-fit: ${objectFit} !important;
+            }
+            [data-bambuddy-mobile-camera-hidden] {
+              display: none !important;
+            }
+          \`;
+          document.head.appendChild(style);
+        }
+
+        const root = document.getElementById('root');
+        const page = root && root.firstElementChild;
+        const image = page && page.querySelector('img');
+        const stream = image && image.parentElement;
+        const content = stream && stream.parentElement;
+        if (!page || !image || !stream || !content) return;
+
+        page.setAttribute('data-bambuddy-mobile-camera-page', '');
+        content.setAttribute('data-bambuddy-mobile-camera-content', '');
+        stream.setAttribute('data-bambuddy-mobile-camera-stream', '');
+
+        const header = Array.from(page.children).find(
+          child => child !== content && child.querySelector('h1'),
+        );
+        if (header) header.setAttribute('data-bambuddy-mobile-camera-hidden', '');
+
+        const zoomControls = Array.from(stream.children).find(
+          child =>
+            child !== image &&
+            child.querySelectorAll('button').length === 3 &&
+            /%/.test(child.textContent || ''),
+        );
+        if (zoomControls) {
+          zoomControls.setAttribute('data-bambuddy-mobile-camera-hidden', '');
+        }
+      };
+
+      window[namespace] = { apply, cleanup };
+      apply();
+      observer = new MutationObserver(() => {
+        mutationCount += 1;
+        apply();
+        if (mutationCount >= maximumMutations) cleanup();
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+      cleanupTimer = window.setTimeout(cleanup, maximumLifetimeMs);
+    })();
+    true;
+  `;
 }
 
 function clampTranslationOffset(value: number, axisSize: number, scale: number) {
@@ -364,6 +484,7 @@ export default function CameraScreen() {
   const { id } = (route.params ?? {}) as { id?: string | number };
   const printerId = Number(id);
   const validPrinterId = Number.isFinite(printerId) && printerId > 0;
+  const webPrinterIdRef = useRef(printerId);
 
   const synchronizeWebAuthToken = useCallback((forceRemount: boolean) => {
     if (Platform.OS !== 'ios') return;
@@ -409,6 +530,10 @@ export default function CameraScreen() {
   const cameraBootstrap = useMemo(
     () => (webAuthToken == null ? undefined : createCameraBootstrap(webAuthToken)),
     [webAuthToken],
+  );
+  const cameraPresentationScript = useMemo(
+    () => createCameraPresentationScript('contain'),
+    [],
   );
 
   const allowCameraNavigation = useCallback(
@@ -459,6 +584,14 @@ export default function CameraScreen() {
     savedTranslateY.value = 0;
     setZoomLevel(1);
   }, [savedScale, savedTranslateX, savedTranslateY, scale, translateX, translateY]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || webPrinterIdRef.current === printerId) return;
+    webPrinterIdRef.current = printerId;
+    setWebCameraErrorStatus(null);
+    setWebCameraFailed(false);
+    resetZoom();
+  }, [printerId, resetZoom]);
 
   const clearStreamTimeout = useCallback(() => {
     if (streamTimeoutRef.current == null) return;
@@ -827,39 +960,78 @@ export default function CameraScreen() {
           () => void refreshCamera(),
         )
       ) : Platform.OS === 'ios' && webCamera ? (
-        <View style={styles.streamViewport}>
-          <CameraWebView
-            key={webViewGeneration}
-            source={{ uri: webCamera.uri }}
-            style={styles.stream}
-            originWhitelist={['*']}
-            injectedJavaScriptBeforeContentLoaded={cameraBootstrap}
-            javaScriptEnabled
-            incognito
-            sharedCookiesEnabled={false}
-            useSharedProcessPool={false}
-            javaScriptCanOpenWindowsAutomatically={false}
-            allowFileAccessFromFileURLs={false}
-            allowUniversalAccessFromFileURLs={false}
-            onShouldStartLoadWithRequest={allowCameraNavigation}
-            onOpenWindow={() => undefined}
-            onFileDownload={() => undefined}
-            onError={handleWebCameraFailure}
-            onHttpError={handleWebCameraHttpFailure}
-            onContentProcessDidTerminate={handleWebCameraFailure}
-          />
+        <GestureDetector gesture={cameraGesture}>
           <View
-            pointerEvents="none"
-            style={[
-              styles.webCameraMarker,
-              { backgroundColor: colors.overlay, borderColor: colors.border },
-            ]}
+            style={styles.streamViewport}
+            onLayout={event => {
+              containerWidth.value = event.nativeEvent.layout.width;
+              containerHeight.value = event.nativeEvent.layout.height;
+            }}
           >
-            <Text style={[styles.webCameraMarkerText, { color: colors.text }]}>
-              Web camera · iOS
-            </Text>
+            <Animated.View style={[styles.streamTransform, animatedStreamStyle]}>
+              <CameraWebView
+                key={`${printerId}:${webViewGeneration}`}
+                source={{ uri: webCamera.uri }}
+                style={styles.stream}
+                originWhitelist={['*']}
+                injectedJavaScriptBeforeContentLoaded={cameraBootstrap}
+                injectedJavaScript={cameraPresentationScript}
+                javaScriptEnabled
+                domStorageEnabled
+                incognito
+                sharedCookiesEnabled={false}
+                useSharedProcessPool={false}
+                javaScriptCanOpenWindowsAutomatically={false}
+                allowFileAccessFromFileURLs={false}
+                allowUniversalAccessFromFileURLs={false}
+                onShouldStartLoadWithRequest={allowCameraNavigation}
+                onOpenWindow={() => undefined}
+                onFileDownload={() => undefined}
+                onError={handleWebCameraFailure}
+                onHttpError={handleWebCameraHttpFailure}
+                onContentProcessDidTerminate={handleWebCameraFailure}
+              />
+            </Animated.View>
+            {plateDetectionEnabled ? (
+              <View pointerEvents="none" style={styles.calibrationOverlay}>
+                <View
+                  style={[
+                    styles.calibrationFrame,
+                    {
+                      left: `${Math.max(0, plateRoi.x) * 100}%`,
+                      top: `${Math.max(0, plateRoi.y) * 100}%`,
+                      width: `${Math.min(1, plateRoi.w) * 100}%`,
+                      height: `${Math.min(1, plateRoi.h) * 100}%`,
+                      borderColor: plateStatus?.calibrated ? colors.success : colors.warning,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.calibrationLabel,
+                      { backgroundColor: colors.overlay, borderColor: colors.border },
+                    ]}
+                  >
+                    <Text style={[styles.calibrationLabelText, { color: colors.text }]}>
+                      Plate detection area
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+            <View
+              pointerEvents="none"
+              style={[
+                styles.webCameraMarker,
+                { backgroundColor: colors.overlay, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.webCameraMarkerText, { color: colors.text }]}>
+                Web camera · iOS
+              </Text>
+            </View>
           </View>
-        </View>
+        </GestureDetector>
       ) : !mediaTokenReady ? (
         <View style={styles.stateWrap}>
           <ActivityIndicator size="large" color={colors.accent} />
@@ -940,8 +1112,6 @@ export default function CameraScreen() {
         </GestureDetector>
       ) : null}
 
-      {Platform.OS === 'android' ? (
-        <>
       <View style={[styles.topBar, { top: insets.top + spacing.md }]}> 
         <Pressable
           onPress={() => navigation.goBack()}
@@ -1196,23 +1366,6 @@ export default function CameraScreen() {
         result={diagnoseMutation.data ?? null}
         printer={printer}
       />
-        </>
-      ) : (
-        <Pressable
-          onPress={() => navigation.goBack()}
-          style={[
-            styles.iconButton,
-            styles.iosCloseButton,
-            {
-              top: insets.top + spacing.md,
-              backgroundColor: colors.overlay,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <X size={20} color={colors.text} strokeWidth={2} />
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -1291,10 +1444,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  iosCloseButton: {
-    position: 'absolute',
-    left: spacing.lg,
   },
   toolbarButton: {
     minHeight: 44,
