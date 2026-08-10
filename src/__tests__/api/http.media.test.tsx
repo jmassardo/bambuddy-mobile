@@ -7,6 +7,7 @@ import {
 } from '@/api/http';
 import { useServerStore } from '@/api/server';
 import { useMediaToken } from '@/hooks/useStreamToken';
+import { printersApi } from '@/api/printers';
 
 function MediaUrlConsumer() {
   const { token } = useMediaToken();
@@ -66,5 +67,25 @@ describe('media URL token scoping', () => {
         'late-token|https://one.example.com/api/v1/archives/7/timelapse?token=late-token',
       ),
     ).toBeTruthy();
+    await result.unmount();
+  });
+
+  it('preserves the token and cache-buster-compatible query on camera URLs', () => {
+    setStreamToken('camera-token');
+
+    const stream = new URL(printersApi.getCameraStreamUrl(9));
+    expect(stream.origin).toBe('https://one.example.com');
+    expect(stream.searchParams.get('fps')).toBe('5');
+    expect(stream.searchParams.get('token')).toBe('camera-token');
+
+    const snapshot = new URL(printersApi.getCameraSnapshotUrl(9));
+    expect(snapshot.searchParams.get('token')).toBe('camera-token');
+  });
+
+  it('does not expose the scoped token outside its configured origin', () => {
+    setStreamToken('origin-secret');
+    useServerStore.setState({ serverUrl: 'https://other.example.com' });
+
+    expect(printersApi.getCameraStreamUrl(9)).not.toContain('origin-secret');
   });
 });

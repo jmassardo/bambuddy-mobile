@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -51,6 +51,9 @@ import type {
 import { withCacheBuster } from '@/utils/data';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMediaToken } from '@/hooks/useStreamToken';
+import { IOSMJPEGStreamView } from '@/components/camera/IOSMJPEGStreamView';
+import type { IOSCameraEvent } from '@/components/camera/cameraTransportTypes';
+import { featureFlags } from '@/config/featureFlags';
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
@@ -145,6 +148,7 @@ function DiagnosticSheet({
   pending,
   result,
   printer,
+  transportDiagnostic,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -157,6 +161,7 @@ function DiagnosticSheet({
     cameraError?: string | null;
   } | null;
   printer: Printer | null;
+  transportDiagnostic: IOSCameraEvent | null;
 }) {
   const { colors } = useTheme();
 
@@ -182,6 +187,24 @@ function DiagnosticSheet({
               <View style={styles.loadingState}>
                 <ActivityIndicator size="small" color={colors.accent} />
                 <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Checking camera ports, routing, and stream health…</Text>
+              </View>
+            ) : null}
+
+            {transportDiagnostic ? (
+              <View style={[styles.diagSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                <Text style={[styles.diagTitle, { color: colors.text }]}>Device transport</Text>
+                <Text style={[styles.modalHint, { color: colors.textSecondary }]}>
+                  {[
+                    transportDiagnostic.errorCode ?? transportDiagnostic.type,
+                    transportDiagnostic.httpStatus
+                      ? `HTTP ${transportDiagnostic.httpStatus}`
+                      : null,
+                    transportDiagnostic.mimeType,
+                    transportDiagnostic.firstBytesSignature,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
               </View>
             ) : null}
 
@@ -301,11 +324,14 @@ export default function CameraScreen() {
   const [streamSeed, setStreamSeed] = useState(() => Date.now());
   const [streamLoading, setStreamLoading] = useState(true);
   const [streamError, setStreamError] = useState(false);
+  const [streamMode, setStreamMode] = useState<IOSCameraEvent['mode'] | null>(null);
+  const [transportDiagnostic, setTransportDiagnostic] = useState<IOSCameraEvent | null>(null);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [plateDetectionEnabled, setPlateDetectionEnabled] = useState(false);
   const [plateSensitivity, setPlateSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
   const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const authRefreshAttemptedRef = useRef(false);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -446,6 +472,9 @@ export default function CameraScreen() {
     clearStreamTimeout();
     setStreamError(false);
     setStreamLoading(true);
+    setStreamMode(null);
+    setTransportDiagnostic(null);
+    authRefreshAttemptedRef.current = false;
     setStreamSeed(current => Math.max(Date.now(), current + 1));
     resetZoom();
     await Promise.all([
@@ -590,19 +619,79 @@ export default function CameraScreen() {
         : status?.connected
           ? colors.success
           : colors.error;
-  const streamUrl = useMemo(() => {
-    if (!validPrinterId || !mediaTokenReady) return null;
-    return withCacheBuster(
-      api.getCameraStreamUrl(printerId),
-      `${mediaToken ?? 'public'}-${streamSeed}`,
-    );
-  }, [
-    mediaToken,
-    mediaTokenReady,
-    printerId,
-    streamSeed,
-    validPrinterId,
-  ]);
+  const streamUrl =
+    validPrinterId && mediaTokenReady
+      ? withCacheBuster(api.getCameraStreamUrl(printerId), streamSeed)
+      : null;
+  const snapshotUrl =
+    validPrinterId && mediaTokenReady
+      ? withCacheBuster(api.getCameraSnapshotUrl(printerId), streamSeed)
+      : null;
+  const nativeCameraEnabled =
+    Platform.OS === 'ios' && featureFlags.camera_ios_native_mjpeg_v1;
+  const attemptId = `camera-attempt-${streamSeed}`;
+
+  const handleNativeCameraEvent = useCallback(
+    (event: IOSCameraEvent) => {
+      if (event.attemptId !== attemptId || event.errorCode === 'cancelled') return;
+      setTransportDiagnostic(event);
+
+      if (event.type === 'first-frame') {
+        clearStreamTimeout();
+        setStreamLoading(false);
+        setStreamError(false);
+        setStreamMode(event.mode);
+        return;
+      }
+
+      if (event.type === 'mode-changed') {
+        setStreamMode(event.mode);
+        if (event.mode === 'snapshot-fallback') {
+          clearStreamTimeout();
+          setStreamLoading(false);
+          setStreamError(false);
+        }
+        return;
+      }
+
+      if (event.type !== 'failure') return;
+      if (
+        (event.errorCode === 'http_401' || event.errorCode === 'http_403') &&
+        !authRefreshAttemptedRef.current
+      ) {
+        authRefreshAttemptedRef.current = true;
+        queryClient
+          .invalidateQueries({ queryKey: ['camera-stream-token'] })
+          .finally(() => {
+            setStreamLoading(true);
+            setStreamError(false);
+            setStreamSeed(current => Math.max(Date.now(), current + 1));
+          });
+        return;
+      }
+
+      const isAuthenticationFailure =
+        event.errorCode === 'http_401' || event.errorCode === 'http_403';
+      if (
+        event.mode === 'native-mjpeg' &&
+        streamMode !== 'snapshot-fallback' &&
+        !isAuthenticationFailure
+      ) {
+        return;
+      }
+      clearStreamTimeout();
+      setStreamLoading(false);
+      setStreamError(true);
+      resetZoom();
+    },
+    [
+      attemptId,
+      clearStreamTimeout,
+      queryClient,
+      resetZoom,
+      streamMode,
+    ],
+  );
   const cameraUnavailableReason = !validPrinterId
     ? 'Missing printer id.'
     : !status?.connected
@@ -617,11 +706,12 @@ export default function CameraScreen() {
       !cameraUnavailableReason &&
       streamLoading &&
       !streamError &&
+      !nativeCameraEnabled &&
       streamTimeoutRef.current == null
     ) {
       armStreamTimeout();
     }
-  }, [armStreamTimeout, cameraUnavailableReason, streamError, streamLoading, streamUrl]);
+  }, [armStreamTimeout, cameraUnavailableReason, nativeCameraEnabled, streamError, streamLoading, streamUrl]);
 
   const plateRoi = printer?.plate_detection_roi ?? DEFAULT_PLATE_ROI;
   const plateStatus = plateStatusQuery.data;
@@ -689,14 +779,26 @@ export default function CameraScreen() {
         renderState(
           'Unable to load stream',
           Platform.OS === 'ios'
-            ? 'The live camera stream did not respond. Check Settings → Privacy → Local Network and allow Bambuddy, then retry.'
+            ? `The live camera stream did not respond. Check Settings → Privacy → Local Network and allow Bambuddy, then retry.${
+                transportDiagnostic?.errorCode
+                  ? ` (${transportDiagnostic.errorCode}${
+                      transportDiagnostic.httpStatus
+                        ? `, HTTP ${transportDiagnostic.httpStatus}`
+                        : ''
+                    }${transportDiagnostic.mimeType ? `, ${transportDiagnostic.mimeType}` : ''}${
+                      transportDiagnostic.firstBytesSignature
+                        ? `, ${transportDiagnostic.firstBytesSignature}`
+                        : ''
+                    })`
+                  : ''
+              }`
             : 'The live camera stream did not respond. Check that the printer is reachable on your local network, then retry.',
           'Retry',
           () => void refreshCamera(),
           'Diagnose',
           openDiagnostic,
         )
-      ) : streamUrl ? (
+      ) : streamUrl && snapshotUrl ? (
         <GestureDetector gesture={cameraGesture}>
           <View
             style={styles.streamViewport}
@@ -706,23 +808,38 @@ export default function CameraScreen() {
             }}
           >
             <Animated.View style={[styles.streamTransform, animatedStreamStyle]}>
-              <Image
-                testID="camera-stream-image"
-                source={{ uri: streamUrl }}
-                style={styles.stream}
-                resizeMode={fullscreen ? 'cover' : 'contain'}
-                onLoadStart={handleStreamLoadStart}
-                onLoad={() => {
-                  clearStreamTimeout();
-                  setStreamLoading(false);
-                }}
-                onError={() => {
-                  clearStreamTimeout();
-                  setStreamLoading(false);
-                  setStreamError(true);
-                  resetZoom();
-                }}
-              />
+              {nativeCameraEnabled ? (
+                <IOSMJPEGStreamView
+                  key={attemptId}
+                  testID="ios-native-camera-stream"
+                  streamUrl={streamUrl}
+                  snapshotUrl={snapshotUrl}
+                  attemptId={attemptId}
+                  snapshotFallbackIntervalMs={2000}
+                  firstFrameTimeoutMs={CAMERA_STREAM_TIMEOUT_MS}
+                  paused={false}
+                  style={styles.stream}
+                  onCameraEvent={handleNativeCameraEvent}
+                />
+              ) : (
+                <Image
+                  testID="camera-stream-image"
+                  source={{ uri: Platform.OS === 'ios' ? snapshotUrl : streamUrl }}
+                  style={styles.stream}
+                  resizeMode={fullscreen ? 'cover' : 'contain'}
+                  onLoadStart={handleStreamLoadStart}
+                  onLoad={() => {
+                    clearStreamTimeout();
+                    setStreamLoading(false);
+                  }}
+                  onError={() => {
+                    clearStreamTimeout();
+                    setStreamLoading(false);
+                    setStreamError(true);
+                    resetZoom();
+                  }}
+                />
+              )}
             </Animated.View>
             {plateDetectionEnabled ? (
               <View pointerEvents="none" style={styles.calibrationOverlay}>
@@ -755,6 +872,13 @@ export default function CameraScreen() {
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color={colors.accent} />
                 <Text style={[styles.loadingLabel, { color: colors.text }]}>Connecting to live stream…</Text>
+              </View>
+            ) : null}
+            {streamMode === 'snapshot-fallback' ? (
+              <View style={styles.degradedBadge}>
+                <Text style={[styles.loadingLabel, { color: colors.text }]}>
+                  Snapshot mode
+                </Text>
               </View>
             ) : null}
           </View>
@@ -1014,6 +1138,7 @@ export default function CameraScreen() {
         pending={diagnoseMutation.isPending}
         result={diagnoseMutation.data ?? null}
         printer={printer}
+        transportDiagnostic={transportDiagnostic}
       />
     </View>
   );
@@ -1216,6 +1341,15 @@ const styles = StyleSheet.create({
   loadingLabel: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
+  },
+  degradedBadge: {
+    position: 'absolute',
+    top: spacing.lg,
+    alignSelf: 'center',
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   stateWrap: {
     flex: 1,

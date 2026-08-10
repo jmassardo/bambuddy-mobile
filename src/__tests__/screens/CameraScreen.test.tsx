@@ -2,9 +2,27 @@ import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import CameraScreen, { CAMERA_STREAM_TIMEOUT_MS } from '@/screens/CameraScreen';
 
-const mockInvalidateQueries = jest.fn(() => Promise.resolve());
+const mockInvalidateQueries = jest.fn(
+  (_options: { queryKey: Array<string | number> }) => Promise.resolve(),
+);
 const mockDiagnoseMutate = jest.fn();
 const mockDiagnoseReset = jest.fn();
+let mockNativeCameraEnabled = false;
+
+jest.mock('@/config/featureFlags', () => ({
+  featureFlags: {
+    get camera_ios_native_mjpeg_v1() {
+      return mockNativeCameraEnabled;
+    },
+  },
+}));
+
+jest.mock('@/components/camera/IOSMJPEGStreamView', () => ({
+  IOSMJPEGStreamView: (props: Record<string, unknown>) => {
+    const { View: MockView } = require('react-native');
+    return <MockView {...props} />;
+  },
+}));
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
@@ -63,7 +81,8 @@ jest.mock('@tanstack/react-query', () => ({
 jest.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {},
   api: {
-    getCameraStreamUrl: (printerId: number) => `https://example.com/printers/${printerId}/camera/stream`,
+    getCameraStreamUrl: (printerId: number) => `https://example.com/printers/${printerId}/camera/stream?fps=5`,
+    getCameraSnapshotUrl: (printerId: number) => `https://example.com/printers/${printerId}/camera/snapshot`,
   },
 }));
 
@@ -161,6 +180,7 @@ describe('CameraScreen stream timeout', () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-08-04T12:00:00Z'));
     jest.clearAllMocks();
+    mockNativeCameraEnabled = false;
     renderResult = await render(<CameraScreen />);
     isUnmounted = false;
   });
@@ -237,5 +257,88 @@ describe('CameraScreen stream timeout', () => {
     await fireEvent(retriedImage, 'loadStart');
     expect(renderResult.getByText('Connecting to live stream…')).toBeTruthy();
     expect(renderResult.queryByText('Unable to load stream')).toBeNull();
+  });
+
+  it('uses finite snapshots on iOS while the native flag is off', () => {
+    expect(getStreamImage().props.source.uri).toContain('/camera/snapshot');
+    expect(renderResult.queryByTestId('ios-native-camera-stream')).toBeNull();
+  });
+
+  it('maps native first-frame and fallback events to camera state', async () => {
+    await renderResult.unmount();
+    mockNativeCameraEnabled = true;
+    renderResult = await render(<CameraScreen />);
+
+    const nativeView = renderResult.getByTestId('ios-native-camera-stream');
+    const attemptId = nativeView.props.attemptId;
+    expect(nativeView.props.streamUrl).toContain('fps=5');
+    expect(nativeView.props.snapshotUrl).toContain('/camera/snapshot');
+    expect(attemptId).not.toContain('media-token');
+
+    await fireEvent(nativeView, 'cameraEvent', {
+      type: 'first-frame',
+      attemptId,
+      mode: 'snapshot-preflight',
+      phase: 'decode',
+    });
+    expect(renderResult.queryByText('Connecting to live stream…')).toBeNull();
+
+    await fireEvent(nativeView, 'cameraEvent', {
+      type: 'mode-changed',
+      attemptId,
+      mode: 'snapshot-fallback',
+      phase: 'request',
+    });
+    expect(renderResult.getByText('Snapshot mode')).toBeTruthy();
+  });
+
+  it('refreshes authentication once and remounts a native attempt', async () => {
+    await renderResult.unmount();
+    mockNativeCameraEnabled = true;
+    renderResult = await render(<CameraScreen />);
+
+    const nativeView = renderResult.getByTestId('ios-native-camera-stream');
+    const firstAttempt = nativeView.props.attemptId;
+    await fireEvent(nativeView, 'cameraEvent', {
+      type: 'failure',
+      attemptId: firstAttempt,
+      mode: 'snapshot-preflight',
+      phase: 'response',
+      httpStatus: 401,
+      errorCode: 'http_401',
+    });
+    await act(async () => Promise.resolve());
+
+    const refreshedView = renderResult.getByTestId('ios-native-camera-stream');
+    expect(refreshedView.props.attemptId).not.toBe(firstAttempt);
+    expect(
+      mockInvalidateQueries.mock.calls.filter(
+        ([value]) => value.queryKey[0] === 'camera-stream-token',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('shows only sanitized native diagnostics after a terminal failure', async () => {
+    await renderResult.unmount();
+    mockNativeCameraEnabled = true;
+    renderResult = await render(<CameraScreen />);
+
+    const nativeView = renderResult.getByTestId('ios-native-camera-stream');
+    await fireEvent(nativeView, 'cameraEvent', {
+      type: 'failure',
+      attemptId: nativeView.props.attemptId,
+      mode: 'snapshot-preflight',
+      phase: 'response',
+      httpStatus: 500,
+      mimeType: 'application/json',
+      firstBytesSignature: 'json',
+      errorCode: 'http_5xx',
+    });
+
+    const errorCopy = String(renderResult.getByText(/http_5xx/).props.children);
+    expect(errorCopy).toContain('HTTP 500');
+    expect(errorCopy).toContain('application/json');
+    expect(errorCopy).not.toContain('media-token');
+    expect(errorCopy).not.toContain('example.com');
   });
 });

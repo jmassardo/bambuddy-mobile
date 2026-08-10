@@ -377,7 +377,10 @@ export const printersApi = {
     buildMediaUrl(`/printers/${printerId}/camera/snapshot`),
 
   getCameraStreamUrl: (printerId: number): string =>
-    buildMediaUrl(`/printers/${printerId}/camera/stream`),
+    buildMediaUrl(
+      `/printers/${printerId}/camera/stream`,
+      new URLSearchParams({ fps: '5' }),
+    ),
 
   diagnosePrinterCamera: async (printerId: number) =>
     request<CameraDiagnoseResult>(`/printers/${printerId}/camera/diagnose`, {

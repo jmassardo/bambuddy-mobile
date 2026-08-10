@@ -7,24 +7,51 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		08CDEE9243EB49113F2242F8 /* MJPEGStreamTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77717B9E3A090DE20BCF0552 /* MJPEGStreamTransportTests.swift */; };
 		0C80B921A6F3F58F76C31292 /* libPods-Bambuddy.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-Bambuddy.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		49FB604710A0C2F3792CE2FA /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		9281A4ACD4BCD9DE52ADF15F /* BambuddyMJPEGViewManagerBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3058B178D250948FD24036 /* BambuddyMJPEGViewManagerBridge.m */; };
+		C07DE954C1B7922A1646F69A /* BambuddyMJPEGView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48DF8F9C72C9A76483C9EAF6 /* BambuddyMJPEGView.swift */; };
+		C23555A8B8CACAA1DE6C3AA3 /* BambuddyMJPEGViewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF30D9160457A236B8C7EFD6 /* BambuddyMJPEGViewManager.swift */; };
+		DC68BFDA45133BB0CE1F2062 /* MJPEGStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC04FA93BFF637A4D9173FB0 /* MJPEGStreamParser.swift */; };
+		F05B7EAAC78481341F4B50A4 /* MJPEGStreamTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A2CB26F953249B816EA547 /* MJPEGStreamTransport.swift */; };
+		F4D349454E067DD435711688 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A393EFCFA8089498302BCBD5 /* XCTest.framework */; };
+		FA6DD87A0F50B376D28AC1E6 /* MJPEGStreamParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B6121B7EA3678DB5BBB699A /* MJPEGStreamParserTests.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		DBA839491F48B22B405B5761 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 13B07F861A680F5B00A75B9A;
+			remoteInfo = Bambuddy;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		06A2CB26F953249B816EA547 /* MJPEGStreamTransport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MJPEGStreamTransport.swift; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* Bambuddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Bambuddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Bambuddy/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Bambuddy/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = Bambuddy/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		256E3FB3B8DB2251E43936F7 /* BambuddyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BambuddyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B4392A12AC88292D35C810B /* Pods-Bambuddy.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Bambuddy.debug.xcconfig"; path = "Target Support Files/Pods-Bambuddy/Pods-Bambuddy.debug.xcconfig"; sourceTree = "<group>"; };
+		48DF8F9C72C9A76483C9EAF6 /* BambuddyMJPEGView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BambuddyMJPEGView.swift; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-Bambuddy.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Bambuddy.release.xcconfig"; path = "Target Support Files/Pods-Bambuddy/Pods-Bambuddy.release.xcconfig"; sourceTree = "<group>"; };
+		5D3058B178D250948FD24036 /* BambuddyMJPEGViewManagerBridge.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = BambuddyMJPEGViewManagerBridge.m; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-Bambuddy.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Bambuddy.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Bambuddy/AppDelegate.swift; sourceTree = "<group>"; };
+		77717B9E3A090DE20BCF0552 /* MJPEGStreamTransportTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MJPEGStreamTransportTests.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Bambuddy/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		8B6121B7EA3678DB5BBB699A /* MJPEGStreamParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MJPEGStreamParserTests.swift; sourceTree = "<group>"; };
+		A393EFCFA8089498302BCBD5 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		EF30D9160457A236B8C7EFD6 /* BambuddyMJPEGViewManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BambuddyMJPEGViewManager.swift; sourceTree = "<group>"; };
+		FC04FA93BFF637A4D9173FB0 /* MJPEGStreamParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MJPEGStreamParser.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -36,9 +63,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7C575EB780CF88F6C6316838 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F4D349454E067DD435711688 /* XCTest.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0B81BB20040E748EBF7DFF1F /* BambuddyTests */ = {
+			isa = PBXGroup;
+			children = (
+				8B6121B7EA3678DB5BBB699A /* MJPEGStreamParserTests.swift */,
+				77717B9E3A090DE20BCF0552 /* MJPEGStreamTransportTests.swift */,
+			);
+			name = BambuddyTests;
+			path = BambuddyTests;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* Bambuddy */ = {
 			isa = PBXGroup;
 			children = (
@@ -47,6 +92,7 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
+				FFED5886F016421241B7D173 /* Camera */,
 			);
 			name = Bambuddy;
 			sourceTree = "<group>";
@@ -56,6 +102,7 @@
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				5DCACB8F33CDC322A6C60F78 /* libPods-Bambuddy.a */,
+				857CA1043315815C3E5B336F /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -75,6 +122,7 @@
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				0B81BB20040E748EBF7DFF1F /* BambuddyTests */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -85,8 +133,17 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* Bambuddy.app */,
+				256E3FB3B8DB2251E43936F7 /* BambuddyTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		857CA1043315815C3E5B336F /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				A393EFCFA8089498302BCBD5 /* XCTest.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
@@ -96,6 +153,19 @@
 				5709B34CF0A7D63546082F79 /* Pods-Bambuddy.release.xcconfig */,
 			);
 			path = Pods;
+			sourceTree = "<group>";
+		};
+		FFED5886F016421241B7D173 /* Camera */ = {
+			isa = PBXGroup;
+			children = (
+				FC04FA93BFF637A4D9173FB0 /* MJPEGStreamParser.swift */,
+				06A2CB26F953249B816EA547 /* MJPEGStreamTransport.swift */,
+				48DF8F9C72C9A76483C9EAF6 /* BambuddyMJPEGView.swift */,
+				EF30D9160457A236B8C7EFD6 /* BambuddyMJPEGViewManager.swift */,
+				5D3058B178D250948FD24036 /* BambuddyMJPEGViewManagerBridge.m */,
+			);
+			name = Camera;
+			path = Bambuddy/Camera;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -121,6 +191,24 @@
 			productName = Bambuddy;
 			productReference = 13B07F961A680F5B00A75B9A /* Bambuddy.app */;
 			productType = "com.apple.product-type.application";
+		};
+		820BEF3D9B9778E070E006A5 /* BambuddyTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2AA4FF58F089AE440793E476 /* Build configuration list for PBXNativeTarget "BambuddyTests" */;
+			buildPhases = (
+				208C1E3FDCE21E71110ED7EF /* Sources */,
+				7C575EB780CF88F6C6316838 /* Frameworks */,
+				C5CE65D719148729143ECF53 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3AC5A2DCB7D49F2F3A3E56F2 /* PBXTargetDependency */,
+			);
+			name = BambuddyTests;
+			productName = BambuddyTests;
+			productReference = 256E3FB3B8DB2251E43936F7 /* BambuddyTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -149,6 +237,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* Bambuddy */,
+				820BEF3D9B9778E070E006A5 /* BambuddyTests */,
 			);
 		};
 /* End PBXProject section */
@@ -161,6 +250,13 @@
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				49FB604710A0C2F3792CE2FA /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C5CE65D719148729143ECF53 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -247,12 +343,53 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				DC68BFDA45133BB0CE1F2062 /* MJPEGStreamParser.swift in Sources */,
+				F05B7EAAC78481341F4B50A4 /* MJPEGStreamTransport.swift in Sources */,
+				C07DE954C1B7922A1646F69A /* BambuddyMJPEGView.swift in Sources */,
+				C23555A8B8CACAA1DE6C3AA3 /* BambuddyMJPEGViewManager.swift in Sources */,
+				9281A4ACD4BCD9DE52ADF15F /* BambuddyMJPEGViewManagerBridge.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		208C1E3FDCE21E71110ED7EF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA6DD87A0F50B376D28AC1E6 /* MJPEGStreamParserTests.swift in Sources */,
+				08CDEE9243EB49113F2242F8 /* MJPEGStreamTransportTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		3AC5A2DCB7D49F2F3A3E56F2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Bambuddy;
+			target = 13B07F861A680F5B00A75B9A /* Bambuddy */;
+			targetProxy = DBA839491F48B22B405B5761 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		0191685068D95051CC9449A2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3B4392A12AC88292D35C810B /* Pods-Bambuddy.debug.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dxrf.bambuddy.tests;
+				PRODUCT_MODULE_NAME = "$(PRODUCT_NAME:c99extidentifier)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Bambuddy.app/Bambuddy";
+			};
+			name = Debug;
+		};
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3B4392A12AC88292D35C810B /* Pods-Bambuddy.debug.xcconfig */;
@@ -316,6 +453,25 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		78869D55694A9C47A67B428C /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5709B34CF0A7D63546082F79 /* Pods-Bambuddy.release.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dxrf.bambuddy.tests;
+				PRODUCT_MODULE_NAME = "$(PRODUCT_NAME:c99extidentifier)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Bambuddy.app/Bambuddy";
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
@@ -485,6 +641,15 @@
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,
 				13B07F951A680F5B00A75B9A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2AA4FF58F089AE440793E476 /* Build configuration list for PBXNativeTarget "BambuddyTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				78869D55694A9C47A67B428C /* Release */,
+				0191685068D95051CC9449A2 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
