@@ -313,17 +313,22 @@ final class MJPEGStreamTransportTests: XCTestCase {
         startingOfferCount: 1
       )
     )
-    wait(for: [streamDecoded], timeout: 1)
     XCTAssertEqual(transport.retainedIncomingFrameCountForTesting, 1)
     XCTAssertEqual(transport.maximumRetainedIncomingFrameCountForTesting, 1)
-    XCTAssertEqual(deliveryScheduler.count, 1)
-    XCTAssertEqual(decodeTimes, [10, 10])
+    XCTAssertEqual(deliveryScheduler.count, 0)
+    XCTAssertEqual(decodeTimes, [10])
+    XCTAssertTrue(waitUntil { cadenceScheduler.count == 1 })
+    XCTAssertEqual(cadenceScheduler.delays.first!, 0.2, accuracy: 0.000_001)
 
-    XCTAssertEqual(decodeTimes.count, 2)
+    clock.now = 10.201
+    cadenceScheduler.runNext()
+    wait(for: [streamDecoded], timeout: 1)
+    XCTAssertEqual(decodeTimes, [10, 10.201])
+    XCTAssertEqual(deliveryScheduler.count, 1)
     deliveryScheduler.runNext()
     XCTAssertEqual(deliveries, 2)
 
-    clock.now = 10.05
+    clock.now = 10.25
     XCTAssertTrue(
       sendHeldFrames(
         jpeg: jpeg,
@@ -334,18 +339,20 @@ final class MJPEGStreamTransportTests: XCTestCase {
       )
     )
     XCTAssertTrue(waitUntil { cadenceScheduler.count == 1 })
-    XCTAssertEqual(cadenceScheduler.delays.first!, 0.15, accuracy: 0.000_001)
+    XCTAssertEqual(cadenceScheduler.delays.first!, 0.151, accuracy: 0.000_001)
 
-    clock.now = 10.19
+    clock.now = 10.39
     cadenceScheduler.runNext()
     XCTAssertTrue(waitUntil { cadenceScheduler.count == 1 })
     XCTAssertEqual(decodeTimes.count, 2)
-    XCTAssertEqual(cadenceScheduler.delays.first!, 0.01, accuracy: 0.000_001)
+    XCTAssertEqual(cadenceScheduler.delays.first!, 0.011, accuracy: 0.000_001)
 
-    clock.now = 10.201
+    clock.now = 10.402
     cadenceScheduler.runNext()
     wait(for: [cadenceDecoded], timeout: 1)
-    XCTAssertEqual(decodeTimes, [10, 10, 10.201])
+    XCTAssertEqual(decodeTimes, [10, 10.201, 10.402])
+    XCTAssertGreaterThanOrEqual(decodeTimes[1] - decodeTimes[0], 0.2)
+    XCTAssertGreaterThanOrEqual(decodeTimes[2] - decodeTimes[1], 0.2)
     XCTAssertEqual(transport.maximumRetainedIncomingFrameCountForTesting, 1)
     transport.cancel()
   }
@@ -474,12 +481,14 @@ final class MJPEGStreamTransportTests: XCTestCase {
       }
       XCTAssertEqual(request.url?.path, streamURL.path)
       let body = self.multipart(jpeg: jpeg, boundary: "cam")
-      return self.stub(
+      var held = self.stub(
         url: request.url!,
         status: 200,
         mime: "multipart/x-mixed-replace; boundary=\"cam\"",
         chunks: body.map { Data([$0]) }
       )
+      held.holdOpen = true
+      return held
     }
     let firstFrame = expectation(description: "first frame")
     var captured: [String: Any]?
@@ -773,6 +782,9 @@ final class MJPEGStreamTransportTests: XCTestCase {
     wait(for: [streamHeld], timeout: 1)
     deliveryScheduler.runNext()
     CameraURLProtocol.sendHeld(multipartFrames(jpeg: jpeg, boundary: "cam", count: 1))
+    XCTAssertTrue(waitUntil { cadenceScheduler.count == 1 })
+    clock.now = 20.201
+    cadenceScheduler.runNext()
     XCTAssertTrue(waitUntil {
       decodeLock.lock()
       defer { decodeLock.unlock() }
@@ -780,7 +792,7 @@ final class MJPEGStreamTransportTests: XCTestCase {
     })
     deliveryScheduler.runNext()
 
-    clock.now = 20.05
+    clock.now = 20.25
     CameraURLProtocol.sendHeld(multipartFrames(jpeg: jpeg, boundary: "cam", count: 1))
     XCTAssertTrue(waitUntil { cadenceScheduler.count == 1 })
     transport.cancel()

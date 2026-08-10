@@ -670,6 +670,7 @@ final class MJPEGStreamTransport: NSObject {
           let (frameID, frame) = compressedIncomingFrame() else {
       return nil
     }
+    lastDecodeAttemptTime = clock()
     var decodedImage: UIImage?
     let decoded = generation.performIfActive {
       decodedImage = frameDecoder(frame)
