@@ -52,7 +52,10 @@ import { withCacheBuster } from '@/utils/data';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMediaToken } from '@/hooks/useStreamToken';
 import { IOSMJPEGStreamView } from '@/components/camera/IOSMJPEGStreamView';
-import type { IOSCameraEvent } from '@/components/camera/cameraTransportTypes';
+import {
+  transitionsImmediatelyToSnapshotFallback,
+  type IOSCameraEvent,
+} from '@/components/camera/cameraTransportTypes';
 import { featureFlags } from '@/config/featureFlags';
 
 function clamp(value: number, min = 0, max = 100) {
@@ -670,13 +673,7 @@ export default function CameraScreen() {
         return;
       }
 
-      const isAuthenticationFailure =
-        event.errorCode === 'http_401' || event.errorCode === 'http_403';
-      if (
-        event.mode === 'native-mjpeg' &&
-        streamMode !== 'snapshot-fallback' &&
-        !isAuthenticationFailure
-      ) {
+      if (transitionsImmediatelyToSnapshotFallback(event)) {
         return;
       }
       clearStreamTimeout();
@@ -689,7 +686,6 @@ export default function CameraScreen() {
       clearStreamTimeout,
       queryClient,
       resetZoom,
-      streamMode,
     ],
   );
   const cameraUnavailableReason = !validPrinterId

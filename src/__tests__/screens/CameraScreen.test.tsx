@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import CameraScreen, { CAMERA_STREAM_TIMEOUT_MS } from '@/screens/CameraScreen';
 
@@ -174,12 +175,17 @@ function getStreamImage() {
 
 let renderResult: Awaited<ReturnType<typeof render>>;
 let isUnmounted: boolean;
+const platformOSDescriptor = Object.getOwnPropertyDescriptor(Platform, 'OS');
 
 describe('CameraScreen stream timeout', () => {
   beforeEach(async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-08-04T12:00:00Z'));
     jest.clearAllMocks();
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: 'ios',
+    });
     mockNativeCameraEnabled = false;
     renderResult = await render(<CameraScreen />);
     isUnmounted = false;
@@ -189,6 +195,9 @@ describe('CameraScreen stream timeout', () => {
     if (!isUnmounted) await renderResult.unmount();
     jest.clearAllTimers();
     jest.useRealTimers();
+    if (platformOSDescriptor) {
+      Object.defineProperty(Platform, 'OS', platformOSDescriptor);
+    }
   });
 
   it('shows retry and diagnostic actions when the first frame times out', async () => {
@@ -264,6 +273,27 @@ describe('CameraScreen stream timeout', () => {
     expect(renderResult.queryByTestId('ios-native-camera-stream')).toBeNull();
   });
 
+  it('ships the real native camera feature flag defaulted off', () => {
+    const actualFeatureFlags = jest.requireActual<
+      typeof import('@/config/featureFlags')
+    >('@/config/featureFlags').featureFlags;
+
+    expect(actualFeatureFlags.camera_ios_native_mjpeg_v1).toBe(false);
+  });
+
+  it('preserves the Android MJPEG image renderer', async () => {
+    await renderResult.unmount();
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: 'android',
+    });
+    mockNativeCameraEnabled = true;
+    renderResult = await render(<CameraScreen />);
+
+    expect(getStreamImage().props.source.uri).toContain('/camera/stream?fps=5');
+    expect(renderResult.queryByTestId('ios-native-camera-stream')).toBeNull();
+  });
+
   it('maps native first-frame and fallback events to camera state', async () => {
     await renderResult.unmount();
     mockNativeCameraEnabled = true;
@@ -316,6 +346,123 @@ describe('CameraScreen stream timeout', () => {
         ([value]) => value.queryKey[0] === 'camera-stream-token',
       ),
     ).toHaveLength(1);
+  });
+
+  it('treats a second authentication failure as terminal after one refresh', async () => {
+    await renderResult.unmount();
+    mockNativeCameraEnabled = true;
+    renderResult = await render(<CameraScreen />);
+
+    const firstView = renderResult.getByTestId('ios-native-camera-stream');
+    await fireEvent(firstView, 'cameraEvent', {
+      type: 'failure',
+      attemptId: firstView.props.attemptId,
+      mode: 'snapshot-preflight',
+      phase: 'response',
+      httpStatus: 401,
+      errorCode: 'http_401',
+    });
+    await act(async () => Promise.resolve());
+
+    const secondView = renderResult.getByTestId('ios-native-camera-stream');
+    await fireEvent(secondView, 'cameraEvent', {
+      type: 'failure',
+      attemptId: secondView.props.attemptId,
+      mode: 'snapshot-preflight',
+      phase: 'response',
+      httpStatus: 403,
+      errorCode: 'http_403',
+    });
+
+    expect(renderResult.getByText('Unable to load stream')).toBeTruthy();
+    expect(renderResult.getByText(/http_403/)).toBeTruthy();
+    expect(
+      mockInvalidateQueries.mock.calls.filter(
+        ([value]) => value.queryKey[0] === 'camera-stream-token',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('remounts on native Retry and ignores cancellation from the old attempt', async () => {
+    await renderResult.unmount();
+    mockNativeCameraEnabled = true;
+    renderResult = await render(<CameraScreen />);
+
+    const oldView = renderResult.getByTestId('ios-native-camera-stream');
+    const oldAttemptId = oldView.props.attemptId;
+    const oldEventHandler = oldView.props.onCameraEvent;
+    await fireEvent(oldView, 'cameraEvent', {
+      type: 'failure',
+      attemptId: oldAttemptId,
+      mode: 'native-mjpeg',
+      phase: 'request',
+      errorCode: 'native_unavailable',
+    });
+
+    await fireEvent.press(renderResult.getByText('Retry'));
+
+    const retriedView = renderResult.getByTestId('ios-native-camera-stream');
+    expect(retriedView.props.attemptId).not.toBe(oldAttemptId);
+
+    await act(async () => {
+      oldEventHandler({
+        type: 'failure',
+        attemptId: oldAttemptId,
+        mode: 'native-mjpeg',
+        phase: 'request',
+        errorCode: 'cancelled',
+      });
+    });
+
+    expect(renderResult.getByTestId('ios-native-camera-stream')).toBeTruthy();
+    expect(renderResult.getByText('Connecting to live stream…')).toBeTruthy();
+    expect(renderResult.queryByText('Unable to load stream')).toBeNull();
+  });
+
+  it('suppresses a native failure that immediately enters snapshot fallback', async () => {
+    await renderResult.unmount();
+    mockNativeCameraEnabled = true;
+    renderResult = await render(<CameraScreen />);
+
+    const nativeView = renderResult.getByTestId('ios-native-camera-stream');
+    await fireEvent(nativeView, 'cameraEvent', {
+      type: 'failure',
+      attemptId: nativeView.props.attemptId,
+      mode: 'native-mjpeg',
+      phase: 'parse',
+      errorCode: 'boundary_missing',
+    });
+
+    expect(renderResult.queryByText('Unable to load stream')).toBeNull();
+
+    await fireEvent(nativeView, 'cameraEvent', {
+      type: 'mode-changed',
+      attemptId: nativeView.props.attemptId,
+      mode: 'snapshot-fallback',
+      phase: 'request',
+    });
+
+    expect(renderResult.getByText('Snapshot mode')).toBeTruthy();
+  });
+
+  it('surfaces native_unavailable as a terminal failure', async () => {
+    await renderResult.unmount();
+    mockNativeCameraEnabled = true;
+    renderResult = await render(<CameraScreen />);
+
+    const nativeView = renderResult.getByTestId('ios-native-camera-stream');
+    await fireEvent(nativeView, 'cameraEvent', {
+      type: 'failure',
+      attemptId: nativeView.props.attemptId,
+      mode: 'native-mjpeg',
+      phase: 'request',
+      errorCode: 'native_unavailable',
+    });
+
+    expect(renderResult.getByText('Unable to load stream')).toBeTruthy();
+    expect(renderResult.getByText('Retry')).toBeTruthy();
+    expect(renderResult.getAllByText('Diagnose').length).toBeGreaterThan(0);
+    expect(renderResult.getByText(/native_unavailable/)).toBeTruthy();
   });
 
   it('shows only sanitized native diagnostics after a terminal failure', async () => {

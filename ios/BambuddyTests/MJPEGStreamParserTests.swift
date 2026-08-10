@@ -25,6 +25,23 @@ final class MJPEGStreamParserTests: XCTestCase {
     XCTAssertEqual(frames, [jpeg, second])
   }
 
+  func testStreamsRapidFramesThroughCallbackWithoutAccumulatingAResultArray() throws {
+    let parser = try MJPEGStreamParser(boundary: "frame")
+    let frames = (0..<100).map {
+      Data([0xff, 0xd8, UInt8($0), UInt8($0), 0xff, 0xd9])
+    }
+    var receivedCount = 0
+    var latest: Data?
+
+    try parser.append(multipart(frames, boundary: "frame", includeLengths: true)) { frame in
+      receivedCount += 1
+      latest = frame
+    }
+
+    XCTAssertEqual(receivedCount, frames.count)
+    XCTAssertEqual(latest, frames.last)
+  }
+
   func testRejectsMalformedJPEG() throws {
     let parser = try MJPEGStreamParser(boundary: "frame")
 

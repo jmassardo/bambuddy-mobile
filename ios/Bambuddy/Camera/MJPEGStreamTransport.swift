@@ -26,6 +26,54 @@ enum CameraTransportError: String {
   case nativeUnavailable = "native_unavailable"
 }
 
+struct MJPEGFrameCadencer {
+  enum Action {
+    case decode(Data)
+    case schedule(TimeInterval)
+    case none
+  }
+
+  static let minimumDecodeInterval: TimeInterval = 0.2
+
+  private(set) var pendingFrame: Data?
+  private var lastDecodeTime: TimeInterval?
+  private var decodeScheduled = false
+
+  mutating func offer(_ frame: Data, at time: TimeInterval) -> Action {
+    guard let lastDecodeTime else {
+      self.lastDecodeTime = time
+      return .decode(frame)
+    }
+    pendingFrame = frame
+    guard !decodeScheduled else { return .none }
+    decodeScheduled = true
+    return .schedule(max(0, Self.minimumDecodeInterval - (time - lastDecodeTime)))
+  }
+
+  mutating func takePending(at time: TimeInterval) -> Action {
+    guard let lastDecodeTime else {
+      decodeScheduled = false
+      guard let frame = pendingFrame else { return .none }
+      pendingFrame = nil
+      self.lastDecodeTime = time
+      return .decode(frame)
+    }
+    let remaining = Self.minimumDecodeInterval - (time - lastDecodeTime)
+    guard remaining <= 0 else { return .schedule(remaining) }
+    decodeScheduled = false
+    guard let frame = pendingFrame else { return .none }
+    pendingFrame = nil
+    self.lastDecodeTime = time
+    return .decode(frame)
+  }
+
+  mutating func reset() {
+    pendingFrame = nil
+    lastDecodeTime = nil
+    decodeScheduled = false
+  }
+}
+
 final class MJPEGStreamTransport: NSObject {
   typealias EventHandler = ([String: Any]) -> Void
   typealias ImageHandler = (UIImage) -> Void
@@ -87,6 +135,11 @@ final class MJPEGStreamTransport: NSObject {
   private var fallbackMode = false
   private var pendingFallbackReason: String?
   private var redirectCounts: [Int: Int] = [:]
+  private var frameCadencer = MJPEGFrameCadencer()
+  private var frameDecodeWorkItem: DispatchWorkItem?
+  private let imageDeliveryLock = NSLock()
+  private var pendingImage: UIImage?
+  private var imageDeliveryScheduled = false
 
   init(
     streamURL: URL,
@@ -226,6 +279,12 @@ final class MJPEGStreamTransport: NSObject {
     stopped = true
     timeoutWorkItem?.cancel()
     fallbackWorkItem?.cancel()
+    frameDecodeWorkItem?.cancel()
+    frameDecodeWorkItem = nil
+    frameCadencer.reset()
+    imageDeliveryLock.lock()
+    pendingImage = nil
+    imageDeliveryLock.unlock()
     currentTask?.cancel()
     currentTask = nil
     states.removeAll()
@@ -368,7 +427,7 @@ final class MJPEGStreamTransport: NSObject {
     }
   }
 
-  private static func transportError(for error: NSError) -> CameraTransportError {
+  static func transportError(for error: NSError) -> CameraTransportError {
     switch error.code {
     case NSURLErrorAppTransportSecurityRequiresSecureConnection:
       return .atsBlocked
@@ -450,7 +509,7 @@ final class MJPEGStreamTransport: NSObject {
       if state.kind == .snapshotFallback { scheduleFallback() }
       return
     }
-    DispatchQueue.main.async { [imageHandler] in imageHandler(image) }
+    deliver(image)
     if state.kind == .snapshotPreflight {
       snapshotPreflightSucceeded = true
       Self.logger.notice("camera.transport.first_frame")
@@ -477,6 +536,108 @@ final class MJPEGStreamTransport: NSObject {
         image: image
       )
       scheduleFallback()
+    }
+  }
+
+  private func receiveStreamFrame(_ frame: Data, state: TaskState, dataTask: URLSessionDataTask) {
+    handleCadencerAction(
+      frameCadencer.offer(frame, at: ProcessInfo.processInfo.systemUptime),
+      state: state,
+      dataTask: dataTask
+    )
+  }
+
+  private func handleCadencerAction(
+    _ action: MJPEGFrameCadencer.Action,
+    state: TaskState,
+    dataTask: URLSessionDataTask
+  ) {
+    switch action {
+    case let .decode(frame):
+      decodeStreamFrame(frame, state: state, dataTask: dataTask)
+    case let .schedule(delay):
+      schedulePendingDecode(after: delay, state: state, dataTask: dataTask)
+    case .none:
+      break
+    }
+  }
+
+  private func schedulePendingDecode(
+    after delay: TimeInterval,
+    state: TaskState,
+    dataTask: URLSessionDataTask
+  ) {
+    frameDecodeWorkItem?.cancel()
+    let workItem = DispatchWorkItem { [weak self, weak dataTask] in
+      guard let self, let dataTask, !self.stopped else { return }
+      self.frameDecodeWorkItem = nil
+      self.handleCadencerAction(
+        self.frameCadencer.takePending(at: ProcessInfo.processInfo.systemUptime),
+        state: state,
+        dataTask: dataTask
+      )
+    }
+    frameDecodeWorkItem = workItem
+    DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + delay) { [weak self] in
+      self?.delegateQueue.addOperation { workItem.perform() }
+    }
+  }
+
+  private func decodeStreamFrame(
+    _ frame: Data,
+    state: TaskState,
+    dataTask: URLSessionDataTask
+  ) {
+    guard let image = UIImage(data: frame) else {
+      state.terminalError = .decodeFailed
+      emitFailure(
+        .decodeFailed,
+        mode: state.kind.mode,
+        phase: "decode",
+        bytesReceived: state.bytesReceived,
+        signature: state.signature
+      )
+      dataTask.cancel()
+      return
+    }
+    deliver(image)
+    if !receivedStreamFrame {
+      receivedStreamFrame = true
+      timeoutWorkItem?.cancel()
+      Self.logger.notice("camera.transport.first_frame")
+      let elapsed = Int(Date().timeIntervalSince(startedAt) * 1_000)
+      Self.recordFirstFrame(elapsed, mode: state.kind.mode)
+      emit(
+        type: "first-frame",
+        mode: state.kind.mode,
+        phase: "decode",
+        bytesReceived: state.bytesReceived,
+        signature: state.signature,
+        image: image
+      )
+    }
+  }
+
+  private func deliver(_ image: UIImage) {
+    imageDeliveryLock.lock()
+    pendingImage = image
+    guard !imageDeliveryScheduled else {
+      imageDeliveryLock.unlock()
+      return
+    }
+    imageDeliveryScheduled = true
+    imageDeliveryLock.unlock()
+
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      self.imageDeliveryLock.lock()
+      let image = self.pendingImage
+      self.pendingImage = nil
+      self.imageDeliveryScheduled = false
+      self.imageDeliveryLock.unlock()
+      if let image {
+        self.imageHandler(image)
+      }
     }
   }
 }
@@ -649,36 +810,8 @@ extension MJPEGStreamTransport: URLSessionDataDelegate, URLSessionTaskDelegate {
 
     case .stream:
       do {
-        let frames = try state.parser?.append(data) ?? []
-        for frame in frames {
-          guard let image = UIImage(data: frame) else {
-            state.terminalError = .decodeFailed
-            emitFailure(
-              .decodeFailed,
-              mode: state.kind.mode,
-              phase: "decode",
-              bytesReceived: state.bytesReceived,
-              signature: state.signature
-            )
-            dataTask.cancel()
-            return
-          }
-          DispatchQueue.main.async { [imageHandler] in imageHandler(image) }
-          if !receivedStreamFrame {
-            receivedStreamFrame = true
-            timeoutWorkItem?.cancel()
-            Self.logger.notice("camera.transport.first_frame")
-            let elapsed = Int(Date().timeIntervalSince(startedAt) * 1_000)
-            Self.recordFirstFrame(elapsed, mode: state.kind.mode)
-            emit(
-              type: "first-frame",
-              mode: state.kind.mode,
-              phase: "decode",
-              bytesReceived: state.bytesReceived,
-              signature: state.signature,
-              image: image
-            )
-          }
+        try state.parser?.append(data) { frame in
+          self.receiveStreamFrame(frame, state: state, dataTask: dataTask)
         }
       } catch let parserError as MJPEGStreamParserError {
         let error: CameraTransportError
@@ -717,6 +850,11 @@ extension MJPEGStreamTransport: URLSessionDataDelegate, URLSessionTaskDelegate {
     didCompleteWithError error: Error?
   ) {
     guard let state = states.removeValue(forKey: task.taskIdentifier) else { return }
+    if state.kind == .stream {
+      frameDecodeWorkItem?.cancel()
+      frameDecodeWorkItem = nil
+      frameCadencer.reset()
+    }
     redirectCounts.removeValue(forKey: task.taskIdentifier)
     if currentTask?.taskIdentifier == task.taskIdentifier {
       currentTask = nil

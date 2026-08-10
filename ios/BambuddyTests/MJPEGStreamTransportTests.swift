@@ -72,6 +72,14 @@ final class CameraURLProtocol: URLProtocol {
   }
 }
 
+final class CameraChallengeSender: NSObject, URLAuthenticationChallengeSender {
+  func use(_ credential: URLCredential, for challenge: URLAuthenticationChallenge) {}
+  func continueWithoutCredential(for challenge: URLAuthenticationChallenge) {}
+  func cancel(_ challenge: URLAuthenticationChallenge) {}
+  func performDefaultHandling(for challenge: URLAuthenticationChallenge) {}
+  func rejectProtectionSpaceAndContinue(with challenge: URLAuthenticationChallenge) {}
+}
+
 final class MJPEGStreamTransportTests: XCTestCase {
   private let snapshotURL = URL(string: "http://camera.test/snapshot?auth=private-value")!
   private let streamURL = URL(string: "http://camera.test/stream?auth=private-value&fps=5")!
@@ -126,6 +134,98 @@ final class MJPEGStreamTransportTests: XCTestCase {
     ))
   }
 
+  func testURLErrorTaxonomyIsFixedForATSLocalNetworkTLSDNSTimeoutAndCancellation() {
+    let cases: [(Int, CameraTransportError)] = [
+      (NSURLErrorAppTransportSecurityRequiresSecureConnection, .atsBlocked),
+      (NSURLErrorCannotConnectToHost, .localNetworkDeniedOrUnreachable),
+      (NSURLErrorDataNotAllowed, .localNetworkDeniedOrUnreachable),
+      (NSURLErrorSecureConnectionFailed, .tlsFailed),
+      (NSURLErrorServerCertificateUntrusted, .tlsFailed),
+      (NSURLErrorCannotFindHost, .dnsFailed),
+      (NSURLErrorDNSLookupFailed, .dnsFailed),
+      (NSURLErrorTimedOut, .timeout),
+      (NSURLErrorCancelled, .cancelled),
+    ]
+
+    for (code, expected) in cases {
+      XCTAssertEqual(
+        MJPEGStreamTransport.transportError(
+          for: NSError(domain: NSURLErrorDomain, code: code)
+        ),
+        expected
+      )
+    }
+  }
+
+  func testURLFailuresUseExactAllowedKeysAndNeverExposeRequestSecrets() {
+    let cases: [(Int, String)] = [
+      (NSURLErrorAppTransportSecurityRequiresSecureConnection, "ats_blocked"),
+      (NSURLErrorCannotConnectToHost, "local_network_denied_or_unreachable"),
+      (NSURLErrorSecureConnectionFailed, "tls_failed"),
+      (NSURLErrorCannotFindHost, "dns_failed"),
+      (NSURLErrorTimedOut, "timeout"),
+    ]
+
+    for (code, expected) in cases {
+      CameraURLProtocol.reset()
+      CameraURLProtocol.handler = { _ in
+        throw NSError(domain: NSURLErrorDomain, code: code)
+      }
+      let failed = expectation(description: expected)
+      let transport = makeTransport { event in
+        guard event["errorCode"] as? String == expected else { return }
+        self.assertExactKeys(
+          event,
+          [
+            "type", "attemptId", "mode", "phase", "elapsedMs", "bytesReceived",
+            "firstBytesSignature", "nsUrlErrorCode", "errorCode",
+          ]
+        )
+        XCTAssertEqual(event["nsUrlErrorCode"] as? Int, code)
+        self.assertRedacted(event)
+        failed.fulfill()
+      }
+
+      transport.start()
+      wait(for: [failed], timeout: 1)
+      transport.cancel()
+    }
+  }
+
+  func testRapidFramesKeepOnlyLatestPendingAndDecodeAtFivePerSecond() {
+    var cadencer = MJPEGFrameCadencer()
+    let first = Data([1])
+    let second = Data([2])
+    let latest = Data([3])
+
+    guard case let .decode(decodedFirst) = cadencer.offer(first, at: 10) else {
+      return XCTFail("The first frame must decode immediately")
+    }
+    XCTAssertEqual(decodedFirst, first)
+
+    guard case let .schedule(delay) = cadencer.offer(second, at: 10.01) else {
+      return XCTFail("The second frame must schedule a cadenced decode")
+    }
+    XCTAssertEqual(delay, 0.19, accuracy: 0.000_001)
+    XCTAssertEqual(cadencer.pendingFrame, second)
+
+    guard case .none = cadencer.offer(latest, at: 10.02) else {
+      return XCTFail("Rapid frames must coalesce into the existing pending slot")
+    }
+    XCTAssertEqual(cadencer.pendingFrame, latest)
+
+    guard case let .schedule(remaining) = cadencer.takePending(at: 10.19) else {
+      return XCTFail("A decode cannot occur before the 200 ms cadence")
+    }
+    XCTAssertEqual(remaining, 0.01, accuracy: 0.000_001)
+
+    guard case let .decode(decodedLatest) = cadencer.takePending(at: 10.201) else {
+      return XCTFail("The latest pending frame must decode at the cadence boundary")
+    }
+    XCTAssertEqual(decodedLatest, latest)
+    XCTAssertNil(cadencer.pendingFrame)
+  }
+
   func testCustomProtocolSameOriginRedirectAndCrossHostRejection() {
     let jpeg = makeJPEG()
     let followed = expectation(description: "same-origin redirect followed")
@@ -163,14 +263,76 @@ final class MJPEGStreamTransportTests: XCTestCase {
     let blocked = expectation(description: "cross-host redirect blocked")
     let blockedTransport = makeTransport { event in
       if event["errorCode"] as? String == "redirect_blocked" {
+        self.assertExactKeys(
+          event,
+          ["type", "attemptId", "mode", "phase", "elapsedMs", "redirectCount", "errorCode"]
+        )
         XCTAssertEqual(event["phase"] as? String, "redirect")
         XCTAssertEqual(event["redirectCount"] as? Int, 1)
+        self.assertRedacted(event)
         blocked.fulfill()
       }
     }
     blockedTransport.start()
     wait(for: [blocked], timeout: 1)
     blockedTransport.cancel()
+  }
+
+  func testRedirectLimitRejectsFourthRedirectWithExactSanitizedPayload() {
+    CameraURLProtocol.handler = { request in
+      let index = Int(request.url?.lastPathComponent ?? "") ?? 0
+      return self.redirectStub(
+        from: request.url!,
+        to: URL(string: "http://camera.test/\(index + 1)")!
+      )
+    }
+    let limited = expectation(description: "fourth redirect rejected")
+    let transport = makeTransport(
+      snapshotURL: URL(string: "http://camera.test/0?auth=private-value")!
+    ) { event in
+      guard event["errorCode"] as? String == "redirect_limit" else { return }
+      self.assertExactKeys(
+        event,
+        ["type", "attemptId", "mode", "phase", "elapsedMs", "redirectCount", "errorCode"]
+      )
+      XCTAssertEqual(event["redirectCount"] as? Int, 4)
+      self.assertRedacted(event)
+      limited.fulfill()
+    }
+
+    transport.start()
+    wait(for: [limited], timeout: 1)
+    transport.cancel()
+  }
+
+  func testCredentialChallengeIsRejectedWithoutCredential() {
+    let transport = makeTransport { _ in }
+    let protectionSpace = URLProtectionSpace(
+      host: "camera.test",
+      port: 80,
+      protocol: "http",
+      realm: "camera",
+      authenticationMethod: NSURLAuthenticationMethodHTTPBasic
+    )
+    let challenge = URLAuthenticationChallenge(
+      protectionSpace: protectionSpace,
+      proposedCredential: nil,
+      previousFailureCount: 0,
+      failureResponse: nil,
+      error: nil,
+      sender: CameraChallengeSender()
+    )
+    let task = URLSession.shared.dataTask(with: snapshotURL)
+    var disposition: URLSession.AuthChallengeDisposition?
+    var credential: URLCredential?
+
+    transport.urlSession(URLSession.shared, task: task, didReceive: challenge) {
+      disposition = $0
+      credential = $1
+    }
+
+    XCTAssertEqual(disposition, .rejectProtectionSpace)
+    XCTAssertNil(credential)
   }
 
   func testSnapshotPreflightThenMultipartFirstFrameHasSanitizedPayload() {
@@ -228,9 +390,16 @@ final class MJPEGStreamTransportTests: XCTestCase {
       let failed = expectation(description: "status \(status)")
       let transport = makeTransport { event in
         if event["errorCode"] as? String == expected {
+          self.assertExactKeys(
+            event,
+            [
+              "type", "attemptId", "mode", "phase", "elapsedMs", "httpStatus",
+              "mimeType", "redirectCount", "errorCode",
+            ]
+          )
           XCTAssertEqual(event["httpStatus"] as? Int, status)
           XCTAssertEqual(event["mode"] as? String, "snapshot-preflight")
-          XCTAssertNil(event["url"])
+          self.assertRedacted(event)
           failed.fulfill()
         }
       }
@@ -273,6 +442,14 @@ final class MJPEGStreamTransportTests: XCTestCase {
     let invalidMIME = expectation(description: "invalid MIME")
     var firstTransport: MJPEGStreamTransport? = makeTransport { event in
       if event["errorCode"] as? String == "mime_invalid" {
+        self.assertExactKeys(
+          event,
+          [
+            "type", "attemptId", "mode", "phase", "elapsedMs", "httpStatus",
+            "mimeType", "redirectCount", "errorCode",
+          ]
+        )
+        self.assertRedacted(event)
         invalidMIME.fulfill()
       }
     }
@@ -292,6 +469,14 @@ final class MJPEGStreamTransportTests: XCTestCase {
     let missingBoundary = expectation(description: "missing boundary")
     let secondTransport = makeTransport { event in
       if event["errorCode"] as? String == "boundary_missing" {
+        self.assertExactKeys(
+          event,
+          [
+            "type", "attemptId", "mode", "phase", "elapsedMs", "httpStatus",
+            "mimeType", "redirectCount", "errorCode",
+          ]
+        )
+        self.assertRedacted(event)
         missingBoundary.fulfill()
       }
     }
@@ -330,6 +515,44 @@ final class MJPEGStreamTransportTests: XCTestCase {
     XCTAssertEqual(CameraURLProtocol.maximumActiveRequests, 1)
   }
 
+  func testStreamEndedEmitsSanitizedFailureAndEntersFallback() {
+    let jpeg = makeJPEG()
+    CameraURLProtocol.handler = { request in
+      if request.url?.path == self.streamURL.path {
+        return self.stub(
+          url: request.url!,
+          status: 200,
+          mime: "multipart/x-mixed-replace; boundary=cam",
+          chunks: []
+        )
+      }
+      return self.stub(url: request.url!, status: 200, mime: "image/jpeg", chunks: [jpeg])
+    }
+    let ended = expectation(description: "stream ended")
+    let fallback = expectation(description: "stream ended fallback")
+    let transport = makeTransport(fallbackMs: 20) { event in
+      if event["errorCode"] as? String == "stream_ended" {
+        self.assertExactKeys(
+          event,
+          [
+            "type", "attemptId", "mode", "phase", "elapsedMs", "bytesReceived",
+            "firstBytesSignature", "errorCode",
+          ]
+        )
+        self.assertRedacted(event)
+        ended.fulfill()
+      }
+      if event["type"] as? String == "first-frame",
+         event["mode"] as? String == "snapshot-fallback" {
+        fallback.fulfill()
+      }
+    }
+
+    transport.start()
+    wait(for: [ended, fallback], timeout: 1)
+    transport.cancel()
+  }
+
   func testCancellationEmitsOnlySanitizedCancellation() {
     CameraURLProtocol.handler = { request in
       self.stub(url: request.url!, status: 200, mime: "image/jpeg", chunks: [], delay: 1)
@@ -337,10 +560,11 @@ final class MJPEGStreamTransportTests: XCTestCase {
     let cancelled = expectation(description: "cancelled")
     let transport = makeTransport { event in
       if event["errorCode"] as? String == "cancelled" {
-        XCTAssertEqual(event["type"] as? String, "failure")
-        XCTAssertNil(event["url"])
-        XCTAssertNil(event["headers"])
-        XCTAssertNil(event["body"])
+        self.assertExactKeys(
+          event,
+          ["type", "attemptId", "mode", "phase", "elapsedMs", "errorCode"]
+        )
+        self.assertRedacted(event)
         cancelled.fulfill()
       }
     }
@@ -352,18 +576,24 @@ final class MJPEGStreamTransportTests: XCTestCase {
 
   private func makeTransport(
     fallbackMs: Double = 2_000,
+    snapshotURL: URL? = nil,
     eventHandler: @escaping MJPEGStreamTransport.EventHandler
   ) -> MJPEGStreamTransport {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [CameraURLProtocol.self]
     return MJPEGStreamTransport(
       streamURL: streamURL,
-      snapshotURL: snapshotURL,
+      snapshotURL: snapshotURL ?? self.snapshotURL,
       attemptID: "attempt-safe",
       snapshotFallbackIntervalMs: fallbackMs,
       firstFrameTimeoutMs: 500,
       configuration: configuration,
-      eventHandler: eventHandler,
+      eventHandler: { event in
+        if event["type"] as? String == "failure" {
+          self.assertAllowedFailurePayload(event)
+        }
+        eventHandler(event)
+      },
       imageHandler: { _ in }
     )
   }
@@ -416,5 +646,47 @@ final class MJPEGStreamTransportTests: XCTestCase {
       context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
     }
     return image.jpegData(compressionQuality: 0.8)!
+  }
+
+  private func assertExactKeys(
+    _ event: [String: Any],
+    _ expected: Set<String>,
+    file: StaticString = #filePath,
+    line: UInt = #line
+  ) {
+    XCTAssertEqual(Set(event.keys), expected, file: file, line: line)
+  }
+
+  private func assertAllowedFailurePayload(
+    _ event: [String: Any],
+    file: StaticString = #filePath,
+    line: UInt = #line
+  ) {
+    let allowed = Set([
+      "type", "attemptId", "mode", "phase", "httpStatus", "mimeType", "redirectCount",
+      "bytesReceived", "firstBytesSignature", "nsUrlErrorCode", "errorCode", "width",
+      "height", "elapsedMs",
+    ])
+    XCTAssertTrue(Set(event.keys).isSubset(of: allowed), file: file, line: line)
+    XCTAssertNotNil(event["attemptId"], file: file, line: line)
+    XCTAssertNotNil(event["mode"], file: file, line: line)
+    XCTAssertNotNil(event["phase"], file: file, line: line)
+    XCTAssertNotNil(event["errorCode"], file: file, line: line)
+    XCTAssertNotNil(event["elapsedMs"], file: file, line: line)
+    assertRedacted(event, file: file, line: line)
+  }
+
+  private func assertRedacted(
+    _ event: [String: Any],
+    file: StaticString = #filePath,
+    line: UInt = #line
+  ) {
+    for forbiddenKey in ["url", "headers", "body", "location", "authorization", "token"] {
+      XCTAssertNil(event[forbiddenKey], file: file, line: line)
+    }
+    let description = String(describing: event)
+    for forbidden in ["private-value", "camera.test"] {
+      XCTAssertFalse(description.lowercased().contains(forbidden), file: file, line: line)
+    }
   }
 }

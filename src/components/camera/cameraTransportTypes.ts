@@ -56,3 +56,26 @@ export type IOSCameraEvent = {
   height?: number;
   elapsedMs?: number;
 };
+
+const nativeMJPEGSnapshotFallbackErrors: ReadonlySet<CameraTransportError> =
+  new Set([
+    'timeout',
+    'mime_invalid',
+    'boundary_missing',
+    'frame_too_large',
+    'buffer_limit',
+    'jpeg_invalid',
+    'decode_failed',
+    'stream_ended',
+  ]);
+
+export function transitionsImmediatelyToSnapshotFallback(
+  event: IOSCameraEvent,
+): boolean {
+  return (
+    event.type === 'failure' &&
+    event.mode === 'native-mjpeg' &&
+    event.errorCode != null &&
+    nativeMJPEGSnapshotFallbackErrors.has(event.errorCode)
+  );
+}

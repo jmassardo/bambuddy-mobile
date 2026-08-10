@@ -37,12 +37,17 @@ final class MJPEGStreamParser {
   }
 
   func append(_ data: Data) throws -> [Data] {
+    var frames: [Data] = []
+    try append(data) { frames.append($0) }
+    return frames
+  }
+
+  func append(_ data: Data, onFrame: (Data) throws -> Void) throws {
     guard buffer.count + data.count <= Self.maximumBufferBytes else {
       throw MJPEGStreamParserError.bufferLimit
     }
     buffer.append(data)
 
-    var frames: [Data] = []
     parseLoop: while true {
       switch state {
       case .boundary:
@@ -101,7 +106,7 @@ final class MJPEGStreamParser {
             buffer.removeFirst(2)
           }
           try validateJPEG(frame)
-          frames.append(frame)
+          try onFrame(frame)
           state = .boundary
         } else {
           guard let delimiterRange = buffer.range(of: bodyDelimiter) else {
@@ -115,13 +120,12 @@ final class MJPEGStreamParser {
             throw MJPEGStreamParserError.frameTooLarge
           }
           try validateJPEG(frame)
-          frames.append(frame)
+          try onFrame(frame)
           buffer.removeSubrange(buffer.startIndex..<delimiterRange.lowerBound)
           state = .boundary
         }
       }
     }
-    return frames
   }
 
   private func parseContentLength(_ data: Data.SubSequence) throws -> Int? {
