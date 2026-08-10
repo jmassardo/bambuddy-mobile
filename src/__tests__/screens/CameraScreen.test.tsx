@@ -1,12 +1,17 @@
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { Platform } from 'react-native';
-import CameraScreen, { CAMERA_STREAM_TIMEOUT_MS } from '@/screens/CameraScreen';
+import { Dimensions, Platform, StyleSheet } from 'react-native';
+import * as ReactNative from 'react-native';
+import CameraScreen, {
+  CAMERA_STREAM_TIMEOUT_MS,
+  isCameraLandscape,
+} from '@/screens/CameraScreen';
 
 interface MockWebViewProps {
   source: { uri: string };
   injectedJavaScriptBeforeContentLoaded?: string;
   injectedJavaScript: string;
+  originWhitelist: string[];
   javaScriptEnabled: boolean;
   incognito: boolean;
   sharedCookiesEnabled: boolean;
@@ -42,8 +47,34 @@ let mockPinchBegin: (() => void) | null;
 let mockPinchUpdate: ((event: { scale: number }) => void) | null;
 let mockPinchEnd: (() => void) | null;
 let mockDoubleTapEnd: (() => void) | null;
+let mockIsFocused: boolean;
+let mockAppState: 'active' | 'background' | 'inactive';
+let mockAppStateCallback: ((state: 'active' | 'background' | 'inactive') => void) | null;
+let mockReduceMotion: boolean;
+let mockInjectJavaScript: jest.Mock;
+
+jest
+  .spyOn(ReactNative.AccessibilityInfo, 'isReduceMotionEnabled')
+  .mockImplementation(() => Promise.resolve(mockReduceMotion));
+jest
+  .spyOn(ReactNative.AccessibilityInfo, 'addEventListener')
+  .mockImplementation(
+    () =>
+      ({ remove: jest.fn() }) as unknown as ReturnType<
+        typeof ReactNative.AccessibilityInfo.addEventListener
+      >,
+  );
+jest.spyOn(ReactNative.AppState, 'addEventListener').mockImplementation(
+  (_event, callback) => {
+    mockAppStateCallback = callback as (
+      state: 'active' | 'background' | 'inactive',
+    ) => void;
+    return { remove: jest.fn() };
+  },
+);
 
 jest.mock('@react-navigation/native', () => ({
+  useIsFocused: () => mockIsFocused,
   useFocusEffect: (callback: () => void) => {
     const MockReact = require('react') as typeof React;
     mockFocusCallback = callback;
@@ -84,6 +115,7 @@ jest.mock('@tanstack/react-query', () => ({
           progress: 4,
           layer_num: 1,
           total_layers: 100,
+          chamber_light: false,
         },
         isLoading: false,
       };
@@ -217,6 +249,7 @@ jest.mock('react-native-gesture-handler', () => {
 });
 
 jest.mock('react-native-reanimated', () => {
+  const MockReact = require('react') as typeof React;
   const { View: MockView } = require('react-native');
   return {
     __esModule: true,
@@ -225,22 +258,26 @@ jest.mock('react-native-reanimated', () => {
     },
     runOnJS: (callback: (...args: unknown[]) => unknown) => callback,
     useAnimatedStyle: (callback: () => unknown) => callback(),
-    useSharedValue: (value: unknown) => ({ value }),
+    useSharedValue: (value: unknown) =>
+      MockReact.useRef({ value }).current,
     withTiming: (value: unknown) => value,
   };
 });
 
-jest.mock('react-native-webview', () => ({
-  WebView: (props: MockWebViewProps) => {
-    const MockReact = require('react') as typeof React;
+jest.mock('react-native-webview', () => {
+  const MockReact = require('react') as typeof React;
+  return {
+  WebView: MockReact.forwardRef((props: MockWebViewProps, ref: React.ForwardedRef<{ injectJavaScript: (script: string) => void }>) => {
     const { View: MockView } = require('react-native');
     mockWebViewProps = props;
+    MockReact.useImperativeHandle(ref, () => ({ injectJavaScript: mockInjectJavaScript }));
     MockReact.useEffect(() => {
       mockWebViewMounts += 1;
     }, []);
     return <MockView testID="camera-webview" />;
-  },
-}));
+  }),
+  };
+});
 
 function setPlatform(os: 'ios' | 'android') {
   Object.defineProperty(Platform, 'OS', {
@@ -248,6 +285,11 @@ function setPlatform(os: 'ios' | 'android') {
     value: os,
     writable: true,
   });
+}
+
+function setWindowDimensions(width: number, height: number) {
+  const size = { width, height, scale: 1, fontScale: 1 };
+  Dimensions.set({ window: size, screen: size });
 }
 
 function requireWebViewProps() {
@@ -345,16 +387,17 @@ function createCameraDomFixture() {
   const page = root.appendChild(new FakeDomElement('div'));
   const header = page.appendChild(new FakeDomElement('div'));
   header.appendChild(new FakeDomElement('h1', 'Printer One'));
+  header.appendChild(new FakeDomElement('button', 'Close'));
   const content = page.appendChild(new FakeDomElement('div'));
   const stream = content.appendChild(new FakeDomElement('div'));
   const errorOverlay = stream.appendChild(new FakeDomElement('div', 'Camera unavailable'));
   errorOverlay.appendChild(new FakeDomElement('button', 'Retry'));
   errorOverlay.appendChild(new FakeDomElement('button', 'Diagnose'));
   const image = stream.appendChild(new FakeDomElement('img'));
-  const zoomControls = stream.appendChild(new FakeDomElement('div', '100%'));
-  zoomControls.appendChild(new FakeDomElement('button'));
-  zoomControls.appendChild(new FakeDomElement('button'));
-  zoomControls.appendChild(new FakeDomElement('button'));
+  const zoomControls = stream.appendChild(new FakeDomElement('div'));
+  zoomControls.appendChild(new FakeDomElement('BUTTON', 'Zoom out'));
+  zoomControls.appendChild(new FakeDomElement('BUTTON', '100%'));
+  zoomControls.appendChild(new FakeDomElement('BUTTON', 'Zoom in'));
 
   return {
     document: {
@@ -405,6 +448,16 @@ beforeEach(() => {
   mockPinchUpdate = null;
   mockPinchEnd = null;
   mockDoubleTapEnd = null;
+  mockIsFocused = true;
+  setWindowDimensions(390, 844);
+  mockAppState = 'active';
+  Object.defineProperty(ReactNative.AppState, 'currentState', {
+    configurable: true,
+    value: mockAppState,
+  });
+  mockAppStateCallback = null;
+  mockReduceMotion = false;
+  mockInjectJavaScript = jest.fn();
   mockGetAuthToken.mockReturnValue('mobile-auth-token');
 });
 
@@ -427,7 +480,10 @@ describe('CameraScreen iOS Web camera', () => {
     expect(props.javaScriptCanOpenWindowsAutomatically).toBe(false);
     expect(props.allowFileAccessFromFileURLs).toBe(false);
     expect(props.allowUniversalAccessFromFileURLs).toBe(false);
-    expect(result.getByText('Web camera · iOS')).toBeTruthy();
+    expect(props.originWhitelist).toEqual(['https://bambuddy.example']);
+    expect(result.queryByText('Web camera · iOS')).toBeNull();
+    expect(result.getByLabelText('Close camera')).toBeTruthy();
+    expect(result.getByLabelText('More camera actions')).toBeTruthy();
     expect(mockGetCameraStreamUrl).not.toHaveBeenCalled();
   });
 
@@ -446,12 +502,12 @@ describe('CameraScreen iOS Web camera', () => {
     expect(fixture.stream.attributes).toContain('data-bambuddy-mobile-camera-stream');
     const style = fixture.document.getElementById('bambuddy-mobile-camera-style');
     expect(style?.textContent).toContain('html, body, #root');
-    expect(style?.textContent).toContain('object-fit: contain');
+    expect(style?.textContent).toContain('object-fit: cover');
     expect(style?.textContent).toContain('padding: 0');
 
     const observer = FakeMutationObserver.instances[0];
-    for (let mutation = 0; mutation < 80; mutation += 1) observer.callback();
-    expect(observer.disconnected).toBe(true);
+    expect(observer).toBeDefined();
+    expect(observer.disconnected).toBe(false);
 
     executePresentationScript(script, fixture);
     expect(
@@ -459,6 +515,78 @@ describe('CameraScreen iOS Web camera', () => {
         child => child.id === 'bambuddy-mobile-camera-style',
       ),
     ).toHaveLength(1);
+  });
+
+  it('fails visibly for unknown chrome while preserving recovery actions', async () => {
+    await render(<CameraScreen />);
+    const fixture = createCameraDomFixture();
+    fixture.header.children.splice(1, 1);
+    fixture.zoomControls.children[1].textContent = 'Loading 100%';
+
+    executePresentationScript(requireWebViewProps().injectedJavaScript, fixture);
+
+    expect(fixture.header.attributes).not.toContain(
+      'data-bambuddy-mobile-camera-hidden',
+    );
+    expect(fixture.zoomControls.attributes).not.toContain(
+      'data-bambuddy-mobile-camera-hidden',
+    );
+    expect(fixture.errorOverlay.attributes).not.toContain(
+      'data-bambuddy-mobile-camera-hidden',
+    );
+    expect(fixture.errorOverlay.querySelector('button')?.textContent).toBe('Retry');
+  });
+
+  it('keeps a compact non-wrapping portrait hierarchy at 320 points', async () => {
+    setWindowDimensions(320, 700);
+    const result = await render(<CameraScreen />);
+    const dock = result.getByLabelText('Camera controls');
+
+    expect(result.getByLabelText('Close camera')).toBeTruthy();
+    expect(result.getByLabelText('More camera actions')).toBeTruthy();
+    expect(result.getByLabelText('Refresh camera')).toBeTruthy();
+    expect(result.getByLabelText('Turn chamber light on')).toBeTruthy();
+    expect(result.getByLabelText('Enable plate detection')).toBeTruthy();
+    expect(result.getByLabelText('Show full camera image')).toBeTruthy();
+    expect(StyleSheet.flatten(dock.props.style).flexWrap).toBe('nowrap');
+    expect(dock.props.children.filter(Boolean)).toHaveLength(4);
+    expect(
+      StyleSheet.flatten(result.getByLabelText('Close camera').props.style),
+    ).toEqual(expect.objectContaining({ width: 44, height: 44 }));
+  });
+
+  it('unmounts in background and revalidates auth before active remount', async () => {
+    const result = await render(<CameraScreen />);
+    await act(async () => {
+      mockFocusCallback?.();
+      await Promise.resolve();
+    });
+    expect(Platform.OS).toBe('ios');
+    expect(ReactNative.AppState.currentState).toBe('active');
+    expect(mockIsFocused).toBe(true);
+    expect(mockGetAuthToken).toHaveBeenCalled();
+    expect(result.getByTestId('camera-webview')).toBeTruthy();
+
+    await act(async () => {
+      mockAppStateCallback?.('background');
+    });
+    expect(result.queryByTestId('camera-webview')).toBeNull();
+
+    mockGetAuthToken.mockReturnValue('active-revalidated-token');
+    await act(async () => {
+      mockAppStateCallback?.('active');
+    });
+    expect(result.getByTestId('camera-webview')).toBeTruthy();
+    expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toContain(
+      'active-revalidated-token',
+    );
+
+    mockIsFocused = false;
+    await act(async () => {
+      result.rerender(<CameraScreen />);
+    });
+    expect(result.queryByTestId('camera-webview')).toBeNull();
+    await result.unmount();
   });
 
   it('keeps native gestures and plate overlay around the styled Web camera', async () => {
@@ -471,7 +599,7 @@ describe('CameraScreen iOS Web camera', () => {
       mockPinchUpdate?.({ scale: 2 });
       mockPinchEnd?.();
     });
-    expect(result.getByText('2.0×')).toBeTruthy();
+    expect(result.getByText('2.0× · Reset')).toBeTruthy();
   });
 
   it.each([
@@ -702,6 +830,35 @@ describe('CameraScreen iOS Web camera', () => {
       'fresh-cold-launch-token',
     );
   });
+
+});
+
+describe('CameraScreen iOS credential lifecycle', () => {
+  beforeEach(() => {
+    setPlatform('ios');
+  });
+
+  it('remounts with a replacement token and updates Fit without reloading', async () => {
+    const firstToken = 'first-secret-token';
+    const secondToken = 'second-secret-token';
+    mockGetAuthToken.mockReturnValue(firstToken);
+    const result = await render(<CameraScreen />);
+    expect(mockWebViewMounts).toBe(1);
+
+    mockGetAuthToken.mockReturnValue(secondToken);
+    mockUser = { id: 8 };
+    await result.rerender(<CameraScreen />);
+    expect(mockWebViewMounts).toBe(2);
+    expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toContain(secondToken);
+    expect(renderedText(result)).not.toContain(firstToken);
+
+    await pressAndFlush(result.getByLabelText('Show full camera image'));
+    expect(mockInjectJavaScript).toHaveBeenCalledWith(
+      expect.stringContaining('object-fit: contain'),
+    );
+    expect(mockWebViewMounts).toBe(2);
+    expect(result.getByLabelText('Fill camera viewport')).toBeTruthy();
+  });
 });
 
 describe('CameraScreen Android renderer', () => {
@@ -725,9 +882,10 @@ describe('CameraScreen Android renderer', () => {
     expect(image.props.source.uri).toContain('/printers/1/camera/stream');
     expect(result.queryByTestId('camera-webview')).toBeNull();
     expect(result.getByText('Plate detection area')).toBeTruthy();
-    expect(result.getAllByText('Diagnose').length).toBeGreaterThan(0);
-    expect(result.getByText('Refresh')).toBeTruthy();
+    expect(result.getByLabelText('More camera actions')).toBeTruthy();
+    expect(result.getByLabelText('Refresh camera')).toBeTruthy();
     expect(mockGetAuthToken).not.toHaveBeenCalled();
+    await result.unmount();
   });
 
   it('retains zoom gestures, Diagnose, fullscreen, light, and plate controls', async () => {
@@ -738,31 +896,30 @@ describe('CameraScreen Android renderer', () => {
       mockPinchUpdate?.({ scale: 2 });
       mockPinchEnd?.();
     });
-    expect(result.getByText('2.0×')).toBeTruthy();
+    expect(result.getByText('2.0× · Reset')).toBeTruthy();
 
     await act(async () => {
       mockDoubleTapEnd?.();
     });
-    expect(result.getByText('1.0×')).toBeTruthy();
+    expect(result.queryByLabelText('Reset zoom')).toBeNull();
 
-    await act(async () => {
-      fireEvent.press(result.getByText('Diagnose'));
-    });
+    await pressAndFlush(result.getByLabelText('More camera actions'));
+    await pressAndFlush(result.getByText('Diagnose camera'));
     expect(mockDiagnoseMutate).toHaveBeenCalled();
     expect(mockDiagnoseReset).toHaveBeenCalled();
 
     await act(async () => {
-      fireEvent.press(result.getByText('Light off'));
+      fireEvent.press(result.getByLabelText('Turn chamber light on'));
     });
     expect(mockDiagnoseMutate).toHaveBeenCalledTimes(2);
 
-    await pressAndFlush(result.getAllByText('Plate detection')[0]);
+    await pressAndFlush(result.getByLabelText('Enable plate detection'));
     expect(mockMutationMutateAsync).toHaveBeenCalledWith(true);
 
     await act(async () => {
-      fireEvent.press(result.getByText('Fill'));
+      fireEvent.press(result.getByLabelText('Show full camera image'));
     });
-    expect(result.queryByText('Fill')).toBeNull();
+    expect(result.getByLabelText('Fill camera viewport')).toBeTruthy();
     await result.unmount();
   });
 
@@ -796,26 +953,50 @@ describe('CameraScreen Android renderer', () => {
   });
 });
 
-describe('CameraScreen iOS credential lifecycle', () => {
-  beforeEach(() => {
-    setPlatform('ios');
+describe('Camera iPhone orientation configuration', () => {
+  const readFile = (path: string) =>
+    (require('fs').readFileSync as (file: string, encoding: string) => string)(
+      path,
+      'utf8',
+    );
+
+  it('allows exactly portrait and both landscapes while preserving iPad settings', () => {
+    const plist = readFile('ios/Bambuddy/Info.plist');
+    const phoneOrientations = plist.match(
+      /<key>UISupportedInterfaceOrientations<\/key>\s*<array>([\s\S]*?)<\/array>/,
+    )?.[1];
+    const ipadOrientations = plist.match(
+      /<key>UISupportedInterfaceOrientations~ipad<\/key>\s*<array>([\s\S]*?)<\/array>/,
+    )?.[1];
+
+    expect(phoneOrientations?.match(/UIInterfaceOrientation\w+/g)).toEqual([
+      'UIInterfaceOrientationPortrait',
+      'UIInterfaceOrientationLandscapeLeft',
+      'UIInterfaceOrientationLandscapeRight',
+    ]);
+    expect(ipadOrientations).toContain('UIInterfaceOrientationPortraitUpsideDown');
   });
 
-  it('remounts with a replacement token when authentication context changes', async () => {
-    const firstToken = 'first-secret-token';
-    const secondToken = 'second-secret-token';
-    mockGetAuthToken.mockReturnValue(firstToken);
-    const result = await render(<CameraScreen />);
-    expect(mockWebViewMounts).toBe(1);
+  it('locks only non-Camera iPhone screens to portrait in every navigator branch', () => {
+    const navigator = readFile('src/navigation/RootNavigator.tsx');
+    const cameraScreen = readFile('src/screens/CameraScreen.tsx');
 
-    mockGetAuthToken.mockReturnValue(secondToken);
-    mockUser = { id: 8 };
-    result.rerender(<CameraScreen />);
-    await act(async () => undefined);
-    expect(mockWebViewMounts).toBe(2);
-    expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toContain(secondToken);
+    expect(navigator).toContain(
+      "Platform.OS === 'ios' && !Platform.isPad",
+    );
+    expect(navigator).toContain("orientation: 'portrait_up' as const");
+    expect(navigator).toContain(
+      "locksIPhoneToPortrait ? { orientation: 'default' as const } : {}",
+    );
+    expect(cameraScreen).toContain('hidden={isFocused && isLandscape}');
+    expect(cameraScreen).toContain('animated={false}');
+    expect(cameraScreen).toContain('key={`${printerId}:${webViewGeneration}`}');
+    expect(cameraScreen).not.toContain('key={`${width}');
+  });
 
-    expect(renderedText(result)).not.toContain(firstToken);
-    expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toContain(secondToken);
+  it('treats only width greater than height as landscape', () => {
+    expect(isCameraLandscape(844, 390)).toBe(true);
+    expect(isCameraLandscape(390, 844)).toBe(false);
+    expect(isCameraLandscape(390, 390)).toBe(false);
   });
 });
