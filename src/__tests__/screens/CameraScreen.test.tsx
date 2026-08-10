@@ -703,6 +703,9 @@ describe('CameraScreen iOS Web camera', () => {
       'https://other.example/camera/1',
       'https://bambuddy.example:444/camera/1',
       'http://bambuddy.example/camera/1',
+      ['https://camera-user', 'camera-credential@bambuddy.example/camera/1'].join(
+        ':',
+      ),
       'https://user:password@bambuddy.example/camera/1',
       'mailto:test@example.com',
       'not a URL',
