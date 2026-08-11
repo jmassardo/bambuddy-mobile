@@ -12,6 +12,8 @@
     "build:android:release": "bundle exec fastlane android build_release",
     "beta:ios": "bundle exec fastlane ios beta",
     "beta:android": "bundle exec fastlane android beta",
+    "postinstall": "patch-package",
+    "audit:verify": "node scripts/verify-dependency-audit.js",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "jest"
@@ -69,6 +71,7 @@
     "babel-plugin-transform-inline-environment-variables": "^0.4.4",
     "eslint": "^8.19.0",
     "jest": "^30.4.2",
+    "patch-package": "8.0.1",
     "prettier": "2.8.8",
     "react-reconciler": "^0.33.0",
     "react-test-renderer": "^19.2.3",
@@ -79,6 +82,12 @@
     "node": ">= 22.11.0"
   },
   "overrides": {
+    "brace-expansion@1.1.16": "1.1.18",
+    "brace-expansion@2.1.2": "2.1.4",
+    "brace-expansion@5.0.7": "5.0.9",
+    "js-yaml@3.15.0": "3.15.1",
+    "js-yaml@4.3.0": "4.3.1",
+    "nanoid@3.3.16": "3.3.18",
     "fast-xml-parser": ">=5.7.0"
   }
 }
