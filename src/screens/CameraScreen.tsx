@@ -68,9 +68,8 @@ interface CameraWebViewProps {
   source: { uri: string };
   style: object;
   originWhitelist: string[];
-  injectedJavaScriptBeforeContentLoaded?: string;
+  injectedJavaScriptBeforeContentLoaded: string;
   injectedJavaScriptBeforeContentLoadedForMainFrameOnly: boolean;
-  injectedJavaScript: string;
   javaScriptEnabled: boolean;
   incognito: boolean;
   sharedCookiesEnabled: boolean;
@@ -396,12 +395,13 @@ function CameraIconButton({
   );
 }
 
-function createCameraBootstrap(token: string) {
+function serializeCameraAuthBootstrap(token: string | null) {
+  if (token == null) return '';
   const serializedToken = JSON.stringify(token)
     .replace(/</g, '\\u003c')
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029');
-  return `window.sessionStorage.removeItem("auth_token"); window.sessionStorage.setItem("auth_token", ${serializedToken}); true;`;
+  return `window.sessionStorage.removeItem("auth_token"); window.sessionStorage.setItem("auth_token", ${serializedToken});`;
 }
 
 function createCameraPresentationScript(objectFit: 'contain' | 'cover') {
@@ -416,11 +416,18 @@ function createCameraPresentationScript(objectFit: 'contain' | 'cover') {
       let debounceTimer = null;
 
       const cleanup = () => {
-        if (observer) observer.disconnect();
-        if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+        if (observer) {
+          observer.disconnect();
+          observer = null;
+        }
+        if (debounceTimer !== null) {
+          window.clearTimeout(debounceTimer);
+          debounceTimer = null;
+        }
       };
 
       const apply = () => {
+        if (!document.head) return;
         const root = document.getElementById('root');
         const page = root && root.firstElementChild;
         const image = page && page.querySelector('img');
@@ -501,10 +508,13 @@ function createCameraPresentationScript(objectFit: 'contain' | 'cover') {
           \`;
           document.head.appendChild(style);
         } else {
-          style.textContent = style.textContent.replace(
+          const updatedStyleText = style.textContent.replace(
             /object-fit: (?:contain|cover) !important/,
             'object-fit: ${objectFit} !important',
           );
+          if (updatedStyleText !== style.textContent) {
+            style.textContent = updatedStyleText;
+          }
         }
 
         page.setAttribute('data-bambuddy-mobile-camera-page', '');
@@ -547,13 +557,17 @@ function createCameraPresentationScript(objectFit: 'contain' | 'cover') {
           apply();
         }, 50);
       });
-      const observedRoot = document.getElementById('root');
-      if (observedRoot) {
-        observer.observe(observedRoot, { childList: true, subtree: true });
-      }
+      observer.observe(document.documentElement, { childList: true, subtree: true });
     })();
     true;
   `;
+}
+
+function createCameraBootstrap(
+  token: string | null,
+  objectFit: 'contain' | 'cover',
+) {
+  return `${serializeCameraAuthBootstrap(token)}${createCameraPresentationScript(objectFit)}`;
 }
 
 function clampTranslationOffset(value: number, axisSize: number, scale: number) {
@@ -701,12 +715,8 @@ export default function CameraScreen() {
   }, [printerId, serverUrl, validPrinterId]);
 
   const cameraBootstrap = useMemo(
-    () => (webAuthToken == null ? undefined : createCameraBootstrap(webAuthToken)),
-    [webAuthToken],
-  );
-  const cameraPresentationScript = useMemo(
-    () => createCameraPresentationScript(fitMode),
-    [fitMode],
+    () => createCameraBootstrap(webAuthToken, fitMode),
+    [fitMode, webAuthToken],
   );
 
   const allowCameraNavigation = useCallback(
@@ -1197,7 +1207,6 @@ export default function CameraScreen() {
                 originWhitelist={['*']}
                 injectedJavaScriptBeforeContentLoaded={cameraBootstrap}
                 injectedJavaScriptBeforeContentLoadedForMainFrameOnly
-                injectedJavaScript={cameraPresentationScript}
                 javaScriptEnabled
                 incognito
                 sharedCookiesEnabled={false}
@@ -1334,8 +1343,8 @@ export default function CameraScreen() {
           {
             top: insets.top + spacing.sm,
             left: insets.left + spacing.md,
-            right: insets.right + spacing.md,
           },
+          !isLandscape && { right: insets.right + spacing.md },
         ]}
       >
         <CameraIconButton
@@ -1354,11 +1363,43 @@ export default function CameraScreen() {
               Camera
             </Text>
           </View>
-        ) : (
-          <View style={styles.landscapeSpacer} />
-        )}
-        {isLandscape ? (
-          <View style={styles.landscapeActions}>
+        ) : null}
+        {!isLandscape ? (
+          <CameraIconButton
+            label="More camera actions"
+            hint="Opens diagnostics and plate detection controls"
+            onPress={openActions}
+            icon={<MoreHorizontal size={20} color={colors.text} strokeWidth={2} />}
+            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+          />
+        ) : null}
+      </View>
+
+      {isLandscape ? (
+        <View
+          testID="camera-landscape-control-rail"
+          accessibilityLabel="Camera controls"
+          pointerEvents="box-none"
+          style={[
+            styles.landscapeRail,
+            {
+              top: insets.top + spacing.sm,
+              right: insets.right + spacing.md,
+              bottom: insets.bottom + spacing.sm,
+            },
+          ]}
+        >
+          <View
+            testID="camera-landscape-control-rail-surface"
+            style={[
+              styles.landscapeRailSurface,
+              {
+                backgroundColor: colors.overlay,
+                borderColor: colors.border,
+                shadowColor: colors.text,
+              },
+            ]}
+          >
             <CameraIconButton
               label="Refresh camera"
               hint="Reloads the current camera"
@@ -1399,16 +1440,8 @@ export default function CameraScreen() {
               style={{ backgroundColor: colors.surface, borderColor: colors.border }}
             />
           </View>
-        ) : (
-          <CameraIconButton
-            label="More camera actions"
-            hint="Opens diagnostics and plate detection controls"
-            onPress={openActions}
-            icon={<MoreHorizontal size={20} color={colors.text} strokeWidth={2} />}
-            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-          />
-        )}
-      </View>
+        </View>
+      ) : null}
 
       {!isLandscape ? (
         <View
@@ -1665,12 +1698,21 @@ const styles = StyleSheet.create({
   headerContext: {
     fontSize: fontSize.xs,
   },
-  landscapeSpacer: {
-    flex: 1,
+  landscapeRail: {
+    position: 'absolute',
+    justifyContent: 'center',
   },
-  landscapeActions: {
-    flexDirection: 'row',
+  landscapeRailSurface: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
     gap: spacing.sm,
+    padding: spacing.xs,
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.24,
+    shadowRadius: 6,
   },
   iconButton: {
     width: 44,

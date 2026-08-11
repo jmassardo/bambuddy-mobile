@@ -12,7 +12,7 @@ interface MockWebViewProps {
   source: { uri: string };
   injectedJavaScriptBeforeContentLoaded?: string;
   injectedJavaScriptBeforeContentLoadedForMainFrameOnly: boolean;
-  injectedJavaScript: string;
+  injectedJavaScript?: string;
   originWhitelist: string[];
   javaScriptEnabled: boolean;
   incognito: boolean;
@@ -57,6 +57,10 @@ let mockReduceMotion: boolean;
 let mockInjectJavaScript: jest.Mock;
 let mockWithTiming: jest.Mock;
 let mockSafeAreaInsets: { top: number; right: number; bottom: number; left: number };
+let mockLightAvailable: boolean;
+let mockChamberLightOn: boolean;
+let mockMutationPending: boolean;
+let mockHasControlPermission: boolean;
 
 jest
   .spyOn(ReactNative.AccessibilityInfo, 'isReduceMotionEnabled')
@@ -112,16 +116,19 @@ jest.mock('@tanstack/react-query', () => ({
       };
     }
     if (queryKey[0] === 'printerStatus') {
+      const data: Record<string, boolean | number | string> = {
+        connected: true,
+        ipcam: true,
+        state: 'RUNNING',
+        progress: 4,
+        layer_num: 1,
+        total_layers: 100,
+      };
+      if (mockLightAvailable) {
+        data.chamber_light = mockChamberLightOn;
+      }
       return {
-        data: {
-          connected: true,
-          ipcam: true,
-          state: 'RUNNING',
-          progress: 4,
-          layer_num: 1,
-          total_layers: 100,
-          chamber_light: false,
-        },
+        data,
         isLoading: false,
       };
     }
@@ -140,7 +147,7 @@ jest.mock('@tanstack/react-query', () => ({
   },
   useMutation: () => ({
     data: null,
-    isPending: false,
+    isPending: mockMutationPending,
     mutate: mockDiagnoseMutate,
     mutateAsync: mockMutationMutateAsync,
     reset: mockDiagnoseReset,
@@ -194,7 +201,7 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     authEnabled: mockAuthEnabled,
     user: mockUser,
-    hasPermission: () => true,
+    hasPermission: () => mockHasControlPermission,
   }),
 }));
 
@@ -315,13 +322,23 @@ async function pressAndFlush(element: Parameters<typeof fireEvent.press>[0]) {
 
 class FakeDomElement {
   id = '';
-  textContent = '';
+  private storedTextContent = '';
+  textContentWrites = 0;
   parentElement: FakeDomElement | null = null;
   readonly children: FakeDomElement[] = [];
   readonly attributes = new Set<string>();
 
   constructor(readonly tagName: string, textContent = '') {
-    this.textContent = textContent;
+    this.storedTextContent = textContent;
+  }
+
+  get textContent() {
+    return this.storedTextContent;
+  }
+
+  set textContent(value: string) {
+    this.storedTextContent = value;
+    this.textContentWrites += 1;
   }
 
   get firstElementChild() {
@@ -369,13 +386,19 @@ class FakeDomElement {
 class FakeMutationObserver {
   static instances: FakeMutationObserver[] = [];
   disconnected = false;
+  observedOptions: { childList: boolean; subtree: boolean } | null = null;
+  observedTarget: FakeDomElement | null = null;
 
   constructor(readonly callback: () => void) {
     FakeMutationObserver.instances.push(this);
   }
 
-  observe() {
-    return undefined;
+  observe(
+    target: FakeDomElement,
+    options: { childList: boolean; subtree: boolean },
+  ) {
+    this.observedTarget = target;
+    this.observedOptions = options;
   }
 
   disconnect() {
@@ -395,23 +418,43 @@ function createCameraDomFixture() {
   header.appendChild(new FakeDomElement('button', 'Close'));
   const content = page.appendChild(new FakeDomElement('div'));
   const stream = content.appendChild(new FakeDomElement('div'));
+  const loadingOverlay = stream.appendChild(
+    new FakeDomElement('div', 'Connecting camera'),
+  );
   const errorOverlay = stream.appendChild(new FakeDomElement('div', 'Camera unavailable'));
   errorOverlay.appendChild(new FakeDomElement('button', 'Retry'));
   errorOverlay.appendChild(new FakeDomElement('button', 'Diagnose'));
+  const reconnectOverlay = stream.appendChild(
+    new FakeDomElement('div', 'Camera connection lost'),
+  );
+  reconnectOverlay.appendChild(new FakeDomElement('button', 'Reconnect'));
   const image = stream.appendChild(new FakeDomElement('img'));
   const zoomControls = stream.appendChild(new FakeDomElement('div'));
   zoomControls.appendChild(new FakeDomElement('BUTTON', 'Zoom out'));
   zoomControls.appendChild(new FakeDomElement('BUTTON', '100%'));
   zoomControls.appendChild(new FakeDomElement('BUTTON', 'Zoom in'));
 
+  const document: {
+    documentElement: FakeDomElement;
+    head: FakeDomElement | null;
+    createElement: (tagName: string) => FakeDomElement;
+    getElementById: (id: string) => FakeDomElement | null;
+  } = {
+    documentElement: html,
+    head,
+    createElement: (tagName: string) => new FakeDomElement(tagName),
+    getElementById: (id: string) => html.findById(id),
+  };
+
   return {
-    document: {
-      documentElement: html,
-      head,
-      createElement: (tagName: string) => new FakeDomElement(tagName),
-      getElementById: (id: string) => html.findById(id),
-    },
+    document,
+    body,
+    head,
+    html,
+    root,
     errorOverlay,
+    loadingOverlay,
+    reconnectOverlay,
     header,
     page,
     content,
@@ -421,15 +464,40 @@ function createCameraDomFixture() {
   };
 }
 
-function executePresentationScript(script: string, fixture: ReturnType<typeof createCameraDomFixture>) {
+function createFakeBrowserWindow(
+  sessionStorage: {
+    removeItem: (key: string) => unknown;
+    setItem: (key: string, value: string) => unknown;
+  } = {
+    removeItem: jest.fn(),
+    setItem: jest.fn(),
+  },
+) {
+  let pendingTimer: (() => void) | null = null;
+  return {
+    sessionStorage,
+    setTimeout: jest.fn((callback: () => void) => {
+      pendingTimer = callback;
+      return 1;
+    }),
+    clearTimeout: jest.fn(),
+    runPendingTimer: () => {
+      const callback = pendingTimer;
+      pendingTimer = null;
+      callback?.();
+    },
+  };
+}
+
+function executePresentationScript(
+  script: string,
+  fixture: ReturnType<typeof createCameraDomFixture>,
+  browserWindow = createFakeBrowserWindow(),
+) {
   const runInNewContext = require('vm').runInNewContext as (
     source: string,
     context: object,
   ) => void;
-  const browserWindow = {
-    setTimeout: jest.fn(() => 1),
-    clearTimeout: jest.fn(),
-  };
   runInNewContext(script, {
     document: fixture.document,
     window: browserWindow,
@@ -465,6 +533,10 @@ beforeEach(() => {
   mockInjectJavaScript = jest.fn();
   mockWithTiming = jest.fn((value: unknown) => value);
   mockSafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+  mockLightAvailable = true;
+  mockChamberLightOn = false;
+  mockMutationPending = false;
+  mockHasControlPermission = true;
   mockGetAuthToken.mockReturnValue('mobile-auth-token');
 });
 
@@ -489,6 +561,9 @@ describe('CameraScreen iOS Web camera', () => {
     expect(props.allowUniversalAccessFromFileURLs).toBe(false);
     expect(props.originWhitelist).toEqual(['*']);
     expect(props.injectedJavaScriptBeforeContentLoadedForMainFrameOnly).toBe(true);
+    expect(props.injectedJavaScript).toBeUndefined();
+    expect('onLoad' in props).toBe(false);
+    expect('onLoadEnd' in props).toBe(false);
     expect(props.allowsLinkPreview).toBe(false);
     expect(result.queryByText('Web camera · iOS')).toBeNull();
     expect(result.getByLabelText('Close camera')).toBeTruthy();
@@ -498,14 +573,20 @@ describe('CameraScreen iOS Web camera', () => {
 
   it('injects bounded idempotent styling that hides only duplicate Web chrome', async () => {
     await render(<CameraScreen />);
-    const script = requireWebViewProps().injectedJavaScript;
+    const script = requireWebViewProps().injectedJavaScriptBeforeContentLoaded;
     const fixture = createCameraDomFixture();
 
-    executePresentationScript(script, fixture);
+    const browserWindow = executePresentationScript(script as string, fixture);
 
     expect(fixture.header.attributes).toContain('data-bambuddy-mobile-camera-hidden');
     expect(fixture.zoomControls.attributes).toContain('data-bambuddy-mobile-camera-hidden');
     expect(fixture.errorOverlay.attributes).not.toContain('data-bambuddy-mobile-camera-hidden');
+    expect(fixture.loadingOverlay.attributes).not.toContain(
+      'data-bambuddy-mobile-camera-hidden',
+    );
+    expect(fixture.reconnectOverlay.attributes).not.toContain(
+      'data-bambuddy-mobile-camera-hidden',
+    );
     expect(fixture.page.attributes).toContain('data-bambuddy-mobile-camera-page');
     expect(fixture.content.attributes).toContain('data-bambuddy-mobile-camera-content');
     expect(fixture.stream.attributes).toContain('data-bambuddy-mobile-camera-stream');
@@ -519,17 +600,75 @@ describe('CameraScreen iOS Web camera', () => {
     expect(style?.textContent).toContain('top: 0');
     expect(style?.textContent).toContain('object-fit: contain');
     expect(style?.textContent).toContain('padding: 0');
+    expect(style?.textContentWrites).toBe(1);
 
     const observer = FakeMutationObserver.instances[0];
     expect(observer).toBeDefined();
     expect(observer.disconnected).toBe(false);
+    expect(observer.observedTarget).toBe(fixture.document.documentElement);
+    expect(observer.observedOptions).toEqual({ childList: true, subtree: true });
 
-    executePresentationScript(script, fixture);
+    observer.callback();
+    executePresentationScript(script as string, fixture, browserWindow);
+    expect(observer.disconnected).toBe(true);
+    expect(browserWindow.clearTimeout).toHaveBeenCalledTimes(1);
     expect(
-      fixture.document.head.children.filter(
+      fixture.head.children.filter(
         child => child.id === 'bambuddy-mobile-camera-style',
       ),
     ).toHaveLength(1);
+  });
+
+  it('does not rewrite unchanged style text during observer reapplication', async () => {
+    await render(<CameraScreen />);
+    const fixture = createCameraDomFixture();
+    const browserWindow = executePresentationScript(
+      requireWebViewProps().injectedJavaScriptBeforeContentLoaded as string,
+      fixture,
+    );
+    const observer = FakeMutationObserver.instances[0];
+    const style = fixture.document.getElementById('bambuddy-mobile-camera-style');
+
+    expect(style?.textContentWrites).toBe(1);
+    observer.callback();
+    browserWindow.runPendingTimer();
+
+    expect(style?.textContentWrites).toBe(1);
+    expect(browserWindow.setTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  it('observes before head and root exist, then styles their later mutations', async () => {
+    await render(<CameraScreen />);
+    const script = requireWebViewProps().injectedJavaScriptBeforeContentLoaded;
+    const fixture = createCameraDomFixture();
+    fixture.html.children.splice(0);
+    fixture.document.head = null;
+
+    const browserWindow = executePresentationScript(script as string, fixture);
+    const observer = FakeMutationObserver.instances[0];
+
+    expect(observer.observedTarget).toBe(fixture.html);
+    expect(observer.observedOptions).toEqual({ childList: true, subtree: true });
+    expect(fixture.document.getElementById('bambuddy-mobile-camera-style')).toBeNull();
+
+    fixture.html.appendChild(fixture.head);
+    fixture.html.appendChild(fixture.body);
+    fixture.document.head = fixture.head;
+    observer.callback();
+    browserWindow.runPendingTimer();
+
+    expect(fixture.document.getElementById('bambuddy-mobile-camera-style')).not.toBeNull();
+    expect(fixture.header.attributes).toContain('data-bambuddy-mobile-camera-hidden');
+    expect(fixture.zoomControls.attributes).toContain(
+      'data-bambuddy-mobile-camera-hidden',
+    );
+    expect(fixture.errorOverlay.attributes).not.toContain(
+      'data-bambuddy-mobile-camera-hidden',
+    );
+    expect(fixture.loadingOverlay.textContent).toBe('Connecting camera');
+    expect(fixture.reconnectOverlay.querySelector('button')?.textContent).toBe(
+      'Reconnect',
+    );
   });
 
   it('fails visibly for unknown chrome while preserving recovery actions', async () => {
@@ -538,7 +677,10 @@ describe('CameraScreen iOS Web camera', () => {
     fixture.header.children.splice(1, 1);
     fixture.zoomControls.children[1].textContent = 'Loading 100%';
 
-    executePresentationScript(requireWebViewProps().injectedJavaScript, fixture);
+    executePresentationScript(
+      requireWebViewProps().injectedJavaScriptBeforeContentLoaded as string,
+      fixture,
+    );
 
     expect(fixture.header.attributes).not.toContain(
       'data-bambuddy-mobile-camera-hidden',
@@ -550,6 +692,10 @@ describe('CameraScreen iOS Web camera', () => {
       'data-bambuddy-mobile-camera-hidden',
     );
     expect(fixture.errorOverlay.querySelector('button')?.textContent).toBe('Retry');
+    expect(fixture.loadingOverlay.textContent).toBe('Connecting camera');
+    expect(fixture.reconnectOverlay.querySelector('button')?.textContent).toBe(
+      'Reconnect',
+    );
   });
 
   it('keeps a compact non-wrapping portrait hierarchy at 320 points and 200% text', async () => {
@@ -588,6 +734,99 @@ describe('CameraScreen iOS Web camera', () => {
     expect(
       StyleSheet.flatten(result.getByTestId('camera-bottom-overlay').props.style),
     ).toEqual(expect.objectContaining({ bottom: 46, right: 19, left: 21 }));
+    expect(result.queryByTestId('camera-landscape-control-rail')).toBeNull();
+  });
+
+  it('separates the landscape close control from a safe-area-aware vertical rail', async () => {
+    setWindowDimensions(568, 320, 2);
+    mockSafeAreaInsets = { top: 12, right: 34, bottom: 21, left: 47 };
+    const result = await render(<CameraScreen />);
+    const header = result.getByTestId('camera-header-overlay');
+    const rail = result.getByTestId('camera-landscape-control-rail');
+    const surface = result.getByTestId('camera-landscape-control-rail-surface');
+    const controls = surface.props.children.filter(Boolean);
+
+    expect(StyleSheet.flatten(header.props.style)).toEqual(
+      expect.objectContaining({ top: 20, left: 59 }),
+    );
+    expect(StyleSheet.flatten(header.props.style).right).toBeUndefined();
+    expect(header.props.children.filter(Boolean)).toHaveLength(1);
+    expect(header.props.children.filter(Boolean)[0].props.label).toBe(
+      'Close camera',
+    );
+    expect(StyleSheet.flatten(rail.props.style)).toEqual(
+      expect.objectContaining({ top: 20, right: 46, bottom: 29 }),
+    );
+    expect(StyleSheet.flatten(surface.props.style)).toEqual(
+      expect.objectContaining({
+        flexDirection: 'column',
+        flexWrap: 'nowrap',
+        gap: 8,
+        padding: 4,
+        elevation: 8,
+      }),
+    );
+    expect(
+      controls.map(
+        (control: React.ReactElement<{ label: string }>) => control.props.label,
+      ),
+    ).toEqual([
+      'Refresh camera',
+      'Turn chamber light on',
+      'Fill camera viewport',
+      'More camera actions',
+    ]);
+    controls.forEach((control: React.ReactElement<{ label: string }>) => {
+      expect(StyleSheet.flatten(result.getByLabelText(control.props.label).props.style)).toEqual(
+        expect.objectContaining({ width: 44, height: 44 }),
+      );
+    });
+  });
+
+  it('preserves rail order and accessibility states when light is unavailable or busy', async () => {
+    setWindowDimensions(844, 390);
+    mockChamberLightOn = true;
+    mockMutationPending = true;
+    mockHasControlPermission = false;
+    const result = await render(<CameraScreen />);
+    const surface = result.getByTestId('camera-landscape-control-rail-surface');
+    const labels = () =>
+      surface.props.children
+        .filter(Boolean)
+        .map(
+          (control: React.ReactElement<{ label: string }>) => control.props.label,
+        );
+
+    expect(labels()).toEqual([
+      'Refresh camera',
+      'Turn chamber light off',
+      'Fill camera viewport',
+      'More camera actions',
+    ]);
+    expect(result.getByLabelText('Turn chamber light off').props.accessibilityState).toEqual({
+      disabled: true,
+      selected: true,
+      busy: true,
+    });
+    expect(result.getByLabelText('Fill camera viewport').props.accessibilityState).toEqual({
+      disabled: false,
+      selected: true,
+      busy: false,
+    });
+    expect(result.getByLabelText('Refresh camera').props.accessibilityHint).toBe(
+      'Reloads the current camera',
+    );
+    expect(result.getByLabelText('More camera actions').props.accessibilityHint).toBe(
+      'Opens diagnostics and plate detection controls',
+    );
+
+    mockLightAvailable = false;
+    await result.rerender(<CameraScreen />);
+    expect(labels()).toEqual([
+      'Refresh camera',
+      'Fill camera viewport',
+      'More camera actions',
+    ]);
   });
 
   it('unmounts in background and revalidates auth before active remount', async () => {
@@ -666,31 +905,31 @@ describe('CameraScreen iOS Web camera', () => {
     const script = requireWebViewProps().injectedJavaScriptBeforeContentLoaded;
     const removeItem = jest.fn();
     const setItem = jest.fn();
+    const fixture = createCameraDomFixture();
+    const browserWindow = createFakeBrowserWindow({ removeItem, setItem });
 
     expect(script).toBeDefined();
     expect(script).not.toContain('<');
     expect(script).not.toContain('\u2028');
     expect(script).not.toContain('\u2029');
-    const runInNewContext = require('vm').runInNewContext as (
-      source: string,
-      context: object,
-    ) => void;
-    runInNewContext(script as string, {
-      window: { sessionStorage: { removeItem, setItem } },
-    });
+    executePresentationScript(script as string, fixture, browserWindow);
 
     expect(removeItem).toHaveBeenCalledWith('auth_token');
     expect(setItem).toHaveBeenCalledWith('auth_token', token);
   });
 
-  it('loads without injection when authentication is disabled and no token exists', async () => {
+  it('starts presentation styling without auth injection when authentication is disabled', async () => {
     mockAuthEnabled = false;
     mockUser = null;
     mockGetAuthToken.mockReturnValue(null);
     const result = await render(<CameraScreen />);
 
     expect(result.getByTestId('camera-webview')).toBeTruthy();
-    expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toBeUndefined();
+    expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toBeDefined();
+    expect(
+      requireWebViewProps().injectedJavaScriptBeforeContentLoaded,
+    ).not.toContain('auth_token');
+    expect(requireWebViewProps().injectedJavaScript).toBeUndefined();
   });
 
   it('does not load unauthenticated when authentication is enabled', async () => {
@@ -868,25 +1107,16 @@ describe('CameraScreen iOS Web camera', () => {
     await render(<CameraScreen />);
     const script = requireWebViewProps().injectedJavaScriptBeforeContentLoaded;
     const storage = new Map<string, string>([['auth_token', 'stale-token']]);
-    const runInNewContext = require('vm').runInNewContext as (
-      source: string,
-      context: object,
-    ) => void;
-
-    runInNewContext(script as string, {
-      window: {
-        sessionStorage: {
-          removeItem: (key: string) => storage.delete(key),
-          setItem: (key: string, value: string) => storage.set(key, value),
-        },
-      },
+    const fixture = createCameraDomFixture();
+    const browserWindow = createFakeBrowserWindow({
+      removeItem: (key: string) => storage.delete(key),
+      setItem: (key: string, value: string) => storage.set(key, value),
     });
+    executePresentationScript(script as string, fixture, browserWindow);
 
     expect(storage.get('auth_token')).toBe('fresh-cold-launch-token');
     expect(requireWebViewProps().source.uri).not.toContain('fresh-cold-launch-token');
-    expect(requireWebViewProps().injectedJavaScript).not.toContain(
-      'fresh-cold-launch-token',
-    );
+    expect(requireWebViewProps().source.uri).not.toContain('fresh-cold-launch-token');
   });
 
 });
@@ -910,7 +1140,7 @@ describe('CameraScreen iOS credential lifecycle', () => {
     expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toContain(secondToken);
     expect(renderedText(result)).not.toContain(firstToken);
 
-    expect(requireWebViewProps().injectedJavaScript).toContain(
+    expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toContain(
       'object-fit: contain',
     );
     await pressAndFlush(result.getByLabelText('Fill camera viewport'));
