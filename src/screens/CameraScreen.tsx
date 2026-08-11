@@ -1,16 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  AppState,
   Image,
   Modal,
   Platform,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -22,8 +31,8 @@ import {
   Maximize,
   Minimize,
   MinusCircle,
+  MoreHorizontal,
   RefreshCw,
-  Stethoscope,
   X,
   XCircle,
 } from 'lucide-react-native';
@@ -34,7 +43,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { api, ApiError } from '@/api/client';
+import { api, ApiError, getAuthToken } from '@/api/client';
+import { useServerStore } from '@/api/server';
 import { PrimaryButton, StatusBadge } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -51,9 +61,49 @@ import type {
 import { withCacheBuster } from '@/utils/data';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMediaToken } from '@/hooks/useStreamToken';
+import { WebView } from 'react-native-webview';
+
+interface CameraWebViewProps {
+  key?: string;
+  source: { uri: string };
+  style: object;
+  originWhitelist: string[];
+  injectedJavaScriptBeforeContentLoaded: string;
+  injectedJavaScriptBeforeContentLoadedForMainFrameOnly: boolean;
+  javaScriptEnabled: boolean;
+  incognito: boolean;
+  sharedCookiesEnabled: boolean;
+  useSharedProcessPool: boolean;
+  javaScriptCanOpenWindowsAutomatically: boolean;
+  allowFileAccessFromFileURLs: boolean;
+  allowUniversalAccessFromFileURLs: boolean;
+  allowsLinkPreview: boolean;
+  onShouldStartLoadWithRequest: (request: { url: string }) => boolean;
+  onOpenWindow: () => void;
+  onFileDownload: () => void;
+  onError: () => void;
+  onHttpError: (event: { nativeEvent?: { statusCode?: number } }) => void;
+  onContentProcessDidTerminate: () => void;
+}
+
+interface CameraWebViewHandle {
+  injectJavaScript: (script: string) => void;
+}
+
+const CameraWebView = WebView as React.ComponentType<
+  CameraWebViewProps & React.RefAttributes<CameraWebViewHandle>
+>;
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
+}
+
+export function isCameraLandscape(width: number, height: number) {
+  return width > height;
+}
+
+export function shouldHideCameraStatusBar(isFocused: boolean) {
+  return isFocused;
 }
 
 function stripExtension(name: string | null | undefined) {
@@ -145,6 +195,8 @@ function DiagnosticSheet({
   pending,
   result,
   printer,
+  reduceMotionEnabled,
+  children,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -157,27 +209,48 @@ function DiagnosticSheet({
     cameraError?: string | null;
   } | null;
   printer: Printer | null;
+  reduceMotionEnabled: boolean;
+  children: React.ReactNode;
 }) {
   const { colors } = useTheme();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType={reduceMotionEnabled ? 'none' : 'slide'}
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
       <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}> 
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
+        <View
+          accessibilityViewIsModal
+          style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        >
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderText}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Camera diagnostic</Text>
+              <Text accessibilityRole="header" style={[styles.modalTitle, { color: colors.text }]}>
+                Camera actions
+              </Text>
               <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
                 {printer?.name || 'Printer camera'}
               </Text>
             </View>
-            <Pressable onPress={onClose}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close camera actions"
+              accessibilityHint="Returns to the camera"
+              hitSlop={8}
+              onPress={onClose}
+              style={styles.iconButton}
+            >
               <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
 
           <ScrollView contentContainerStyle={styles.modalBody}>
+            {children}
             {pending ? (
               <View style={styles.loadingState}>
                 <ActivityIndicator size="small" color={colors.accent} />
@@ -264,7 +337,12 @@ function DiagnosticSheet({
           </ScrollView>
 
           <View style={styles.modalActions}>
-            <PrimaryButton label={pending ? 'Checking…' : 'Retry'} variant="secondary" onPress={onRetry} disabled={pending} />
+            <PrimaryButton
+              label={pending ? 'Checking…' : result ? 'Retry diagnostic' : 'Diagnose camera'}
+              variant="secondary"
+              onPress={onRetry}
+              disabled={pending}
+            />
             <PrimaryButton label="Close" onPress={onClose} />
           </View>
         </View>
@@ -282,6 +360,216 @@ const DEFAULT_PLATE_ROI: PlateDetectionROI = {
   h: 0.44,
 };
 
+function CameraIconButton({
+  label,
+  hint,
+  onPress,
+  icon,
+  disabled = false,
+  selected = false,
+  busy = false,
+  style,
+}: {
+  label: string;
+  hint: string;
+  onPress: () => void;
+  icon: React.ReactNode;
+  disabled?: boolean;
+  selected?: boolean;
+  busy?: boolean;
+  style?: object;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      accessibilityState={{ disabled, selected, busy }}
+      disabled={disabled}
+      hitSlop={4}
+      onPress={onPress}
+      style={[styles.iconButton, disabled && styles.disabledButton, style]}
+    >
+      {icon}
+    </Pressable>
+  );
+}
+
+function serializeCameraAuthBootstrap(token: string | null) {
+  if (token == null) return '';
+  const serializedToken = JSON.stringify(token)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+  return `window.sessionStorage.removeItem("auth_token"); window.sessionStorage.setItem("auth_token", ${serializedToken});`;
+}
+
+function createCameraPresentationScript(objectFit: 'contain' | 'cover') {
+  return `
+    (() => {
+      const namespace = '__bambuddyMobileCameraStyling';
+      const styleId = 'bambuddy-mobile-camera-style';
+      const previous = window[namespace];
+      if (previous && typeof previous.cleanup === 'function') previous.cleanup();
+
+      let observer = null;
+      let debounceTimer = null;
+
+      const cleanup = () => {
+        if (observer) {
+          observer.disconnect();
+          observer = null;
+        }
+        if (debounceTimer !== null) {
+          window.clearTimeout(debounceTimer);
+          debounceTimer = null;
+        }
+      };
+
+      const apply = () => {
+        if (!document.head) return;
+        const root = document.getElementById('root');
+        const page = root && root.firstElementChild;
+        const image = page && page.querySelector('img');
+        const stream = image && image.parentElement;
+        const content = stream && stream.parentElement;
+        if (
+          !root ||
+          !page ||
+          page.parentElement !== root ||
+          !image ||
+          !stream ||
+          image.parentElement !== stream ||
+          !content ||
+          stream.parentElement !== content ||
+          content.parentElement !== page
+        ) return;
+
+        let style = document.getElementById(styleId);
+        if (!style) {
+          style = document.createElement('style');
+          style.id = styleId;
+          style.textContent = \`
+            html, body, #root {
+              width: 100% !important;
+              width: 100vw !important;
+              height: 100% !important;
+              height: 100dvh !important;
+              min-height: 100% !important;
+              min-height: 100dvh !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              border: 0 !important;
+              overflow: hidden !important;
+              background: #000 !important;
+              box-sizing: border-box !important;
+            }
+            html, body {
+              position: fixed !important;
+              inset: 0 !important;
+            }
+            #root,
+            [data-bambuddy-mobile-camera-page],
+            [data-bambuddy-mobile-camera-content],
+            [data-bambuddy-mobile-camera-stream] {
+              position: absolute !important;
+              inset: 0 !important;
+              top: 0 !important;
+            }
+            [data-bambuddy-mobile-camera-page],
+            [data-bambuddy-mobile-camera-content],
+            [data-bambuddy-mobile-camera-stream] {
+              width: 100% !important;
+              width: 100vw !important;
+              height: 100% !important;
+              height: 100dvh !important;
+              min-width: 0 !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              overflow: hidden !important;
+            }
+            [data-bambuddy-mobile-camera-stream] {
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              background: #000 !important;
+            }
+            [data-bambuddy-mobile-camera-stream] > img {
+              width: 100% !important;
+              height: 100% !important;
+              max-width: none !important;
+              max-height: none !important;
+              object-fit: ${objectFit} !important;
+            }
+            [data-bambuddy-mobile-camera-hidden] {
+              display: none !important;
+            }
+          \`;
+          document.head.appendChild(style);
+        } else {
+          const updatedStyleText = style.textContent.replace(
+            /object-fit: (?:contain|cover) !important/,
+            'object-fit: ${objectFit} !important',
+          );
+          if (updatedStyleText !== style.textContent) {
+            style.textContent = updatedStyleText;
+          }
+        }
+
+        page.setAttribute('data-bambuddy-mobile-camera-page', '');
+        content.setAttribute('data-bambuddy-mobile-camera-content', '');
+        stream.setAttribute('data-bambuddy-mobile-camera-stream', '');
+
+        const header = Array.from(page.children).find(
+          child =>
+            child !== content &&
+            child.parentElement === page &&
+            child.querySelector('h1') &&
+            child.querySelector('button'),
+        );
+        if (header) header.setAttribute('data-bambuddy-mobile-camera-hidden', '');
+
+        const zoomControls = Array.from(stream.children).find(
+          child => {
+            if (child === image || child.parentElement !== stream) return false;
+            const buttons = Array.from(child.children).filter(
+              control => control.tagName === 'BUTTON',
+            );
+            return (
+              buttons.length === 3 &&
+              child.children.length === 3 &&
+              /^\\s*\\d{1,3}(?:\\.\\d+)?%\\s*$/.test(buttons[1].textContent || '')
+            );
+          },
+        );
+        if (zoomControls) {
+          zoomControls.setAttribute('data-bambuddy-mobile-camera-hidden', '');
+        }
+      };
+
+      window[namespace] = { apply, cleanup };
+      apply();
+      observer = new MutationObserver(() => {
+        if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+        debounceTimer = window.setTimeout(() => {
+          debounceTimer = null;
+          apply();
+        }, 50);
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    })();
+    true;
+  `;
+}
+
+function createCameraBootstrap(
+  token: string | null,
+  objectFit: 'contain' | 'cover',
+) {
+  return `${serializeCameraAuthBootstrap(token)}${createCameraPresentationScript(objectFit)}`;
+}
+
 function clampTranslationOffset(value: number, axisSize: number, scale: number) {
   'worklet';
   const maxOffset = Math.max(0, ((axisSize * scale) - axisSize) / 2);
@@ -291,13 +579,17 @@ function clampTranslationOffset(value: number, axisSize: number, scale: number) 
 export default function CameraScreen() {
   const navigation = useNavigation<RootNavigationProp<'Camera'>>();
   const route = useRoute<RootRouteProp<'Camera'>>();
+  const isFocused = useIsFocused();
+  const { width, height } = useWindowDimensions();
+  const isLandscape = isCameraLandscape(width, height);
   const { colors } = useTheme();
   const { showToast } = useToast();
-  const { hasPermission } = useAuth();
+  const { authEnabled, hasPermission, user } = useAuth();
+  const serverUrl = useServerStore(state => state.serverUrl);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { token: mediaToken, isReady: mediaTokenReady } = useMediaToken();
-  const [fullscreen, setFullscreen] = useState(false);
+  const [fitMode, setFitMode] = useState<'cover' | 'contain'>('contain');
   const [streamSeed, setStreamSeed] = useState(() => Date.now());
   const [streamLoading, setStreamLoading] = useState(true);
   const [streamError, setStreamError] = useState(false);
@@ -305,7 +597,16 @@ export default function CameraScreen() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [plateDetectionEnabled, setPlateDetectionEnabled] = useState(false);
   const [plateSensitivity, setPlateSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
+  const [webAuthToken, setWebAuthToken] = useState<string | null>(null);
+  const webAuthTokenRef = useRef<string | null>(null);
+  const [webRendererEligible, setWebRendererEligible] = useState(false);
+  const [appState, setAppState] = useState(AppState.currentState);
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
+  const [webViewGeneration, setWebViewGeneration] = useState(0);
+  const [webCameraErrorStatus, setWebCameraErrorStatus] = useState<number | null>(null);
+  const [webCameraFailed, setWebCameraFailed] = useState(false);
   const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const webViewRef = useRef<CameraWebViewHandle>(null);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -323,22 +624,174 @@ export default function CameraScreen() {
   const { id } = (route.params ?? {}) as { id?: string | number };
   const printerId = Number(id);
   const validPrinterId = Number.isFinite(printerId) && printerId > 0;
+  const activePrinterIdRef = useRef(printerId);
+
+  const synchronizeWebAuthToken = useCallback((forceRemount: boolean) => {
+    if (Platform.OS !== 'ios') return;
+    const currentToken = getAuthToken();
+    if (forceRemount || currentToken !== webAuthTokenRef.current) {
+      webAuthTokenRef.current = currentToken;
+      setWebAuthToken(currentToken);
+      setWebViewGeneration(current => current + 1);
+    }
+    setWebRendererEligible(true);
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    if (!isFocused || appState !== 'active' || (authEnabled && !user)) {
+      setWebRendererEligible(false);
+      if (authEnabled && !user) {
+        webAuthTokenRef.current = null;
+        setWebAuthToken(null);
+      }
+      return;
+    }
+    setWebRendererEligible(false);
+    synchronizeWebAuthToken(false);
+  }, [appState, authEnabled, isFocused, synchronizeWebAuthToken, user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS === 'ios' && AppState.currentState === 'active') {
+        setWebRendererEligible(false);
+        synchronizeWebAuthToken(false);
+      }
+    }, [synchronizeWebAuthToken]),
+  );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', setAppState);
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotionEnabled);
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReduceMotionEnabled,
+    );
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    setShowDiagnostic(false);
+    const clampedX = clampTranslationOffset(translateX.value, width, scale.value);
+    const clampedY = clampTranslationOffset(translateY.value, height, scale.value);
+    translateX.value = clampedX;
+    translateY.value = clampedY;
+    savedTranslateX.value = clampedX;
+    savedTranslateY.value = clampedY;
+  }, [
+    height,
+    savedTranslateX,
+    savedTranslateY,
+    scale,
+    translateX,
+    translateY,
+    width,
+  ]);
+
+  const webCamera = useMemo(() => {
+    if (Platform.OS !== 'ios' || !validPrinterId || !serverUrl) return null;
+    try {
+      const configuredUrl = new URL(serverUrl);
+      if (
+        (configuredUrl.protocol !== 'http:' && configuredUrl.protocol !== 'https:') ||
+        configuredUrl.username ||
+        configuredUrl.password
+      ) {
+        return null;
+      }
+      const pathname = `/camera/${encodeURIComponent(String(printerId))}`;
+      return {
+        origin: configuredUrl.origin,
+        pathname,
+        uri: `${configuredUrl.origin}${pathname}`,
+      };
+    } catch {
+      return null;
+    }
+  }, [printerId, serverUrl, validPrinterId]);
+
+  const cameraBootstrap = useMemo(
+    () => createCameraBootstrap(webAuthToken, fitMode),
+    [fitMode, webAuthToken],
+  );
+
+  const allowCameraNavigation = useCallback(
+    (request: { url: string }) => {
+      if (!webCamera) return false;
+      try {
+        const candidate = new URL(request.url);
+        return (
+          (candidate.protocol === 'http:' || candidate.protocol === 'https:') &&
+          candidate.username === '' &&
+          candidate.password === '' &&
+          candidate.origin === webCamera.origin &&
+          candidate.pathname === webCamera.pathname &&
+          candidate.search === '' &&
+          candidate.hash === ''
+        );
+      } catch {
+        return false;
+      }
+    },
+    [webCamera],
+  );
+
+  const handleWebCameraFailure = useCallback(() => {
+    setWebCameraErrorStatus(null);
+    setWebCameraFailed(true);
+  }, []);
+
+  const handleWebCameraHttpFailure = useCallback(
+    (event: { nativeEvent?: { statusCode?: number } }) => {
+      const statusCode = event.nativeEvent?.statusCode;
+      setWebCameraErrorStatus(
+        Number.isInteger(statusCode) && statusCode != null && statusCode > 0
+          ? statusCode
+          : null,
+      );
+      setWebCameraFailed(true);
+    },
+    [],
+  );
 
   const resetZoom = useCallback(() => {
-    scale.value = withTiming(1);
+    scale.value = reduceMotionEnabled ? 1 : withTiming(1);
     savedScale.value = 1;
-    translateX.value = withTiming(0);
-    translateY.value = withTiming(0);
+    translateX.value = reduceMotionEnabled ? 0 : withTiming(0);
+    translateY.value = reduceMotionEnabled ? 0 : withTiming(0);
     savedTranslateX.value = 0;
     savedTranslateY.value = 0;
     setZoomLevel(1);
-  }, [savedScale, savedTranslateX, savedTranslateY, scale, translateX, translateY]);
+  }, [
+    reduceMotionEnabled,
+    savedScale,
+    savedTranslateX,
+    savedTranslateY,
+    scale,
+    translateX,
+    translateY,
+  ]);
 
   const clearStreamTimeout = useCallback(() => {
     if (streamTimeoutRef.current == null) return;
     clearTimeout(streamTimeoutRef.current);
     streamTimeoutRef.current = null;
   }, []);
+
+  useEffect(() => {
+    if (activePrinterIdRef.current === printerId) return;
+    activePrinterIdRef.current = printerId;
+    setWebCameraErrorStatus(null);
+    setWebCameraFailed(false);
+    setStreamError(false);
+    setStreamLoading(true);
+    clearStreamTimeout();
+    resetZoom();
+  }, [clearStreamTimeout, printerId, resetZoom]);
 
   const armStreamTimeout = useCallback(() => {
     clearStreamTimeout();
@@ -446,6 +899,9 @@ export default function CameraScreen() {
     clearStreamTimeout();
     setStreamError(false);
     setStreamLoading(true);
+    setWebCameraErrorStatus(null);
+    setWebCameraFailed(false);
+    synchronizeWebAuthToken(true);
     setStreamSeed(current => Math.max(Date.now(), current + 1));
     resetZoom();
     await Promise.all([
@@ -454,7 +910,7 @@ export default function CameraScreen() {
       queryClient.invalidateQueries({ queryKey: ['plateDetectionStatus', printerId] }),
       queryClient.invalidateQueries({ queryKey: ['camera-stream-token'] }),
     ]);
-  }, [clearStreamTimeout, printerId, queryClient, resetZoom]);
+  }, [clearStreamTimeout, printerId, queryClient, resetZoom, synchronizeWebAuthToken]);
 
   const printer = printerQuery.data ?? null;
 
@@ -562,10 +1018,10 @@ export default function CameraScreen() {
   const doubleTapGesture = Gesture.Tap()
     .numberOfTaps(2)
     .onEnd(() => {
-      scale.value = withTiming(1);
+      scale.value = reduceMotionEnabled ? 1 : withTiming(1);
       savedScale.value = 1;
-      translateX.value = withTiming(0);
-      translateY.value = withTiming(0);
+      translateX.value = reduceMotionEnabled ? 0 : withTiming(0);
+      translateY.value = reduceMotionEnabled ? 0 : withTiming(0);
       savedTranslateX.value = 0;
       savedTranslateY.value = 0;
       runOnJS(setZoomLevel)(1);
@@ -591,7 +1047,7 @@ export default function CameraScreen() {
           ? colors.success
           : colors.error;
   const streamUrl = useMemo(() => {
-    if (!validPrinterId || !mediaTokenReady) return null;
+    if (Platform.OS !== 'android' || !validPrinterId || !mediaTokenReady) return null;
     return withCacheBuster(
       api.getCameraStreamUrl(printerId),
       `${mediaToken ?? 'public'}-${streamSeed}`,
@@ -632,11 +1088,41 @@ export default function CameraScreen() {
       : 'Needs calibration';
   const plateStatusColor = plateStatus?.calibrated ? colors.success : colors.warning;
 
-  const openDiagnostic = () => {
+  const openActions = () => {
     setShowDiagnostic(true);
     diagnoseMutation.reset();
+  };
+
+  const runDiagnostic = () => {
     diagnoseMutation.mutate();
   };
+
+  const toggleFitMode = () => {
+    const nextFitMode = fitMode === 'cover' ? 'contain' : 'cover';
+    setFitMode(nextFitMode);
+    if (Platform.OS === 'ios') {
+      webViewRef.current?.injectJavaScript(
+        createCameraPresentationScript(nextFitMode),
+      );
+    }
+  };
+
+  const lightAvailable =
+    status != null &&
+    Object.prototype.hasOwnProperty.call(status, 'chamber_light');
+  const plateAvailable =
+    printer != null &&
+    Object.prototype.hasOwnProperty.call(printer, 'plate_detection_enabled');
+  const hasRecoveryCard =
+    printerQuery.isLoading ||
+    statusQuery.isLoading ||
+    cameraUnavailableReason != null ||
+    (Platform.OS === 'ios' &&
+      (!webCamera ||
+        (authEnabled && webAuthToken == null) ||
+        webCameraFailed)) ||
+    (Platform.OS === 'android' &&
+      (streamError || !mediaTokenReady || streamUrl == null));
 
   const renderState = (
     title: string,
@@ -667,7 +1153,12 @@ export default function CameraScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: '#000' }]}> 
+    <View style={styles.container}>
+      <StatusBar
+        hidden={shouldHideCameraStatusBar(isFocused)}
+        animated={false}
+        barStyle="light-content"
+      />
       {printerQuery.isLoading || statusQuery.isLoading ? (
         <View style={styles.stateWrap}>
           <ActivityIndicator size="large" color={colors.accent} />
@@ -679,8 +1170,90 @@ export default function CameraScreen() {
           validPrinterId ? 'Refresh' : undefined,
           validPrinterId ? () => void refreshCamera() : undefined,
           printer ? 'Diagnose' : undefined,
-          printer ? openDiagnostic : undefined,
+          printer ? openActions : undefined,
         )
+      ) : Platform.OS === 'ios' && (!webCamera || (authEnabled && webAuthToken == null)) ? (
+        renderState(
+          'Camera unavailable',
+          'The Web camera is not available yet.',
+          'Retry',
+          () => void refreshCamera(),
+        )
+      ) : Platform.OS === 'ios' && webCameraFailed ? (
+        renderState(
+          'Unable to load Web camera',
+          webCameraErrorStatus == null
+            ? 'The Web camera page could not be loaded.'
+            : `The Web camera page could not be loaded (HTTP ${webCameraErrorStatus}).`,
+          'Retry',
+          () => void refreshCamera(),
+        )
+      ) : Platform.OS === 'ios' && !webRendererEligible ? null
+      : Platform.OS === 'ios' && webCamera ? (
+        <GestureDetector gesture={cameraGesture}>
+          <View
+            style={styles.streamViewport}
+            onLayout={event => {
+              containerWidth.value = event.nativeEvent.layout.width;
+              containerHeight.value = event.nativeEvent.layout.height;
+            }}
+          >
+            <Animated.View style={[styles.streamTransform, animatedStreamStyle]}>
+              <CameraWebView
+                ref={webViewRef}
+                key={`${printerId}:${webViewGeneration}`}
+                source={{ uri: webCamera.uri }}
+                style={styles.stream}
+                originWhitelist={['*']}
+                injectedJavaScriptBeforeContentLoaded={cameraBootstrap}
+                injectedJavaScriptBeforeContentLoadedForMainFrameOnly
+                javaScriptEnabled
+                incognito
+                sharedCookiesEnabled={false}
+                useSharedProcessPool={false}
+                javaScriptCanOpenWindowsAutomatically={false}
+                allowFileAccessFromFileURLs={false}
+                allowUniversalAccessFromFileURLs={false}
+                allowsLinkPreview={false}
+                onShouldStartLoadWithRequest={allowCameraNavigation}
+                onOpenWindow={() => undefined}
+                onFileDownload={() => undefined}
+                onError={handleWebCameraFailure}
+                onHttpError={handleWebCameraHttpFailure}
+                onContentProcessDidTerminate={handleWebCameraFailure}
+              />
+            </Animated.View>
+            {plateDetectionEnabled ? (
+              <View pointerEvents="none" style={styles.calibrationOverlay}>
+                <View
+                  style={[
+                    styles.calibrationFrame,
+                    {
+                      left: `${Math.max(0, plateRoi.x) * 100}%`,
+                      top: `${Math.max(0, plateRoi.y) * 100}%`,
+                      width: `${Math.min(1, plateRoi.w) * 100}%`,
+                      height: `${Math.min(1, plateRoi.h) * 100}%`,
+                      borderColor: plateStatus?.calibrated ? colors.success : colors.warning,
+                    },
+                  ]}
+                >
+                  {!isLandscape ? (
+                    <View
+                      style={[
+                        styles.calibrationLabel,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                      ]}
+                    >
+                      <Text style={[styles.calibrationLabelText, { color: colors.text }]}>
+                        Plate detection area
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
+          </View>
+        </GestureDetector>
       ) : !mediaTokenReady ? (
         <View style={styles.stateWrap}>
           <ActivityIndicator size="large" color={colors.accent} />
@@ -694,7 +1267,7 @@ export default function CameraScreen() {
           'Retry',
           () => void refreshCamera(),
           'Diagnose',
-          openDiagnostic,
+          openActions,
         )
       ) : streamUrl ? (
         <GestureDetector gesture={cameraGesture}>
@@ -710,7 +1283,7 @@ export default function CameraScreen() {
                 testID="camera-stream-image"
                 source={{ uri: streamUrl }}
                 style={styles.stream}
-                resizeMode={fullscreen ? 'cover' : 'contain'}
+                resizeMode={fitMode}
                 onLoadStart={handleStreamLoadStart}
                 onLoad={() => {
                   clearStreamTimeout();
@@ -738,16 +1311,18 @@ export default function CameraScreen() {
                     },
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.calibrationLabel,
-                      { backgroundColor: colors.overlay, borderColor: colors.border },
-                    ]}
-                  >
-                    <Text style={[styles.calibrationLabelText, { color: colors.text }]}> 
-                      Plate detection area
-                    </Text>
-                  </View>
+                  {!isLandscape ? (
+                    <View
+                      style={[
+                        styles.calibrationLabel,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                      ]}
+                    >
+                      <Text style={[styles.calibrationLabelText, { color: colors.text }]}>
+                        Plate detection area
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
             ) : null}
@@ -761,185 +1336,227 @@ export default function CameraScreen() {
         </GestureDetector>
       ) : null}
 
-      <View style={[styles.topBar, { top: insets.top + spacing.md }]}> 
-        <Pressable
+      <View
+        testID="camera-header-overlay"
+        style={[
+          isLandscape ? styles.landscapeHeader : styles.portraitHeader,
+          {
+            top: insets.top + spacing.sm,
+            left: insets.left + spacing.md,
+          },
+          !isLandscape && { right: insets.right + spacing.md },
+        ]}
+      >
+        <CameraIconButton
+          label="Close camera"
+          hint="Returns to the previous screen"
           onPress={() => navigation.goBack()}
-          style={[
-            styles.iconButton,
-            { backgroundColor: colors.overlay, borderColor: colors.border },
-          ]}
-        >
-          <X size={20} color={colors.text} strokeWidth={2} />
-        </Pressable>
-
-        <View style={styles.topActions}>
-          <Pressable
-            onPress={() => void refreshCamera()}
-            style={[
-              styles.toolbarButton,
-              { backgroundColor: colors.overlay, borderColor: colors.border },
-            ]}
-          >
-            <RefreshCw size={16} color={colors.text} strokeWidth={2} />
-            {!fullscreen ? <Text style={[styles.toolbarText, { color: colors.text }]}>Refresh</Text> : null}
-          </Pressable>
-
-          <Pressable
-            onPress={openDiagnostic}
-            disabled={!printer || diagnoseMutation.isPending}
-            style={[
-              styles.toolbarButton,
-              { backgroundColor: colors.overlay, borderColor: colors.border },
-              (!printer || diagnoseMutation.isPending) && styles.disabledButton,
-            ]}
-          >
-            <Stethoscope size={16} color={colors.text} strokeWidth={2} />
-            {!fullscreen ? <Text style={[styles.toolbarText, { color: colors.text }]}>Diagnose</Text> : null}
-          </Pressable>
-
-          <Pressable
-            onPress={() => void plateToggleMutation.mutateAsync(!plateDetectionEnabled)}
-            disabled={plateToggleMutation.isPending || !validPrinterId}
-            style={[
-              styles.toolbarButton,
-              {
-                backgroundColor: plateDetectionEnabled ? `${colors.info}25` : colors.overlay,
-                borderColor: plateDetectionEnabled ? colors.info : colors.border,
-              },
-              (plateToggleMutation.isPending || !validPrinterId) && styles.disabledButton,
-            ]}
-          >
-            <Layers
-              size={16}
-              color={plateDetectionEnabled ? colors.info : colors.text}
-              strokeWidth={2}
-            />
-            {!fullscreen ? (
-              <Text
-                style={[
-                  styles.toolbarText,
-                  { color: plateDetectionEnabled ? colors.info : colors.text },
-                ]}
-              >
-                Plate detection
-              </Text>
-            ) : null}
-          </Pressable>
-
-          <Pressable
-            onPress={() => chamberLightMutation.mutate()}
-            disabled={!hasPermission('printers:control') || chamberLightMutation.isPending}
-            style={[
-              styles.toolbarButton,
-              {
-                backgroundColor: status?.chamber_light ? `${colors.warning}33` : colors.overlay,
-                borderColor: status?.chamber_light ? colors.warning : colors.border,
-              },
-              (!hasPermission('printers:control') || chamberLightMutation.isPending) &&
-                styles.disabledButton,
-            ]}
-          >
-            <Lightbulb
-              size={16}
-              color={status?.chamber_light ? colors.warning : colors.text}
-              strokeWidth={2}
-            />
-            {!fullscreen ? (
-              <Text
-                style={[
-                  styles.toolbarText,
-                  { color: status?.chamber_light ? colors.warning : colors.text },
-                ]}
-              >
-                {status?.chamber_light ? 'Light on' : 'Light off'}
-              </Text>
-            ) : null}
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              setFullscreen(current => !current);
-              resetZoom();
-            }}
-            style={[
-              styles.toolbarButton,
-              { backgroundColor: colors.overlay, borderColor: colors.border },
-            ]}
-          >
-            {fullscreen ? (
-              <Minimize size={16} color={colors.text} strokeWidth={2} />
-            ) : (
-              <Maximize size={16} color={colors.text} strokeWidth={2} />
-            )}
-            {!fullscreen ? (
-              <Text style={[styles.toolbarText, { color: colors.text }]}>
-                {fullscreen ? 'Fit' : 'Fill'}
-              </Text>
-            ) : null}
-          </Pressable>
-        </View>
-      </View>
-
-      <View
-        style={[
-          styles.zoomBadge,
-          {
-            top: insets.top + 68,
-            backgroundColor: colors.overlay,
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.zoomBadgeText, { color: colors.text }]}> 
-          {zoomLevel.toFixed(1)}×
-        </Text>
-        {zoomLevel > 1 ? (
-          <Text style={[styles.zoomHint, { color: colors.textSecondary }]}>Double-tap to reset</Text>
-        ) : null}
-      </View>
-
-      <View
-        style={[
-          styles.overlayCard,
-          {
-            backgroundColor: colors.overlay,
-            borderColor: colors.border,
-            bottom: insets.bottom + spacing.lg,
-          },
-          fullscreen && styles.overlayCardFullscreen,
-        ]}
-      >
-        <View style={styles.overlayHeader}>
-          <View style={styles.overlayText}>
+          icon={<X size={20} color={colors.text} strokeWidth={2} />}
+          style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+        />
+        {!isLandscape ? (
+          <View accessible accessibilityLabel={`${printer?.name || 'Camera'}, Camera`} style={styles.headerTitle}>
             <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
               {printer?.name || 'Camera'}
             </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-              {printName}
+            <Text style={[styles.headerContext, { color: colors.textSecondary }]} numberOfLines={1}>
+              Camera
             </Text>
           </View>
-          <StatusBadge label={statusLabel} color={statusColor} />
-        </View>
-
-        <View style={[styles.progressTrack, { backgroundColor: colors.surfaceHover }]}> 
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${progress}%`, backgroundColor: statusColor },
-            ]}
+        ) : null}
+        {!isLandscape ? (
+          <CameraIconButton
+            label="More camera actions"
+            hint="Opens diagnostics and plate detection controls"
+            onPress={openActions}
+            icon={<MoreHorizontal size={20} color={colors.text} strokeWidth={2} />}
+            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
           />
-        </View>
+        ) : null}
+      </View>
 
-        <View style={styles.statsRow}>
-          <Text style={[styles.stat, { color: colors.text }]}>{Math.round(progress)}%</Text>
-          <Text style={[styles.stat, { color: colors.textSecondary }]}> 
-            {status?.layer_num != null && status?.total_layers != null
-              ? `Layer ${status.layer_num}/${status.total_layers}`
-              : status?.state || 'Idle'}
-          </Text>
+      {isLandscape ? (
+        <View
+          testID="camera-landscape-control-rail"
+          accessibilityLabel="Camera controls"
+          pointerEvents="box-none"
+          style={[
+            styles.landscapeRail,
+            {
+              top: insets.top + spacing.sm,
+              right: insets.right + spacing.md,
+              bottom: insets.bottom + spacing.sm,
+            },
+          ]}
+        >
+          <View
+            testID="camera-landscape-control-rail-surface"
+            style={[
+              styles.landscapeRailSurface,
+              {
+                backgroundColor: colors.overlay,
+                borderColor: colors.border,
+                shadowColor: colors.text,
+              },
+            ]}
+          >
+            <CameraIconButton
+              label="Refresh camera"
+              hint="Reloads the current camera"
+              onPress={() => void refreshCamera()}
+              icon={<RefreshCw size={19} color={colors.text} strokeWidth={2} />}
+              style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+            />
+            {lightAvailable ? (
+              <CameraIconButton
+                label={status?.chamber_light ? 'Turn chamber light off' : 'Turn chamber light on'}
+                hint="Changes the printer chamber light"
+                onPress={() => chamberLightMutation.mutate()}
+                disabled={!hasPermission('printers:control') || chamberLightMutation.isPending}
+                selected={Boolean(status?.chamber_light)}
+                busy={chamberLightMutation.isPending}
+                icon={<Lightbulb size={19} color={status?.chamber_light ? colors.warning : colors.text} strokeWidth={2} />}
+                style={{
+                  backgroundColor: status?.chamber_light ? colors.accentBg : colors.surface,
+                  borderColor: status?.chamber_light ? colors.warning : colors.border,
+                }}
+              />
+            ) : null}
+            <CameraIconButton
+              label={fitMode === 'cover' ? 'Show full camera image' : 'Fill camera viewport'}
+              hint="Changes how the camera fits the viewport"
+              onPress={toggleFitMode}
+              selected={fitMode === 'contain'}
+              icon={fitMode === 'cover'
+                ? <Minimize size={19} color={colors.text} strokeWidth={2} />
+                : <Maximize size={19} color={colors.text} strokeWidth={2} />}
+              style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+            />
+            <CameraIconButton
+              label="More camera actions"
+              hint="Opens diagnostics and plate detection controls"
+              onPress={openActions}
+              icon={<MoreHorizontal size={20} color={colors.text} strokeWidth={2} />}
+              style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+            />
+          </View>
         </View>
+      ) : null}
 
-        {plateDetectionEnabled ? (
+      {!isLandscape ? (
+        <View
+          testID="camera-bottom-overlay"
+          style={[
+            styles.bottomStack,
+            {
+              bottom: insets.bottom + spacing.md,
+              left: insets.left + spacing.md,
+              right: insets.right + spacing.md,
+            },
+          ]}
+        >
+          {zoomLevel > 1 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Reset zoom"
+              accessibilityHint="Returns the camera to one times zoom"
+              onPress={resetZoom}
+              style={[styles.zoomBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            >
+              <Text style={[styles.zoomBadgeText, { color: colors.text }]}>
+                {zoomLevel.toFixed(1)}× · Reset
+              </Text>
+            </Pressable>
+          ) : null}
+          <View
+            accessibilityLabel="Camera controls"
+            style={[styles.cameraDock, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <CameraIconButton
+              label="Refresh camera"
+              hint="Reloads the current camera"
+              onPress={() => void refreshCamera()}
+              icon={<RefreshCw size={19} color={colors.text} strokeWidth={2} />}
+            />
+            {lightAvailable ? (
+              <CameraIconButton
+                label={status?.chamber_light ? 'Turn chamber light off' : 'Turn chamber light on'}
+                hint="Changes the printer chamber light"
+                onPress={() => chamberLightMutation.mutate()}
+                disabled={!hasPermission('printers:control') || chamberLightMutation.isPending}
+                selected={Boolean(status?.chamber_light)}
+                busy={chamberLightMutation.isPending}
+                icon={<Lightbulb size={19} color={status?.chamber_light ? colors.warning : colors.text} strokeWidth={2} />}
+                style={{
+                  backgroundColor: status?.chamber_light ? colors.accentBg : colors.surface,
+                  borderColor: status?.chamber_light ? colors.warning : colors.border,
+                }}
+              />
+            ) : null}
+            {plateAvailable ? (
+              <CameraIconButton
+                label={plateDetectionEnabled ? 'Disable plate detection' : 'Enable plate detection'}
+                hint="Changes plate detection for this printer"
+                onPress={() => void plateToggleMutation.mutateAsync(!plateDetectionEnabled)}
+                disabled={plateToggleMutation.isPending || !validPrinterId}
+                selected={plateDetectionEnabled}
+                busy={plateToggleMutation.isPending}
+                icon={<Layers size={19} color={plateDetectionEnabled ? colors.accent : colors.text} strokeWidth={2} />}
+                style={{
+                  backgroundColor: plateDetectionEnabled ? colors.accentBg : colors.surface,
+                  borderColor: plateDetectionEnabled ? colors.accent : colors.border,
+                }}
+              />
+            ) : null}
+            <CameraIconButton
+              label={fitMode === 'cover' ? 'Show full camera image' : 'Fill camera viewport'}
+              hint="Changes how the camera fits the viewport"
+              onPress={toggleFitMode}
+              selected={fitMode === 'contain'}
+              icon={fitMode === 'cover'
+                ? <Minimize size={19} color={colors.text} strokeWidth={2} />
+                : <Maximize size={19} color={colors.text} strokeWidth={2} />}
+            />
+          </View>
+          {!hasRecoveryCard ? (
+            <View
+              style={[
+                styles.overlayCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.overlayHeader}>
+                <Text style={[styles.subtitle, { color: colors.text }]} numberOfLines={1}>
+                  {printName}
+                </Text>
+                <StatusBadge label={statusLabel} color={statusColor} />
+              </View>
+              <View style={[styles.progressTrack, { backgroundColor: colors.surfaceHover }]}>
+                <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: statusColor }]} />
+              </View>
+              <View style={styles.statsRow}>
+                <Text style={[styles.stat, { color: colors.text }]}>{Math.round(progress)}%</Text>
+                <Text style={[styles.stat, { color: colors.textSecondary }]}>
+                  {status?.layer_num != null && status?.total_layers != null
+                    ? `Layer ${status.layer_num}/${status.total_layers}`
+                    : status?.state || 'Idle'}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      <DiagnosticSheet
+        visible={showDiagnostic}
+        onClose={() => setShowDiagnostic(false)}
+        onRetry={runDiagnostic}
+        pending={diagnoseMutation.isPending}
+        result={diagnoseMutation.data ?? null}
+        printer={printer}
+        reduceMotionEnabled={reduceMotionEnabled}
+      >
+        {plateAvailable ? (
           <View
             style={[
               styles.plateDetectionPanel,
@@ -957,6 +1574,12 @@ export default function CameraScreen() {
               </View>
               <StatusBadge label={plateStatusLabel} color={plateStatusColor} />
             </View>
+            <PrimaryButton
+              label={plateDetectionEnabled ? 'Disable plate detection' : 'Enable plate detection'}
+              variant="secondary"
+              onPress={() => void plateToggleMutation.mutateAsync(!plateDetectionEnabled)}
+              disabled={plateToggleMutation.isPending || !validPrinterId}
+            />
             <View style={styles.plateStatsRow}>
               <Text style={[styles.plateMeta, { color: colors.textSecondary }]}> 
                 Sensitivity
@@ -967,6 +1590,9 @@ export default function CameraScreen() {
                   return (
                     <Pressable
                       key={level}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${level} plate detection sensitivity`}
+                      accessibilityState={{ selected: active }}
                       onPress={() => setPlateSensitivity(level)}
                       style={[
                         styles.sensitivityChip,
@@ -1005,16 +1631,7 @@ export default function CameraScreen() {
             />
           </View>
         ) : null}
-      </View>
-
-      <DiagnosticSheet
-        visible={showDiagnostic}
-        onClose={() => setShowDiagnostic(false)}
-        onRetry={() => diagnoseMutation.mutate()}
-        pending={diagnoseMutation.isPending}
-        result={diagnoseMutation.data ?? null}
-        printer={printer}
-      />
+      </DiagnosticSheet>
     </View>
   );
 }
@@ -1022,9 +1639,14 @@ export default function CameraScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000000',
   },
   streamViewport: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     overflow: 'hidden',
   },
   streamTransform: {
@@ -1057,21 +1679,40 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     fontWeight: fontWeight.medium,
   },
-  topBar: {
+  portraitHeader: {
     position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     gap: spacing.md,
   },
-  topActions: {
+  landscapeHeader: {
+    position: 'absolute',
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  headerTitle: {
     flex: 1,
+    alignItems: 'center',
+    minWidth: 0,
+  },
+  headerContext: {
+    fontSize: fontSize.xs,
+  },
+  landscapeRail: {
+    position: 'absolute',
+    justifyContent: 'center',
+  },
+  landscapeRailSurface: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
+    gap: spacing.sm,
+    padding: spacing.xs,
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.24,
+    shadowRadius: 6,
   },
   iconButton: {
     width: 44,
@@ -1081,47 +1722,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  toolbarButton: {
-    minHeight: 44,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  toolbarText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-  },
   zoomBadge: {
-    position: 'absolute',
-    left: spacing.lg,
+    minHeight: 44,
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
     borderWidth: 1,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: 2,
   },
   zoomBadgeText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
   },
-  zoomHint: {
-    fontSize: fontSize.xs,
-  },
-  overlayCard: {
+  bottomStack: {
     position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    padding: spacing.lg,
     gap: spacing.sm,
   },
-  overlayCardFullscreen: {
-    left: spacing.lg,
-    right: spacing.lg,
+  cameraDock: {
+    minHeight: 52,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    padding: spacing.xs,
+  },
+  overlayCard: {
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.sm,
   },
   overlayHeader: {
     flexDirection: 'row',
@@ -1133,7 +1766,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   title: {
-    fontSize: fontSize.xl,
+    fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
   },
   subtitle: {
@@ -1245,15 +1878,16 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    justifyContent: 'center',
-    padding: spacing.lg,
+    justifyContent: 'flex-end',
   },
   modalCard: {
     borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    maxHeight: '85%',
+    borderTopLeftRadius: borderRadius['2xl'],
+    borderTopRightRadius: borderRadius['2xl'],
+    maxHeight: '90%',
     gap: spacing.md,
     padding: spacing.lg,
+    paddingBottom: spacing.xl,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1335,6 +1969,7 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: spacing.sm,
   },

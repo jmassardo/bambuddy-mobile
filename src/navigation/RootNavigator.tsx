@@ -2,6 +2,7 @@
 // Pattern: ServerSetup → Login → Main (tabs) + modal screens
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,6 +41,7 @@ export default function RootNavigator() {
   const serverUrl = useServerStore((s) => s.serverUrl);
   const serverLoading = useServerStore((s) => s.loading);
   const theme = useTheme();
+  const locksIPhoneToPortrait = Platform.OS === 'ios' && !Platform.isPad;
 
   // Fetch stream token for thumbnail/camera URLs (must be after auth)
   useStreamToken();
@@ -50,6 +52,7 @@ export default function RootNavigator() {
     headerTitleStyle: { color: theme.colors.text },
     headerBackTitle: 'Back',
     contentStyle: { backgroundColor: theme.colors.background },
+    ...(locksIPhoneToPortrait ? { orientation: 'portrait_up' as const } : {}),
   };
 
   // Still hydrating server URL from storage
@@ -112,7 +115,14 @@ export default function RootNavigator() {
       <Stack.Screen
         name="Camera"
         component={CameraScreen}
-        options={{ title: 'Camera', headerShown: false }}
+        options={{
+          headerShown: false,
+          contentStyle: { backgroundColor: '#000000' },
+          ...(Platform.OS === 'ios'
+            ? { presentation: 'fullScreenModal' as const }
+            : {}),
+          ...(locksIPhoneToPortrait ? { orientation: 'default' as const } : {}),
+        }}
       />
       <Stack.Screen
         name="Scanner"
