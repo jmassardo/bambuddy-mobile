@@ -57,6 +57,10 @@ let mockReduceMotion: boolean;
 let mockInjectJavaScript: jest.Mock;
 let mockWithTiming: jest.Mock;
 let mockSafeAreaInsets: { top: number; right: number; bottom: number; left: number };
+let mockLightAvailable: boolean;
+let mockChamberLightOn: boolean;
+let mockMutationPending: boolean;
+let mockHasControlPermission: boolean;
 
 jest
   .spyOn(ReactNative.AccessibilityInfo, 'isReduceMotionEnabled')
@@ -112,16 +116,19 @@ jest.mock('@tanstack/react-query', () => ({
       };
     }
     if (queryKey[0] === 'printerStatus') {
+      const data: Record<string, boolean | number | string> = {
+        connected: true,
+        ipcam: true,
+        state: 'RUNNING',
+        progress: 4,
+        layer_num: 1,
+        total_layers: 100,
+      };
+      if (mockLightAvailable) {
+        data.chamber_light = mockChamberLightOn;
+      }
       return {
-        data: {
-          connected: true,
-          ipcam: true,
-          state: 'RUNNING',
-          progress: 4,
-          layer_num: 1,
-          total_layers: 100,
-          chamber_light: false,
-        },
+        data,
         isLoading: false,
       };
     }
@@ -140,7 +147,7 @@ jest.mock('@tanstack/react-query', () => ({
   },
   useMutation: () => ({
     data: null,
-    isPending: false,
+    isPending: mockMutationPending,
     mutate: mockDiagnoseMutate,
     mutateAsync: mockMutationMutateAsync,
     reset: mockDiagnoseReset,
@@ -194,7 +201,7 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     authEnabled: mockAuthEnabled,
     user: mockUser,
-    hasPermission: () => true,
+    hasPermission: () => mockHasControlPermission,
   }),
 }));
 
@@ -526,6 +533,10 @@ beforeEach(() => {
   mockInjectJavaScript = jest.fn();
   mockWithTiming = jest.fn((value: unknown) => value);
   mockSafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+  mockLightAvailable = true;
+  mockChamberLightOn = false;
+  mockMutationPending = false;
+  mockHasControlPermission = true;
   mockGetAuthToken.mockReturnValue('mobile-auth-token');
 });
 
@@ -723,6 +734,99 @@ describe('CameraScreen iOS Web camera', () => {
     expect(
       StyleSheet.flatten(result.getByTestId('camera-bottom-overlay').props.style),
     ).toEqual(expect.objectContaining({ bottom: 46, right: 19, left: 21 }));
+    expect(result.queryByTestId('camera-landscape-control-rail')).toBeNull();
+  });
+
+  it('separates the landscape close control from a safe-area-aware vertical rail', async () => {
+    setWindowDimensions(568, 320, 2);
+    mockSafeAreaInsets = { top: 12, right: 34, bottom: 21, left: 47 };
+    const result = await render(<CameraScreen />);
+    const header = result.getByTestId('camera-header-overlay');
+    const rail = result.getByTestId('camera-landscape-control-rail');
+    const surface = result.getByTestId('camera-landscape-control-rail-surface');
+    const controls = surface.props.children.filter(Boolean);
+
+    expect(StyleSheet.flatten(header.props.style)).toEqual(
+      expect.objectContaining({ top: 20, left: 59 }),
+    );
+    expect(StyleSheet.flatten(header.props.style).right).toBeUndefined();
+    expect(header.props.children.filter(Boolean)).toHaveLength(1);
+    expect(header.props.children.filter(Boolean)[0].props.label).toBe(
+      'Close camera',
+    );
+    expect(StyleSheet.flatten(rail.props.style)).toEqual(
+      expect.objectContaining({ top: 20, right: 46, bottom: 29 }),
+    );
+    expect(StyleSheet.flatten(surface.props.style)).toEqual(
+      expect.objectContaining({
+        flexDirection: 'column',
+        flexWrap: 'nowrap',
+        gap: 8,
+        padding: 4,
+        elevation: 8,
+      }),
+    );
+    expect(
+      controls.map(
+        (control: React.ReactElement<{ label: string }>) => control.props.label,
+      ),
+    ).toEqual([
+      'Refresh camera',
+      'Turn chamber light on',
+      'Fill camera viewport',
+      'More camera actions',
+    ]);
+    controls.forEach((control: React.ReactElement<{ label: string }>) => {
+      expect(StyleSheet.flatten(result.getByLabelText(control.props.label).props.style)).toEqual(
+        expect.objectContaining({ width: 44, height: 44 }),
+      );
+    });
+  });
+
+  it('preserves rail order and accessibility states when light is unavailable or busy', async () => {
+    setWindowDimensions(844, 390);
+    mockChamberLightOn = true;
+    mockMutationPending = true;
+    mockHasControlPermission = false;
+    const result = await render(<CameraScreen />);
+    const surface = result.getByTestId('camera-landscape-control-rail-surface');
+    const labels = () =>
+      surface.props.children
+        .filter(Boolean)
+        .map(
+          (control: React.ReactElement<{ label: string }>) => control.props.label,
+        );
+
+    expect(labels()).toEqual([
+      'Refresh camera',
+      'Turn chamber light off',
+      'Fill camera viewport',
+      'More camera actions',
+    ]);
+    expect(result.getByLabelText('Turn chamber light off').props.accessibilityState).toEqual({
+      disabled: true,
+      selected: true,
+      busy: true,
+    });
+    expect(result.getByLabelText('Fill camera viewport').props.accessibilityState).toEqual({
+      disabled: false,
+      selected: true,
+      busy: false,
+    });
+    expect(result.getByLabelText('Refresh camera').props.accessibilityHint).toBe(
+      'Reloads the current camera',
+    );
+    expect(result.getByLabelText('More camera actions').props.accessibilityHint).toBe(
+      'Opens diagnostics and plate detection controls',
+    );
+
+    mockLightAvailable = false;
+    await result.rerender(<CameraScreen />);
+    expect(labels()).toEqual([
+      'Refresh camera',
+      'Fill camera viewport',
+      'More camera actions',
+    ]);
   });
 
   it('unmounts in background and revalidates auth before active remount', async () => {
