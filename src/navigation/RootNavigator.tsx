@@ -117,8 +117,10 @@ export default function RootNavigator() {
         component={CameraScreen}
         options={{
           headerShown: false,
-          presentation: 'fullScreenModal',
           contentStyle: { backgroundColor: '#000000' },
+          ...(Platform.OS === 'ios'
+            ? { presentation: 'fullScreenModal' as const }
+            : {}),
           ...(locksIPhoneToPortrait ? { orientation: 'default' as const } : {}),
         }}
       />

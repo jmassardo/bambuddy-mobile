@@ -1105,10 +1105,11 @@ describe('Camera iPhone orientation configuration', () => {
     expect(navigator).toContain(
       "locksIPhoneToPortrait ? { orientation: 'default' as const } : {}",
     );
-    expect(navigator).toContain("presentation: 'fullScreenModal'");
+    expect(navigator).toContain("Platform.OS === 'ios'");
+    expect(navigator).toContain("presentation: 'fullScreenModal' as const");
     expect(navigator).toContain("contentStyle: { backgroundColor: '#000000' }");
     expect(navigator).toMatch(
-      /name="Camera"[\s\S]*?headerShown: false,[\s\S]*?presentation: 'fullScreenModal'/,
+      /name="Camera"[\s\S]*?headerShown: false,[\s\S]*?Platform\.OS === 'ios'[\s\S]*?presentation: 'fullScreenModal' as const[\s\S]*?: \{\}/,
     );
     expect(cameraScreen).toContain(
       'hidden={shouldHideCameraStatusBar(isFocused)}',
