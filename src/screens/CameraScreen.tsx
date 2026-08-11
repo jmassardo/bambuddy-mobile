@@ -103,11 +103,8 @@ export function isCameraLandscape(width: number, height: number) {
   return width > height;
 }
 
-export function shouldHideCameraStatusBar(
-  isFocused: boolean,
-  isLandscape: boolean,
-) {
-  return isFocused && isLandscape;
+export function shouldHideCameraStatusBar(isFocused: boolean) {
+  return isFocused;
 }
 
 function stripExtension(name: string | null | undefined) {
@@ -448,38 +445,48 @@ function createCameraPresentationScript(objectFit: 'contain' | 'cover') {
           style.textContent = \`
             html, body, #root {
               width: 100% !important;
+              width: 100vw !important;
               height: 100% !important;
+              height: 100dvh !important;
               min-height: 100% !important;
+              min-height: 100dvh !important;
               margin: 0 !important;
               padding: 0 !important;
+              border: 0 !important;
               overflow: hidden !important;
               background: #000 !important;
+              box-sizing: border-box !important;
+            }
+            html, body {
+              position: fixed !important;
+              inset: 0 !important;
+            }
+            #root,
+            [data-bambuddy-mobile-camera-page],
+            [data-bambuddy-mobile-camera-content],
+            [data-bambuddy-mobile-camera-stream] {
+              position: absolute !important;
+              inset: 0 !important;
+              top: 0 !important;
             }
             [data-bambuddy-mobile-camera-page],
             [data-bambuddy-mobile-camera-content],
             [data-bambuddy-mobile-camera-stream] {
               width: 100% !important;
+              width: 100vw !important;
               height: 100% !important;
+              height: 100dvh !important;
               min-width: 0 !important;
               min-height: 0 !important;
               margin: 0 !important;
               padding: 0 !important;
               overflow: hidden !important;
             }
-            [data-bambuddy-mobile-camera-page] {
-              display: flex !important;
-              flex-direction: column !important;
-            }
-            [data-bambuddy-mobile-camera-content] {
-              display: flex !important;
-              flex: 1 1 0% !important;
-            }
             [data-bambuddy-mobile-camera-stream] {
-              position: relative !important;
               display: flex !important;
-              flex: 1 1 0% !important;
               align-items: center !important;
               justify-content: center !important;
+              background: #000 !important;
             }
             [data-bambuddy-mobile-camera-stream] > img {
               width: 100% !important;
@@ -568,7 +575,7 @@ export default function CameraScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { token: mediaToken, isReady: mediaTokenReady } = useMediaToken();
-  const [fitMode, setFitMode] = useState<'cover' | 'contain'>('cover');
+  const [fitMode, setFitMode] = useState<'cover' | 'contain'>('contain');
   const [streamSeed, setStreamSeed] = useState(() => Date.now());
   const [streamLoading, setStreamLoading] = useState(true);
   const [streamError, setStreamError] = useState(false);
@@ -1138,7 +1145,7 @@ export default function CameraScreen() {
   return (
     <View style={styles.container}>
       <StatusBar
-        hidden={shouldHideCameraStatusBar(isFocused, isLandscape)}
+        hidden={shouldHideCameraStatusBar(isFocused)}
         animated={false}
         barStyle="light-content"
       />
@@ -1321,6 +1328,7 @@ export default function CameraScreen() {
       ) : null}
 
       <View
+        testID="camera-header-overlay"
         style={[
           isLandscape ? styles.landscapeHeader : styles.portraitHeader,
           {
@@ -1404,6 +1412,7 @@ export default function CameraScreen() {
 
       {!isLandscape ? (
         <View
+          testID="camera-bottom-overlay"
           style={[
             styles.bottomStack,
             {

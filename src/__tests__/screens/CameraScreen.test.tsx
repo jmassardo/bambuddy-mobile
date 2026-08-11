@@ -56,6 +56,7 @@ let mockAppStateCallback: ((state: 'active' | 'background' | 'inactive') => void
 let mockReduceMotion: boolean;
 let mockInjectJavaScript: jest.Mock;
 let mockWithTiming: jest.Mock;
+let mockSafeAreaInsets: { top: number; right: number; bottom: number; left: number };
 
 jest
   .spyOn(ReactNative.AccessibilityInfo, 'isReduceMotionEnabled')
@@ -210,7 +211,7 @@ jest.mock('@/theme', () => ({
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+  useSafeAreaInsets: () => mockSafeAreaInsets,
 }));
 
 jest.mock('react-native-gesture-handler', () => {
@@ -463,6 +464,7 @@ beforeEach(() => {
   mockReduceMotion = false;
   mockInjectJavaScript = jest.fn();
   mockWithTiming = jest.fn((value: unknown) => value);
+  mockSafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
   mockGetAuthToken.mockReturnValue('mobile-auth-token');
 });
 
@@ -509,7 +511,13 @@ describe('CameraScreen iOS Web camera', () => {
     expect(fixture.stream.attributes).toContain('data-bambuddy-mobile-camera-stream');
     const style = fixture.document.getElementById('bambuddy-mobile-camera-style');
     expect(style?.textContent).toContain('html, body, #root');
-    expect(style?.textContent).toContain('object-fit: cover');
+    expect(style?.textContent).toContain('width: 100vw');
+    expect(style?.textContent).toContain('height: 100dvh');
+    expect(style?.textContent).toContain('position: fixed');
+    expect(style?.textContent).toContain('position: absolute');
+    expect(style?.textContent).toContain('inset: 0');
+    expect(style?.textContent).toContain('top: 0');
+    expect(style?.textContent).toContain('object-fit: contain');
     expect(style?.textContent).toContain('padding: 0');
 
     const observer = FakeMutationObserver.instances[0];
@@ -554,12 +562,32 @@ describe('CameraScreen iOS Web camera', () => {
     expect(result.getByLabelText('Refresh camera')).toBeTruthy();
     expect(result.getByLabelText('Turn chamber light on')).toBeTruthy();
     expect(result.getByLabelText('Enable plate detection')).toBeTruthy();
-    expect(result.getByLabelText('Show full camera image')).toBeTruthy();
+    expect(result.getByLabelText('Fill camera viewport')).toBeTruthy();
     expect(StyleSheet.flatten(dock.props.style).flexWrap).toBe('nowrap');
     expect(dock.props.children.filter(Boolean)).toHaveLength(4);
     expect(
       StyleSheet.flatten(result.getByLabelText('Close camera').props.style),
     ).toEqual(expect.objectContaining({ width: 44, height: 44 }));
+  });
+
+  it('hides the status bar while focused in portrait and landscape, then restores it on blur', () => {
+    expect(isCameraLandscape(390, 844)).toBe(false);
+    expect(shouldHideCameraStatusBar(true)).toBe(true);
+    expect(isCameraLandscape(844, 390)).toBe(true);
+    expect(shouldHideCameraStatusBar(true)).toBe(true);
+    expect(shouldHideCameraStatusBar(false)).toBe(false);
+  });
+
+  it('positions portrait controls inside every physical safe-area inset', async () => {
+    mockSafeAreaInsets = { top: 59, right: 7, bottom: 34, left: 9 };
+    const result = await render(<CameraScreen />);
+
+    expect(
+      StyleSheet.flatten(result.getByTestId('camera-header-overlay').props.style),
+    ).toEqual(expect.objectContaining({ top: 67, right: 19, left: 21 }));
+    expect(
+      StyleSheet.flatten(result.getByTestId('camera-bottom-overlay').props.style),
+    ).toEqual(expect.objectContaining({ bottom: 46, right: 19, left: 21 }));
   });
 
   it('unmounts in background and revalidates auth before active remount', async () => {
@@ -882,12 +910,15 @@ describe('CameraScreen iOS credential lifecycle', () => {
     expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toContain(secondToken);
     expect(renderedText(result)).not.toContain(firstToken);
 
-    await pressAndFlush(result.getByLabelText('Show full camera image'));
+    expect(requireWebViewProps().injectedJavaScript).toContain(
+      'object-fit: contain',
+    );
+    await pressAndFlush(result.getByLabelText('Fill camera viewport'));
     expect(mockInjectJavaScript).toHaveBeenCalledWith(
-      expect.stringContaining('object-fit: contain'),
+      expect.stringContaining('object-fit: cover'),
     );
     expect(mockWebViewMounts).toBe(2);
-    expect(result.getByLabelText('Fill camera viewport')).toBeTruthy();
+    expect(result.getByLabelText('Show full camera image')).toBeTruthy();
 
     await act(async () => {
       mockPinchBegin?.();
@@ -914,7 +945,7 @@ describe('CameraScreen iOS credential lifecycle', () => {
       setWindowDimensions(390, 844);
     });
     expect(result.getByLabelText('Printer One, Camera')).toBeTruthy();
-    expect(result.getByLabelText('Fill camera viewport')).toBeTruthy();
+    expect(result.getByLabelText('Show full camera image')).toBeTruthy();
     expect(result.getByText('2.0× · Reset')).toBeTruthy();
     expect(mockWebViewMounts).toBe(2);
   });
@@ -932,6 +963,7 @@ describe('CameraScreen Android renderer', () => {
     const image = result.getByTestId('camera-stream-image');
 
     expect(image.props.source.uri).toContain('/printers/1/camera/stream');
+    expect(image.props.resizeMode).toBe('contain');
     expect(result.queryByTestId('camera-webview')).toBeNull();
     expect(result.getByText('Plate detection area')).toBeTruthy();
     expect(result.getByLabelText('More camera actions')).toBeTruthy();
@@ -969,9 +1001,9 @@ describe('CameraScreen Android renderer', () => {
     expect(mockMutationMutateAsync).toHaveBeenCalledWith(true);
 
     await act(async () => {
-      fireEvent.press(result.getByLabelText('Show full camera image'));
+      fireEvent.press(result.getByLabelText('Fill camera viewport'));
     });
-    expect(result.getByLabelText('Fill camera viewport')).toBeTruthy();
+    expect(result.getByLabelText('Show full camera image')).toBeTruthy();
     await result.unmount();
   });
 
@@ -1073,8 +1105,13 @@ describe('Camera iPhone orientation configuration', () => {
     expect(navigator).toContain(
       "locksIPhoneToPortrait ? { orientation: 'default' as const } : {}",
     );
+    expect(navigator).toContain("presentation: 'fullScreenModal'");
+    expect(navigator).toContain("contentStyle: { backgroundColor: '#000000' }");
+    expect(navigator).toMatch(
+      /name="Camera"[\s\S]*?headerShown: false,[\s\S]*?presentation: 'fullScreenModal'/,
+    );
     expect(cameraScreen).toContain(
-      'hidden={shouldHideCameraStatusBar(isFocused, isLandscape)}',
+      'hidden={shouldHideCameraStatusBar(isFocused)}',
     );
     expect(cameraScreen).toContain('animated={false}');
     expect(cameraScreen).toContain('key={`${printerId}:${webViewGeneration}`}');
@@ -1085,8 +1122,7 @@ describe('Camera iPhone orientation configuration', () => {
     expect(isCameraLandscape(844, 390)).toBe(true);
     expect(isCameraLandscape(390, 844)).toBe(false);
     expect(isCameraLandscape(390, 390)).toBe(false);
-    expect(shouldHideCameraStatusBar(true, true)).toBe(true);
-    expect(shouldHideCameraStatusBar(true, false)).toBe(false);
-    expect(shouldHideCameraStatusBar(false, true)).toBe(false);
+    expect(shouldHideCameraStatusBar(true)).toBe(true);
+    expect(shouldHideCameraStatusBar(false)).toBe(false);
   });
 });
