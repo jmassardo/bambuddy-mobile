@@ -68,9 +68,8 @@ interface CameraWebViewProps {
   source: { uri: string };
   style: object;
   originWhitelist: string[];
-  injectedJavaScriptBeforeContentLoaded?: string;
+  injectedJavaScriptBeforeContentLoaded: string;
   injectedJavaScriptBeforeContentLoadedForMainFrameOnly: boolean;
-  injectedJavaScript: string;
   javaScriptEnabled: boolean;
   incognito: boolean;
   sharedCookiesEnabled: boolean;
@@ -396,12 +395,13 @@ function CameraIconButton({
   );
 }
 
-function createCameraBootstrap(token: string) {
+function serializeCameraAuthBootstrap(token: string | null) {
+  if (token == null) return '';
   const serializedToken = JSON.stringify(token)
     .replace(/</g, '\\u003c')
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029');
-  return `window.sessionStorage.removeItem("auth_token"); window.sessionStorage.setItem("auth_token", ${serializedToken}); true;`;
+  return `window.sessionStorage.removeItem("auth_token"); window.sessionStorage.setItem("auth_token", ${serializedToken});`;
 }
 
 function createCameraPresentationScript(objectFit: 'contain' | 'cover') {
@@ -416,11 +416,18 @@ function createCameraPresentationScript(objectFit: 'contain' | 'cover') {
       let debounceTimer = null;
 
       const cleanup = () => {
-        if (observer) observer.disconnect();
-        if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+        if (observer) {
+          observer.disconnect();
+          observer = null;
+        }
+        if (debounceTimer !== null) {
+          window.clearTimeout(debounceTimer);
+          debounceTimer = null;
+        }
       };
 
       const apply = () => {
+        if (!document.head) return;
         const root = document.getElementById('root');
         const page = root && root.firstElementChild;
         const image = page && page.querySelector('img');
@@ -547,13 +554,17 @@ function createCameraPresentationScript(objectFit: 'contain' | 'cover') {
           apply();
         }, 50);
       });
-      const observedRoot = document.getElementById('root');
-      if (observedRoot) {
-        observer.observe(observedRoot, { childList: true, subtree: true });
-      }
+      observer.observe(document.documentElement, { childList: true, subtree: true });
     })();
     true;
   `;
+}
+
+function createCameraBootstrap(
+  token: string | null,
+  objectFit: 'contain' | 'cover',
+) {
+  return `${serializeCameraAuthBootstrap(token)}${createCameraPresentationScript(objectFit)}`;
 }
 
 function clampTranslationOffset(value: number, axisSize: number, scale: number) {
@@ -701,12 +712,8 @@ export default function CameraScreen() {
   }, [printerId, serverUrl, validPrinterId]);
 
   const cameraBootstrap = useMemo(
-    () => (webAuthToken == null ? undefined : createCameraBootstrap(webAuthToken)),
-    [webAuthToken],
-  );
-  const cameraPresentationScript = useMemo(
-    () => createCameraPresentationScript(fitMode),
-    [fitMode],
+    () => createCameraBootstrap(webAuthToken, fitMode),
+    [fitMode, webAuthToken],
   );
 
   const allowCameraNavigation = useCallback(
@@ -1197,7 +1204,6 @@ export default function CameraScreen() {
                 originWhitelist={['*']}
                 injectedJavaScriptBeforeContentLoaded={cameraBootstrap}
                 injectedJavaScriptBeforeContentLoadedForMainFrameOnly
-                injectedJavaScript={cameraPresentationScript}
                 javaScriptEnabled
                 incognito
                 sharedCookiesEnabled={false}

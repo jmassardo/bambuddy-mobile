@@ -12,7 +12,7 @@ interface MockWebViewProps {
   source: { uri: string };
   injectedJavaScriptBeforeContentLoaded?: string;
   injectedJavaScriptBeforeContentLoadedForMainFrameOnly: boolean;
-  injectedJavaScript: string;
+  injectedJavaScript?: string;
   originWhitelist: string[];
   javaScriptEnabled: boolean;
   incognito: boolean;
@@ -369,13 +369,19 @@ class FakeDomElement {
 class FakeMutationObserver {
   static instances: FakeMutationObserver[] = [];
   disconnected = false;
+  observedOptions: { childList: boolean; subtree: boolean } | null = null;
+  observedTarget: FakeDomElement | null = null;
 
   constructor(readonly callback: () => void) {
     FakeMutationObserver.instances.push(this);
   }
 
-  observe() {
-    return undefined;
+  observe(
+    target: FakeDomElement,
+    options: { childList: boolean; subtree: boolean },
+  ) {
+    this.observedTarget = target;
+    this.observedOptions = options;
   }
 
   disconnect() {
@@ -404,13 +410,24 @@ function createCameraDomFixture() {
   zoomControls.appendChild(new FakeDomElement('BUTTON', '100%'));
   zoomControls.appendChild(new FakeDomElement('BUTTON', 'Zoom in'));
 
+  const document: {
+    documentElement: FakeDomElement;
+    head: FakeDomElement | null;
+    createElement: (tagName: string) => FakeDomElement;
+    getElementById: (id: string) => FakeDomElement | null;
+  } = {
+    documentElement: html,
+    head,
+    createElement: (tagName: string) => new FakeDomElement(tagName),
+    getElementById: (id: string) => html.findById(id),
+  };
+
   return {
-    document: {
-      documentElement: html,
-      head,
-      createElement: (tagName: string) => new FakeDomElement(tagName),
-      getElementById: (id: string) => html.findById(id),
-    },
+    document,
+    body,
+    head,
+    html,
+    root,
     errorOverlay,
     header,
     page,
@@ -421,15 +438,40 @@ function createCameraDomFixture() {
   };
 }
 
-function executePresentationScript(script: string, fixture: ReturnType<typeof createCameraDomFixture>) {
+function createFakeBrowserWindow(
+  sessionStorage: {
+    removeItem: (key: string) => unknown;
+    setItem: (key: string, value: string) => unknown;
+  } = {
+    removeItem: jest.fn(),
+    setItem: jest.fn(),
+  },
+) {
+  let pendingTimer: (() => void) | null = null;
+  return {
+    sessionStorage,
+    setTimeout: jest.fn((callback: () => void) => {
+      pendingTimer = callback;
+      return 1;
+    }),
+    clearTimeout: jest.fn(),
+    runPendingTimer: () => {
+      const callback = pendingTimer;
+      pendingTimer = null;
+      callback?.();
+    },
+  };
+}
+
+function executePresentationScript(
+  script: string,
+  fixture: ReturnType<typeof createCameraDomFixture>,
+  browserWindow = createFakeBrowserWindow(),
+) {
   const runInNewContext = require('vm').runInNewContext as (
     source: string,
     context: object,
   ) => void;
-  const browserWindow = {
-    setTimeout: jest.fn(() => 1),
-    clearTimeout: jest.fn(),
-  };
   runInNewContext(script, {
     document: fixture.document,
     window: browserWindow,
@@ -489,6 +531,9 @@ describe('CameraScreen iOS Web camera', () => {
     expect(props.allowUniversalAccessFromFileURLs).toBe(false);
     expect(props.originWhitelist).toEqual(['*']);
     expect(props.injectedJavaScriptBeforeContentLoadedForMainFrameOnly).toBe(true);
+    expect(props.injectedJavaScript).toBeUndefined();
+    expect('onLoad' in props).toBe(false);
+    expect('onLoadEnd' in props).toBe(false);
     expect(props.allowsLinkPreview).toBe(false);
     expect(result.queryByText('Web camera · iOS')).toBeNull();
     expect(result.getByLabelText('Close camera')).toBeTruthy();
@@ -498,10 +543,10 @@ describe('CameraScreen iOS Web camera', () => {
 
   it('injects bounded idempotent styling that hides only duplicate Web chrome', async () => {
     await render(<CameraScreen />);
-    const script = requireWebViewProps().injectedJavaScript;
+    const script = requireWebViewProps().injectedJavaScriptBeforeContentLoaded;
     const fixture = createCameraDomFixture();
 
-    executePresentationScript(script, fixture);
+    const browserWindow = executePresentationScript(script as string, fixture);
 
     expect(fixture.header.attributes).toContain('data-bambuddy-mobile-camera-hidden');
     expect(fixture.zoomControls.attributes).toContain('data-bambuddy-mobile-camera-hidden');
@@ -523,13 +568,48 @@ describe('CameraScreen iOS Web camera', () => {
     const observer = FakeMutationObserver.instances[0];
     expect(observer).toBeDefined();
     expect(observer.disconnected).toBe(false);
+    expect(observer.observedTarget).toBe(fixture.document.documentElement);
+    expect(observer.observedOptions).toEqual({ childList: true, subtree: true });
 
-    executePresentationScript(script, fixture);
+    observer.callback();
+    executePresentationScript(script as string, fixture, browserWindow);
+    expect(observer.disconnected).toBe(true);
+    expect(browserWindow.clearTimeout).toHaveBeenCalledTimes(1);
     expect(
-      fixture.document.head.children.filter(
+      fixture.head.children.filter(
         child => child.id === 'bambuddy-mobile-camera-style',
       ),
     ).toHaveLength(1);
+  });
+
+  it('observes before head and root exist, then styles their later mutations', async () => {
+    await render(<CameraScreen />);
+    const script = requireWebViewProps().injectedJavaScriptBeforeContentLoaded;
+    const fixture = createCameraDomFixture();
+    fixture.html.children.splice(0);
+    fixture.document.head = null;
+
+    const browserWindow = executePresentationScript(script as string, fixture);
+    const observer = FakeMutationObserver.instances[0];
+
+    expect(observer.observedTarget).toBe(fixture.html);
+    expect(observer.observedOptions).toEqual({ childList: true, subtree: true });
+    expect(fixture.document.getElementById('bambuddy-mobile-camera-style')).toBeNull();
+
+    fixture.html.appendChild(fixture.head);
+    fixture.html.appendChild(fixture.body);
+    fixture.document.head = fixture.head;
+    observer.callback();
+    browserWindow.runPendingTimer();
+
+    expect(fixture.document.getElementById('bambuddy-mobile-camera-style')).not.toBeNull();
+    expect(fixture.header.attributes).toContain('data-bambuddy-mobile-camera-hidden');
+    expect(fixture.zoomControls.attributes).toContain(
+      'data-bambuddy-mobile-camera-hidden',
+    );
+    expect(fixture.errorOverlay.attributes).not.toContain(
+      'data-bambuddy-mobile-camera-hidden',
+    );
   });
 
   it('fails visibly for unknown chrome while preserving recovery actions', async () => {
@@ -538,7 +618,10 @@ describe('CameraScreen iOS Web camera', () => {
     fixture.header.children.splice(1, 1);
     fixture.zoomControls.children[1].textContent = 'Loading 100%';
 
-    executePresentationScript(requireWebViewProps().injectedJavaScript, fixture);
+    executePresentationScript(
+      requireWebViewProps().injectedJavaScriptBeforeContentLoaded as string,
+      fixture,
+    );
 
     expect(fixture.header.attributes).not.toContain(
       'data-bambuddy-mobile-camera-hidden',
@@ -666,31 +749,31 @@ describe('CameraScreen iOS Web camera', () => {
     const script = requireWebViewProps().injectedJavaScriptBeforeContentLoaded;
     const removeItem = jest.fn();
     const setItem = jest.fn();
+    const fixture = createCameraDomFixture();
+    const browserWindow = createFakeBrowserWindow({ removeItem, setItem });
 
     expect(script).toBeDefined();
     expect(script).not.toContain('<');
     expect(script).not.toContain('\u2028');
     expect(script).not.toContain('\u2029');
-    const runInNewContext = require('vm').runInNewContext as (
-      source: string,
-      context: object,
-    ) => void;
-    runInNewContext(script as string, {
-      window: { sessionStorage: { removeItem, setItem } },
-    });
+    executePresentationScript(script as string, fixture, browserWindow);
 
     expect(removeItem).toHaveBeenCalledWith('auth_token');
     expect(setItem).toHaveBeenCalledWith('auth_token', token);
   });
 
-  it('loads without injection when authentication is disabled and no token exists', async () => {
+  it('starts presentation styling without auth injection when authentication is disabled', async () => {
     mockAuthEnabled = false;
     mockUser = null;
     mockGetAuthToken.mockReturnValue(null);
     const result = await render(<CameraScreen />);
 
     expect(result.getByTestId('camera-webview')).toBeTruthy();
-    expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toBeUndefined();
+    expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toBeDefined();
+    expect(
+      requireWebViewProps().injectedJavaScriptBeforeContentLoaded,
+    ).not.toContain('auth_token');
+    expect(requireWebViewProps().injectedJavaScript).toBeUndefined();
   });
 
   it('does not load unauthenticated when authentication is enabled', async () => {
@@ -868,25 +951,16 @@ describe('CameraScreen iOS Web camera', () => {
     await render(<CameraScreen />);
     const script = requireWebViewProps().injectedJavaScriptBeforeContentLoaded;
     const storage = new Map<string, string>([['auth_token', 'stale-token']]);
-    const runInNewContext = require('vm').runInNewContext as (
-      source: string,
-      context: object,
-    ) => void;
-
-    runInNewContext(script as string, {
-      window: {
-        sessionStorage: {
-          removeItem: (key: string) => storage.delete(key),
-          setItem: (key: string, value: string) => storage.set(key, value),
-        },
-      },
+    const fixture = createCameraDomFixture();
+    const browserWindow = createFakeBrowserWindow({
+      removeItem: (key: string) => storage.delete(key),
+      setItem: (key: string, value: string) => storage.set(key, value),
     });
+    executePresentationScript(script as string, fixture, browserWindow);
 
     expect(storage.get('auth_token')).toBe('fresh-cold-launch-token');
     expect(requireWebViewProps().source.uri).not.toContain('fresh-cold-launch-token');
-    expect(requireWebViewProps().injectedJavaScript).not.toContain(
-      'fresh-cold-launch-token',
-    );
+    expect(requireWebViewProps().source.uri).not.toContain('fresh-cold-launch-token');
   });
 
 });
@@ -910,7 +984,7 @@ describe('CameraScreen iOS credential lifecycle', () => {
     expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toContain(secondToken);
     expect(renderedText(result)).not.toContain(firstToken);
 
-    expect(requireWebViewProps().injectedJavaScript).toContain(
+    expect(requireWebViewProps().injectedJavaScriptBeforeContentLoaded).toContain(
       'object-fit: contain',
     );
     await pressAndFlush(result.getByLabelText('Fill camera viewport'));
