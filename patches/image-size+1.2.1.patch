@@ -1,0 +1,60 @@
+diff --git a/node_modules/image-size/dist/types/heif.js b/node_modules/image-size/dist/types/heif.js
+index 7997d3f..1cc64c2 100644
+--- a/node_modules/image-size/dist/types/heif.js
++++ b/node_modules/image-size/dist/types/heif.js
+@@ -28,7 +28,7 @@ exports.HEIF = {
+         const iprpBox = metaBox && (0, utils_1.findBox)(input, 'iprp', metaBox.offset + 12);
+         const ipcoBox = iprpBox && (0, utils_1.findBox)(input, 'ipco', iprpBox.offset + 8);
+         const ispeBox = ipcoBox && (0, utils_1.findBox)(input, 'ispe', ipcoBox.offset + 8);
+-        if (ispeBox) {
++        if (ispeBox && ispeBox.size >= 20) {
+             return {
+                 height: (0, utils_1.readUInt32BE)(input, ispeBox.offset + 16),
+                 width: (0, utils_1.readUInt32BE)(input, ispeBox.offset + 12),
+diff --git a/node_modules/image-size/dist/types/icns.js b/node_modules/image-size/dist/types/icns.js
+index f2bfafe..e174e13 100644
+--- a/node_modules/image-size/dist/types/icns.js
++++ b/node_modules/image-size/dist/types/icns.js
+@@ -74,6 +74,13 @@ function getImageSize(type) {
+     const size = ICON_TYPE_SIZE[type];
+     return { width: size, height: size, type };
+ }
++function assertValidEntryLength(imageOffset, imageLength, fileLength, inputLength) {
++    if (imageLength < SIZE_HEADER ||
++        imageOffset + imageLength > fileLength ||
++        imageOffset + imageLength > inputLength) {
++        throw new TypeError('Invalid ICNS entry length');
++    }
++}
+ exports.ICNS = {
+     validate: (input) => (0, utils_1.toUTF8String)(input, 0, 4) === 'icns',
+     calculate(input) {
+@@ -81,6 +88,7 @@ exports.ICNS = {
+         const fileLength = (0, utils_1.readUInt32BE)(input, FILE_LENGTH_OFFSET);
+         let imageOffset = SIZE_HEADER;
+         let imageHeader = readImageHeader(input, imageOffset);
++        assertValidEntryLength(imageOffset, imageHeader[1], fileLength, inputLength);
+         let imageSize = getImageSize(imageHeader[0]);
+         imageOffset += imageHeader[1];
+         if (imageOffset === fileLength)
+@@ -92,6 +100,7 @@ exports.ICNS = {
+         };
+         while (imageOffset < fileLength && imageOffset < inputLength) {
+             imageHeader = readImageHeader(input, imageOffset);
++            assertValidEntryLength(imageOffset, imageHeader[1], fileLength, inputLength);
+             imageSize = getImageSize(imageHeader[0]);
+             imageOffset += imageHeader[1];
+             result.images.push(imageSize);
+diff --git a/node_modules/image-size/dist/types/jxl.js b/node_modules/image-size/dist/types/jxl.js
+index f557b0a..fefe921 100644
+--- a/node_modules/image-size/dist/types/jxl.js
++++ b/node_modules/image-size/dist/types/jxl.js
+@@ -24,7 +24,7 @@ function extractPartialStreams(input) {
+         if (!jxlpBox)
+             break;
+         partialStreams.push(input.slice(jxlpBox.offset + 12, jxlpBox.offset + jxlpBox.size));
+-        offset = jxlpBox.offset + jxlpBox.size;
++        offset = jxlpBox.offset + (jxlpBox.size > 0 ? jxlpBox.size : 8);
+     }
+     return partialStreams;
+ }
