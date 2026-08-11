@@ -508,10 +508,13 @@ function createCameraPresentationScript(objectFit: 'contain' | 'cover') {
           \`;
           document.head.appendChild(style);
         } else {
-          style.textContent = style.textContent.replace(
+          const updatedStyleText = style.textContent.replace(
             /object-fit: (?:contain|cover) !important/,
             'object-fit: ${objectFit} !important',
           );
+          if (updatedStyleText !== style.textContent) {
+            style.textContent = updatedStyleText;
+          }
         }
 
         page.setAttribute('data-bambuddy-mobile-camera-page', '');

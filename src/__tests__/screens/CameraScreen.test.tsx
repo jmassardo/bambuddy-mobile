@@ -315,13 +315,23 @@ async function pressAndFlush(element: Parameters<typeof fireEvent.press>[0]) {
 
 class FakeDomElement {
   id = '';
-  textContent = '';
+  private storedTextContent = '';
+  textContentWrites = 0;
   parentElement: FakeDomElement | null = null;
   readonly children: FakeDomElement[] = [];
   readonly attributes = new Set<string>();
 
   constructor(readonly tagName: string, textContent = '') {
-    this.textContent = textContent;
+    this.storedTextContent = textContent;
+  }
+
+  get textContent() {
+    return this.storedTextContent;
+  }
+
+  set textContent(value: string) {
+    this.storedTextContent = value;
+    this.textContentWrites += 1;
   }
 
   get firstElementChild() {
@@ -401,9 +411,16 @@ function createCameraDomFixture() {
   header.appendChild(new FakeDomElement('button', 'Close'));
   const content = page.appendChild(new FakeDomElement('div'));
   const stream = content.appendChild(new FakeDomElement('div'));
+  const loadingOverlay = stream.appendChild(
+    new FakeDomElement('div', 'Connecting camera'),
+  );
   const errorOverlay = stream.appendChild(new FakeDomElement('div', 'Camera unavailable'));
   errorOverlay.appendChild(new FakeDomElement('button', 'Retry'));
   errorOverlay.appendChild(new FakeDomElement('button', 'Diagnose'));
+  const reconnectOverlay = stream.appendChild(
+    new FakeDomElement('div', 'Camera connection lost'),
+  );
+  reconnectOverlay.appendChild(new FakeDomElement('button', 'Reconnect'));
   const image = stream.appendChild(new FakeDomElement('img'));
   const zoomControls = stream.appendChild(new FakeDomElement('div'));
   zoomControls.appendChild(new FakeDomElement('BUTTON', 'Zoom out'));
@@ -429,6 +446,8 @@ function createCameraDomFixture() {
     html,
     root,
     errorOverlay,
+    loadingOverlay,
+    reconnectOverlay,
     header,
     page,
     content,
@@ -551,6 +570,12 @@ describe('CameraScreen iOS Web camera', () => {
     expect(fixture.header.attributes).toContain('data-bambuddy-mobile-camera-hidden');
     expect(fixture.zoomControls.attributes).toContain('data-bambuddy-mobile-camera-hidden');
     expect(fixture.errorOverlay.attributes).not.toContain('data-bambuddy-mobile-camera-hidden');
+    expect(fixture.loadingOverlay.attributes).not.toContain(
+      'data-bambuddy-mobile-camera-hidden',
+    );
+    expect(fixture.reconnectOverlay.attributes).not.toContain(
+      'data-bambuddy-mobile-camera-hidden',
+    );
     expect(fixture.page.attributes).toContain('data-bambuddy-mobile-camera-page');
     expect(fixture.content.attributes).toContain('data-bambuddy-mobile-camera-content');
     expect(fixture.stream.attributes).toContain('data-bambuddy-mobile-camera-stream');
@@ -564,6 +589,7 @@ describe('CameraScreen iOS Web camera', () => {
     expect(style?.textContent).toContain('top: 0');
     expect(style?.textContent).toContain('object-fit: contain');
     expect(style?.textContent).toContain('padding: 0');
+    expect(style?.textContentWrites).toBe(1);
 
     const observer = FakeMutationObserver.instances[0];
     expect(observer).toBeDefined();
@@ -580,6 +606,24 @@ describe('CameraScreen iOS Web camera', () => {
         child => child.id === 'bambuddy-mobile-camera-style',
       ),
     ).toHaveLength(1);
+  });
+
+  it('does not rewrite unchanged style text during observer reapplication', async () => {
+    await render(<CameraScreen />);
+    const fixture = createCameraDomFixture();
+    const browserWindow = executePresentationScript(
+      requireWebViewProps().injectedJavaScriptBeforeContentLoaded as string,
+      fixture,
+    );
+    const observer = FakeMutationObserver.instances[0];
+    const style = fixture.document.getElementById('bambuddy-mobile-camera-style');
+
+    expect(style?.textContentWrites).toBe(1);
+    observer.callback();
+    browserWindow.runPendingTimer();
+
+    expect(style?.textContentWrites).toBe(1);
+    expect(browserWindow.setTimeout).toHaveBeenCalledTimes(1);
   });
 
   it('observes before head and root exist, then styles their later mutations', async () => {
@@ -610,6 +654,10 @@ describe('CameraScreen iOS Web camera', () => {
     expect(fixture.errorOverlay.attributes).not.toContain(
       'data-bambuddy-mobile-camera-hidden',
     );
+    expect(fixture.loadingOverlay.textContent).toBe('Connecting camera');
+    expect(fixture.reconnectOverlay.querySelector('button')?.textContent).toBe(
+      'Reconnect',
+    );
   });
 
   it('fails visibly for unknown chrome while preserving recovery actions', async () => {
@@ -633,6 +681,10 @@ describe('CameraScreen iOS Web camera', () => {
       'data-bambuddy-mobile-camera-hidden',
     );
     expect(fixture.errorOverlay.querySelector('button')?.textContent).toBe('Retry');
+    expect(fixture.loadingOverlay.textContent).toBe('Connecting camera');
+    expect(fixture.reconnectOverlay.querySelector('button')?.textContent).toBe(
+      'Reconnect',
+    );
   });
 
   it('keeps a compact non-wrapping portrait hierarchy at 320 points and 200% text', async () => {
