@@ -1343,8 +1343,8 @@ export default function CameraScreen() {
           {
             top: insets.top + spacing.sm,
             left: insets.left + spacing.md,
-            right: insets.right + spacing.md,
           },
+          !isLandscape && { right: insets.right + spacing.md },
         ]}
       >
         <CameraIconButton
@@ -1363,11 +1363,43 @@ export default function CameraScreen() {
               Camera
             </Text>
           </View>
-        ) : (
-          <View style={styles.landscapeSpacer} />
-        )}
-        {isLandscape ? (
-          <View style={styles.landscapeActions}>
+        ) : null}
+        {!isLandscape ? (
+          <CameraIconButton
+            label="More camera actions"
+            hint="Opens diagnostics and plate detection controls"
+            onPress={openActions}
+            icon={<MoreHorizontal size={20} color={colors.text} strokeWidth={2} />}
+            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+          />
+        ) : null}
+      </View>
+
+      {isLandscape ? (
+        <View
+          testID="camera-landscape-control-rail"
+          accessibilityLabel="Camera controls"
+          pointerEvents="box-none"
+          style={[
+            styles.landscapeRail,
+            {
+              top: insets.top + spacing.sm,
+              right: insets.right + spacing.md,
+              bottom: insets.bottom + spacing.sm,
+            },
+          ]}
+        >
+          <View
+            testID="camera-landscape-control-rail-surface"
+            style={[
+              styles.landscapeRailSurface,
+              {
+                backgroundColor: colors.overlay,
+                borderColor: colors.border,
+                shadowColor: colors.text,
+              },
+            ]}
+          >
             <CameraIconButton
               label="Refresh camera"
               hint="Reloads the current camera"
@@ -1408,16 +1440,8 @@ export default function CameraScreen() {
               style={{ backgroundColor: colors.surface, borderColor: colors.border }}
             />
           </View>
-        ) : (
-          <CameraIconButton
-            label="More camera actions"
-            hint="Opens diagnostics and plate detection controls"
-            onPress={openActions}
-            icon={<MoreHorizontal size={20} color={colors.text} strokeWidth={2} />}
-            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-          />
-        )}
-      </View>
+        </View>
+      ) : null}
 
       {!isLandscape ? (
         <View
@@ -1674,12 +1698,21 @@ const styles = StyleSheet.create({
   headerContext: {
     fontSize: fontSize.xs,
   },
-  landscapeSpacer: {
-    flex: 1,
+  landscapeRail: {
+    position: 'absolute',
+    justifyContent: 'center',
   },
-  landscapeActions: {
-    flexDirection: 'row',
+  landscapeRailSurface: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
     gap: spacing.sm,
+    padding: spacing.xs,
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.24,
+    shadowRadius: 6,
   },
   iconButton: {
     width: 44,
