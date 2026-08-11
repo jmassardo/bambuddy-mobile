@@ -1,13 +1,11 @@
 'use strict';
 
+const {spawnSync} = require('node:child_process');
 const {
   EXPECTED_IMAGE_SIZE_VERSION,
   EXPECTED_PATCH_SHA256,
   validateAuditReport,
 } = require('../../scripts/verify-dependency-audit');
-const {HEIF} = require('image-size/dist/types/heif');
-const {ICNS} = require('image-size/dist/types/icns');
-const {JXL} = require('image-size/dist/types/jxl');
 const imageSize = require('image-size');
 
 const validPatchEvidence = {
@@ -48,9 +46,18 @@ function patchedAuditReport() {
   };
 }
 
-function writeBoxHeader(input, offset, size, type) {
-  input.writeUInt32BE(size, offset);
-  input.write(type, offset + 4, 4, 'ascii');
+function runDangerousParserFixture(source) {
+  const result = spawnSync(process.execPath, ['-e', source], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    killSignal: 'SIGKILL',
+    timeout: 2000,
+  });
+
+  expect(result.error).toBeUndefined();
+  expect(result.signal).toBeNull();
+  expect(result.status).toBe(0);
+  return result.stdout.trim();
 }
 
 describe('dependency audit verifier', () => {
@@ -97,6 +104,21 @@ describe('dependency audit verifier', () => {
     );
   });
 
+  test('rejects altered local patch contents', () => {
+    const evidence = {
+      ...validPatchEvidence,
+      patchSha256: '0'.repeat(64),
+    };
+
+    expect(validateAuditReport(patchedAuditReport(), evidence)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          'image-size patch content does not match the reviewed patch',
+        ),
+      ]),
+    );
+  });
+
   test('rejects an unrelated high finding', () => {
     const report = patchedAuditReport();
     report.vulnerabilities.nanoid = {
@@ -114,31 +136,64 @@ describe('dependency audit verifier', () => {
 
 describe('patched image-size parser progress', () => {
   test('rejects a zero-length ICNS entry without looping', () => {
-    const input = Buffer.alloc(16);
-    input.write('icns', 0, 'ascii');
-    input.writeUInt32BE(input.length, 4);
-    input.write('ic07', 8, 'ascii');
+    const output = runDangerousParserFixture(`
+      const {ICNS} = require('image-size/dist/types/icns');
+      const input = Buffer.alloc(16);
+      input.write('icns', 0, 'ascii');
+      input.writeUInt32BE(input.length, 4);
+      input.write('ic07', 8, 'ascii');
+      try {
+        ICNS.calculate(input);
+        process.exitCode = 2;
+      } catch (error) {
+        console.log(error.name + ':' + error.message);
+      }
+    `);
 
-    expect(() => ICNS.calculate(input)).toThrow('Invalid ICNS entry length');
+    expect(output).toBe('TypeError:Invalid ICNS entry length');
   });
 
   test('rejects a zero-length JXL partial stream without looping', () => {
-    const input = Buffer.alloc(32);
-    writeBoxHeader(input, 0, 20, 'ftyp');
-    input.write('jxl ', 8, 'ascii');
-    writeBoxHeader(input, 20, 0, 'jxlp');
+    const output = runDangerousParserFixture(`
+      const {JXL} = require('image-size/dist/types/jxl');
+      const input = Buffer.alloc(32);
+      input.writeUInt32BE(20, 0);
+      input.write('ftyp', 4, 4, 'ascii');
+      input.write('jxl ', 8, 4, 'ascii');
+      input.writeUInt32BE(0, 20);
+      input.write('jxlp', 24, 4, 'ascii');
+      try {
+        JXL.calculate(input);
+        process.exitCode = 2;
+      } catch (error) {
+        console.log(error.name + ':' + error.message);
+      }
+    `);
 
-    expect(() => JXL.calculate(input)).toThrow();
+    expect(output).toMatch(/Error:/);
   });
 
   test('rejects a zero-length HEIF size box', () => {
-    const input = Buffer.alloc(48);
-    writeBoxHeader(input, 0, 48, 'meta');
-    writeBoxHeader(input, 12, 36, 'iprp');
-    writeBoxHeader(input, 20, 28, 'ipco');
-    writeBoxHeader(input, 28, 0, 'ispe');
+    const output = runDangerousParserFixture(`
+      const {HEIF} = require('image-size/dist/types/heif');
+      const input = Buffer.alloc(48);
+      const writeBox = (offset, size, type) => {
+        input.writeUInt32BE(size, offset);
+        input.write(type, offset + 4, 4, 'ascii');
+      };
+      writeBox(0, 48, 'meta');
+      writeBox(12, 36, 'iprp');
+      writeBox(20, 28, 'ipco');
+      writeBox(28, 0, 'ispe');
+      try {
+        HEIF.calculate(input);
+        process.exitCode = 2;
+      } catch (error) {
+        console.log(error.name + ':' + error.message);
+      }
+    `);
 
-    expect(() => HEIF.calculate(input)).toThrow('Invalid HEIF, no size found');
+    expect(output).toBe('TypeError:Invalid HEIF, no size found');
   });
 
   test('preserves valid PNG and JPEG dimensions', () => {
