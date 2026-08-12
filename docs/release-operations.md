@@ -36,6 +36,79 @@ repository-only installation, use that token for the bounded operation, and
 discard it when the run ends. Never widen the App installation or permissions
 to resolve an authorization failure.
 
+### Dedicated GitHub App installation-token procedure
+
+Provisioning and each automation run must use this exact flow:
+
+1. Confirm the App registration grants only **Metadata: read**, **Contents:
+   read and write**, and **Pull requests: read and write**. Confirm its
+   installation target is **Only select repositories** with
+   `jmassardo/bambuddy-mobile` as the sole selected repository.
+2. Create an RS256 App JWT in memory with the App ID as `iss`, `iat` no more
+   than 60 seconds in the past, and `exp` no more than 10 minutes after `iat`.
+   Read the private key from the approved secret manager, never from the
+   repository, command line, log, or generated file.
+3. Authenticate as the App by sending the in-memory JWT with GitHub's
+   documented `Bearer` authorization scheme. Call `GET /app/installations`
+   using the versioned GitHub API and follow its pagination links within a
+   20-page bound. Require exactly one installation owned by `jmassardo`; zero,
+   multiple, malformed, or truncated results stop the run.
+4. Independently call
+   `GET /repos/jmassardo/bambuddy-mobile/installation` with the App JWT.
+   Require its installation ID and App ID to equal the discovered
+   installation.
+5. Mint a scope-audit token by calling
+   `POST /app/installations/{installation_id}/access_tokens` with the App JWT,
+   no `repositories` or `repository_ids` restriction, and permissions reduced
+   to `{"metadata":"read"}`. Omitting the repository restriction is required
+   for this audit token to see the installation's complete selected-repository
+   scope. Reject a response without `token` and `expires_at`.
+6. With only the in-memory scope-audit token, call
+   `GET /installation/repositories`; request 100 entries per page, follow
+   pagination within a 20-page bound, validate `total_count`, and require the
+   complete result to contain exactly `jmassardo/bambuddy-mobile`. Any
+   additional, missing, malformed, or truncated repository result stops the
+   run. In an always-run cleanup block, call `DELETE /installation/token` with
+   the audit token, require `204 No Content`, clear the token, and stop if
+   cleanup cannot be confirmed.
+7. After the repository-only audit succeeds, exchange the App JWT for the
+   operational token with
+   `POST /app/installations/{installation_id}/access_tokens`. The request must
+   restrict `repositories` to `["bambuddy-mobile"]` and request only:
+
+   ```json
+   {
+     "repositories": ["bambuddy-mobile"],
+     "permissions": {
+       "metadata": "read",
+       "contents": "write",
+       "pull_requests": "write"
+     }
+   }
+   ```
+
+   This is the GitHub **Create an installation access token for an app**
+   operation. Reject a response without both `token` and `expires_at`; never
+   print or persist the token.
+
+8. Before every bounded task, parse `expires_at` and require at least 10
+   minutes of remaining lifetime. Mint a new token before starting if that
+   window is unavailable. A run may create or close only the two approved
+   disposable probe PRs (`dev` and `main`) and must cap API retries at three
+   with exponential backoff. Do not reuse the token for unrelated work or
+   continue a partially completed mutation after expiry.
+9. Put the token only in the child process environment (`GH_TOKEN`), never in
+   arguments or output. In an always-run cleanup block, unset it in the parent
+   and child environments and call `DELETE /installation/token` with the
+   installation token to revoke it early. Treat `204 No Content` as success;
+   an already expired token may return an authentication failure, which must
+   be recorded only as a sanitized cleanup result. Destroy all in-memory JWT,
+   token, and private-key references when cleanup finishes.
+
+There is no PAT fallback. Installation discovery, repository verification,
+token exchange, bounded use, expiry checks, and revocation are mandatory; an
+authorization or cleanup failure stops the automation without widening scope.
+
 ### Preflight snapshot commands
 
 Run these before **any** mutation:
@@ -75,6 +148,11 @@ Run the names-only verifier before and after each reviewed mutation batch:
 ```sh
 node scripts/release/verify-github-config.js --repo jmassardo/bambuddy-mobile
 ```
+
+The verifier requests bounded 100-item pages for rulesets, environments,
+deployment branch policies, and collaborators. The supported `gh secret list`
+and `gh variable list` commands follow all pagination links internally; the
+verifier requests and retains only each entry's `name` field.
 
 ## 2. Safe mutation order
 

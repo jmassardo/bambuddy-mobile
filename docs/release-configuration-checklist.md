@@ -94,13 +94,15 @@ Forbidden at repository scope:
 
 ## Automation identity and rotation
 
-| Item                        | Required policy                                                                                                             | Owner       | Rotation cadence                                                                        |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------- |
-| Automation identity         | Dedicated GitHub App installed solely on `jmassardo/bambuddy-mobile`                                                        | `jmassardo` | rotate private key at least every 90 days and after any maintainer turnover or incident |
-| Repository permissions      | Metadata: read; Contents: read and write; Pull requests: read and write; no additional permissions                          | `jmassardo` | review on every App permission or installation change                                   |
-| Authentication flow         | Mint a short-lived installation token for each run, use it only for the repository installation, then discard it            | `jmassardo` | every automation run                                                                    |
-| Personal-token fallback     | forbidden; no classic, fine-grained, broad, or other personal token may substitute for the App installation token           | n/a         | never                                                                                   |
-| Installation scope widening | forbidden; authorization failures must not be remediated by installing the App on another repository or widening its access | n/a         | never                                                                                   |
+| Item                        | Required policy                                                                                                                                                                 | Owner       | Rotation cadence                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------- |
+| Automation identity         | Dedicated GitHub App installed solely on `jmassardo/bambuddy-mobile`                                                                                                            | `jmassardo` | rotate private key at least every 90 days and after any maintainer turnover or incident |
+| Repository permissions      | Metadata: read; Contents: read and write; Pull requests: read and write; no additional permissions                                                                              | `jmassardo` | review on every App permission or installation change                                   |
+| Authentication flow         | Mint a short-lived installation token for each run, use it only for the repository installation, then discard it                                                                | `jmassardo` | every automation run                                                                    |
+| Installation verification   | Discover installations; use and revoke a metadata-read scope-audit token to verify the complete installation repository list; fail unless this repository is the sole selection | `jmassardo` | every automation run                                                                    |
+| Token lifecycle             | Require at least 10 minutes remaining before bounded work; revoke with `DELETE /installation/token` and clear all in-memory/environment references in always-run cleanup        | `jmassardo` | every automation run                                                                    |
+| Personal-token fallback     | forbidden; no classic, fine-grained, broad, or other personal token may substitute for the App installation token                                                               | n/a         | never                                                                                   |
+| Installation scope widening | forbidden; authorization failures must not be remediated by installing the App on another repository or widening its access                                                     | n/a         | never                                                                                   |
 
 ## Go-live prerequisites
 
@@ -122,3 +124,4 @@ Forbidden at repository scope:
 - [ ] no hardcoded shared system temporary directory in release automation files
 - [ ] no unpinned third-party Actions
 - [ ] no personal token used for release governance or release automation
+- [ ] no App token used without installation discovery, repository-only verification, expiry validation, and cleanup/revocation

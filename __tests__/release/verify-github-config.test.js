@@ -8,8 +8,10 @@ const {
   REQUIRED_REPO_VARIABLES,
   REPO_DEMO_SECRETS,
   SYSTEM_TEMP_PATHS,
+  collectPaginatedApi,
   collectGitHubState,
   main,
+  requireCompleteCliNameList,
   renderTextReport,
   scanTrackedFiles,
   verifyGitHubState,
@@ -282,6 +284,40 @@ describe('verifyGitHubState', () => {
     state.rulesets[1].rules = state.rulesets[1].rules.filter(
       rule => rule.type !== 'non_fast_forward',
     );
+
+    const result = verifyGitHubState(state);
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'ruleset',
+          subject: 'protect-main',
+        }),
+      ]),
+    );
+  });
+
+  test('fails independently when deletion protection is missing', () => {
+    const state = buildCompliantState();
+    state.rulesets[0].rules = state.rulesets[0].rules.filter(
+      rule => rule.type !== 'deletion',
+    );
+
+    const result = verifyGitHubState(state);
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'ruleset',
+          subject: 'protect-dev',
+          message: expect.stringContaining('rule types'),
+        }),
+      ]),
+    );
+  });
+
+  test('fails independently when an approved review flag drifts', () => {
+    const state = buildCompliantState();
     const reviewRule = state.rulesets[1].rules.find(
       rule => rule.type === 'pull_request',
     );
@@ -294,6 +330,7 @@ describe('verifyGitHubState', () => {
         expect.objectContaining({
           scope: 'ruleset',
           subject: 'protect-main',
+          message: expect.stringContaining('review parameters'),
         }),
       ]),
     );
@@ -362,6 +399,79 @@ describe('verifyGitHubState', () => {
           message: expect.stringContaining(
             'include refs/heads/dev and exclude refs/heads/release',
           ),
+        }),
+      ]),
+    );
+  });
+
+  test('fails when an unexpected active third ruleset targets main', () => {
+    const state = buildCompliantState();
+    state.rulesets.push({
+      ...buildRuleset('unexpected-main-policy', 'refs/heads/main'),
+      id: 3,
+    });
+
+    const result = verifyGitHubState(state);
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'ruleset',
+          subject: 'unexpected-main-policy',
+          message: expect.stringContaining('governed refs refs/heads/main'),
+        }),
+      ]),
+    );
+  });
+
+  test('does not fail an unrelated active ruleset that cannot affect governed refs', () => {
+    const state = buildCompliantState();
+    state.rulesets.push({
+      ...buildRuleset('protect-release-branches', 'refs/heads/release/*'),
+      id: 3,
+    });
+
+    const result = verifyGitHubState(state);
+
+    expect(result.status).toBe('pass');
+  });
+
+  test('fails closed for malformed unexpected ruleset targeting data', () => {
+    const state = buildCompliantState();
+    state.rulesets.push({
+      ...buildRuleset('malformed-policy', 'refs/heads/release/*'),
+      id: 3,
+      refNameInclude: null,
+    });
+
+    const result = verifyGitHubState(state);
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'ruleset',
+          subject: 'malformed-policy',
+          message: expect.stringContaining('malformed'),
+        }),
+      ]),
+    );
+  });
+
+  test('fails closed for unsupported bracket expressions in ruleset targeting', () => {
+    const state = buildCompliantState();
+    state.rulesets.push({
+      ...buildRuleset('bracket-policy', 'refs/heads/[dm]*'),
+      id: 3,
+    });
+
+    const result = verifyGitHubState(state);
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'ruleset',
+          subject: 'bracket-policy',
+          message: expect.stringContaining('unsupported ref targeting'),
         }),
       ]),
     );
@@ -453,6 +563,25 @@ describe('verifyGitHubState', () => {
     );
   });
 
+  test('fails when copilot shadows a repository-only variable name', () => {
+    const state = buildCompliantState();
+    state.environments.find(
+      environment => environment.name === 'copilot',
+    ).variableNames = ['APPLE_TEAM_ID'];
+
+    const result = verifyGitHubState(state);
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'environment-variable',
+          subject: 'copilot',
+          message: expect.stringContaining('APPLE_TEAM_ID'),
+        }),
+      ]),
+    );
+  });
+
   test('fails when Actions defaults allow writes or PR approvals', () => {
     const state = buildCompliantState();
     state.actionsPolicy.defaultWorkflowPermissions = 'write';
@@ -489,13 +618,30 @@ describe('verifyGitHubState', () => {
       ]),
     );
   });
+
+  test('fails when branch metadata omits the protected boolean', () => {
+    const state = buildCompliantState();
+    state.branches.dev.metadata = {};
+
+    const result = verifyGitHubState(state);
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'branch-metadata',
+          subject: 'dev',
+        }),
+      ]),
+    );
+    expect(result.branchProtection.dev.protected).toBe(false);
+  });
 });
 
 describe('collectGitHubState', () => {
   test('uses names-only commands and fetches complete ruleset details', () => {
     const repo = 'jmassardo/bambuddy-mobile';
     const fixtures = {
-      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/environments`]:
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/environments?per_page=100&page=1`]:
         {
           stdout: {
             total_count: 2,
@@ -525,7 +671,7 @@ describe('collectGitHubState', () => {
             },
           },
         },
-      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/environments/release-query/deployment-branch-policies`]:
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/environments/release-query/deployment-branch-policies?per_page=100&page=1`]:
         {
           stdout: {
             total_count: 1,
@@ -550,7 +696,7 @@ describe('collectGitHubState', () => {
             allow_merge_commit: true,
           },
         },
-      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/rulesets`]:
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/rulesets?per_page=100&page=1`]:
         {
           stdout: [{ id: 91, name: 'protect-dev' }],
         },
@@ -577,7 +723,7 @@ describe('collectGitHubState', () => {
       [`gh variable list --repo ${repo} --json name`]: {
         stdout: REQUIRED_REPO_VARIABLES.map(name => ({ name })),
       },
-      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/collaborators?affiliation=direct`]:
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/collaborators?affiliation=direct&per_page=100&page=1`]:
         {
           stdout: [{ login: 'jmassardo', id: 9603391, role_name: 'admin' }],
         },
@@ -660,6 +806,161 @@ describe('collectGitHubState', () => {
       }),
     ]);
     expect(report).not.toContain('super-secret-value');
+  });
+
+  test('rejects a malformed detailed ruleset response', () => {
+    const repo = 'jmassardo/bambuddy-mobile';
+    const fixtures = {
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}`]:
+        { stdout: { allow_merge_commit: true } },
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/rulesets?per_page=100&page=1`]:
+        { stdout: [{ id: 91, name: 'protect-dev' }] },
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/rulesets/91`]:
+        {
+          stdout: {
+            id: 91,
+            name: 'protect-dev',
+            enforcement: 'active',
+            target: 'branch',
+            conditions: {},
+            bypass_actors: [],
+            rules: [],
+          },
+        },
+    };
+
+    expect(() =>
+      collectGitHubState({
+        repo,
+        runCommand: buildRunner(fixtures),
+        trackedFiles: [],
+      }),
+    ).toThrow('did not return complete ruleset conditions');
+  });
+
+  test('paginates array collections and evaluates a later-page conflicting ruleset', () => {
+    const repo = 'jmassardo/bambuddy-mobile';
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      ...buildRuleset(`unrelated-${index}`, `refs/heads/topic-${index}`),
+      id: index + 10,
+    }));
+    const laterConflict = {
+      ...buildRuleset('later-main-policy', 'refs/heads/main'),
+      id: 500,
+    };
+    const runner = buildRunner({
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/rulesets?per_page=100&page=1`]:
+        { stdout: firstPage },
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/rulesets?per_page=100&page=2`]:
+        { stdout: [laterConflict] },
+    });
+
+    const paginatedRulesets = collectPaginatedApi(
+      runner,
+      `repos/${repo}/rulesets`,
+      'list repository rulesets',
+    );
+    const state = buildCompliantState();
+    state.rulesets.push(...paginatedRulesets);
+    const result = verifyGitHubState(state);
+
+    expect(paginatedRulesets).toHaveLength(101);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ subject: 'later-main-policy' }),
+      ]),
+    );
+  });
+
+  test.each([
+    ['environments', 'environments'],
+    [
+      'environments/release-query/deployment-branch-policies',
+      'branch_policies',
+    ],
+  ])(
+    'paginates object collection %s through later required data',
+    (pathname, key) => {
+      const repo = 'jmassardo/bambuddy-mobile';
+      const firstPage = Array.from({ length: 100 }, (_, index) => ({
+        name: `entry-${index}`,
+      }));
+      const requiredLaterEntry = { name: 'required-later-entry' };
+      const basePath = `repos/${repo}/${pathname}`;
+      const runner = buildRunner({
+        [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 ${basePath}?per_page=100&page=1`]:
+          { stdout: { total_count: 101, [key]: firstPage } },
+        [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 ${basePath}?per_page=100&page=2`]:
+          { stdout: { total_count: 101, [key]: [requiredLaterEntry] } },
+      });
+
+      const entries = collectPaginatedApi(runner, basePath, `list ${key}`, key);
+
+      expect(entries).toHaveLength(101);
+      expect(entries.at(-1)).toEqual(requiredLaterEntry);
+    },
+  );
+
+  test('paginates collaborators with an existing query parameter', () => {
+    const repo = 'jmassardo/bambuddy-mobile';
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      login: `user-${index}`,
+    }));
+    const runner = buildRunner({
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/collaborators?affiliation=direct&per_page=100&page=1`]:
+        { stdout: firstPage },
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/collaborators?affiliation=direct&per_page=100&page=2`]:
+        { stdout: [{ login: 'required-reviewer' }] },
+    });
+
+    const collaborators = collectPaginatedApi(
+      runner,
+      `repos/${repo}/collaborators?affiliation=direct`,
+      'list direct collaborators',
+    );
+
+    expect(collaborators).toHaveLength(101);
+    expect(collaborators.at(-1).login).toBe('required-reviewer');
+  });
+
+  test('accepts complete names-only CLI output beyond one API page', () => {
+    const names = Array.from({ length: 101 }, (_, index) => ({
+      name: `NAME_${index}`,
+    }));
+
+    expect(
+      requireCompleteCliNameList(names, 'list repository variables'),
+    ).toEqual(names);
+  });
+
+  test('fails closed when paginated total_count changes', () => {
+    const repo = 'jmassardo/bambuddy-mobile';
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      name: `environment-${index}`,
+    }));
+    const basePath = `repos/${repo}/environments`;
+    const runner = buildRunner({
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 ${basePath}?per_page=100&page=1`]:
+        {
+          stdout: { total_count: 101, environments: firstPage },
+        },
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 ${basePath}?per_page=100&page=2`]:
+        {
+          stdout: {
+            total_count: 102,
+            environments: [{ name: 'environment-100' }],
+          },
+        },
+    });
+
+    expect(() =>
+      collectPaginatedApi(
+        runner,
+        basePath,
+        'list environments',
+        'environments',
+      ),
+    ).toThrow('total_count changed');
   });
 
   test('CLI returns nonzero structured secret-free output for failed commands', () => {

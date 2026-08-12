@@ -46,6 +46,8 @@ const GH_API_HEADERS = [
   '-H',
   'X-GitHub-Api-Version: 2022-11-28',
 ];
+const API_PAGE_SIZE = 100;
+const MAX_API_PAGES = 20;
 const SYSTEM_TEMP_PATHS = [
   `${path.posix.sep}var${path.posix.sep}tmp`,
   `${path.posix.sep}tmp`,
@@ -273,6 +275,123 @@ function requireArray(value, description) {
   return value;
 }
 
+function paginatedPath(pathname, page) {
+  const separator = pathname.includes('?') ? '&' : '?';
+  return `${pathname}${separator}per_page=${API_PAGE_SIZE}&page=${page}`;
+}
+
+function collectPaginatedApi(
+  runCommand,
+  pathname,
+  description,
+  collectionKey,
+  options = {},
+) {
+  const collected = [];
+  let expectedTotal;
+
+  for (let page = 1; page <= MAX_API_PAGES; page += 1) {
+    const payload = runJsonCommand(
+      runCommand,
+      'gh',
+      buildGhApiArgs(paginatedPath(pathname, page)),
+      `${description} page ${page}`,
+      options,
+    );
+    if (options.allowNotFound && payload === options.notFoundValue) {
+      return payload;
+    }
+
+    const pageItems = collectionKey
+      ? requireArray(payload?.[collectionKey], `${description} page ${page}`)
+      : requireArray(payload, `${description} page ${page}`);
+    if (pageItems.length > API_PAGE_SIZE) {
+      throw new CollectionError(
+        'malformed-data',
+        description,
+        `${description} page ${page} exceeded the requested page size.`,
+        `Confirm ${description} honors per_page=${API_PAGE_SIZE}, then retry the verifier.`,
+      );
+    }
+
+    if (collectionKey) {
+      if (!Number.isInteger(payload.total_count) || payload.total_count < 0) {
+        throw new CollectionError(
+          'malformed-data',
+          description,
+          `${description} page ${page} did not return a valid total_count.`,
+          `Confirm the paginated GitHub response for ${description} includes a non-negative integer total_count, then retry the verifier.`,
+        );
+      }
+      expectedTotal ??= payload.total_count;
+      if (payload.total_count !== expectedTotal) {
+        throw new CollectionError(
+          'malformed-data',
+          description,
+          `${description} total_count changed during pagination.`,
+          `Retry ${description} after repository configuration is stable.`,
+        );
+      }
+    }
+
+    collected.push(...pageItems);
+    if (expectedTotal !== undefined) {
+      if (collected.length > expectedTotal) {
+        throw new CollectionError(
+          'malformed-data',
+          description,
+          `${description} returned more entries than total_count.`,
+          `Confirm the paginated GitHub response for ${description} is internally consistent, then retry the verifier.`,
+        );
+      }
+      if (collected.length === expectedTotal) {
+        return collected;
+      }
+      if (pageItems.length === 0) {
+        throw new CollectionError(
+          'malformed-data',
+          description,
+          `${description} ended before total_count entries were returned.`,
+          `Confirm all pages of ${description} are readable, then retry the verifier.`,
+        );
+      }
+    } else if (pageItems.length < API_PAGE_SIZE) {
+      return collected;
+    }
+  }
+
+  throw new CollectionError(
+    'pagination-limit',
+    description,
+    `${description} exceeded the bounded ${MAX_API_PAGES}-page inspection limit.`,
+    `Reduce the collection below ${
+      MAX_API_PAGES * API_PAGE_SIZE
+    } entries or perform an approved bounded audit before retrying.`,
+  );
+}
+
+function requireCompleteCliNameList(value, description) {
+  const entries = requireArray(value, description);
+  const names = entries.map(entry => entry?.name);
+  if (names.some(name => typeof name !== 'string' || name.length === 0)) {
+    throw new CollectionError(
+      'malformed-data',
+      description,
+      `${description} returned an entry without a valid name.`,
+      `Confirm ${description} returns names-only JSON, then retry the verifier.`,
+    );
+  }
+  if (new Set(names).size !== names.length) {
+    throw new CollectionError(
+      'malformed-data',
+      description,
+      `${description} returned duplicate names.`,
+      `Confirm the names-only GitHub CLI response is complete and stable, then retry the verifier.`,
+    );
+  }
+  return entries;
+}
+
 function validateRulesetDetail(ruleset, expectedId) {
   const description = `get repository ruleset ${expectedId}`;
   if (
@@ -283,7 +402,13 @@ function validateRulesetDetail(ruleset, expectedId) {
     typeof ruleset.enforcement !== 'string' ||
     typeof ruleset.target !== 'string' ||
     !Array.isArray(ruleset.conditions?.ref_name?.include) ||
+    ruleset.conditions.ref_name.include.some(
+      pattern => typeof pattern !== 'string' || pattern.length === 0,
+    ) ||
     !Array.isArray(ruleset.conditions?.ref_name?.exclude) ||
+    ruleset.conditions.ref_name.exclude.some(
+      pattern => typeof pattern !== 'string' || pattern.length === 0,
+    ) ||
     !Array.isArray(ruleset.bypass_actors) ||
     !Array.isArray(ruleset.rules)
   ) {
@@ -295,6 +420,23 @@ function validateRulesetDetail(ruleset, expectedId) {
     );
   }
   return ruleset;
+}
+
+function validateBranchMetadata(metadata, branchName) {
+  const description = `get ${branchName} branch metadata`;
+  if (
+    !metadata ||
+    typeof metadata !== 'object' ||
+    typeof metadata.protected !== 'boolean'
+  ) {
+    throw new CollectionError(
+      'malformed-data',
+      description,
+      `${description} did not return a boolean protected field.`,
+      `Confirm the read-only branch response for ${branchName} is complete, then retry the verifier.`,
+    );
+  }
+  return metadata;
 }
 
 function parseRepoFromRemote(remoteUrl) {
@@ -564,13 +706,9 @@ function collectGitHubState(options = {}) {
     buildGhApiArgs(`repos/${repo}`),
     'get repository metadata',
   );
-  const rulesetSummaries = requireArray(
-    runJsonCommand(
-      runCommand,
-      'gh',
-      buildGhApiArgs(`repos/${repo}/rulesets`),
-      'list repository rulesets',
-    ),
+  const rulesetSummaries = collectPaginatedApi(
+    runCommand,
+    `repos/${repo}/rulesets`,
     'list repository rulesets',
   );
   const rulesets = rulesetSummaries.map(summary => {
@@ -592,16 +730,14 @@ function collectGitHubState(options = {}) {
       summary.id,
     );
   });
-  const environmentsResponse = runJsonCommand(
+  const environmentSummaries = collectPaginatedApi(
     runCommand,
-    'gh',
-    buildGhApiArgs(`repos/${repo}/environments`),
+    `repos/${repo}/environments`,
     'list environments',
+    'environments',
   );
   const environmentNames = addUnique(
-    (environmentsResponse?.environments || []).map(
-      environment => environment.name,
-    ),
+    environmentSummaries.map(environment => environment.name),
   );
   const environments = environmentNames.map(environmentName => {
     const detail = runJsonCommand(
@@ -612,44 +748,50 @@ function collectGitHubState(options = {}) {
     );
     const branchPolicies = detail.deployment_branch_policy
       ?.custom_branch_policies
-      ? runJsonCommand(
-          runCommand,
-          'gh',
-          buildGhApiArgs(
+      ? {
+          branch_policies: collectPaginatedApi(
+            runCommand,
             `repos/${repo}/environments/${environmentName}/deployment-branch-policies`,
+            `list deployment branch policies for ${environmentName}`,
+            'branch_policies',
+            { allowNotFound: true, notFoundValue: null },
           ),
-          `list deployment branch policies for ${environmentName}`,
-          { allowNotFound: true, notFoundValue: { branch_policies: [] } },
-        )
+        }
       : { branch_policies: [] };
-    const secrets = runJsonCommand(
-      runCommand,
-      'gh',
-      [
-        'secret',
-        'list',
-        '--repo',
-        repo,
-        '--env',
-        environmentName,
-        '--json',
-        'name',
-      ],
+    const secrets = requireCompleteCliNameList(
+      runJsonCommand(
+        runCommand,
+        'gh',
+        [
+          'secret',
+          'list',
+          '--repo',
+          repo,
+          '--env',
+          environmentName,
+          '--json',
+          'name',
+        ],
+        `list environment secrets for ${environmentName}`,
+      ),
       `list environment secrets for ${environmentName}`,
     );
-    const variables = runJsonCommand(
-      runCommand,
-      'gh',
-      [
-        'variable',
-        'list',
-        '--repo',
-        repo,
-        '--env',
-        environmentName,
-        '--json',
-        'name',
-      ],
+    const variables = requireCompleteCliNameList(
+      runJsonCommand(
+        runCommand,
+        'gh',
+        [
+          'variable',
+          'list',
+          '--repo',
+          repo,
+          '--env',
+          environmentName,
+          '--json',
+          'name',
+        ],
+        `list environment variables for ${environmentName}`,
+      ),
       `list environment variables for ${environmentName}`,
     );
 
@@ -658,22 +800,27 @@ function collectGitHubState(options = {}) {
 
   const trackedFiles = options.trackedFiles || listTrackedFiles(runCommand);
   const workflowScan = scanTrackedFiles(trackedFiles, readFile);
-  const repoSecrets = runJsonCommand(
-    runCommand,
-    'gh',
-    ['secret', 'list', '--repo', repo, '--json', 'name'],
+  const repoSecrets = requireCompleteCliNameList(
+    runJsonCommand(
+      runCommand,
+      'gh',
+      ['secret', 'list', '--repo', repo, '--json', 'name'],
+      'list repository secrets',
+    ),
     'list repository secrets',
   );
-  const repoVariables = runJsonCommand(
-    runCommand,
-    'gh',
-    ['variable', 'list', '--repo', repo, '--json', 'name'],
+  const repoVariables = requireCompleteCliNameList(
+    runJsonCommand(
+      runCommand,
+      'gh',
+      ['variable', 'list', '--repo', repo, '--json', 'name'],
+      'list repository variables',
+    ),
     'list repository variables',
   );
-  const collaborators = runJsonCommand(
+  const collaborators = collectPaginatedApi(
     runCommand,
-    'gh',
-    buildGhApiArgs(`repos/${repo}/collaborators?affiliation=direct`),
+    `repos/${repo}/collaborators?affiliation=direct`,
     'list direct collaborators',
   );
   const actionsPermissions = runJsonCommand(
@@ -688,17 +835,23 @@ function collectGitHubState(options = {}) {
     buildGhApiArgs(`repos/${repo}/actions/permissions/workflow`),
     'get workflow permissions',
   );
-  const devBranchMetadata = runJsonCommand(
-    runCommand,
-    'gh',
-    buildGhApiArgs(`repos/${repo}/branches/dev`),
-    'get dev branch metadata',
+  const devBranchMetadata = validateBranchMetadata(
+    runJsonCommand(
+      runCommand,
+      'gh',
+      buildGhApiArgs(`repos/${repo}/branches/dev`),
+      'get dev branch metadata',
+    ),
+    'dev',
   );
-  const mainBranchMetadata = runJsonCommand(
-    runCommand,
-    'gh',
-    buildGhApiArgs(`repos/${repo}/branches/main`),
-    'get main branch metadata',
+  const mainBranchMetadata = validateBranchMetadata(
+    runJsonCommand(
+      runCommand,
+      'gh',
+      buildGhApiArgs(`repos/${repo}/branches/main`),
+      'get main branch metadata',
+    ),
+    'main',
   );
 
   return {
@@ -787,10 +940,83 @@ function reviewRuleMatches(actual, expected) {
   );
 }
 
+function branchPatternMatches(pattern, refName) {
+  if (pattern === '~ALL') {
+    return true;
+  }
+  if (pattern === '~DEFAULT_BRANCH') {
+    return refName === 'refs/heads/main';
+  }
+  if (pattern.startsWith('~')) {
+    return null;
+  }
+  if (/[[\]\\]/.test(pattern)) {
+    return null;
+  }
+
+  let expression = '^';
+  for (let index = 0; index < pattern.length; index += 1) {
+    const character = pattern[index];
+    if (character === '*' && pattern[index + 1] === '*') {
+      expression += '.*';
+      index += 1;
+    } else if (character === '*') {
+      expression += '[^/]*';
+    } else if (character === '?') {
+      expression += '[^/]';
+    } else {
+      expression += character.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+    }
+  }
+  return new RegExp(`${expression}$`).test(refName);
+}
+
+function governedRefsTargetedBy(ruleset) {
+  if (
+    !Array.isArray(ruleset.refNameInclude) ||
+    !Array.isArray(ruleset.refNameExclude) ||
+    [...ruleset.refNameInclude, ...ruleset.refNameExclude].some(
+      pattern => typeof pattern !== 'string' || pattern.length === 0,
+    )
+  ) {
+    return null;
+  }
+
+  const governedRefs = ['refs/heads/dev', 'refs/heads/main'];
+  const targeted = [];
+  for (const refName of governedRefs) {
+    const includeMatches = ruleset.refNameInclude.map(pattern =>
+      branchPatternMatches(pattern, refName),
+    );
+    const excludeMatches = ruleset.refNameExclude.map(pattern =>
+      branchPatternMatches(pattern, refName),
+    );
+    if (includeMatches.includes(null) || excludeMatches.includes(null)) {
+      return null;
+    }
+    if (includeMatches.includes(true) && !excludeMatches.includes(true)) {
+      targeted.push(refName);
+    }
+  }
+  return targeted;
+}
+
 function verifyRulesets(state, findings) {
-  const actualByName = new Map(
-    state.rulesets.map(ruleset => [ruleset.name, ruleset]),
-  );
+  const actualByName = new Map();
+  for (const ruleset of state.rulesets) {
+    if (actualByName.has(ruleset.name)) {
+      findings.errors.push(
+        createFinding(
+          'error',
+          'ruleset',
+          ruleset.name,
+          `Ruleset name ${ruleset.name} is duplicated.`,
+          `Keep exactly one active ${ruleset.name} ruleset with the approved contract.`,
+        ),
+      );
+    }
+    actualByName.set(ruleset.name, ruleset);
+  }
 
   for (const [name, expected] of Object.entries(EXPECTED_RULESETS)) {
     const ruleset = actualByName.get(name);
@@ -943,6 +1169,57 @@ function verifyRulesets(state, findings) {
     }
   }
 
+  for (const ruleset of state.rulesets) {
+    if (
+      Object.hasOwn(EXPECTED_RULESETS, ruleset.name) ||
+      ruleset.enforcement !== 'active'
+    ) {
+      continue;
+    }
+    if (typeof ruleset.target !== 'string') {
+      findings.errors.push(
+        createFinding(
+          'error',
+          'ruleset',
+          ruleset.name || 'unnamed',
+          'An unexpected active ruleset has malformed target metadata.',
+          'Repair or remove the malformed ruleset before relying on release governance.',
+        ),
+      );
+      continue;
+    }
+    if (ruleset.target !== 'branch') {
+      continue;
+    }
+
+    const targetedRefs = governedRefsTargetedBy(ruleset);
+    if (targetedRefs === null) {
+      findings.errors.push(
+        createFinding(
+          'error',
+          'ruleset',
+          ruleset.name || 'unnamed',
+          'An unexpected active branch ruleset has malformed or unsupported ref targeting data.',
+          'Repair the ruleset ref_name conditions so its effect on dev and main can be determined.',
+        ),
+      );
+    } else if (targetedRefs.length > 0) {
+      findings.errors.push(
+        createFinding(
+          'error',
+          'ruleset',
+          ruleset.name,
+          `Unexpected active ruleset ${
+            ruleset.name
+          } also targets governed refs ${targetedRefs.join(
+            ', ',
+          )} and may conflict with or bypass the approved contract.`,
+          `Remove ${ruleset.name} from governed refs; only protect-dev and protect-main may govern dev and main.`,
+        ),
+      );
+    }
+  }
+
   for (const branchName of ['dev', 'main']) {
     if (state.branches[branchName].legacyProtection) {
       findings.errors.push(
@@ -1090,7 +1367,9 @@ function verifyEnvironments(state, findings) {
         ),
       );
     }
+  }
 
+  for (const environment of state.environments) {
     const shadowVariables = environment.variableNames.filter(variable =>
       REQUIRED_REPO_VARIABLES.includes(variable),
     );
@@ -1099,13 +1378,15 @@ function verifyEnvironments(state, findings) {
         createFinding(
           'error',
           'environment-variable',
-          name,
-          `Environment ${name} shadows repository variable names: ${shadowVariables.join(
-            ', ',
-          )}.`,
+          environment.name,
+          `Environment ${
+            environment.name
+          } shadows repository variable names: ${shadowVariables.join(', ')}.`,
           `Remove environment-scoped variables ${shadowVariables.join(
             ', ',
-          )} from ${name}; keep these names at repository scope only.`,
+          )} from ${
+            environment.name
+          }; keep these names at repository scope only.`,
         ),
       );
     }
@@ -1273,6 +1554,24 @@ function verifyScans(state, findings) {
   }
 }
 
+function verifyBranchMetadata(state, findings) {
+  for (const branchName of ['dev', 'main']) {
+    if (
+      typeof state.branches?.[branchName]?.metadata?.protected !== 'boolean'
+    ) {
+      findings.errors.push(
+        createFinding(
+          'error',
+          'branch-metadata',
+          branchName,
+          `Branch metadata for ${branchName} is missing a boolean protected field.`,
+          `Repeat the read-only ${branchName} branch inspection and repair malformed collection data before relying on this report.`,
+        ),
+      );
+    }
+  }
+}
+
 function determineProductionState(state, findings) {
   const collaboratorLogins = state.collaborators.map(
     collaborator => collaborator.login,
@@ -1329,6 +1628,7 @@ function verifyGitHubState(state) {
   verifyRepoScope(state, findings);
   verifyActions(state, findings);
   verifyScans(state, findings);
+  verifyBranchMetadata(state, findings);
   const productionState = determineProductionState(state, findings);
 
   return {
@@ -1521,6 +1821,8 @@ module.exports = {
   EXPECTED_ENVIRONMENTS,
   EXPECTED_RULESETS,
   SYSTEM_TEMP_PATHS,
+  collectPaginatedApi,
+  requireCompleteCliNameList,
   scanTrackedFiles,
   collectGitHubState,
   verifyGitHubState,
