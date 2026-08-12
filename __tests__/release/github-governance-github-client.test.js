@@ -171,6 +171,45 @@ describe('createGitHubClient', () => {
       }),
     ).not.toThrow();
   });
+
+  test.each(['repo', 'runner', 'pageSize', 'maxPages', 'maxRequests'])(
+    'rejects a factory %s accessor without executing it',
+    property => {
+      const canary = `factory-${property}-accessor-canary`;
+      const getter = jest.fn(() => {
+        throw new Error(canary);
+      });
+      const options = {
+        repo,
+        runner: () => result({}),
+        pageSize: 100,
+        maxPages: 20,
+        maxRequests: 512,
+      };
+      Object.defineProperty(options, property, {
+        enumerable: true,
+        get: getter,
+      });
+
+      const error = expectCollectionError(
+        () => createGitHubClient(options),
+        'INVALID_ARGUMENT',
+        'client.create',
+        false,
+      );
+
+      expect(getter).not.toHaveBeenCalled();
+      expect(
+        [
+          JSON.stringify(error),
+          Object.keys(error).join(' '),
+          error.message,
+          error.stack,
+          error.remediation,
+        ].join(' '),
+      ).not.toContain(canary);
+    },
+  );
 });
 
 describe('requestJson', () => {
@@ -282,6 +321,7 @@ describe('requestJson', () => {
   ])('rejects malformed and non-closed request options %#', options => {
     const client = createGitHubClient({ repo, runner: () => result({}) });
     const expectedOperation =
+      !Object.hasOwn(options, 'extra') &&
       typeof options.operation === 'string' &&
       /^[a-z]+(?:-[a-z]+)*(?:\.[a-z]+(?:-[a-z]+)*)*$/.test(options.operation) &&
       options.operation.length <= 80
@@ -698,7 +738,7 @@ describe('collectApiPages', () => {
     expectCollectionError(
       () => collect(client, overrides),
       'INVALID_ARGUMENT',
-      'rulesets.list',
+      Object.hasOwn(overrides, 'extra') ? 'client.collect' : 'rulesets.list',
       false,
     );
   });
@@ -820,7 +860,9 @@ describe('listNames', () => {
     expectCollectionError(
       () => client.listNames(options),
       'INVALID_ARGUMENT',
-      'repository.secret-names',
+      Object.hasOwn(options, 'extra')
+        ? 'client.list-names'
+        : 'repository.secret-names',
       false,
     );
     expect(runner).not.toHaveBeenCalled();
@@ -848,6 +890,66 @@ describe('listNames', () => {
 });
 
 describe('sanitization and local consumer contract', () => {
+  test.each([
+    [
+      'requestJson',
+      'client.request',
+      {
+        apiPath: `repos/${repo}`,
+        operation: 'repo.metadata',
+      },
+    ],
+    [
+      'collectApiPages',
+      'client.collect',
+      {
+        apiPath: `repos/${repo}/rulesets`,
+        operation: 'rulesets.list',
+        responseShape: 'array',
+      },
+    ],
+    [
+      'listNames',
+      'client.list-names',
+      {
+        kind: 'secret',
+        operation: 'repository.secret-names',
+      },
+    ],
+  ])(
+    'rejects a throwing %s operation accessor without executing or leaking it',
+    (method, fallbackOperation, options) => {
+      const canary = `${method}-operation-accessor-canary`;
+      const getter = jest.fn(() => {
+        throw new Error(canary);
+      });
+      Object.defineProperty(options, 'operation', {
+        enumerable: true,
+        get: getter,
+      });
+      const runner = jest.fn(() => result({}));
+      const client = createGitHubClient({ repo, runner });
+      const error = expectCollectionError(
+        () => client[method](options),
+        'INVALID_ARGUMENT',
+        fallbackOperation,
+        false,
+      );
+
+      expect(getter).not.toHaveBeenCalled();
+      expect(runner).not.toHaveBeenCalled();
+      expect(
+        [
+          JSON.stringify(error),
+          Object.keys(error).join(' '),
+          error.message,
+          error.stack,
+          error.remediation,
+        ].join(' '),
+      ).not.toContain(canary);
+    },
+  );
+
   test.each([
     [
       'stdout-canary',

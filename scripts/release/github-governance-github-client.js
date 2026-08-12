@@ -415,19 +415,15 @@ function createGitHubClient(options) {
     requiredKeys,
     fallbackOperation,
   ) {
-    const operation =
-      isPlainObject(optionsValue) && validOperation(optionsValue.operation)
-        ? optionsValue.operation
-        : fallbackOperation;
-
-    if (
-      !hasExactKeys(optionsValue, allowedKeys, requiredKeys) ||
-      !validOperation(optionsValue.operation)
-    ) {
-      throw collectionError('INVALID_ARGUMENT', operation);
+    if (!hasExactKeys(optionsValue, allowedKeys, requiredKeys)) {
+      throw collectionError('INVALID_ARGUMENT', fallbackOperation);
     }
 
-    return operation;
+    if (!validOperation(optionsValue.operation)) {
+      throw collectionError('INVALID_ARGUMENT', fallbackOperation);
+    }
+
+    return optionsValue.operation;
   }
 
   function requestJson(requestOptions) {
