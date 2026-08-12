@@ -23,7 +23,7 @@ Use this as the exact governance contract for `jmassardo/bambuddy-mobile`. Statu
 
 ### Ruleset activation checklist
 
-- [ ] Approved GitHub App or fine-grained PAT is available for automation-authored probe PRs
+- [ ] Approved dedicated repository-only GitHub App is available for automation-authored probe PRs
 - [ ] Environment secret names are populated with reviewed real values
 - [ ] Repository variables are populated with reviewed real values
 - [ ] All workflow `uses:` refs are pinned to immutable SHAs
@@ -89,17 +89,18 @@ Forbidden at repository scope:
 ### Workflow hygiene checklist
 
 - [ ] every external `uses:` reference is pinned to a 40-character commit SHA
-- [ ] no release automation file contains hardcoded `/tmp`
-- [ ] no release automation file contains hardcoded `/var/tmp`
+- [ ] no release automation file contains a hardcoded shared system temporary directory
 - [ ] any credential materialization step has `finally`, `ensure`, `trap`, or equivalent always-run cleanup
 
 ## Automation identity and rotation
 
-| Item                         | Required policy                                             | Owner       | Rotation cadence                                                                        |
-| ---------------------------- | ----------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------- |
-| Primary automation identity  | GitHub App installed only on `jmassardo/bambuddy-mobile`    | `jmassardo` | rotate private key at least every 90 days and after any maintainer turnover or incident |
-| Fallback automation identity | fine-grained PAT scoped only to `jmassardo/bambuddy-mobile` | `jmassardo` | maximum 30-day expiration; replace on each expiry or incident                           |
-| Broad classic PAT            | forbidden                                                   | n/a         | never                                                                                   |
+| Item                        | Required policy                                                                                                             | Owner       | Rotation cadence                                                                        |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------- |
+| Automation identity         | Dedicated GitHub App installed solely on `jmassardo/bambuddy-mobile`                                                        | `jmassardo` | rotate private key at least every 90 days and after any maintainer turnover or incident |
+| Repository permissions      | Metadata: read; Contents: read and write; Pull requests: read and write; no additional permissions                          | `jmassardo` | review on every App permission or installation change                                   |
+| Authentication flow         | Mint a short-lived installation token for each run, use it only for the repository installation, then discard it            | `jmassardo` | every automation run                                                                    |
+| Personal-token fallback     | forbidden; no classic, fine-grained, broad, or other personal token may substitute for the App installation token           | n/a         | never                                                                                   |
+| Installation scope widening | forbidden; authorization failures must not be remediated by installing the App on another repository or widening its access | n/a         | never                                                                                   |
 
 ## Go-live prerequisites
 
@@ -118,6 +119,6 @@ Forbidden at repository scope:
 - [ ] no ruleset bypass actors
 - [ ] no production admin bypass
 - [ ] no production self-review weakening
-- [ ] no hardcoded `/tmp` or `/var/tmp` in release automation files
+- [ ] no hardcoded shared system temporary directory in release automation files
 - [ ] no unpinned third-party Actions
-- [ ] no broad PAT used for release governance or release automation
+- [ ] no personal token used for release governance or release automation

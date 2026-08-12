@@ -21,12 +21,20 @@ Current blockers that must be cleared **before** activating branch rulesets or A
 
 - GitHub repository admin access for `jmassardo/bambuddy-mobile`
 - isolated worktree from the approved baseline
-- approved automation identity:
-  - preferred: GitHub App installed only on this repository
-  - fallback: fine-grained PAT restricted to this repository only
+- approved dedicated GitHub App identity:
+  - installed solely on `jmassardo/bambuddy-mobile`
+  - repository permissions limited to Metadata: read, Contents: read and write, and Pull requests: read and write
+  - authenticated with short-lived installation access tokens minted for each automation run
+  - App private key stored and rotated out-of-band; installation tokens are never persisted
 - reviewed values for every required environment secret and repository variable
 - no reuse of `copilot` secrets for release or production
-- no broad personal access token
+- no classic, fine-grained, broad, or other personal access token fallback
+
+The App installation token flow is the only approved automation flow: create a
+signed App JWT at run time, exchange it for a short-lived token for the
+repository-only installation, use that token for the bounded operation, and
+discard it when the run ends. Never widen the App installation or permissions
+to resolve an authorization failure.
 
 ### Preflight snapshot commands
 

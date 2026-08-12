@@ -6,7 +6,7 @@
 | --------------------------------- | ------------------------------------------------------- |
 | Repository                        | `jmassardo/bambuddy-mobile`                             |
 | Repository URL                    | `https://github.com/jmassardo/bambuddy-mobile`          |
-| Baseline inspected for this issue | `origin/dev@9b019207c14d28ae3895c60363fb630681d3be96`   |
+| Baseline inspected for this issue | `origin/dev@b9e41e17cc10e87a98dbce1a33dd9aaa6a195f50`   |
 | Preflight snapshot state          | `2026-08-11T21:31Z` after Architecture/Standards review |
 | Post-mutation verification run    | `2026-08-11T21:47:23.063Z`                              |
 | Verifier status                   | `fail`                                                  |
@@ -145,14 +145,14 @@ Production is **fail closed until a second eligible collaborator exists**. Curre
 
 ## Exact remediation required before activation
 
-1. create an approved GitHub App or fine-grained PAT workflow identity for automation-authored probe PRs and release operations;
-2. populate environment secret names with reviewed real values:
+1. provision the dedicated repository-only GitHub App with Metadata: read, Contents: read and write, and Pull requests: read and write; use only short-lived installation tokens and no personal-token fallback ([#163](https://github.com/jmassardo/bambuddy-mobile/issues/163));
+2. populate environment secret names with reviewed real values ([#165](https://github.com/jmassardo/bambuddy-mobile/issues/165)):
    - `release-query`: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_CONTENT`, `GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT`
    - `release-ios`: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_CONTENT`, `APPLE_ID`, `MATCH_PASSWORD`, `MATCH_GIT_AUTHORIZATION`, `BAMBUDDY_DEMO_URL`, `BAMBUDDY_DEMO_USERNAME`, `BAMBUDDY_DEMO_PASSWORD`
    - `release-android`: `GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT`, `BAMBUDDY_RELEASE_STORE_CONTENT`, `BAMBUDDY_RELEASE_STORE_PASSWORD`, `BAMBUDDY_RELEASE_KEY_ALIAS`, `BAMBUDDY_RELEASE_KEY_PASSWORD`, `BAMBUDDY_DEMO_URL`, `BAMBUDDY_DEMO_USERNAME`, `BAMBUDDY_DEMO_PASSWORD`
    - `production-ios`: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_CONTENT`
    - `production-android`: `GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT`
-3. create repository variables `APPLE_TEAM_ID`, `MATCH_GIT_URL`, `IOS_BUNDLE_ID`, `ANDROID_PACKAGE_NAME`, and `GOOGLE_PLAY_TRACKS`;
-4. pin all `16` mutable GitHub Action refs to immutable SHAs, then enable `sha_pinning_required=true`;
-5. activate `protect-dev` and `protect-main` only after steps 1 through 4 are complete;
-6. run disposable blocked-path probe PRs for `dev` and `main`, then refresh this evidence document with the new sanitized output.
+3. create repository variables `APPLE_TEAM_ID`, `MATCH_GIT_URL`, `IOS_BUNDLE_ID`, `ANDROID_PACKAGE_NAME`, and `GOOGLE_PLAY_TRACKS` ([#164](https://github.com/jmassardo/bambuddy-mobile/issues/164));
+4. pin all `16` mutable GitHub Action refs to immutable SHAs, then enable `sha_pinning_required=true` ([#162](https://github.com/jmassardo/bambuddy-mobile/issues/162));
+5. activate `protect-dev` and `protect-main` only after steps 1 through 4 are complete ([#166](https://github.com/jmassardo/bambuddy-mobile/issues/166));
+6. run disposable blocked-path probe PRs for `dev` and `main`, then refresh this evidence document with the new sanitized output ([#166](https://github.com/jmassardo/bambuddy-mobile/issues/166)).

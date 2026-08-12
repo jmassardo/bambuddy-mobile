@@ -71,6 +71,7 @@ const EXPECTED_RULESETS = {
   'protect-dev': {
     name: 'protect-dev',
     refNameInclude: ['refs/heads/dev'],
+    refNameExclude: [],
     reviewRule: {
       required_approving_review_count: 1,
       dismiss_stale_reviews_on_push: true,
@@ -82,6 +83,7 @@ const EXPECTED_RULESETS = {
   'protect-main': {
     name: 'protect-main',
     refNameInclude: ['refs/heads/main'],
+    refNameExclude: [],
     reviewRule: {
       required_approving_review_count: 1,
       dismiss_stale_reviews_on_push: true,
@@ -194,11 +196,26 @@ function sortReviewers(reviewers) {
   });
 }
 
+class CollectionError extends Error {
+  constructor(scope, subject, message, remediation) {
+    super(message);
+    this.name = 'CollectionError';
+    this.scope = scope;
+    this.subject = subject;
+    this.remediation = remediation;
+  }
+}
+
 function safeParseJson(text, description) {
   try {
     return JSON.parse(text);
-  } catch (error) {
-    throw new Error(`${description} returned invalid JSON: ${error.message}`);
+  } catch {
+    throw new CollectionError(
+      'malformed-data',
+      description,
+      `${description} returned malformed JSON.`,
+      `Confirm the read-only GitHub response for ${description} is valid JSON, then retry the verifier.`,
+    );
   }
 }
 
@@ -228,12 +245,11 @@ function runJsonCommand(runCommand, command, args, description, options = {}) {
       return options.notFoundValue ?? null;
     }
 
-    const errorOutput = [result.stderr, result.stdout]
-      .map(value => value.trim())
-      .filter(Boolean)
-      .join('\n');
-    throw new Error(
-      `${description} failed with status ${result.status}: ${errorOutput}`,
+    throw new CollectionError(
+      'read-only-command',
+      description,
+      `${description} failed with status ${result.status}.`,
+      `Verify read access and the scoped GitHub configuration for ${description}, then retry; do not broaden token permissions.`,
     );
   }
 
@@ -243,6 +259,42 @@ function runJsonCommand(runCommand, command, args, description, options = {}) {
   }
 
   return safeParseJson(trimmed, description);
+}
+
+function requireArray(value, description) {
+  if (!Array.isArray(value)) {
+    throw new CollectionError(
+      'malformed-data',
+      description,
+      `${description} did not return the expected array.`,
+      `Confirm the read-only GitHub response shape for ${description}, then retry the verifier.`,
+    );
+  }
+  return value;
+}
+
+function validateRulesetDetail(ruleset, expectedId) {
+  const description = `get repository ruleset ${expectedId}`;
+  if (
+    !ruleset ||
+    typeof ruleset !== 'object' ||
+    ruleset.id !== expectedId ||
+    typeof ruleset.name !== 'string' ||
+    typeof ruleset.enforcement !== 'string' ||
+    typeof ruleset.target !== 'string' ||
+    !Array.isArray(ruleset.conditions?.ref_name?.include) ||
+    !Array.isArray(ruleset.conditions?.ref_name?.exclude) ||
+    !Array.isArray(ruleset.bypass_actors) ||
+    !Array.isArray(ruleset.rules)
+  ) {
+    throw new CollectionError(
+      'malformed-data',
+      description,
+      `${description} did not return complete ruleset conditions, bypass actors, and rules.`,
+      `Confirm ruleset ${expectedId} is readable through the repository ruleset detail API, then retry the verifier.`,
+    );
+  }
+  return ruleset;
 }
 
 function parseRepoFromRemote(remoteUrl) {
@@ -293,6 +345,7 @@ function normalizeRulesets(rulesets) {
       enforcement: ruleset.enforcement,
       target: ruleset.target,
       refNameInclude: addUnique(ruleset.conditions?.ref_name?.include || []),
+      refNameExclude: addUnique(ruleset.conditions?.ref_name?.exclude || []),
       bypassActors: ruleset.bypass_actors || [],
       rules: (ruleset.rules || []).map(normalizeRule),
     })),
@@ -511,12 +564,34 @@ function collectGitHubState(options = {}) {
     buildGhApiArgs(`repos/${repo}`),
     'get repository metadata',
   );
-  const rulesets = runJsonCommand(
-    runCommand,
-    'gh',
-    buildGhApiArgs(`repos/${repo}/rulesets`),
+  const rulesetSummaries = requireArray(
+    runJsonCommand(
+      runCommand,
+      'gh',
+      buildGhApiArgs(`repos/${repo}/rulesets`),
+      'list repository rulesets',
+    ),
     'list repository rulesets',
   );
+  const rulesets = rulesetSummaries.map(summary => {
+    if (!summary || !Number.isInteger(summary.id) || summary.id <= 0) {
+      throw new CollectionError(
+        'malformed-data',
+        'list repository rulesets',
+        'list repository rulesets returned an entry without a valid ruleset ID.',
+        'Confirm the read-only repository ruleset list response, then retry the verifier.',
+      );
+    }
+    return validateRulesetDetail(
+      runJsonCommand(
+        runCommand,
+        'gh',
+        buildGhApiArgs(`repos/${repo}/rulesets/${summary.id}`),
+        `get repository ruleset ${summary.id}`,
+      ),
+      summary.id,
+    );
+  });
   const environmentsResponse = runJsonCommand(
     runCommand,
     'gh',
@@ -758,19 +833,25 @@ function verifyRulesets(state, findings) {
 
     if (
       JSON.stringify(ruleset.refNameInclude) !==
-      JSON.stringify(expected.refNameInclude)
+        JSON.stringify(expected.refNameInclude) ||
+      JSON.stringify(ruleset.refNameExclude) !==
+        JSON.stringify(expected.refNameExclude)
     ) {
       findings.errors.push(
         createFinding(
           'error',
           'ruleset',
           name,
-          `Ruleset ${name} applies to ${
+          `Ruleset ${name} ref conditions include ${
             ruleset.refNameInclude.join(', ') || 'no refs'
-          }, not ${expected.refNameInclude.join(', ')}.`,
-          `Set ruleset ${name} ref_name include conditions to ${expected.refNameInclude.join(
+          } and exclude ${
+            ruleset.refNameExclude.join(', ') || 'no refs'
+          }; expected include ${expected.refNameInclude.join(
             ', ',
-          )} only.`,
+          )} and no exclusions.`,
+          `Set ruleset ${name} ref_name conditions to include ${expected.refNameInclude.join(
+            ', ',
+          )} only, with an empty exclude list.`,
         ),
       );
     }
@@ -1320,6 +1401,44 @@ function renderTextReport(result) {
   return lines.join('\n');
 }
 
+function buildCollectionFailure(error, repo) {
+  const isCollectionError = error instanceof CollectionError;
+  const finding = createFinding(
+    'error',
+    isCollectionError ? error.scope : 'verifier',
+    isCollectionError ? error.subject : 'execution',
+    isCollectionError
+      ? error.message
+      : 'The verifier could not complete its read-only inspection.',
+    isCollectionError
+      ? error.remediation
+      : 'Confirm the verifier arguments and local read-only tooling, then retry without broadening credentials.',
+  );
+
+  return {
+    timestamp: new Date().toISOString(),
+    repo: repo || 'unresolved',
+    status: 'fail',
+    productionState: 'fail_closed',
+    errors: [finding],
+    warnings: [],
+    collectionFailure: true,
+  };
+}
+
+function renderCollectionFailureText(result) {
+  return [
+    `timestamp=${result.timestamp}`,
+    `repo=${result.repo}`,
+    'status=fail',
+    'productionState=fail_closed',
+    'errors:',
+    ...result.errors.map(formatFinding),
+    'warnings:',
+    '- none',
+  ].join('\n');
+}
+
 function parseCliArgs(argv) {
   const options = {
     jsonOnly: false,
@@ -1345,19 +1464,51 @@ function parseCliArgs(argv) {
   return options;
 }
 
-function main(argv = process.argv.slice(2)) {
-  const options = parseCliArgs(argv);
-  const state = collectGitHubState({ repo: options.repo });
-  const result = verifyGitHubState(state);
-
-  if (!options.jsonOnly) {
-    console.log(renderTextReport(result));
+function executeVerifier(argv = process.argv.slice(2), dependencies = {}) {
+  let options = { jsonOnly: false, repo: undefined };
+  try {
+    options = parseCliArgs(argv);
+    const state = collectGitHubState({
+      repo: options.repo,
+      runCommand: dependencies.runCommand,
+      readFile: dependencies.readFile,
+      trackedFiles: dependencies.trackedFiles,
+    });
+    return {
+      jsonOnly: options.jsonOnly,
+      result: verifyGitHubState(state),
+    };
+  } catch (error) {
+    return {
+      jsonOnly: options.jsonOnly,
+      result: buildCollectionFailure(error, options.repo),
+    };
   }
-  console.log(JSON.stringify(result, null, 2));
+}
+
+function main(argv = process.argv.slice(2), dependencies = {}) {
+  const execution = executeVerifier(argv, dependencies);
+  const { result } = execution;
+  const writeOutput = dependencies.writeOutput || console.log;
+
+  if (!execution.jsonOnly) {
+    writeOutput(
+      result.collectionFailure
+        ? renderCollectionFailureText(result)
+        : renderTextReport(result),
+    );
+  }
+  writeOutput(JSON.stringify(result, null, 2));
 
   if (result.status !== 'pass') {
-    process.exitCode = 1;
+    if (dependencies.setExitCode) {
+      dependencies.setExitCode(1);
+    } else {
+      process.exitCode = 1;
+    }
   }
+
+  return result;
 }
 
 module.exports = {
@@ -1374,14 +1525,12 @@ module.exports = {
   collectGitHubState,
   verifyGitHubState,
   renderTextReport,
+  renderCollectionFailureText,
+  executeVerifier,
+  main,
   parseRepoFromRemote,
 };
 
 if (require.main === module) {
-  try {
-    main();
-  } catch (error) {
-    console.error(error.message);
-    process.exitCode = 1;
-  }
+  main();
 }

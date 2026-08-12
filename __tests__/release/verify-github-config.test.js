@@ -7,7 +7,9 @@ const {
   REQUIRED_CHECKS,
   REQUIRED_REPO_VARIABLES,
   REPO_DEMO_SECRETS,
+  SYSTEM_TEMP_PATHS,
   collectGitHubState,
+  main,
   renderTextReport,
   scanTrackedFiles,
   verifyGitHubState,
@@ -20,6 +22,7 @@ function buildRuleset(name, refNameInclude) {
     enforcement: 'active',
     target: 'branch',
     refNameInclude: [refNameInclude],
+    refNameExclude: [],
     bypassActors: [],
     rules: [
       { type: 'deletion', parameters: {} },
@@ -315,6 +318,55 @@ describe('verifyGitHubState', () => {
     );
   });
 
+  test('fails when ruleset enforcement, target, or ref conditions drift', () => {
+    const state = buildCompliantState();
+    state.rulesets[0].enforcement = 'evaluate';
+    state.rulesets[0].target = 'tag';
+    state.rulesets[0].refNameInclude = ['refs/heads/main'];
+    state.rulesets[0].refNameExclude = ['refs/heads/dev'];
+
+    const result = verifyGitHubState(state);
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'ruleset',
+          subject: 'protect-dev',
+          message: expect.stringContaining('must be active'),
+        }),
+        expect.objectContaining({
+          scope: 'ruleset',
+          subject: 'protect-dev',
+          message: expect.stringContaining('must target branches'),
+        }),
+        expect.objectContaining({
+          scope: 'ruleset',
+          subject: 'protect-dev',
+          message: expect.stringContaining('expected include refs/heads/dev'),
+        }),
+      ]),
+    );
+  });
+
+  test('fails when a ruleset adds an excluded ref', () => {
+    const state = buildCompliantState();
+    state.rulesets[0].refNameExclude = ['refs/heads/release'];
+
+    const result = verifyGitHubState(state);
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'ruleset',
+          subject: 'protect-dev',
+          message: expect.stringContaining(
+            'include refs/heads/dev and exclude refs/heads/release',
+          ),
+        }),
+      ]),
+    );
+  });
+
   test('fails when environment branch or tag policies drift', () => {
     const state = buildCompliantState();
     state.environments.find(
@@ -400,10 +452,47 @@ describe('verifyGitHubState', () => {
       ]),
     );
   });
+
+  test('fails when Actions defaults allow writes or PR approvals', () => {
+    const state = buildCompliantState();
+    state.actionsPolicy.defaultWorkflowPermissions = 'write';
+    state.actionsPolicy.canApprovePullRequestReviews = true;
+
+    const result = verifyGitHubState(state);
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'actions',
+          subject: 'workflow-permissions',
+        }),
+        expect.objectContaining({
+          scope: 'actions',
+          subject: 'workflow-pr-review-approval',
+        }),
+      ]),
+    );
+  });
+
+  test('fails when Actions SHA enforcement drifts after refs are pinned', () => {
+    const state = buildCompliantState();
+    state.actionsPolicy.shaPinningRequired = false;
+
+    const result = verifyGitHubState(state);
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'actions',
+          subject: 'sha-pinning',
+        }),
+      ]),
+    );
+  });
 });
 
 describe('collectGitHubState', () => {
-  test('uses names-only variable listing commands and never requests variable values', () => {
+  test('uses names-only commands and fetches complete ruleset details', () => {
     const repo = 'jmassardo/bambuddy-mobile';
     const fixtures = {
       [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/environments`]:
@@ -463,7 +552,24 @@ describe('collectGitHubState', () => {
         },
       [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/rulesets`]:
         {
-          stdout: [],
+          stdout: [{ id: 91, name: 'protect-dev' }],
+        },
+      [`gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/${repo}/rulesets/91`]:
+        {
+          stdout: {
+            id: 91,
+            name: 'protect-dev',
+            enforcement: 'active',
+            target: 'branch',
+            conditions: {
+              ref_name: {
+                include: ['refs/heads/dev'],
+                exclude: [],
+              },
+            },
+            bypass_actors: [],
+            rules: [{ type: 'deletion' }, { type: 'non_fast_forward' }],
+          },
         },
       [`gh secret list --repo ${repo} --json name`]: {
         stdout: REPO_DEMO_SECRETS.map(name => ({ name })),
@@ -537,7 +643,92 @@ describe('collectGitHubState', () => {
     );
     expect(commandLog).not.toContain('/actions/variables');
     expect(commandLog).not.toContain('value');
+    expect(commandLog).toContain(
+      'gh api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/jmassardo/bambuddy-mobile/rulesets/91',
+    );
+    expect(state.rulesets).toEqual([
+      expect.objectContaining({
+        id: 91,
+        name: 'protect-dev',
+        refNameInclude: ['refs/heads/dev'],
+        refNameExclude: [],
+        bypassActors: [],
+        rules: [
+          { type: 'deletion', parameters: {} },
+          { type: 'non_fast_forward', parameters: {} },
+        ],
+      }),
+    ]);
     expect(report).not.toContain('super-secret-value');
+  });
+
+  test('CLI returns nonzero structured secret-free output for failed commands', () => {
+    const sensitiveOutput = 'token=not-for-reporting';
+    const output = [];
+    let exitCode = 0;
+    const result = main(['--repo', 'jmassardo/bambuddy-mobile'], {
+      runCommand: () => ({
+        status: 1,
+        stdout: sensitiveOutput,
+        stderr: sensitiveOutput,
+      }),
+      trackedFiles: [],
+      writeOutput: entry => output.push(entry),
+      setExitCode: code => {
+        exitCode = code;
+      },
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'fail',
+        productionState: 'fail_closed',
+        collectionFailure: true,
+        errors: [
+          expect.objectContaining({
+            scope: 'read-only-command',
+            subject: 'get repository metadata',
+            remediation: expect.stringContaining('do not broaden'),
+          }),
+        ],
+      }),
+    );
+    expect(exitCode).toBe(1);
+    expect(output).toHaveLength(2);
+    expect(output[0]).toContain('status=fail');
+    expect(JSON.parse(output[1])).toEqual(result);
+    expect(output.join('\n')).not.toContain(sensitiveOutput);
+  });
+
+  test('CLI returns nonzero structured secret-free output for malformed JSON', () => {
+    const malformedOutput = '{"credential":"not-for-reporting"';
+    const output = [];
+    let exitCode = 0;
+    const result = main(['--repo', 'jmassardo/bambuddy-mobile'], {
+      runCommand: () => ({
+        status: 0,
+        stdout: malformedOutput,
+        stderr: '',
+      }),
+      trackedFiles: [],
+      writeOutput: entry => output.push(entry),
+      setExitCode: code => {
+        exitCode = code;
+      },
+    });
+
+    expect(result.errors).toEqual([
+      expect.objectContaining({
+        scope: 'malformed-data',
+        subject: 'get repository metadata',
+        remediation: expect.stringContaining('read-only GitHub response'),
+      }),
+    ]);
+    expect(exitCode).toBe(1);
+    expect(output).toHaveLength(2);
+    expect(output[0]).toContain('malformed-data:get repository metadata');
+    expect(JSON.parse(output[1])).toEqual(result);
+    expect(output.join('\n')).not.toContain(malformedOutput);
   });
 });
 
@@ -571,8 +762,8 @@ describe('scanTrackedFiles', () => {
       }
 
       return [
-        'KEY_FILE=/tmp/asc-key.p8',
-        'STORE_FILE=/var/tmp/release.keystore',
+        `KEY_FILE=${SYSTEM_TEMP_PATHS[1]}/asc-key.p8`,
+        `STORE_FILE=${SYSTEM_TEMP_PATHS[0]}/release.keystore`,
       ].join('\n');
     };
 
