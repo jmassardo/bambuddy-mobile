@@ -301,7 +301,28 @@ const expectedContract = {
   },
 };
 
-function expectRecursivelyFrozen(value, visited = new WeakSet()) {
+function expectObjectInsertionOrder(actual, expected) {
+  if (Array.isArray(expected)) {
+    expect(Array.isArray(actual)).toBe(true);
+    expected.forEach((item, index) => {
+      expectObjectInsertionOrder(actual[index], item);
+    });
+    return;
+  }
+  if (typeof expected !== 'object' || expected === null) {
+    return;
+  }
+
+  expect(Object.keys(actual)).toEqual(Object.keys(expected));
+  for (const key of Object.keys(expected)) {
+    expectObjectInsertionOrder(actual[key], expected[key]);
+  }
+}
+
+function expectRecursivelyFrozenAndMutationResistant(
+  value,
+  visited = new WeakSet(),
+) {
   if (
     (typeof value !== 'object' || value === null) &&
     typeof value !== 'function'
@@ -314,10 +335,30 @@ function expectRecursivelyFrozen(value, visited = new WeakSet()) {
 
   visited.add(value);
   expect(Object.isFrozen(value)).toBe(true);
-  for (const key of Reflect.ownKeys(value)) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  const keysBeforeMutation = Reflect.ownKeys(value);
+  const descriptorsBeforeMutation = Object.getOwnPropertyDescriptors(value);
+
+  if (Array.isArray(value)) {
+    expect(() => value.push(Symbol('mutation-probe'))).toThrow(TypeError);
+  } else {
+    expect(() =>
+      Object.defineProperty(value, Symbol('mutation-probe'), {
+        value: true,
+      }),
+    ).toThrow(TypeError);
+  }
+
+  expect(Reflect.ownKeys(value)).toEqual(keysBeforeMutation);
+  for (const key of keysBeforeMutation) {
+    expect(Object.getOwnPropertyDescriptor(value, key)).toEqual(
+      descriptorsBeforeMutation[key],
+    );
+  }
+
+  for (const key of keysBeforeMutation) {
+    const descriptor = descriptorsBeforeMutation[key];
     if (descriptor && Object.prototype.hasOwnProperty.call(descriptor, 'value')) {
-      expectRecursivelyFrozen(descriptor.value, visited);
+      expectRecursivelyFrozenAndMutationResistant(descriptor.value, visited);
     }
   }
 }
@@ -384,17 +425,17 @@ describe('GitHub governance V2 contract', () => {
       'rulesets',
       'environments',
     ]);
+    expectObjectInsertionOrder(
+      governance.GOVERNANCE_CONTRACT,
+      expectedContract,
+    );
   });
 
   test('recursively freezes every exported object without shared mutable backing', () => {
-    expectRecursivelyFrozen(governance);
-    expectRecursivelyFrozen(governance.GOVERNANCE_CONTRACT);
-    expectRecursivelyFrozen(governance.SCANNER_FINDING_CODES);
-    expectRecursivelyFrozen(governance.POLICY_FINDING_CODES);
-
-    const checks = governance.GOVERNANCE_CONTRACT.requiredChecks;
-    expect(() => checks.push('Mutable')).toThrow(TypeError);
-    expect(checks).toEqual(requiredChecks);
+    expectRecursivelyFrozenAndMutationResistant(governance);
+    expect(governance.GOVERNANCE_CONTRACT).toEqual(expectedContract);
+    expect(governance.SCANNER_FINDING_CODES).toEqual(scannerFindingCodes);
+    expect(governance.POLICY_FINDING_CODES).toEqual(policyFindingCodes);
   });
 
   test('compares each tuple field in precedence order and returns zero for ties', () => {
