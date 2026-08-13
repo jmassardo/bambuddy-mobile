@@ -5,33 +5,24 @@ const path = require('path');
 const root = path.resolve(__dirname, '../..');
 const support = path.join(root, 'test-support/release');
 const aggregatePath = path.join(support, 'github-governance-boundary-fixtures.js');
-const familyNames = [
-  'github-governance-boundary-contract-finding',
-  'github-governance-boundary-formulas',
-  'github-governance-boundary-path-depth',
-  'github-governance-boundary-descriptor-ordering',
-];
-const loadFamilies = () =>
-  familyNames.map(name => require(path.join(support, name)));
-const familyShape = family =>
-  Reflect.ownKeys(family).map(key => {
+const familyNames = ['github-governance-boundary-contract-finding',
+  'github-governance-boundary-formulas', 'github-governance-boundary-path-depth',
+  'github-governance-boundary-descriptor-ordering'];
+const loadFamilies = () => familyNames.map(name => require(path.join(support, name)));
+const familyShape = family => Reflect.ownKeys(family).map(key => {
     const {configurable, enumerable, writable} =
       Object.getOwnPropertyDescriptor(family, key);
     return [key, configurable, enumerable, writable,
       Reflect.ownKeys(family[key]), Object.isFrozen(family[key])];
   });
 
-afterEach(() => {
-  jest.resetModules();
-  jest.restoreAllMocks();
-});
+afterEach(() => { jest.resetModules(); jest.restoreAllMocks(); });
 
 test('exports only the frozen G1-G9 identities in order', () => {
   const families = loadFamilies();
   const expected = {
-    G1: families[0].G1, G2: families[0].G2,
-    G3: families[1].G3, G4: families[1].G4,
-    G5: families[2].G5, G6: families[2].G6,
+    G1: families[0].G1, G2: families[0].G2, G3: families[1].G3,
+    G4: families[1].G4, G5: families[2].G5, G6: families[2].G6,
     G7: families[3].G7, G8: families[3].G8, G9: families[1].G9,
   };
   const aggregate = require(aggregatePath);
@@ -46,27 +37,37 @@ test('exports only the frozen G1-G9 identities in order', () => {
 test('cold dependency-chain import is pure and silent', () => {
   const baseline = loadFamilies().map(familyShape);
   jest.resetModules();
+  const envDescriptor = Object.getOwnPropertyDescriptor(process, 'env');
+  const processEnv = process.env;
+  Object.defineProperty(process, 'env',
+    {configurable: true, get: () => processEnv});
+  const env = jest.spyOn(process, 'env', 'get');
   const observed = [
-    jest.spyOn(console, 'log').mockImplementation(() => {}),
-    jest.spyOn(console, 'warn').mockImplementation(() => {}),
-    jest.spyOn(console, 'error').mockImplementation(() => {}),
+    ...['log', 'info', 'debug', 'warn', 'error'].map(method =>
+      jest.spyOn(console, method).mockImplementation(() => {})),
     jest.spyOn(fs, 'readFileSync'),
     jest.spyOn(fs, 'writeFileSync'),
     jest.spyOn(process, 'cwd'),
   ];
   const freeze = jest.spyOn(Object, 'freeze');
-  const aggregate = require(aggregatePath);
-  expect(observed.map(spy => spy.mock.calls)).toEqual(observed.map(() => []));
-  expect(loadFamilies().map(familyShape)).toEqual(baseline);
-  expect(freeze).toHaveBeenCalledWith(aggregate);
+  try {
+    const aggregate = require(aggregatePath);
+    expect(observed.map(spy => spy.mock.calls)).toEqual(observed.map(() => []));
+    expect(env).not.toHaveBeenCalled();
+    expect(loadFamilies().map(familyShape)).toEqual(baseline);
+    expect(freeze).toHaveBeenCalledWith(aggregate);
+  } finally {
+    jest.restoreAllMocks();
+    Object.defineProperty(process, 'env', envDescriptor);
+  }
 });
 
 test('source remains a constant-time identity-only aggregate', () => {
   const source = fs.readFileSync(aggregatePath, 'utf8');
   expect(source).not.toMatch(/\b(?:class|function|new|for|while|map|reduce|clone|cop(?:y|ier)|pars(?:e|er)|constructors?)\b/);
   expect(source).not.toMatch(/\b(?:auth\w*|credentials?|passwords?|permissions?|tokens?)\b/i);
-  expect(source).not.toMatch(/\b(?:process\.(?:env|cwd)|fs|fetch|https?|axios|XMLHttpRequest|readFile|writeFile|errors?|TypeError|throw|catch|invalid|unsupported)\b/i);
-  expect(source.replace('./github-governance-boundary-formulas', '')).not.toMatch(/\b(?:TODO|FIXME|HACK|placeholders?|stubs?|formulas?|materializ\w*|fixture[- ]?graph|reimplement\w*)\b|#198/i);
+  expect(source).not.toMatch(/\b(?:process\.(?:env|cwd)|fs|fetch|https?|axios|XMLHttpRequest|readFile|writeFile|(?:Aggregate|Eval|Range|Reference|Syntax|Type|URI)?Error|throw|catch|invalid|unsupported)\b/i);
+  expect(source.replace('./github-governance-boundary-formulas', '')).not.toMatch(/\b(?:TODO|FIXME|HACK|placeholders?|stubs?|formulas?|materializ\w*|(?:build|fixture)[- ]?graph|reimplement\w*)\b|#198/i);
   expect(source.match(/\brequire\(/g)).toHaveLength(4);
   expect(source.match(/Object\.freeze\(/g)).toHaveLength(1);
 });
