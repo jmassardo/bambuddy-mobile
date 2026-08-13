@@ -66,8 +66,8 @@ test('source remains a constant-time identity-only aggregate', () => {
   const source = fs.readFileSync(aggregatePath, 'utf8');
   expect(source).not.toMatch(/\b(?:class|function|new|for|while|map|reduce|clone|cop(?:y|ier)|pars(?:e|er)|constructors?)\b/);
   expect(source).not.toMatch(/\b(?:auth\w*|credentials?|passwords?|permissions?|tokens?)\b/i);
-  expect(source).not.toMatch(/\b(?:process\.(?:env|cwd)|fs|fetch|https?|axios|XMLHttpRequest|readFile|writeFile|(?:Aggregate|Eval|Range|Reference|Syntax|Type|URI)?Error|throw|catch|invalid|unsupported)\b/i);
-  expect(source.replace('./github-governance-boundary-formulas', '')).not.toMatch(/\b(?:TODO|FIXME|HACK|placeholders?|stubs?|formulas?|materializ\w*|(?:build|fixture)[- ]?graph|reimplement\w*)\b|#198/i);
+  expect(source).not.toMatch(/\b(?:process\.(?:env|cwd)|fs|fetch|https?|axios|XMLHttpRequest|readFile|writeFile|(?:Aggregate|Eval|Range|Reference|Suppressed|Syntax|Type|URI)?Error|throw|catch|invalid|unsupported)\b/i);
+  expect(source.replace('./github-governance-boundary-formulas', '')).not.toMatch(/\b(?:TODO|FIXME|HACK|placeholders?|stubs?|formulas?|materializ\w*|\w*graph\w*|re(?:implement|[-\s]+implementation)\w*)\b|#198/i);
   expect(source.match(/\brequire\(/g)).toHaveLength(4);
   expect(source.match(/Object\.freeze\(/g)).toHaveLength(1);
 });
