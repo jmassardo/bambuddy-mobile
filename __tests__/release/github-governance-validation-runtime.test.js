@@ -1,9 +1,8 @@
 'use strict';
-const runtimePath = '../../scripts/release/github-governance-validation-runtime',
-  policyPath = '../../scripts/release/github-governance-validation-runtime-policy',
+const runtimePath = '../../scripts/release/github-governance-validation-runtime', policyPath =
+  '../../scripts/release/github-governance-validation-runtime-policy',
   walkPath = '../../scripts/release/github-governance-validation-walk';
-const {buildFinding, buildNormalizedGovernanceState, snapshotGraph} =
-  require('../../test-support/release/github-governance-validation-fixtures');
+const {buildFinding, buildNormalizedGovernanceState, snapshotGraph} = require('../../test-support/release/github-governance-validation-fixtures');
 const messages = Object.fromEntries([
   ['REFLECTION_FAILURE', 'Input could not be inspected safely.'], ['BUDGET_EXCEEDED', 'Validation budget exceeded.'],
   ['ACCESSOR_PROPERTY', 'Accessor properties are forbidden.'], ['SYMBOL_KEY', 'Symbol keys are forbidden.'],
@@ -18,18 +17,14 @@ const messages = Object.fromEntries([
   ['DUPLICATE_IDENTITY', 'Collection contains a duplicate identity.'], ['REPOSITORY_PATH', 'Repository path format is invalid.'],
 ]);
 const helperError = 'Validation helper arguments are invalid.';
-const failure = message => ({
-  ok: false, errors: [{code: 'SCHEMA_INVALID', path: '', message}],
-});
+const failure = message => ({ok: false, errors: [{code: 'SCHEMA_INVALID', path: '', message}]});
 function policy(budget = 311, overrides = {}) {
-  return {ownKeySlotBudget: budget, limits: {maxDepth: 32,
-    maxEntries: budget + 1, maxStringCodeUnits: 16777216,
-    maxDiagnostics: 100, ...overrides}};
+  return {ownKeySlotBudget: budget, limits: {maxDepth: 32, maxEntries: budget + 1,
+    maxStringCodeUnits: 16777216, maxDiagnostics: 100, ...overrides}};
 }
 function okResult(overrides = {}) {
-  return {status: 'ok', value: Object.create(null), counters: {
-    entries: 1, stringCodeUnits: 0, maxContainerDepth: 1, diagnostics: 0,
-  }, diagnostics: [], error: null, ...overrides};
+  return {status: 'ok', value: Object.create(null), counters: {entries: 1, stringCodeUnits: 0,
+    maxContainerDepth: 1, diagnostics: 0}, diagnostics: [], error: null, ...overrides};
 }
 function load({result = okResult(), selected = policy(), walker} = {}) {
   jest.resetModules();
@@ -44,17 +39,13 @@ function frozenFailure(result, message = messages.BUDGET_EXCEEDED) {
   expect([Object.keys(result), Object.keys(result.errors[0])])
     .toEqual([['ok', 'errors'], ['code', 'path', 'message']]);
   expect(['value', 'counters', 'context', 'ordinal'].some(key => key in result)).toBe(false);
-  for (const item of [result, result.errors, result.errors[0]])
-    expect(Object.isFrozen(item)).toBe(true);
+  for (const item of [result, result.errors, result.errors[0]]) expect(Object.isFrozen(item)).toBe(true);
 }
 function trapClone() {
-  const touched = jest.fn(), fail = () => {
-    touched(); throw new Error('clone trap');
-  };
+  const touched = jest.fn(), fail = () => { touched(); throw new Error('clone trap'); };
   const clone = new Proxy({}, {get: fail, set: fail, has: fail, ownKeys: fail,
-    getPrototypeOf: fail,
-    getOwnPropertyDescriptor: fail, defineProperty: fail, deleteProperty: fail,
-    preventExtensions: fail, isExtensible: fail});
+    getPrototypeOf: fail, getOwnPropertyDescriptor: fail, defineProperty: fail,
+    deleteProperty: fail, preventExtensions: fail, isExtensible: fail});
   return {clone, touched};
 }
 describe('governance validation runtime', () => {
@@ -69,8 +60,8 @@ describe('governance validation runtime', () => {
     expect(Object.keys(runtime.STRUCTURAL_MESSAGES)).toEqual(Object.keys(messages));
     expect(Object.isFrozen(runtime)).toBe(true);
     for (const value of Object.values(runtime)) expect(Object.isFrozen(value)).toBe(true);
-    expect(Object.values(runtime).slice(1).map(fn => fn.length))
-      .toEqual([3, 3, 2, 3, 3, 4, 5, 4, 3, 3, 4, 3]);
+    expect(Object.values(runtime).slice(1).map(fn => fn.length)).toEqual(
+      [3, 3, 2, 3, 3, 4, 5, 4, 3, 3, 4, 3]);
   });
   test.each([
     [1, 311, 0], [312, 311, 311], [401, 400, 400],
@@ -191,39 +182,50 @@ describe('governance validation runtime', () => {
       expect(callback).not.toHaveBeenCalled();
     }
   });
-  test('sorts path/message with ordinal ties and freezes exact projection', () => {
-    const {runtime} = load();
+  test('sorts by UTF-16 path, message, code, then numeric ordinal', () => {
+    const {runtime} = load(), nativeSort = Array.prototype.sort;
+    let compare;
+    const sortSpy = jest.spyOn(Array.prototype, 'sort').mockImplementation(
+      function (callback) { compare = callback; return nativeSort.call(this, callback); });
     const output = runtime.validateRoot({}, 311, (_clone, context) => {
-      for (const [path, message] of [['/b', messages.EXPECTED_ARRAY],
-        ['/a', messages.EXPECTED_STRING], ['/a', messages.EXPECTED_ARRAY],
-        ['/a', messages.EXPECTED_ARRAY]]) runtime.addError(context, path, message);
+      for (const item of [['/b', messages.EXPECTED_ARRAY], ['/a', messages.EXPECTED_STRING],
+        ['/a', messages.EXPECTED_ARRAY], ['/a', messages.EXPECTED_ARRAY]]) runtime.addError(context, ...item);
     });
+    sortSpy.mockRestore();
     expect(output.errors.map(error => [error.path, error.message])).toEqual([
       ['/a', messages.EXPECTED_STRING], ['/a', messages.EXPECTED_ARRAY],
-      ['/a', messages.EXPECTED_ARRAY], ['/b', messages.EXPECTED_ARRAY],
-    ]);
-    expect(Object.keys(output)).toEqual(['ok', 'errors']);
-    for (const item of [output, output.errors, ...output.errors])
-      expect(Object.isFrozen(item)).toBe(true);
-    expect(output.errors.every(error =>
-      Object.keys(error).join(',') === 'code,path,message')).toBe(true);
+      ['/a', messages.EXPECTED_ARRAY], ['/b', messages.EXPECTED_ARRAY]]);
+    const record = overrides => ({code: 'same', path: '/same', message: 'same', ordinal: 5, ...overrides});
+    const dimensions = [[{path: '/😀'}, {path: '/\ue000'}], [{message: '😀'}, {message: '\ue000'}],
+      [{code: '😀'}, {code: '\ue000'}], [{ordinal: 4}, {ordinal: 5}]];
+    expect([...dimensions.flatMap(([left, right]) => [
+      compare(record(left), record(right)), compare(record(right), record(left))]),
+    compare(record(), record())]).toEqual([-1, 1, -1, 1, -1, 1, -1, 1, 0]);
+    expect([Object.keys(output), ...[output, output.errors, ...output.errors].map(Object.isFrozen)])
+      .toEqual([['ok', 'errors'], true, true, true, true, true, true]);
+    expect(output.errors.every(error => Object.keys(error).join(',') === 'code,path,message')).toBe(true);
   });
   test('shares the 100/101 cap and direct addError return contract', () => {
-    const {runtime} = load();
-    const output = runtime.validateRoot({}, 311, (_clone, context) => {
-      for (let index = 1; index <= 100; index += 1)
-        expect(runtime.addError(context, `/${index}`, messages.EXPECTED_STRING)).toBe(true);
-      expect(runtime.addError(context, '/101', messages.EXPECTED_STRING)).toBe(false);
-      expect(runtime.addError(context, '/102', messages.EXPECTED_STRING)).toBe(false);
-    });
-    frozenFailure(output);
-    const diagnostics = Array.from({length: 100}, (_, index) => ({code: 'SYMBOL_KEY', path: `/${index}`}));
-    const result = okResult({diagnostics, counters: {entries: 1,
-      stringCodeUnits: 0, maxContainerDepth: 1, diagnostics: 100}});
-    const loaded = load({result});
-    const callback = jest.fn();
-    expect(loaded.runtime.validateRoot({}, 311, callback).errors).toHaveLength(100);
-    expect(callback).toHaveBeenCalledTimes(1);
+    const run = (sourceCount, additions) => {
+      const diagnostics = Array.from({length: sourceCount}, (_, index) => ({code: 'SYMBOL_KEY', path: `/source/${index}`}));
+      const counters = {entries: 1, stringCodeUnits: 0, maxContainerDepth: 1, diagnostics: sourceCount};
+      const {runtime} = load({result: okResult({diagnostics, counters})});
+      let returns;
+      const callback = jest.fn((_clone, context) => { returns = Array.from(
+        {length: additions}, (_, index) => runtime.addError(context,
+          `/callback/${index}`, messages.EXPECTED_STRING)); });
+      return {output: runtime.validateRoot({}, 311, callback), returns, callback};
+    };
+    let attempt = run(0, 102);
+    expect(attempt.returns).toEqual([...Array(100).fill(true), false, false]); frozenFailure(attempt.output);
+    attempt = run(100, 0);
+    expect([attempt.output.errors.length, attempt.callback.mock.calls.length]).toEqual([100, 1]);
+    attempt = run(2, 98);
+    expect([attempt.returns.every(Boolean), attempt.output.errors.length,
+      attempt.output.errors.filter(error => error.message === messages.SYMBOL_KEY).length])
+      .toEqual([true, 100, 2]);
+    attempt = run(2, 99);
+    expect(attempt.returns).toEqual([...Array(98).fill(true), false]); frozenFailure(attempt.output);
   });
   test('covers every helper result and precondition with fresh TypeErrors', () => {
     const {runtime} = load();
@@ -233,8 +235,7 @@ describe('governance validation runtime', () => {
         runtime.expectArray(context, [], '/a'), runtime.expectBoolean(context, false, '/b'),
         runtime.expectEnum(context, 0, '/e', Object.freeze([null, 0, 'x', true])),
         runtime.expectInteger(context, 2, '/i', 1, 2), runtime.expectObject(context, {}, '/o'),
-        runtime.expectString(context, '', '/s'),
-      ];
+        runtime.expectString(context, '', '/s')];
       expect(success).toEqual([[], false, 0, 2, {}, '']);
       const present = function (inner, value, path) {
         expect([inner, path]).toEqual([context, '/n']); return value;
@@ -246,8 +247,7 @@ describe('governance validation runtime', () => {
         runtime.expectArray(context, {}, '/fa'), runtime.expectBoolean(context, 0, '/fb'),
         runtime.expectEnum(context, 'z', '/fe', Object.freeze(['x'])),
         runtime.expectInteger(context, 3, '/fi', 1, 2), runtime.expectObject(context, [], '/fo'),
-        runtime.expectString(context, 1, '/fs'),
-      ];
+        runtime.expectString(context, 1, '/fs')];
       expect(failures).toEqual([null, null, null, null, null, null]);
       const invalid = [
         () => runtime.addError(context, '', 'other'), () => runtime.childPath('bad', 'x'),
