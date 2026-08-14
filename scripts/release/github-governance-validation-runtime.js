@@ -109,8 +109,8 @@ function expectEnum(context, value, path, allowedValues) {
       invalidArguments();
     for (let prior = 0; prior < index; prior += 1)
       if (allowedValues[prior] === allowed) invalidArguments();
-    if (value === allowed) return value;
   }
+  for (const allowed of allowedValues) if (value === allowed) return value;
   addError(context, path, STRUCTURAL_MESSAGES.EXPECTED_ENUM);
   return null;
 }
