@@ -34,9 +34,9 @@ const {DECLARED_PATH_GROUPS, COLLECTION_LIMIT_ROWS, ROOT_POLICIES} = (() => {
       ]),
       group([...prefix, "location"], ["line", "column"]),
       group([...prefix, "evidence"], ["expected", "observed", "related"]),
-      group([...prefix, "evidence", "expected", "*"], ["type", "namespace", "value"]),
-      group([...prefix, "evidence", "observed", "*"], ["type", "namespace", "value"]),
-      group([...prefix, "evidence", "related", "*"], ["type", "namespace", "value"]),
+      group([...prefix, "evidence", "expected", "*"], ["namespace", "name", "state"]),
+      group([...prefix, "evidence", "observed", "*"], ["namespace", "name", "state"]),
+      group([...prefix, "evidence", "related", "*"], ["namespace", "name", "state"]),
     );
   const ruleset = prefix =>
     groups(
@@ -51,7 +51,7 @@ const {DECLARED_PATH_GROUPS, COLLECTION_LIMIT_ROWS, ROOT_POLICIES} = (() => {
       ]),
       group([...prefix, "conditions"], ["refName"]),
       group([...prefix, "conditions", "refName"], ["include", "exclude"]),
-      group([...prefix, "bypassActors", "*"], ["actorId", "actorType", "bypassMode"]),
+      group([...prefix, "bypassActors", "*"], ["actor_id", "actor_type", "bypass_mode"]),
       group([...prefix, "rules", "*"], ["type", "parameters"]),
       group([...prefix, "rules", "*", "parameters"], [
         "required_approving_review_count",
@@ -74,7 +74,7 @@ const {DECLARED_PATH_GROUPS, COLLECTION_LIMIT_ROWS, ROOT_POLICIES} = (() => {
         ["context", "integration_id"],
       ),
     );
-  const environment = prefix =>
+  const contractEnvironment = prefix =>
     groups(
       group(prefix, [
         "name",
@@ -92,6 +92,26 @@ const {DECLARED_PATH_GROUPS, COLLECTION_LIMIT_ROWS, ROOT_POLICIES} = (() => {
         "customBranchPolicies",
       ]),
       group([...prefix, "branchPolicies", "*"], ["name", "type"]),
+    );
+  const normalizedEnvironment = prefix =>
+    groups(
+      group(prefix, [
+        "id",
+        "name",
+        "canAdminsBypass",
+        "preventSelfReview",
+        "reviewers",
+        "deploymentBranchPolicy",
+        "branchPolicies",
+        "secretNames",
+        "variableNames",
+      ]),
+      group([...prefix, "reviewers", "*"], ["type", "login", "id"]),
+      group([...prefix, "deploymentBranchPolicy"], [
+        "protectedBranches",
+        "customBranchPolicies",
+      ]),
+      group([...prefix, "branchPolicies", "*"], ["type", "name"]),
     );
 
   const contractGroups = [
@@ -196,7 +216,7 @@ const {DECLARED_PATH_GROUPS, COLLECTION_LIMIT_ROWS, ROOT_POLICIES} = (() => {
   ];
   contractGroups.push(group(["environments"], environmentNames));
   for (const name of environmentNames) {
-    contractGroups.push(...environment(["environments", name]));
+    contractGroups.push(...contractEnvironment(["environments", name]));
   }
 
   const normalizedGroups = [
@@ -218,24 +238,17 @@ const {DECLARED_PATH_GROUPS, COLLECTION_LIMIT_ROWS, ROOT_POLICIES} = (() => {
     group(["legacyBranchProtection"], ["dev", "main"]),
     group(["legacyBranchProtection", "dev"], ["exists", "protected"]),
     group(["legacyBranchProtection", "main"], ["exists", "protected"]),
-    ...environment(["environments", "*"]),
+    ...normalizedEnvironment(["environments", "*"]),
     group(["actions"], [
       "defaultWorkflowPermissions",
       "canApprovePullRequestReviews",
       "shaPinningRequired",
       "allowedActions",
     ]),
-    group(["collaborators", "*"], ["id", "login", "permissions"]),
-    group(["collaborators", "*", "permissions"], [
-      "admin",
-      "maintain",
-      "push",
-      "triage",
-      "pull",
-    ]),
+    group(["collaborators", "*"], ["login", "id", "permission"]),
     group(["branches"], ["dev", "main"]),
-    group(["branches", "dev"], ["name", "protected"]),
-    group(["branches", "main"], ["name", "protected"]),
+    group(["branches", "dev"], ["name"]),
+    group(["branches", "main"], ["name"]),
     group(["workflowScan"], ["schemaVersion", "scannedFiles", "findings"]),
     ...finding(["workflowScan", "findings", "*"]),
   ];
@@ -363,7 +376,7 @@ const {DECLARED_PATH_GROUPS, COLLECTION_LIMIT_ROWS, ROOT_POLICIES} = (() => {
       contract: policy(311, "contract"),
       finding: policy(400, "finding"),
       workflow: policy(2015003, "workflow"),
-      normalized: policy(2594433, "normalized"),
+      normalized: policy(2592031, "normalized"),
     }),
   });
 })();
@@ -376,7 +389,7 @@ function selectRootPolicy(ownKeySlotBudget) {
       return ROOT_POLICIES.finding;
     case 2015003:
       return ROOT_POLICIES.workflow;
-    case 2594433:
+    case 2592031:
       return ROOT_POLICIES.normalized;
     default:
       return null;

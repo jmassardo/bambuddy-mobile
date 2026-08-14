@@ -277,7 +277,7 @@ describe('github governance validation fixtures', () => {
   });
 
   test('compares frozen G3, G4, and G9 formula counters without materializing payloads', () => {
-    const expected = [[boundaries.G3, [[3, [0, 0, 0, 0, 0, 0]], [2015003, [10000, 5000, 96, 480000, 15000, 0]], [2015004, [10000, 5000, 96, 480000, 15000, 1]]]], [boundaries.G4, [[11, [11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], [2594433, [11, 3, 301800, 6, 271100, 2000, 4, 4500, 6, 2015003, 100, 100, 4, 96, 2003, 400, 607, 100, 0]], [2594434, [11, 3, 301800, 6, 271100, 2000, 4, 4500, 6, 2015003, 100, 100, 4, 96, 2003, 400, 607, 100, 1]]]]];
+    const expected = [[boundaries.G3, [[3, [0, 0, 0, 0, 0, 0]], [2015003, [10000, 5000, 96, 480000, 15000, 0]], [2015004, [10000, 5000, 96, 480000, 15000, 1]]]], [boundaries.G4, [[11, [11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], [2592031, [11, 3, 301800, 6, 271200, 2000, 4, 2000, 4, 2015003, 100, 100, 4, 96, 2003, 400, 607, 100, 0]], [2592032, [11, 3, 301800, 6, 271200, 2000, 4, 2000, 4, 2015003, 100, 100, 4, 96, 2003, 400, 607, 100, 1]]]]];
     for (const [family, values] of expected) for (const [preset, [visits, counts]] of ['canonical', 'max', 'maxPlusOne'].map((preset, index) => [preset, values[index]])) {
       const formula = family[preset]();
       expect([Object.isFrozen(formula), Object.isFrozen(formula.counts), formula.expectedVisits, Object.values(formula.counts)]).toEqual([true, true, visits, counts]);

@@ -1,6 +1,8 @@
 "use strict";
 const policyModule = require("../../scripts/release/github-governance-validation-runtime-policy");
 const {selectRootPolicy} = policyModule;
+const {walkBoundedData} = require("../../scripts/release/github-governance-validation-walk");
+const fixtures = require("../../test-support/release/github-governance-validation-fixtures");
 const g = (prefix, fields) => fields.map(field => [...prefix, field]);
 const f = prefix => [
   ...g(prefix, [
@@ -9,15 +11,15 @@ const f = prefix => [
   ]),
   ...g([...prefix, "location"], ["line", "column"]),
   ...g([...prefix, "evidence"], ["expected", "observed", "related"]),
-  ...g([...prefix, "evidence", "expected", "*"], ["type", "namespace", "value"]),
-  ...g([...prefix, "evidence", "observed", "*"], ["type", "namespace", "value"]),
-  ...g([...prefix, "evidence", "related", "*"], ["type", "namespace", "value"]),
+  ...g([...prefix, "evidence", "expected", "*"], ["namespace", "name", "state"]),
+  ...g([...prefix, "evidence", "observed", "*"], ["namespace", "name", "state"]),
+  ...g([...prefix, "evidence", "related", "*"], ["namespace", "name", "state"]),
 ];
 const r = prefix => [
   ...g(prefix, ["id", "name", "enforcement", "target", "conditions", "bypassActors", "rules"]),
   ...g([...prefix, "conditions"], ["refName"]),
   ...g([...prefix, "conditions", "refName"], ["include", "exclude"]),
-  ...g([...prefix, "bypassActors", "*"], ["actorId", "actorType", "bypassMode"]),
+  ...g([...prefix, "bypassActors", "*"], ["actor_id", "actor_type", "bypass_mode"]),
   ...g([...prefix, "rules", "*"], ["type", "parameters"]),
   ...g([...prefix, "rules", "*", "parameters"], [
     "required_approving_review_count", "dismiss_stale_reviews_on_push",
@@ -30,7 +32,7 @@ const r = prefix => [
     ["context", "integration_id"],
   ),
 ];
-const e = prefix => [
+const contractEnvironment = prefix => [
   ...g(prefix, [
     "name", "canAdminsBypass", "preventSelfReview", "reviewers",
     "deploymentBranchPolicy", "branchPolicies", "secretNames", "variableNames",
@@ -41,6 +43,18 @@ const e = prefix => [
     "customBranchPolicies",
   ]),
   ...g([...prefix, "branchPolicies", "*"], ["name", "type"]),
+];
+const normalizedEnvironment = prefix => [
+  ...g(prefix, [
+    "id", "name", "canAdminsBypass", "preventSelfReview", "reviewers",
+    "deploymentBranchPolicy", "branchPolicies", "secretNames", "variableNames",
+  ]),
+  ...g([...prefix, "reviewers", "*"], ["type", "login", "id"]),
+  ...g([...prefix, "deploymentBranchPolicy"], [
+    "protectedBranches",
+    "customBranchPolicies",
+  ]),
+  ...g([...prefix, "branchPolicies", "*"], ["type", "name"]),
 ];
 const c = (path, maxLength) => ({path, maxLength});
 const environmentNames = [
@@ -93,7 +107,7 @@ for (const name of ["protect-dev", "protect-main"]) {
 }
 contractPaths.push(...g(["environments"], environmentNames));
 for (const name of environmentNames) {
-  contractPaths.push(...e(["environments", name]));
+  contractPaths.push(...contractEnvironment(["environments", name]));
 }
 
 const contractCollections = [
@@ -137,16 +151,15 @@ const normalizedPaths = [
   ...g(["legacyBranchProtection"], ["dev", "main"]),
   ...g(["legacyBranchProtection", "dev"], ["exists", "protected"]),
   ...g(["legacyBranchProtection", "main"], ["exists", "protected"]),
-  ...e(["environments", "*"]),
+  ...normalizedEnvironment(["environments", "*"]),
   ...g(["actions"], [
     "defaultWorkflowPermissions", "canApprovePullRequestReviews",
     "shaPinningRequired", "allowedActions",
   ]),
-  ...g(["collaborators", "*"], ["id", "login", "permissions"]),
-  ...g(["collaborators", "*", "permissions"], ["admin", "maintain", "push", "triage", "pull"]),
+  ...g(["collaborators", "*"], ["login", "id", "permission"]),
   ...g(["branches"], ["dev", "main"]),
-  ...g(["branches", "dev"], ["name", "protected"]),
-  ...g(["branches", "main"], ["name", "protected"]),
+  ...g(["branches", "dev"], ["name"]),
+  ...g(["branches", "main"], ["name"]),
   ...g(["workflowScan"], ["schemaVersion", "scannedFiles", "findings"]),
   ...f(["workflowScan", "findings", "*"]),
 ];
@@ -173,7 +186,7 @@ const expectedPolicies = [
     ],
   ],
   [
-    2594433, 2594434, 5188867, normalizedPaths,
+    2592031, 2592032, 5184063, normalizedPaths,
     [
       c(["rulesets"], 100),
       c(["rulesets", "*", "conditions", "refName", "include"], 1000),
@@ -269,7 +282,8 @@ describe("governance validation runtime policy", () => {
       },
     );
     for (const value of [
-      undefined, null, false, "311", 310, 312, NaN, Infinity, 311n,
+      undefined, null, false, "311", 310, 312, 2594433, 2592032,
+      NaN, Infinity, 311n,
       Symbol("311"), hostile,
     ]) {
       expect(selectRootPolicy(value)).toBeNull();
@@ -296,5 +310,33 @@ describe("governance validation runtime policy", () => {
     ]);
     expect(() => contract.limits.declaredPaths.push(["changed"])).toThrow();
     expect(selectRootPolicy(311).limits.declaredPaths).toBe(contract.limits.declaredPaths);
+  });
+
+  test("declares exact unique ordered paths for every root family", () => {
+    for (const [budget, expectedPaths, expectedCount] of [
+      [311, contractPaths, 166],
+      [400, f([]), 25],
+      [2015003, [...g([], ["schemaVersion", "scannedFiles", "findings"]), ...f(["findings", "*"])], 28],
+      [2592031, normalizedPaths, 99],
+    ]) {
+      const paths = selectRootPolicy(budget).limits.declaredPaths;
+      expect(paths).toEqual(expectedPaths);
+      expect(paths).toHaveLength(expectedCount);
+      expect(new Set(paths.map(path => JSON.stringify(path))).size).toBe(expectedCount);
+    }
+  });
+
+  test("walks canonical contract and normalized fixtures with both evidence shapes", () => {
+    const cases = [
+      [311, fixtures.buildContract()],
+      [400, fixtures.buildFinding({evidenceShape: "two-key"})],
+      [400, fixtures.buildFinding({evidenceShape: "three-key"})],
+      [2015003, fixtures.buildWorkflowScan()],
+      [2592031, fixtures.buildNormalizedGovernanceState()],
+    ];
+    for (const [budget, fixture] of cases) {
+      const output = walkBoundedData(fixture, selectRootPolicy(budget).limits);
+      expect(output).toMatchObject({status: "ok", diagnostics: [], error: null});
+    }
   });
 });

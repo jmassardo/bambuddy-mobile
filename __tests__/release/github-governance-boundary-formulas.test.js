@@ -4,6 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const {spawnSync} = require('child_process');
 const governance = require('../../test-support/release/github-governance-boundary-formulas');
+const {selectRootPolicy} = require(
+  '../../scripts/release/github-governance-validation-runtime-policy',
+);
 
 const modulePath = path.resolve(
   __dirname,
@@ -127,8 +130,8 @@ describe('GitHub governance boundary formulas', () => {
 
   test.each([
     ['canonical', 11, [11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], '11'],
-    ['max', 2594433, [11, 3, 301800, 6, 271100, 2000, 4, 4500, 6, 2015003, 100, 100, 4, 96, 2003, 400, 607, 100, 0], '11 + 3 + 301800 + 6 + 271100 + 2000 + 4 + 4500 + 6 + 2015003 = 2594433'],
-    ['maxPlusOne', 2594434, [11, 3, 301800, 6, 271100, 2000, 4, 4500, 6, 2015003, 100, 100, 4, 96, 2003, 400, 607, 100, 1], '11 + 3 + 301800 + 6 + 271100 + 2000 + 4 + 4500 + 6 + 2015003 + 1 = 2594434'],
+    ['max', 2592031, [11, 3, 301800, 6, 271200, 2000, 4, 2000, 4, 2015003, 100, 100, 4, 96, 2003, 400, 607, 100, 0], '11 + 3 + 301800 + 6 + 271200 + 2000 + 4 + 2000 + 4 + 2015003 = 2592031'],
+    ['maxPlusOne', 2592032, [11, 3, 301800, 6, 271200, 2000, 4, 2000, 4, 2015003, 100, 100, 4, 96, 2003, 400, 607, 100, 1], '11 + 3 + 301800 + 6 + 271200 + 2000 + 4 + 2000 + 4 + 2015003 + 1 = 2592032'],
   ])('returns the exact frozen G4 %s record', (preset, visits, values, formula) => {
     expectRecord(
       governance.G4[preset](),
@@ -162,7 +165,7 @@ describe('GitHub governance boundary formulas', () => {
     );
     const maximum = governance.G4.max();
     expect(maximum.expectedVisits).toBe(
-      11 + 3 + 301800 + 6 + 271100 + 2000 + 4 + 4500 + 6 + 2015003,
+      11 + 3 + 301800 + 6 + 271200 + 2000 + 4 + 2000 + 4 + 2015003,
     );
     expect(maximum.counts.rulesPerRuleset).toBe(100);
     expect(maximum.counts.knownRulesPerRuleset).toBe(4);
@@ -177,6 +180,15 @@ describe('GitHub governance boundary formulas', () => {
     expect(governance.G4.maxPlusOne().expectedVisits).toBe(
       maximum.expectedVisits + 1,
     );
+    expect(selectRootPolicy(maximum.expectedVisits)).toMatchObject({
+      ownKeySlotBudget: maximum.expectedVisits,
+      limits: {
+        maxEntries: governance.G4.maxPlusOne().expectedVisits,
+        maxOwnKeysCalls: governance.G4.maxPlusOne().expectedVisits,
+        maxDescriptorCalls: 2 * governance.G4.maxPlusOne().expectedVisits - 1,
+        maxPrototypeCalls: governance.G4.maxPlusOne().expectedVisits,
+      },
+    });
   });
 
   test('creates no shared mutable records, counts, arrays, or payload graphs', () => {
@@ -240,8 +252,8 @@ describe('GitHub governance boundary formulas', () => {
       'G3', 'G4', 'G9', 'canonical', 'max', 'maxPlusOne', 'errors',
       'stringUnits', '3', '3 + 10000 + 5000 + (5000 * 400) = 2015003',
       '3 + 10000 + 5000 + (5000 * 400) + 1 = 2015004', '11',
-      '11 + 3 + 301800 + 6 + 271100 + 2000 + 4 + 4500 + 6 + 2015003 = 2594433',
-      '11 + 3 + 301800 + 6 + 271100 + 2000 + 4 + 4500 + 6 + 2015003 + 1 = 2594434',
+      '11 + 3 + 301800 + 6 + 271200 + 2000 + 4 + 2000 + 4 + 2015003 = 2592031',
+      '11 + 3 + 301800 + 6 + 271200 + 2000 + 4 + 2000 + 4 + 2015003 + 1 = 2592032',
       '0', '1 string unit', '100 errors', '101 errors', '16777216 string units',
       '16777217 string units', 'Unsupported governance fixture option.',
     ]);
