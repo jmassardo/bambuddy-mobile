@@ -45,17 +45,17 @@ const g4Max = () =>
   familyRecord(
     'G4',
     'max',
-    2594433,
-    {root: 11, repository: 3, rulesets: 301800, legacyBranchProtection: 6, environments: 271100, inventories: 2000, actions: 4, collaborators: 4500, branches: 6, workflow: 2015003, rulesetEntries: 100, rulesPerRuleset: 100, knownRulesPerRuleset: 4, unknownRulesPerRuleset: 96, conditionVisitsPerRuleset: 2003, bypassVisitsPerRuleset: 400, ruleVisitsPerRuleset: 607, environmentEntries: 100, extraOwnKeys: 0},
-    '11 + 3 + 301800 + 6 + 271100 + 2000 + 4 + 4500 + 6 + 2015003 = 2594433',
+    2592031,
+    {root: 11, repository: 3, rulesets: 301800, legacyBranchProtection: 6, environments: 271200, inventories: 2000, actions: 4, collaborators: 2000, branches: 4, workflow: 2015003, rulesetEntries: 100, rulesPerRuleset: 100, knownRulesPerRuleset: 4, unknownRulesPerRuleset: 96, conditionVisitsPerRuleset: 2003, bypassVisitsPerRuleset: 400, ruleVisitsPerRuleset: 607, environmentEntries: 100, extraOwnKeys: 0},
+    '11 + 3 + 301800 + 6 + 271200 + 2000 + 4 + 2000 + 4 + 2015003 = 2592031',
   );
 const g4MaxPlusOne = () =>
   familyRecord(
     'G4',
     'maxPlusOne',
-    2594434,
-    {root: 11, repository: 3, rulesets: 301800, legacyBranchProtection: 6, environments: 271100, inventories: 2000, actions: 4, collaborators: 4500, branches: 6, workflow: 2015003, rulesetEntries: 100, rulesPerRuleset: 100, knownRulesPerRuleset: 4, unknownRulesPerRuleset: 96, conditionVisitsPerRuleset: 2003, bypassVisitsPerRuleset: 400, ruleVisitsPerRuleset: 607, environmentEntries: 100, extraOwnKeys: 1},
-    '11 + 3 + 301800 + 6 + 271100 + 2000 + 4 + 4500 + 6 + 2015003 + 1 = 2594434',
+    2592032,
+    {root: 11, repository: 3, rulesets: 301800, legacyBranchProtection: 6, environments: 271200, inventories: 2000, actions: 4, collaborators: 2000, branches: 4, workflow: 2015003, rulesetEntries: 100, rulesPerRuleset: 100, knownRulesPerRuleset: 4, unknownRulesPerRuleset: 96, conditionVisitsPerRuleset: 2003, bypassVisitsPerRuleset: 400, ruleVisitsPerRuleset: 607, environmentEntries: 100, extraOwnKeys: 1},
+    '11 + 3 + 301800 + 6 + 271200 + 2000 + 4 + 2000 + 4 + 2015003 + 1 = 2592032',
   );
 
 function g9Record(preset, axis, expectedVisits, errors, stringUnits, formula) {
