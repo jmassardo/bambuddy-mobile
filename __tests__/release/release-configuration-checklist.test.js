@@ -57,6 +57,31 @@ function expectedCallerRef(environment) {
 }
 
 describe('release configuration checklist contract', () => {
+  test('defines only the configuration contract and its allowed sections', () => {
+    const introduction = checklist.slice(0, checklist.indexOf('\n## '));
+    const topLevelSections = [...checklist.matchAll(/^## (.+)$/gm)].map(
+      match => match[1],
+    );
+
+    expect(introduction).toBe(`# Release configuration contract
+
+This checklist defines the required release-governance configuration for
+\`jmassardo/bambuddy-mobile\`. It is a configuration contract, not evidence of
+current state or an operations runbook. Every missing or differing control is
+blocking for go-live.
+`);
+    expect(topLevelSections).toEqual([
+      'Repository rulesets',
+      'Managed environments',
+      'Repository scope',
+      'Actions and merge settings',
+      'Automation identity',
+      'Production approval',
+      'Blocking go-live dependencies',
+      'Negative assertions',
+    ]);
+  });
+
   test('documents the exact rulesets, refs, checks, and review controls', () => {
     const rulesetSection = section('Repository rulesets');
     const [rulesetRows, reviewRows] = tables(rulesetSection);
@@ -173,6 +198,10 @@ describe('release configuration checklist contract', () => {
 
   test('documents exact repository variable and repository secret scopes', () => {
     const repositorySection = section('Repository scope');
+    expect(repositorySection.trimStart().split('\n\n')[0]).toBe(
+      'Repository variables are owned by `jmassardo`, exist only at repository scope,\n' +
+        'and are reviewed every 90 days and after any release-pipeline incident:',
+    );
     expect(
       bulletValues(
         repositorySection,
