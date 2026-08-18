@@ -206,6 +206,30 @@ describe('governance V2 workflow scan validation', () => {
     expect(snapshotGraph(scan)).toEqual(before);
   });
 
+  test('detects a nonadjacent case-fold duplicate scanned file path', () => {
+    const separated = buildWorkflowScan();
+    separated.scannedFiles = [
+      '.github/workflows/A.yml',
+      '.github/workflows/B.yml',
+      '.github/workflows/a.yml',
+    ];
+    const before = snapshotGraph(separated);
+    const adjacent = buildWorkflowScan();
+    adjacent.scannedFiles = [
+      '.github/workflows/X.yml',
+      '.github/workflows/x.yml',
+      '.github/workflows/y.yml',
+    ];
+
+    expect(validateWorkflowScan(separated).errors).toEqual([
+      issue('/scannedFiles/2', STRUCTURAL_MESSAGES.DUPLICATE_IDENTITY),
+    ]);
+    expect(snapshotGraph(separated)).toEqual(before);
+    expect(validateWorkflowScan(adjacent).errors).toEqual([
+      issue('/scannedFiles/1', STRUCTURAL_MESSAGES.DUPLICATE_IDENTITY),
+    ]);
+  });
+
   test('validates every W-A02 findings descriptor without mutation', () => {
     const duplicate = buildWorkflowScan({
       arrayCase: 'W-A02', variant: 'duplicate',
@@ -248,6 +272,24 @@ describe('governance V2 workflow scan validation', () => {
       ]);
       expect(validateWorkflowScan(distinct).ok).toBe(true);
     });
+
+  test('detects a nonadjacent duplicate finding identity', () => {
+    const scan = buildScan(1, 3, 1);
+    scan.findings[1] = findingAt(scan.findings[0], 0, 1);
+    scan.findings[2] = findingAt(scan.findings[0], 0, 1);
+    scan.findings[1].evidence.observed = [
+      {...scan.findings[1].evidence.expected[0], name: 'fixture-000001'},
+    ];
+    const before = snapshotGraph(scan);
+
+    expect(scan.findings.map(finding => finding.path)).toEqual(
+      Array.from({length: 3}, () => findingFile(0)),
+    );
+    expect(validateWorkflowScan(scan).errors).toEqual([
+      issue('/findings/2', STRUCTURAL_MESSAGES.DUPLICATE_IDENTITY),
+    ]);
+    expect(snapshotGraph(scan)).toEqual(before);
+  });
 
   test('delegates aggregate evidence and finding schema errors in place', () => {
     const scan = buildScan(1, 2, 1);

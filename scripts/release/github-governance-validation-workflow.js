@@ -16,7 +16,7 @@ const {
   validateRepositoryPath,
 } = require('./github-governance-validation-runtime');
 const {
-  compareTuples,
+  foldAsciiCase,
   identityTuple,
   requireCanonicalStrings,
 } = require('./github-governance-validation-ordering');
@@ -48,6 +48,23 @@ function validateSchemaVersion(context, value, path) {
     addError(context, path, STRUCTURAL_MESSAGES.REQUIRED_LITERAL);
 }
 
+// requireCanonicalStrings compares neighbours only, so it misses an identity
+// collision separated by an intervening element. This reports exactly the
+// collisions it cannot see: every element whose key already occurred earlier,
+// minus the adjacent repeats it has already reported.
+function requireSeparatedIdentities(context, value, path, keyFor) {
+  const seen = new Set();
+  const duplicate = STRUCTURAL_MESSAGES.DUPLICATE_IDENTITY;
+  let prior;
+  for (let index = 0; index < value.length; index += 1) {
+    const key = keyFor(value[index]);
+    if (key !== prior && seen.has(key))
+      addError(context, childPath(path, String(index)), duplicate);
+    seen.add(key);
+    prior = key;
+  }
+}
+
 function validateScannedFiles(context, value, path) {
   const files = expectArray(context, value, path);
   if (files === null ||
@@ -60,7 +77,9 @@ function validateScannedFiles(context, value, path) {
     if (file === null) comparable = false;
     else validateRepositoryPath(context, file, filePath);
   }
-  if (comparable) requireCanonicalStrings(context, files, path);
+  if (!comparable) return;
+  requireCanonicalStrings(context, files, path);
+  requireSeparatedIdentities(context, files, path, foldAsciiCase);
 }
 
 function comparableEvidenceBucket(items) {
@@ -93,19 +112,35 @@ function comparableFinding(finding) {
   return true;
 }
 
+// Length-prefixed, type-tagged encoding of a canonical identity tuple. Every
+// tuple maps to exactly one key and every key back to one tuple, so key
+// equality is exactly canonical identity equality.
+function identityKey(finding) {
+  const tuple = identityTuple(findingIdentity(finding));
+  let key = '';
+  for (const part of tuple)
+    key += typeof part === 'string' ? `s${part.length}:${part}` : `n${part};`;
+  return key;
+}
+
+// The comparator orders findings by a strict subset of their identity, so
+// identical identities need not be adjacent. Order stays a neighbour check.
+// Duplicates are checked against every earlier finding and, unlike scanned
+// files, are reported here for adjacent repeats too: no ordering helper
+// reports them for this collection.
 function requireCanonicalFindings(context, findings, path) {
   if (findings.length === 0) return;
-  let priorIdentity = identityTuple(findingIdentity(findings[0]));
+  const seen = new Set([identityKey(findings[0])]);
   for (let index = 1; index < findings.length; index += 1) {
     const itemPath = childPath(path, String(index));
     const prior = findings[index - 1];
     const current = findings[index];
     if (compareGovernanceFindings(prior, current) > 0)
       addError(context, itemPath, STRUCTURAL_MESSAGES.CANONICAL_ORDER);
-    const currentIdentity = identityTuple(findingIdentity(current));
-    if (compareTuples(priorIdentity, currentIdentity) === 0)
+    const currentKey = identityKey(current);
+    if (seen.has(currentKey))
       addError(context, itemPath, STRUCTURAL_MESSAGES.DUPLICATE_IDENTITY);
-    priorIdentity = currentIdentity;
+    seen.add(currentKey);
   }
 }
 
@@ -147,9 +182,10 @@ function validateWorkflowScan(value) {
 }
 
 for (const implementation of [
-  requireRootShape, validateSchemaVersion, validateScannedFiles,
-  comparableEvidenceBucket, comparableFinding, requireCanonicalFindings,
-  validateFindings, validateWorkflowScanInContext, validateWorkflowScan,
+  requireRootShape, validateSchemaVersion, requireSeparatedIdentities,
+  validateScannedFiles, comparableEvidenceBucket, comparableFinding,
+  identityKey, requireCanonicalFindings, validateFindings,
+  validateWorkflowScanInContext, validateWorkflowScan,
 ]) Object.freeze(implementation);
 
 module.exports = Object.freeze({
