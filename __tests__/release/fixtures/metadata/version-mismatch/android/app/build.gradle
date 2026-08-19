@@ -1,0 +1,6 @@
+android {
+    defaultConfig {
+        versionCode 14
+        versionName "1.2.5"
+    }
+}
