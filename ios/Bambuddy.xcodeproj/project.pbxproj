@@ -276,7 +276,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.dxrf.bambuddy";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dxrf.bambuddy;
 				PRODUCT_NAME = Bambuddy;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -299,7 +299,6 @@
 				DEVELOPMENT_TEAM = 6H29DVBLZ8;
 				INFOPLIST_FILE = Bambuddy/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
-				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.dxrf.bambuddy";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -310,8 +309,9 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.dxrf.bambuddy";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dxrf.bambuddy;
 				PRODUCT_NAME = Bambuddy;
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.dxrf.bambuddy";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
