@@ -1,0 +1,13 @@
+// versionCode 999
+android {
+    defaultConfig {
+        applicationId "example.fixture"
+        versionCode 12
+        versionName "1.2.3"
+        def ignored = "versionCode 88 versionName \"8.8.8\""
+        nested {
+            versionCode 77
+        }
+    }
+    buildTypes { debug {} }
+}
