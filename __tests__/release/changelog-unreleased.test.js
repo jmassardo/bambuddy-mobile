@@ -45,18 +45,18 @@ function countOccurrences(text, value) {
 }
 
 function parseSections(changelog) {
-  const linksStart = changelog.search(/^\[[^\]]+\]: https?:\/\/\S+$/m);
-  const noteDocument =
-    linksStart === -1 ? changelog : changelog.slice(0, linksStart);
   const headings = [
-    ...noteDocument.matchAll(/^## \[([^\]\r\n]+)\](?: - ([^\r\n]+))?\r?$/gm),
+    ...changelog.matchAll(/^## \[([^\]\r\n]+)\](?: - ([^\r\n]+))?\r?$/gm),
   ];
 
   return headings.map((match, index) => {
     const start = match.index + match[0].length;
-    const end = headings[index + 1]?.index ?? noteDocument.length;
+    const end = headings[index + 1]?.index ?? changelog.length;
     return {
-      body: noteDocument.slice(start, end).trim(),
+      body: changelog
+        .slice(start, end)
+        .replace(/^\[[^\]\r\n]+\]: https?:\/\/\S+\r?\n?/gm, '')
+        .trim(),
       date: match[2] ?? null,
       heading: match[0],
       name: match[1],
@@ -271,7 +271,64 @@ describe('release-aware camera and security changelog contract', () => {
   });
 
   test('selects and validates the actual checkout state without mutation', () => {
-    expect(assertCheckout(actualPackage, actualChangelog)).toBe('prerelease');
+    expect(['prerelease', 'released']).toContain(
+      assertCheckout(actualPackage, actualChangelog),
+    );
+  });
+
+  test.each([
+    [
+      'prerelease',
+      JSON.stringify({ version: PRERELEASE_VERSION }),
+      prereleaseFixture,
+    ],
+    ['released', JSON.stringify({ version: RELEASE_VERSION }), releasedFixture],
+  ])(
+    'applies the complete %s assertions to matching actual-checkout inputs',
+    (expectedState, packageText, changelog) => {
+      expect(assertCheckout(packageText, changelog)).toBe(expectedState);
+      expect(() =>
+        assertCheckout(
+          packageText,
+          changelog.replace('Restore authenticated', 'Restore secure'),
+        ),
+      ).toThrow('camera note must exist exactly once in the Fixed category');
+    },
+  );
+
+  test('rejects a duplicate release heading appended after link definitions', () => {
+    const malformed = `${releasedFixture}
+## [${RELEASE_VERSION}] - ${FIXTURE_DATE}
+`;
+    expect(() => assertReleased(malformed)).toThrow(
+      `${RELEASE_VERSION} heading must exist exactly once`,
+    );
+  });
+
+  test('rejects a duplicate note appended after link definitions', () => {
+    const malformed = `${releasedFixture}
+## [Post-release]
+
+### Fixed
+
+${CAMERA_NOTE}
+`;
+    expect(() => assertReleased(malformed)).toThrow(
+      `${CAMERA_NOTE} must occur exactly once across note sections`,
+    );
+  });
+
+  test('rejects a duplicate issue reference appended after link definitions', () => {
+    const malformed = `${releasedFixture}
+## [Post-release]
+
+### Added
+
+- Follow-up entry (#145)
+`;
+    expect(() => assertReleased(malformed)).toThrow(
+      '#145 must occur exactly once across note sections',
+    );
   });
 
   test('validates an isolated in-memory deterministic release-cut state', () => {
