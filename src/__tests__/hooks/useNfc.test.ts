@@ -141,6 +141,64 @@ describe('useNfc', () => {
     await act(async () => disabledRenderer.unmount());
   });
 
+  it('returns unsupported without starting a read session', async () => {
+    mockNfcManager.isSupported.mockResolvedValue(false);
+    const renderer = await renderHook();
+
+    let result;
+    await act(async () => {
+      result = await latestHook?.readTag();
+    });
+
+    expect(result).toEqual({ status: 'unsupported', recoverable: false });
+    expect(latestHook?.status).toBe('unsupported');
+    expect(mockNfcManager.requestTechnology).not.toHaveBeenCalled();
+    expect(mockNfcManager.getTag).not.toHaveBeenCalled();
+    expect(mockNfcManager.cancelTechnologyRequest).not.toHaveBeenCalled();
+    await act(async () => renderer.unmount());
+  });
+
+  it('returns disabled without starting a read session', async () => {
+    mockNfcManager.isEnabled.mockResolvedValue(false);
+    const renderer = await renderHook();
+
+    let result;
+    await act(async () => {
+      result = await latestHook?.readTag();
+    });
+
+    expect(result).toEqual({ status: 'disabled', recoverable: false });
+    expect(latestHook?.status).toBe('disabled');
+    expect(mockNfcManager.requestTechnology).not.toHaveBeenCalled();
+    expect(mockNfcManager.getTag).not.toHaveBeenCalled();
+    expect(mockNfcManager.cancelTechnologyRequest).not.toHaveBeenCalled();
+    await act(async () => renderer.unmount());
+  });
+
+  it('returns a sanitized error while capability is checking', async () => {
+    mockNfcManager.isSupported.mockImplementation(
+      () => new Promise<boolean>(() => undefined),
+    );
+    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+    const consoleError = jest.spyOn(console, 'error').mockImplementation();
+    const renderer = await renderHook();
+
+    let result;
+    await act(async () => {
+      result = await latestHook?.readTag();
+    });
+
+    expect(result).toEqual({ status: 'read_error', recoverable: true });
+    expect(result).not.toHaveProperty('message');
+    expect(latestHook?.status).toBe('checking');
+    expect(mockNfcManager.requestTechnology).not.toHaveBeenCalled();
+    expect(mockNfcManager.getTag).not.toHaveBeenCalled();
+    expect(mockNfcManager.cancelTechnologyRequest).not.toHaveBeenCalled();
+    expect(consoleWarn).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
+    await act(async () => renderer.unmount());
+  });
+
   it('rechecks capability and recovers after NFC is enabled', async () => {
     mockNfcManager.isEnabled
       .mockResolvedValueOnce(false)
@@ -234,11 +292,13 @@ describe('useNfc', () => {
   });
 
   it.each([
-    [new NfcError.UserCancel(), 'cancelled'],
-    [new NfcError.Timeout(), 'timeout'],
-    [new NfcError.SystemBusy(), 'multiple_tags'],
-    [new Error('native payload: tag=DEADBEEF'), 'read_error'],
-  ])('classifies native failures without exposing their payload', async (error, status) => {
+    [new NfcError.UserCancel(), 'cancelled', true],
+    [new NfcError.Timeout(), 'timeout', true],
+    [new NfcError.SystemBusy(), 'multiple_tags', true],
+    [new NfcError.RadioDisabled(), 'disabled', false],
+    [new NfcError.UnsupportedFeature(), 'unsupported', false],
+    [new Error('native payload: tag=DEADBEEF'), 'read_error', true],
+  ])('classifies native failures without exposing their payload', async (error, status, recoverable) => {
     mockNfcManager.requestTechnology.mockRejectedValue(error);
     const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
     const consoleError = jest.spyOn(console, 'error').mockImplementation();
@@ -249,13 +309,61 @@ describe('useNfc', () => {
       result = await latestHook?.readTag();
     });
 
-    expect(result).toEqual({ status, recoverable: true });
+    expect(result).toEqual({ status, recoverable });
+    expect(latestHook?.status).toBe(status);
     expect(result).not.toHaveProperty('message');
     expect(result).not.toHaveProperty('tag');
     expect(consoleWarn).not.toHaveBeenCalled();
     expect(consoleError).not.toHaveBeenCalled();
     expect(mockNfcManager.cancelTechnologyRequest).toHaveBeenCalledTimes(1);
     await act(async () => renderer.unmount());
+  });
+
+  it('sanitizes a rejected native cancellation and cancels only once', async () => {
+    mockNfcManager.getTag.mockImplementation(
+      () => new Promise<never>(() => undefined),
+    );
+    mockNfcManager.cancelTechnologyRequest.mockRejectedValue(
+      new Error('native cancellation payload: tag=DEADBEEF'),
+    );
+    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+    const consoleError = jest.spyOn(console, 'error').mockImplementation();
+    const renderer = await renderHook();
+    let readPromise!: ReturnType<HookValue['readTag']>;
+
+    act(() => {
+      readPromise = latestHook!.readTag();
+    });
+    await act(async () => {
+      latestHook?.cancelRead();
+      latestHook?.cancelRead();
+    });
+
+    await expect(readPromise).resolves.toEqual({
+      status: 'cancelled',
+      recoverable: true,
+    });
+    expect(latestHook?.status).toBe('cancelled');
+    expect(mockNfcManager.cancelTechnologyRequest).toHaveBeenCalledTimes(1);
+    expect(consoleWarn).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
+    await act(async () => renderer.unmount());
+    expect(mockNfcManager.cancelTechnologyRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not invoke native cancellation without an active session', async () => {
+    const renderer = await renderHook();
+
+    await act(async () => {
+      latestHook?.cancelRead();
+      latestHook?.cancelRead();
+      await flushPromises();
+    });
+
+    expect(latestHook?.status).toBe('ready');
+    expect(mockNfcManager.cancelTechnologyRequest).not.toHaveBeenCalled();
+    await act(async () => renderer.unmount());
+    expect(mockNfcManager.cancelTechnologyRequest).not.toHaveBeenCalled();
   });
 
   it('times out after 30 seconds and cancels exactly once', async () => {
