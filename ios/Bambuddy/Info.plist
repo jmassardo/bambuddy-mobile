@@ -45,7 +45,7 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>Bambuddy uses Face ID to quickly and securely unlock the app.</string>
 	<key>NFCReaderUsageDescription</key>
-	<string>Bambuddy uses NFC to read and write spool tags for filament tracking.</string>
+	<string>Bambuddy uses NFC to read spool tag identifiers for filament tracking.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Bambuddy accesses your photo library to attach photos to print archives.</string>
 	<key>CFBundleURLTypes</key>

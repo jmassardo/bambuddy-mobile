@@ -1,135 +1,208 @@
-// NFC support for SpoolBuddy tag reading and writing
-// Uses react-native-nfc-manager
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
+import NfcManager, { NfcError, NfcTech } from 'react-native-nfc-manager';
+import { canonicalizeNfcUid } from '@/utils/nfcUid';
 
-import { useCallback, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
-import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
+const READ_TIMEOUT_MS = 30_000;
 
-export interface NfcState {
-  supported: boolean;
-  enabled: boolean;
-  reading: boolean;
+export type NfcOutcome =
+  | 'unsupported'
+  | 'disabled'
+  | 'cancelled'
+  | 'timeout'
+  | 'multiple_tags'
+  | 'invalid_uid'
+  | 'read_error';
+
+export type NfcState =
+  | { status: 'checking' }
+  | { status: 'ready' }
+  | { status: 'reading' }
+  | { status: 'success'; uid: string }
+  | { status: NfcOutcome };
+
+export type NfcReadResult =
+  | { status: 'success'; uid: string }
+  | {
+      status: Exclude<NfcOutcome, 'unsupported' | 'disabled'>;
+      recoverable: true;
+    }
+  | { status: 'unsupported' | 'disabled'; recoverable: false };
+
+type NfcFailureResult = Exclude<NfcReadResult, { status: 'success' }>;
+
+interface ReadSession {
+  cancelPromise: Promise<void> | null;
+  resolveCancellation: (result: NfcReadResult) => void;
+}
+
+function classifyNativeError(error: unknown): NfcFailureResult {
+  if (error instanceof NfcError.UserCancel) {
+    return { status: 'cancelled', recoverable: true };
+  }
+  if (error instanceof NfcError.Timeout) {
+    return { status: 'timeout', recoverable: true };
+  }
+  if (error instanceof NfcError.SystemBusy) {
+    return { status: 'multiple_tags', recoverable: true };
+  }
+  if (error instanceof NfcError.RadioDisabled) {
+    return { status: 'disabled', recoverable: false };
+  }
+  if (error instanceof NfcError.UnsupportedFeature) {
+    return { status: 'unsupported', recoverable: false };
+  }
+  return { status: 'read_error', recoverable: true };
 }
 
 export function useNfc() {
-  const [state, setState] = useState<NfcState>({
-    supported: false,
-    enabled: false,
-    reading: false,
-  });
+  const [state, setState] = useState<NfcState>({ status: 'checking' });
+  const mountedRef = useRef(false);
+  const capabilityCheckRef = useRef(0);
+  const activeSessionRef = useRef<ReadSession | null>(null);
 
-  useEffect(() => {
-    checkNfcSupport();
+  const cancelNativeSession = useCallback(async (session: ReadSession) => {
+    if (!session.cancelPromise) {
+      session.cancelPromise = NfcManager.cancelTechnologyRequest().catch(
+        () => undefined,
+      );
+    }
+    await session.cancelPromise;
   }, []);
 
-  const checkNfcSupport = async () => {
-    try {
-      const supported = await NfcManager.isSupported();
-      if (supported) {
-        await NfcManager.start();
-        const enabled = await NfcManager.isEnabled();
-        setState({ supported: true, enabled, reading: false });
-      } else {
-        setState({ supported: false, enabled: false, reading: false });
+  const cancelActiveRead = useCallback(
+    (result: NfcReadResult = { status: 'cancelled', recoverable: true }) => {
+      const session = activeSessionRef.current;
+      if (!session) {
+        return;
       }
-    } catch {
-      setState({ supported: false, enabled: false, reading: false });
-    }
-  };
-
-  const readTag = useCallback(async (): Promise<{
-    uid: string;
-    data: string | null;
-  } | null> => {
-    if (!state.supported || !state.enabled) {
-      Alert.alert(
-        'NFC Not Available',
-        'Please enable NFC in your device settings.',
-      );
-      return null;
-    }
-
-    try {
-      setState(prev => ({ ...prev, reading: true }));
-
-      await NfcManager.requestTechnology(NfcTech.Ndef);
-
-      const tag = await NfcManager.getTag();
-      if (!tag) {
-        setState(prev => ({ ...prev, reading: false }));
-        return null;
-      }
-
-      const uid = tag.id || '';
-      let data: string | null = null;
-
-      if (tag.ndefMessage && tag.ndefMessage.length > 0) {
-        const record = tag.ndefMessage[0];
-        if (record.payload) {
-          // Decode NDEF text record
-          const payload = record.payload as number[];
-          // Skip the language code prefix for text records
-          const langCodeLen = payload[0];
-          data = String.fromCharCode(...payload.slice(1 + langCodeLen));
-        }
-      }
-
-      setState(prev => ({ ...prev, reading: false }));
-      return { uid, data };
-    } catch (error) {
-      setState(prev => ({ ...prev, reading: false }));
-      console.warn('[NFC] Read error:', error);
-      return null;
-    } finally {
-      NfcManager.cancelTechnologyRequest().catch(() => {});
-    }
-  }, [state.supported, state.enabled]);
-
-  const writeTag = useCallback(
-    async (data: string): Promise<boolean> => {
-      if (!state.supported || !state.enabled) {
-        Alert.alert(
-          'NFC Not Available',
-          'Please enable NFC in your device settings.',
-        );
-        return false;
-      }
-
-      try {
-        setState(prev => ({ ...prev, reading: true }));
-
-        await NfcManager.requestTechnology(NfcTech.Ndef);
-
-        const bytes = Ndef.encodeMessage([Ndef.textRecord(data)]);
-        if (bytes) {
-          await NfcManager.ndefHandler.writeNdefMessage(bytes);
-        }
-
-        setState(prev => ({ ...prev, reading: false }));
-        return true;
-      } catch (error) {
-        setState(prev => ({ ...prev, reading: false }));
-        console.warn('[NFC] Write error:', error);
-        Alert.alert(
-          'Write Failed',
-          'Could not write to NFC tag. Please try again.',
-        );
-        return false;
-      } finally {
-        NfcManager.cancelTechnologyRequest().catch(() => {});
-      }
+      session.resolveCancellation(result);
+      cancelNativeSession(session).catch(() => undefined);
     },
-    [state.supported, state.enabled],
+    [cancelNativeSession],
   );
 
-  const cancelRead = useCallback(async () => {
-    try {
-      await NfcManager.cancelTechnologyRequest();
-      setState(prev => ({ ...prev, reading: false }));
-    } catch {
-      // Ignore
+  const checkCapability = useCallback(async (): Promise<NfcState> => {
+    const checkId = ++capabilityCheckRef.current;
+    if (mountedRef.current) {
+      setState({ status: 'checking' });
     }
+
+    let nextState: NfcState;
+    try {
+      const supported = await NfcManager.isSupported();
+      if (!supported) {
+        nextState = { status: 'unsupported' };
+      } else {
+        await NfcManager.start();
+        const enabled = await NfcManager.isEnabled();
+        nextState = enabled ? { status: 'ready' } : { status: 'disabled' };
+      }
+    } catch (error) {
+      const classified = classifyNativeError(error);
+      nextState = { status: classified.status };
+    }
+
+    if (mountedRef.current && capabilityCheckRef.current === checkId) {
+      setState(nextState);
+    }
+    return nextState;
   }, []);
 
-  return { ...state, readTag, writeTag, cancelRead };
+  const readTag = useCallback(async (): Promise<NfcReadResult> => {
+    if (activeSessionRef.current) {
+      return { status: 'multiple_tags', recoverable: true };
+    }
+    if (state.status === 'unsupported' || state.status === 'disabled') {
+      return { status: state.status, recoverable: false };
+    }
+    if (state.status === 'checking') {
+      return { status: 'read_error', recoverable: true };
+    }
+
+    let resolveCancellation!: (result: NfcReadResult) => void;
+    const cancellation = new Promise<NfcReadResult>((resolve) => {
+      resolveCancellation = resolve;
+    });
+    const session: ReadSession = {
+      cancelPromise: null,
+      resolveCancellation,
+    };
+    activeSessionRef.current = session;
+    if (mountedRef.current) {
+      setState({ status: 'reading' });
+    }
+
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    const timeout = new Promise<NfcReadResult>((resolve) => {
+      timeoutHandle = setTimeout(() => {
+        const result: NfcReadResult = {
+          status: 'timeout',
+          recoverable: true,
+        };
+        resolve(result);
+        cancelNativeSession(session).catch(() => undefined);
+      }, READ_TIMEOUT_MS);
+    });
+
+    const nativeRead = (async (): Promise<NfcReadResult> => {
+      try {
+        await NfcManager.requestTechnology(NfcTech.NfcA);
+        const tag = await NfcManager.getTag();
+        const canonical = canonicalizeNfcUid(tag?.id ?? '');
+        if (!canonical.ok) {
+          return { status: canonical.error, recoverable: true };
+        }
+        return { status: 'success', uid: canonical.uid };
+      } catch (error) {
+        return classifyNativeError(error);
+      }
+    })();
+
+    const result = await Promise.race([nativeRead, timeout, cancellation]);
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+    await cancelNativeSession(session);
+
+    if (activeSessionRef.current === session) {
+      activeSessionRef.current = null;
+      if (mountedRef.current) {
+        setState(
+          result.status === 'success'
+            ? result
+            : { status: result.status },
+        );
+      }
+    }
+    return result;
+  }, [cancelNativeSession, state.status]);
+
+  const cancelRead = useCallback(() => {
+    cancelActiveRead();
+  }, [cancelActiveRead]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    checkCapability().catch(() => undefined);
+
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === 'background') {
+        cancelActiveRead();
+      }
+    };
+    const subscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange,
+    );
+
+    return () => {
+      mountedRef.current = false;
+      capabilityCheckRef.current += 1;
+      subscription.remove();
+      cancelActiveRead();
+    };
+  }, [cancelActiveRead, checkCapability]);
+
+  return { ...state, checkCapability, readTag, cancelRead };
 }
