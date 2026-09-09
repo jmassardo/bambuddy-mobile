@@ -2,7 +2,7 @@ source 'https://rubygems.org'
 
 ruby ">= 3.1.0"
 
-gem 'fastlane', '~> 2.226'
+gem 'fastlane', '~> 2.239'
 gem 'cocoapods', '>= 1.13', '!= 1.15.0', '!= 1.15.1'
 gem 'activesupport', '>= 7.2.4'
 gem 'xcodeproj'
