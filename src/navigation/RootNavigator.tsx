@@ -34,6 +34,7 @@ import EnergyScreen from '@/screens/EnergyScreen';
 import VirtualPrintersScreen from '@/screens/VirtualPrintersScreen';
 import SpoolBuddyScreen from '@/screens/SpoolBuddyScreen';
 import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
+import FailureAnalysisScreen from '@/screens/FailureAnalysisScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -204,6 +205,11 @@ export default function RootNavigator() {
         name="Model3DPreview"
         component={Model3DPreviewScreen}
         options={{ title: '3D Preview' }}
+      />
+      <Stack.Screen
+        name="FailureAnalysis"
+        component={FailureAnalysisScreen}
+        options={{ title: 'Failure Analysis' }}
       />
     </Stack.Navigator>
   );

@@ -1,4 +1,4 @@
-import type { ApiEntity, Archive, EnergyStats, PrintLogResponse } from '@/types/api';
+import type { ApiEntity, Archive, EnergyStats, FailureAnalysis, PrintLogResponse } from '@/types/api';
 import { buildMediaUrl, ApiError, request, requestBlob, uploadFile, type UploadableFile } from './http';
 
 export const archivesApi = {
@@ -238,4 +238,14 @@ export const archivesApi = {
     request<Record<string, unknown>>(`/archives/${id}/slice`, {
       method: 'POST',
     }),
+
+  getFailureAnalysis: async (params?: {
+    periodDays?: number;
+    printerId?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.periodDays) searchParams.set('period_days', String(params.periodDays));
+    if (params?.printerId) searchParams.set('printer_id', String(params.printerId));
+    return request<FailureAnalysis>(`/archives/failure-analysis?${searchParams}`);
+  },
 };

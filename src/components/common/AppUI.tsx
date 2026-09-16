@@ -12,6 +12,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import {
+  AlertCircle,
   BarChart3,
   Bell,
   ChevronRight,
@@ -71,6 +72,7 @@ const APP_UI_ICONS: Record<
   'bar-chart': BarChart3,
   cpu: Cpu,
   'qr-code': QrCode,
+  'alert-circle': AlertCircle,
 };
 
 export function SearchBar({

@@ -48,6 +48,7 @@ export type RootStackParamList = {
     fileSize?: number;
     source3mfPath?: string;
   };
+  FailureAnalysis: undefined;
 };
 
 export type RootNavigationProp<
