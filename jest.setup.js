@@ -45,13 +45,6 @@ jest.mock('react-native-nfc-manager', () => ({
   Ndef: { text: { decodePayload: jest.fn() } },
 }));
 
-// Mock api/server
-jest.mock('@/api/server', () => ({
-  apiUrl: 'https://test.bambuddy.local',
-  registerServerUrlChangeHandler: jest.fn(),
-  useServerStore: () => ({ serverUrl: 'https://test.bambuddy.local', setServerUrl: jest.fn() }),
-}));
-
 // Mock react-native-image-picker
 jest.mock('react-native-image-picker', () => ({
   launchCamera: jest.fn(),
