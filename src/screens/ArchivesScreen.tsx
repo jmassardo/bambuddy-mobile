@@ -148,7 +148,8 @@ export default function ArchivesScreen() {
   const [tagsDraft, setTagsDraft] = useState('');
   const [showTagSummary, setShowTagSummary] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'csv' | 'json'>('csv');
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx' | 'json'>('csv');
+  const [exportScope, setExportScope] = useState<'all' | 'selected'>('all');
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [purgeDays, setPurgeDays] = useState(90);
@@ -335,8 +336,11 @@ export default function ArchivesScreen() {
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
-      if (hasUnsupportedServerExportFilters) {
-        const csv = toCsv(archiveExportRows(filteredArchives));
+      const rowsToExport = exportScope === 'selected'
+        ? archives.filter(a => selectedIds.includes(a.id))
+        : filteredArchives;
+      if (exportScope === 'selected' || hasUnsupportedServerExportFilters) {
+        const csv = toCsv(archiveExportRows(rowsToExport));
         const csvBlobOptions: BlobOptions = {
           type: 'text/csv',
           lastModified: Date.now(),
@@ -346,7 +350,12 @@ export default function ArchivesScreen() {
         return;
       }
       const blob = await api.exportArchives({
-        format: 'csv',
+        format: exportFormat === 'xlsx' ? 'xlsx' : 'csv',
+        fields: [
+          'id', 'print_name', 'filename', 'printer_name', 'project_name',
+          'status', 'completed_at', 'filament_type', 'filament_color',
+          'filament_used_grams', 'cost', 'tags',
+        ],
         printerId: printerFilter === 'all' ? undefined : printerFilter,
         status:
           statusFilter === 'completed'
@@ -359,7 +368,7 @@ export default function ArchivesScreen() {
         dateFrom: rangeDateFrom(rangeFilter),
         search: search.trim() || undefined,
       });
-      await shareBlob(blob, `${filenameBase}.csv`);
+      await shareBlob(blob, `${filenameBase}.${exportFormat}`);
     },
     onSuccess: () => {
       showToast(`${exportFormat.toUpperCase()} export ready to share.`, 'success');
@@ -654,25 +663,41 @@ export default function ArchivesScreen() {
       <SimpleModal
         visible={showExportModal}
         title="Export archives"
-        subtitle="Share the current archive list as CSV or JSON."
+        subtitle="Share the current archive list as CSV, Excel, or JSON."
         onClose={() => setShowExportModal(false)}
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          {(['csv', 'json'] as const).map(format => (
+          {(['csv', 'xlsx', 'json'] as const).map(format => (
             <Chip
               key={format}
-              label={format.toUpperCase()}
+              label={format === 'xlsx' ? 'EXCEL' : format.toUpperCase()}
               selected={exportFormat === format}
               onPress={() => setExportFormat(format)}
             />
           ))}
         </ScrollView>
+        {selectedIds.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            {(['all', 'selected'] as const).map(scope => (
+              <Chip
+                key={scope}
+                label={scope === 'selected' ? `Selected only (${selectedIds.length})` : 'All filtered'}
+                selected={exportScope === scope}
+                onPress={() => setExportScope(scope as typeof exportScope)}
+              />
+            ))}
+          </ScrollView>
+        ) : null}
         <Text style={[styles.modalBodyText, { color: colors.textSecondary }]}>
           {exportFormat === 'json'
             ? 'JSON export mirrors the exact filtered results shown on this screen.'
-            : hasUnsupportedServerExportFilters
-              ? 'CSV export is generated from the currently filtered results to preserve tag, favorite, and duplicate filters.'
-              : 'CSV export uses the archive export endpoint with your current toolbar filters.'}
+            : exportScope === 'selected'
+              ? 'Exported as CSV to preserve the selected archive set.'
+              : hasUnsupportedServerExportFilters
+                ? 'CSV export is generated from the currently filtered results to preserve tag, favorite, and duplicate filters.'
+                : exportFormat === 'xlsx'
+                  ? 'Excel export uses the archive export endpoint with your current toolbar filters.'
+                  : 'CSV export uses the archive export endpoint with your current toolbar filters.'}
         </Text>
         <View style={styles.modalFooter}>
           <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowExportModal(false)} />

@@ -124,6 +124,27 @@ function getRangeDays(range: RangeKey) {
   return Number(range.replace('d', ''));
 }
 
+function buildStatsSummaryCsv(stats: ApiRecord, archives: ApiRecord[], range: RangeKey, printerId: number | null, userId: number | null) {
+  const rows = [
+    { metric: 'Total prints', value: String(pickNumber(stats, ['total_prints', 'prints_count'], archives.length)) },
+    { metric: 'Success rate', value: formatPercent(pickNumber(stats, ['success_rate'], 0), 1) },
+    { metric: 'Total print time', value: formatDuration(Math.round(pickNumber(stats, ['total_print_time_seconds', 'total_print_time'], 0))) },
+    { metric: 'Filament used', value: formatWeight(pickNumber(stats, ['total_filament_grams', 'total_filament_g', 'filament_total_g'], 0)) },
+    { metric: 'Total cost', value: formatCurrency(pickNumber(stats, ['total_cost', 'cost_total'], 0)) },
+    { metric: 'Range', value: range },
+    { metric: 'Printer', value: printerId ? `${printerId}` : 'All' },
+    { metric: 'User', value: userId !== null ? `${userId}` : 'All' },
+  ];
+  return toCsvSummary(rows);
+}
+
+function toCsvSummary(rows: Array<{ metric: string; value: string }>) {
+  return [
+    rows.map(r => `"${r.metric}"`).join(','),
+    ...rows.map(r => `"${r.value}"`).join(','),
+  ].join('\n');
+}
+
 function buildFailureRates(items: ApiRecord[], keyFn: (item: ApiRecord) => string) {
   const rows = new Map<string, { label: string; total: number; failures: number; rate: number }>();
   items.forEach(item => {
@@ -186,7 +207,7 @@ export default function StatsScreen() {
   };
 
   const exportMutation = useMutation({
-    mutationFn: async (format: 'csv' | 'json') => {
+    mutationFn: async (format: 'csv' | 'xlsx' | 'json') => {
       const filenameBase = `bambuddy-stats-${range}${selectedPrinterId ? `-printer-${selectedPrinterId}` : ''}${selectedUserId !== null ? `-user-${selectedUserId}` : ''}`;
       if (format === 'json') {
         const blobOptions: BlobOptions = {
@@ -198,17 +219,38 @@ export default function StatsScreen() {
         return;
       }
       const blob = await api.exportArchiveStats({
-        format: 'csv',
+        format,
         days: getRangeDays(range),
         dateFrom: queryParams.dateFrom,
         dateTo: queryParams.dateTo,
         printerId: selectedPrinterId ?? undefined,
         createdById: isAdmin ? (selectedUserId ?? undefined) : undefined,
       });
-      await shareBlob(blob, `${filenameBase}.csv`);
+      await shareBlob(blob, `${filenameBase}.${format}`);
     },
     onSuccess: (_data, format) => showToast(`${format.toUpperCase()} export ready to share.`, 'success'),
     onError: (error: Error) => showToast(error.message || 'Unable to export statistics.', 'error'),
+  });
+
+  const statsSummaryMutation = useMutation({
+    mutationFn: async () => {
+      const filenameBase = `bambuddy-stats-summary-${range}`;
+      const csv = buildStatsSummaryCsv(
+        statsQuery.data ?? {},
+        archives,
+        range,
+        selectedPrinterId,
+        isAdmin ? selectedUserId : null,
+      );
+      const blobOptions: BlobOptions = {
+        type: 'text/csv',
+        lastModified: Date.now(),
+      };
+      const blob = new Blob([csv], blobOptions);
+      await shareBlob(blob, `${filenameBase}.csv`);
+    },
+    onSuccess: () => showToast('Statistics summary exported.', 'success'),
+    onError: () => showToast('Unable to export statistics summary.', 'error'),
   });
 
   const recalculateCostsMutation = useMutation({
@@ -453,11 +495,25 @@ export default function StatsScreen() {
               disabled={exportMutation.isPending}
             />
             <PrimaryButton
+              label={exportMutation.isPending ? 'Exporting…' : 'Export Excel'}
+              variant="secondary"
+              onPress={() => void exportMutation.mutateAsync('xlsx')}
+              loading={exportMutation.isPending}
+              disabled={exportMutation.isPending}
+            />
+            <PrimaryButton
               label={exportMutation.isPending ? 'Exporting…' : 'Export JSON'}
               variant="secondary"
               onPress={() => void exportMutation.mutateAsync('json')}
               loading={exportMutation.isPending}
               disabled={exportMutation.isPending}
+            />
+            <PrimaryButton
+              label={statsSummaryMutation.isPending ? 'Exporting…' : 'Export summary'}
+              variant="secondary"
+              onPress={() => void statsSummaryMutation.mutateAsync()}
+              loading={statsSummaryMutation.isPending}
+              disabled={statsSummaryMutation.isPending}
             />
           </View>
           <PrimaryButton

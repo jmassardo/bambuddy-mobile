@@ -6,6 +6,7 @@ function mimeFromFilename(filename: string) {
   if (lower.endsWith('.json')) return 'application/json';
   if (lower.endsWith('.pdf')) return 'application/pdf';
   if (lower.endsWith('.zip')) return 'application/zip';
+  if (lower.endsWith('.xlsx')) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   return 'application/octet-stream';
 }
 
