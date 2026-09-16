@@ -3,6 +3,7 @@ import type {
   MQTTStatus,
   SMTPSettings,
   SmartPlug,
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
   StorageLocation,
 } from '@/types/api';
 import { pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';

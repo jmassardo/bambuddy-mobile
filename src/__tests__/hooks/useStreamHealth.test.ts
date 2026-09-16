@@ -1,5 +1,5 @@
-import { renderHook } from '@testing-library/react-native';
-import { useStreamHealth, type StreamHealthStatus } from '@/hooks/useStreamHealth';
+import { renderHook, act } from '@testing-library/react-native';
+import { useStreamHealth } from '@/hooks/useStreamHealth';
 
 jest.useFakeTimers();
 
@@ -8,15 +8,15 @@ describe('useStreamHealth', () => {
     jest.clearAllTimers();
   });
 
-  it('should start in healthy state', () => {
-    const { result } = renderHook(() => useStreamHealth());
+  it('should start in healthy state', async () => {
+    const { result } = await renderHook(() => useStreamHealth());
 
     expect(result.current.status).toBe('healthy');
     expect(result.current.metrics.framesReceived).toBe(0);
   });
 
-  it('should detect degraded stream', () => {
-    const { result } = renderHook(() =>
+  it('should detect degraded stream', async () => {
+    const { result } = await renderHook(() =>
       useStreamHealth({
         staleThresholdMs: 10000,
         degradedThresholdMs: 5000,
@@ -34,8 +34,8 @@ describe('useStreamHealth', () => {
     expect(result.current.status).toBe('degraded');
   });
 
-  it('should detect stale stream', () => {
-    const { result } = renderHook(() =>
+  it('should detect stale stream', async () => {
+    const { result } = await renderHook(() =>
       useStreamHealth({
         staleThresholdMs: 5000,
         degradedThresholdMs: 2000,
@@ -50,8 +50,8 @@ describe('useStreamHealth', () => {
     expect(result.current.status).toBe('stale');
   });
 
-  it('should record frames', () => {
-    const { result } = renderHook(() => useStreamHealth());
+  it('should record frames', async () => {
+    const { result } = await renderHook(() => useStreamHealth());
 
     act(() => {
       result.current.recordFrame();
@@ -64,8 +64,8 @@ describe('useStreamHealth', () => {
     expect(result.current.metrics.framesReceived).toBe(2);
   });
 
-  it('should clear frame count', () => {
-    const { result } = renderHook(() => useStreamHealth());
+  it('should clear frame count', async () => {
+    const { result } = await renderHook(() => useStreamHealth());
 
     act(() => {
       result.current.recordFrame();
@@ -79,8 +79,8 @@ describe('useStreamHealth', () => {
     expect(result.current.metrics.framesReceived).toBe(0);
   });
 
-  it('should track time since last activity', () => {
-    const { result } = renderHook(() => useStreamHealth());
+  it('should track time since last activity', async () => {
+    const { result } = await renderHook(() => useStreamHealth());
 
     const initialTime = result.current.timeSinceLastActivityMs;
 
@@ -91,8 +91,8 @@ describe('useStreamHealth', () => {
     expect(result.current.timeSinceLastActivityMs).toBeGreaterThan(initialTime);
   });
 
-  it('should refresh status on demand', () => {
-    const { result } = renderHook(() =>
+  it('should refresh status on demand', async () => {
+    const { result } = await renderHook(() =>
       useStreamHealth({
         staleThresholdMs: 3000,
         degradedThresholdMs: 1000,
@@ -114,8 +114,8 @@ describe('useStreamHealth', () => {
     expect(result.current.status).toBe('degraded');
   });
 
-  it('should respect autoRefreshEnabled flag', () => {
-    const { result } = renderHook(() =>
+  it('should respect autoRefreshEnabled flag', async () => {
+    const { result } = await renderHook(() =>
       useStreamHealth({
         staleThresholdMs: 1000,
         degradedThresholdMs: 500,

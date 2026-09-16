@@ -156,7 +156,7 @@ function StreamStatusIndicator({
   }
 
   let label = '';
-  let iconColor = colors.accent;
+  let iconColor: string = colors.accent;
 
   if (isRetryActive) {
     label = `Retrying… (${retryCount}/${maxRetries})`;

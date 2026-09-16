@@ -33,7 +33,6 @@ import type { RootNavigationProp } from '@/navigation/types';
 import { useTheme } from '@/theme';
 import { fontSize, fontWeight, spacing, borderRadius } from '@/theme/tokens';
 import type {
-  ApiEntity,
   VirtualPrinterConfig,
   VirtualPrinterListResponse,
   VirtualPrinterMode,
@@ -250,7 +249,7 @@ export default function VirtualPrintersScreen() {
       }));
       showToast(error.message || 'Connection test failed.', 'error');
     },
-    onSettled: (_, __, id) => {
+    onSettled: (_, __, _id) => {
       setTestingPrinter(null);
     },
   });

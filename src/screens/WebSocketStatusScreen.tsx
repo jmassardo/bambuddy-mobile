@@ -27,7 +27,7 @@ export default function WebSocketStatusScreen() {
 
   const { isConnected, isReconnecting, errors, clearErrors } = useWebSocket();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
+  const [autoRefreshEnabled, _setAutoRefreshEnabled] = useState(false);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'WebSocket Status' });

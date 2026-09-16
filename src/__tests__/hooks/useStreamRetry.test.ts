@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react-native';
-import { useStreamRetry, type RetryState } from '@/hooks/useStreamRetry';
+import { useStreamRetry } from '@/hooks/useStreamRetry';
 
 jest.useFakeTimers();
 
@@ -8,16 +8,16 @@ describe('useStreamRetry', () => {
     jest.clearAllTimers();
   });
 
-  it('should start in idle state', () => {
-    const { result } = renderHook(() => useStreamRetry());
+  it('should start in idle state', async () => {
+    const { result } = await renderHook(() => useStreamRetry());
 
     expect(result.current.currentState).toBe('idle');
     expect(result.current.retryCount).toBe(0);
     expect(result.current.maxRetries).toBe(3);
   });
 
-  it('should trigger retry with exponential backoff', () => {
-    const { result } = renderHook(() =>
+  it('should trigger retry with exponential backoff', async () => {
+    const { result } = await renderHook(() =>
       useStreamRetry({
         maxRetries: 3,
         initialDelayMs: 100,
@@ -47,8 +47,8 @@ describe('useStreamRetry', () => {
     expect(result.current.nextRetryDelayMs).toBe(200);
   });
 
-  it('should reach max retries and fail', () => {
-    const { result } = renderHook(() =>
+  it('should reach max retries and fail', async () => {
+    const { result } = await renderHook(() =>
       useStreamRetry({
         maxRetries: 2,
         initialDelayMs: 50,
@@ -76,8 +76,8 @@ describe('useStreamRetry', () => {
     expect(result.current.currentState).toBe('failed');
   });
 
-  it('should recover on success', () => {
-    const { result } = renderHook(() =>
+  it('should recover on success', async () => {
+    const { result } = await renderHook(() =>
       useStreamRetry({ maxRetries: 3, initialDelayMs: 50 }),
     );
 
@@ -97,8 +97,8 @@ describe('useStreamRetry', () => {
     expect(result.current.retryCount).toBe(0);
   });
 
-  it('should reset to idle state', () => {
-    const { result } = renderHook(() =>
+  it('should reset to idle state', async () => {
+    const { result } = await renderHook(() =>
       useStreamRetry({ maxRetries: 3, initialDelayMs: 50 }),
     );
 
@@ -118,8 +118,8 @@ describe('useStreamRetry', () => {
     expect(result.current.retryCount).toBe(0);
   });
 
-  it('should apply max delay cap', () => {
-    const { result } = renderHook(() =>
+  it('should apply max delay cap', async () => {
+    const { result } = await renderHook(() =>
       useStreamRetry({
         maxRetries: 10,
         initialDelayMs: 1000,
@@ -142,8 +142,8 @@ describe('useStreamRetry', () => {
     expect(result.current.nextRetryDelayMs).toBe(5000);
   });
 
-  it('should not retry when disabled', () => {
-    const { result } = renderHook(() =>
+  it('should not retry when disabled', async () => {
+    const { result } = await renderHook(() =>
       useStreamRetry({ enabled: false, maxRetries: 3, initialDelayMs: 50 }),
     );
 
@@ -155,8 +155,8 @@ describe('useStreamRetry', () => {
     expect(result.current.retryCount).toBe(0);
   });
 
-  it('should use custom maxRetries', () => {
-    const { result } = renderHook(() =>
+  it('should use custom maxRetries', async () => {
+    const { result } = await renderHook(() =>
       useStreamRetry({ maxRetries: 5, initialDelayMs: 50 }),
     );
 

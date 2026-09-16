@@ -17,6 +17,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { StorageLocation } from '@/types/api';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { pickNumber, pickString } from '@/utils/data';
 
 interface LocationsModalProps {

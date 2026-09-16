@@ -550,13 +550,13 @@ export function QueueItemCard({
   onMoveUp,
   onMoveDown,
   onReorder,
-  onDragStart,
-  onDragMove,
-  onDragEnd,
+  _onDragStart,
+  _onDragMove,
+  _onDragEnd,
   index,
   isDragging: parentIsDragging = false,
-  dragIndex,
-  dragTargetIndex,
+  _dragIndex,
+  _dragTargetIndex,
   dragEnabled = false,
 }: QueueItemCardProps) {
   const { colors } = useTheme();

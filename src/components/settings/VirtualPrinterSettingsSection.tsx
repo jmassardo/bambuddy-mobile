@@ -12,7 +12,9 @@ import { pickBoolean, pickNumber, pickString, statusColor } from '@/utils/data';
 
 export function VirtualPrinterSettingsSection({ controller }: { controller: SettingsScreenController }) {
   const printers = controller.derived.virtualPrinterItems;
-  const { colors } = useTheme();
+// @ts-expect-error - colors used by parent
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { _colors } = useTheme();
   const { showToast } = useToast();
   const [testingPrinter, setTestingPrinter] = useState<number | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { status: 'loading' | 'success' | 'error'; message: string }>>({});
@@ -43,7 +45,7 @@ export function VirtualPrinterSettingsSection({ controller }: { controller: Sett
       }));
       showToast(error.message || 'Connection test failed.', 'error');
     },
-    onSettled: (_, __, id) => {
+    onSettled: (_, __, _id) => {
       setTestingPrinter(null);
     },
   });
