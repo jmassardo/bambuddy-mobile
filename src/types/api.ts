@@ -1970,6 +1970,25 @@ export interface SpoolAssignment {
   ams_label?: string | null;  // User-defined friendly name for the AMS unit
 }
 
+export interface SpoolAssignmentHistoryRecord {
+  id: number;
+  spool_id: number;
+  spool_name: string | null;
+  printer_id: number | null;
+  printer_name: string | null;
+  ams_id: number;
+  tray_id: number;
+  ams_label: string | null;
+  assignment_created_at: string;
+  assignment_updated_at: string | null;
+  assignment_deleted_at: string | null;
+  print_name: string | null;
+  print_id: number | null;
+  status: string | null;
+  filament_used_grams: number | null;
+  created_at: string;
+}
+
 export interface FilamentSkuSettings {
   id: number;
   material: string;

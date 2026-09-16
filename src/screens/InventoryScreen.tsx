@@ -653,6 +653,7 @@ export default function InventoryScreen() {
               <PrimaryButton label="Import CSV" variant="secondary" onPress={() => void pickCsvFile()} />
               <PrimaryButton label={exportMutation.isPending ? 'Exporting…' : 'Export CSV'} variant="secondary" onPress={() => void exportMutation.mutateAsync()} loading={exportMutation.isPending} />
               <PrimaryButton label="Locations" variant="secondary" onPress={() => setShowLocationsModal(true)} />
+              <PrimaryButton label="Assign History" variant="secondary" onPress={() => navigation.navigate('SpoolAssignmentHistory')} />
               {selectedIds.length > 0 ? <PrimaryButton label="Bulk edit" variant="secondary" onPress={() => setShowBulkEdit(true)} /> : null}
             </View>
 

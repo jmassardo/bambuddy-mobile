@@ -38,6 +38,7 @@ import FailureAnalysisScreen from '@/screens/FailureAnalysisScreen';
 import WebSocketStatusScreen from '@/screens/WebSocketStatusScreen';
 import TimelapseEditorScreen from '@/screens/TimelapseEditorScreen';
 import PrintLogScreen from '@/screens/PrintLogScreen';
+import SpoolAssignmentHistoryScreen from '@/screens/SpoolAssignmentHistoryScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -228,6 +229,11 @@ export default function RootNavigator() {
         name="PrintLog"
         component={PrintLogScreen}
         options={{ title: 'Print Log' }}
+      />
+      <Stack.Screen
+        name="SpoolAssignmentHistory"
+        component={SpoolAssignmentHistoryScreen}
+        options={{ title: 'Assignment History' }}
       />
     </Stack.Navigator>
   );

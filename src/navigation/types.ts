@@ -52,6 +52,7 @@ export type RootStackParamList = {
   WebSocketStatus: undefined;
   TimelapseEditor: { archiveId: number };
   PrintLog: { archiveId?: number } | undefined;
+  SpoolAssignmentHistory: undefined;
 };
 
 export type RootNavigationProp<
