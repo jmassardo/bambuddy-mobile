@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import type { PrintQueueItem } from '@/types/api';
 import { QueueItemCard } from './QueueItemCard';
 
@@ -7,6 +7,7 @@ interface DraggableQueueItemProps {
   printerState?: string | null;
   selected?: boolean;
   selectionMode?: boolean;
+  index?: number | null;
   onPress?: () => void;
   onLongPress?: () => void;
   onToggleSelect?: () => void;
@@ -18,6 +19,12 @@ interface DraggableQueueItemProps {
   onRetry?: () => void;
   onReassign?: () => void;
   onReorder?: (direction: 'up' | 'down') => void;
+  onDragStart?: (index: number) => void;
+  onDragMove?: (index: number, targetIndex: number) => void;
+  onDragEnd?: () => void;
+  isDragging?: boolean;
+  dragIndex?: number;
+  dragTargetIndex?: number;
 }
 
 export function DraggableQueueItem({
@@ -25,6 +32,7 @@ export function DraggableQueueItem({
   printerState,
   selected,
   selectionMode,
+  _index,
   onPress,
   onLongPress,
   onToggleSelect,
@@ -36,7 +44,19 @@ export function DraggableQueueItem({
   onRetry,
   onReassign,
   onReorder,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  isDragging,
+  dragIndex,
+  dragTargetIndex,
 }: DraggableQueueItemProps) {
+  const handleReorder = useCallback((direction: 'up' | 'down') => {
+    if (onReorder) {
+      onReorder(direction);
+    }
+  }, [onReorder]);
+
   return (
     <QueueItemCard
       item={item}
@@ -54,7 +74,13 @@ export function DraggableQueueItem({
       onRetry={onRetry}
       onReassign={onReassign}
       dragEnabled
-      onReorder={onReorder}
+      onReorder={handleReorder}
+      onDragStart={onDragStart}
+      onDragMove={onDragMove}
+      onDragEnd={onDragEnd}
+      isDragging={isDragging}
+      dragIndex={dragIndex}
+      dragTargetIndex={dragTargetIndex}
     />
   );
 }

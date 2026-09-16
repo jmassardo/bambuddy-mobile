@@ -82,6 +82,13 @@ interface QueueItemCardProps {
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   onReorder?: (direction: 'up' | 'down') => void;
+  onDragStart?: (index: number) => void;
+  onDragMove?: (index: number, targetIndex: number) => void;
+  onDragEnd?: () => void;
+  index?: number | null;
+  isDragging?: boolean;
+  dragIndex?: number;
+  dragTargetIndex?: number;
   dragEnabled?: boolean;
 }
 
@@ -185,6 +192,12 @@ interface QueueItemCardContentProps {
   onReassign?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onDragStart?: (index: number) => void;
+  onDragMove?: (index: number, targetIndex: number) => void;
+  onDragEnd?: () => void;
+  isDragging?: boolean;
+  dragIndex?: number;
+  dragTargetIndex?: number;
   dragEnabled?: boolean;
 }
 
@@ -205,6 +218,12 @@ export function QueueItemCardContent({
   onReassign,
   onMoveUp,
   onMoveDown,
+  _onDragStart,
+  _onDragMove,
+  _onDragEnd,
+  _isDragging,
+  _dragIndex,
+  _dragTargetIndex,
   dragEnabled = false,
 }: QueueItemCardContentProps) {
   const { colors } = useTheme();
@@ -531,6 +550,13 @@ export function QueueItemCard({
   onMoveUp,
   onMoveDown,
   onReorder,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  index,
+  isDragging: parentIsDragging = false,
+  dragIndex,
+  dragTargetIndex,
   dragEnabled = false,
 }: QueueItemCardProps) {
   const { colors } = useTheme();
@@ -539,6 +565,7 @@ export function QueueItemCard({
   const opacity = useSharedValue(1);
   const isDragging = useSharedValue(false);
   const animationRef = useRef<{ animate: () => void } | null>(null);
+  const activeIndex = useRef<number | null>(null);
 
   const handleLongPress = useCallback(() => {
     if (onLongPress) {
@@ -569,6 +596,28 @@ export function QueueItemCard({
     }
   }, [onReorder, onMoveUp, onMoveDown]);
 
+  const handleDragStart = useCallback((currentIndex: number) => {
+    activeIndex.current = currentIndex;
+    HapticFeedback.trigger('impactMedium', HAPTIC_OPTIONS);
+    onDragStart?.(currentIndex);
+  }, [onDragStart]);
+
+  const handleDragMove = useCallback((sourceIndex: number, targetIndex: number) => {
+    onDragMove?.(sourceIndex, targetIndex);
+  }, [onDragMove]);
+
+  const resolvedIndex = index ?? -1;
+
+  const handleDragEnd = useCallback(() => {
+    const currentIdx = activeIndex.current;
+    activeIndex.current = null;
+    onDragEnd?.();
+    if (currentIdx !== null && dragTargetIndex !== undefined && dragTargetIndex !== currentIdx) {
+      const direction: 'up' | 'down' = dragTargetIndex < currentIdx ? 'up' : 'down';
+      handleReorder(direction);
+    }
+  }, [onDragEnd, dragTargetIndex, handleReorder]);
+
   const panGesture = Gesture
     .Pan()
     .minDistance(0)
@@ -578,7 +627,7 @@ export function QueueItemCard({
       cancelAnimation(scale);
       cancelAnimation(opacity);
       isDragging.value = true;
-      HapticFeedback.trigger('impactMedium', HAPTIC_OPTIONS);
+      runOnJS(handleDragStart)(resolvedIndex);
     })
     .onUpdate(event => {
       'worklet';
@@ -586,28 +635,49 @@ export function QueueItemCard({
       const absDelta = Math.abs(event.translationY);
       scale.value = 1 - Math.min(absDelta / 200, 0.08);
       opacity.value = 1 - Math.min(absDelta / 300, 0.3);
+      if (absDelta > 20) {
+        const direction = event.translationY < 0 ? 'up' : 'down';
+        const targetIdx = resolvedIndex + (direction === 'up' ? -1 : 1);
+        if (targetIdx >= 0) {
+          runOnJS(handleDragMove)(resolvedIndex, targetIdx);
+        }
+      }
     })
-    .onEnd((event, success) => {
+    .onEnd(() => {
       'worklet';
-      if (!success) {
-        runOnJS(resetAnimation)();
-        return;
-      }
-      const distance = event.translationY;
-      if (Math.abs(distance) > 30) {
-        const direction: 'up' | 'down' = distance < 0 ? 'up' : 'down';
-        runOnJS(handleReorder)(direction);
-      }
       runOnJS(resetAnimation)();
+      runOnJS(handleDragEnd)();
     });
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-    opacity: opacity.value,
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const isActiveDrag = isDragging.value || (parentIsDragging && resolvedIndex === dragIndex);
+    const isTargetDrag = resolvedIndex === dragTargetIndex && parentIsDragging;
+    let targetScale = 1;
+    let targetOpacity = 1;
+    let targetTranslateY = translateY.value;
+
+    if (isActiveDrag) {
+      targetScale = scale.value;
+      targetOpacity = opacity.value;
+      targetTranslateY = translateY.value;
+    } else if (isTargetDrag) {
+      targetScale = 1.03;
+      targetOpacity = 0.85;
+    } else {
+      targetScale = withSpring(1);
+    }
+
+    return {
+      transform: [
+        { translateY: targetTranslateY },
+        { scale: targetScale },
+      ],
+      opacity: targetOpacity,
+    };
+  });
+
+  const isActiveDrag = parentIsDragging && resolvedIndex === dragIndex;
+  const isAdjacentToTarget = resolvedIndex === dragTargetIndex && parentIsDragging;
 
   if (!dragEnabled) {
     return (
@@ -628,6 +698,13 @@ export function QueueItemCard({
         onReassign={onReassign}
         onMoveUp={onMoveUp}
         onMoveDown={onMoveDown}
+        onDragStart={onDragStart}
+        onDragMove={onDragMove}
+        onDragEnd={onDragEnd}
+        isDragging={parentIsDragging}
+        dragIndex={dragIndex}
+        dragTargetIndex={dragTargetIndex}
+        dragEnabled
       />
     );
   }
@@ -642,8 +719,10 @@ export function QueueItemCard({
             styles.card,
             {
               backgroundColor: selected ? colors.accentBg : colors.card,
-              borderColor: selected ? colors.accent : colors.cardBorder,
-              opacity: pressed && !isDragging.value ? 0.96 : 1,
+              borderColor: isActiveDrag ? colors.accent : isAdjacentToTarget ? colors.highlight : colors.cardBorder,
+              borderWidth: isAdjacentToTarget ? 2 : 1,
+              opacity: isActiveDrag ? opacity.value : pressed && !parentIsDragging ? 0.96 : parentIsDragging && isAdjacentToTarget ? 0.85 : 1,
+              transform: isAdjacentToTarget && !isActiveDrag ? [{ scale: 1.03 }] : [],
             },
           ]}
         >
@@ -662,6 +741,12 @@ export function QueueItemCard({
             onReassign={onReassign}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
+            onDragStart={onDragStart}
+            onDragMove={onDragMove}
+            onDragEnd={onDragEnd}
+            isDragging={parentIsDragging}
+            dragIndex={dragIndex}
+            dragTargetIndex={dragTargetIndex}
             dragEnabled
           />
         </Pressable>

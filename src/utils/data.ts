@@ -112,6 +112,10 @@ export function formatDateTime(value: unknown): string {
   return date.toLocaleString();
 }
 
+export function formatTime(date: Date): string {
+  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 export function formatDuration(value: unknown): string {
   if (typeof value === 'string') {
     const parsed = Number(value);
