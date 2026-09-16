@@ -55,9 +55,27 @@ const FILTERS = [
 
 type FilterMode = (typeof FILTERS)[number]['key'];
 type PrinterMode = Exclude<FilterMode, 'all'>;
-export type PrinterSortMode = 'name' | 'status' | 'lastActivity';
+export type PrinterSortMode = 'name' | 'status' | 'lastActivity' | 'location' | 'model' | 'connected';
+export type PrinterSortSecondaryMode = 'name' | 'status' | 'lastActivity' | 'none';
+
+const SORT_OPTIONS: Array<{ key: PrinterSortMode; label: string; icon: string; description: string }> = [
+  { key: 'status', label: 'Status', icon: '●', description: 'Sort by printer status' },
+  { key: 'connected', label: 'Active', icon: '⚡', description: 'Recently active first' },
+  { key: 'lastActivity', label: 'Recent', icon: '↻', description: 'Sort by last activity' },
+  { key: 'location', label: 'Location', icon: '📍', description: 'Sort by location' },
+  { key: 'model', label: 'Model', icon: '⚙', description: 'Sort by printer model' },
+  { key: 'name', label: 'Name', icon: 'Aa', description: 'Sort by name' },
+];
+
+const SECONDARY_SORT_OPTIONS: Array<{ key: PrinterSortSecondaryMode; label: string }> = [
+  { key: 'name', label: 'Name' },
+  { key: 'status', label: 'Status' },
+  { key: 'lastActivity', label: 'Recent' },
+  { key: 'none', label: 'None' },
+];
 
 const PRINTER_SORT_STORAGE_KEY = 'bambuddy-printer-sort';
+const PRINTER_SORT_SECONDARY_KEY = 'bambuddy-printer-sort-secondary';
 const STATUS_SORT_RANK: Record<PrinterMode, number> = {
   issues: 0,
   printing: 1,
@@ -200,6 +218,7 @@ export function comparePrinters(
   sortBy: PrinterSortMode,
   statusByPrinter: ReadonlyMap<number, PrinterStatus | undefined>,
   maintenanceByPrinter: ReadonlyMap<number, MaintenanceSummary | undefined>,
+  secondarySort?: PrinterSortSecondaryMode,
 ) {
   const compareNames = () =>
     first.name.localeCompare(second.name, undefined, { sensitivity: 'base' }) ||
@@ -211,21 +230,63 @@ export function comparePrinters(
     return secondUpdated - firstUpdated || compareNames();
   };
 
-  if (sortBy === 'name') return compareNames();
-  if (sortBy === 'lastActivity') return compareLastActivity();
+  const compareConnected = () => {
+    const firstConnected = statusByPrinter.get(first.id)?.connected ?? false;
+    const secondConnected = statusByPrinter.get(second.id)?.connected ?? false;
+    if (firstConnected === secondConnected) {
+      return compareLastActivity();
+    }
+    return firstConnected ? -1 : 1;
+  };
 
-  const firstMode = classifyPrinter(
-    first,
-    statusByPrinter.get(first.id),
-    maintenanceByPrinter.get(first.id),
-  );
-  const secondMode = classifyPrinter(
-    second,
-    statusByPrinter.get(second.id),
-    maintenanceByPrinter.get(second.id),
-  );
+  const compareLocation = () => {
+    const firstLoc = normalizeText(first.location);
+    const secondLoc = normalizeText(second.location);
+    if (firstLoc === secondLoc) return compareNames();
+    if (!firstLoc) return 1;
+    if (!secondLoc) return -1;
+    return firstLoc.localeCompare(secondLoc, undefined, { sensitivity: 'base' }) || compareNames();
+  };
 
-  return STATUS_SORT_RANK[firstMode] - STATUS_SORT_RANK[secondMode] || compareNames();
+  const compareModel = () => {
+    const firstModel = normalizeText(first.model);
+    const secondModel = normalizeText(second.model);
+    if (firstModel === secondModel) return compareNames();
+    if (!firstModel) return 1;
+    if (!secondModel) return -1;
+    return firstModel.localeCompare(secondModel, undefined, { sensitivity: 'base' }) || compareNames();
+  };
+
+  const compareStatus = () => {
+    const firstMode = classifyPrinter(
+      first,
+      statusByPrinter.get(first.id),
+      maintenanceByPrinter.get(first.id),
+    );
+    const secondMode = classifyPrinter(
+      second,
+      statusByPrinter.get(second.id),
+      maintenanceByPrinter.get(second.id),
+    );
+
+    return STATUS_SORT_RANK[firstMode] - STATUS_SORT_RANK[secondMode] || compareNames();
+  };
+
+  const applySecondary = (baseResult: number) => {
+    if (secondarySort === 'none' || secondarySort === sortBy) return baseResult;
+    if (secondarySort === 'name') return baseResult || compareNames();
+    if (secondarySort === 'status') return baseResult || compareStatus();
+    if (secondarySort === 'lastActivity') return baseResult || compareLastActivity();
+    return baseResult;
+  };
+
+  if (sortBy === 'name') return applySecondary(compareNames());
+  if (sortBy === 'lastActivity') return applySecondary(compareLastActivity());
+  if (sortBy === 'connected') return applySecondary(compareConnected());
+  if (sortBy === 'location') return applySecondary(compareLocation());
+  if (sortBy === 'model') return applySecondary(compareModel());
+
+  return applySecondary(compareStatus());
 }
 
 export default function PrintersDashboardScreen() {
@@ -242,6 +303,7 @@ export default function PrintersDashboardScreen() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
   const [sortBy, setSortBy] = useState<PrinterSortMode>('status');
+  const [sortSecondary, setSortSecondary] = useState<PrinterSortSecondaryMode>('name');
   const [viewMode, setViewMode] = useState<'normal' | 'compact'>('normal');
   const [snapshotSeed, setSnapshotSeed] = useState(0);
   const [printPrinterId, setPrintPrinterId] = useState<number | null>(null);
@@ -262,8 +324,12 @@ export default function PrintersDashboardScreen() {
     const loadSortPreference = async () => {
       try {
         const storedSort = await AsyncStorage.getItem(PRINTER_SORT_STORAGE_KEY);
-        if (!cancelled && (storedSort === 'name' || storedSort === 'status' || storedSort === 'lastActivity')) {
+        const storedSecondary = await AsyncStorage.getItem(PRINTER_SORT_SECONDARY_KEY);
+        if (!cancelled && (storedSort === 'name' || storedSort === 'status' || storedSort === 'lastActivity' || storedSort === 'location' || storedSort === 'model' || storedSort === 'connected')) {
           setSortBy(storedSort);
+        }
+        if (!cancelled && (storedSecondary === 'name' || storedSecondary === 'status' || storedSecondary === 'lastActivity' || storedSecondary === 'none')) {
+          setSortSecondary(storedSecondary);
         }
       } catch {
         if (!cancelled) {
@@ -400,9 +466,10 @@ export default function PrintersDashboardScreen() {
           sortBy,
           statusByPrinter,
           maintenanceByPrinter,
+          sortSecondary,
         ),
       );
-  }, [filter, maintenanceByPrinter, printers, search, sortBy, statusByPrinter]);
+  }, [filter, maintenanceByPrinter, printers, search, sortBy, sortSecondary, statusByPrinter]);
 
   // TODO: summary stats for future dashboard summary widget
   // const summary = useMemo(() => {
@@ -444,6 +511,13 @@ export default function PrintersDashboardScreen() {
     setSortBy(nextSort);
     void AsyncStorage.setItem(PRINTER_SORT_STORAGE_KEY, nextSort).catch(() => {
       showToast('Unable to save the printer sort preference.', 'warning');
+    });
+  };
+
+  const handleSecondarySortChange = (nextSecondary: PrinterSortSecondaryMode) => {
+    setSortSecondary(nextSecondary);
+    void AsyncStorage.setItem(PRINTER_SORT_SECONDARY_KEY, nextSecondary).catch(() => {
+      showToast('Unable to save the secondary sort preference.', 'warning');
     });
   };
 
@@ -713,20 +787,19 @@ export default function PrintersDashboardScreen() {
                   { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
                 ]}
               >
-                {(['lastActivity', 'status', 'name'] as const).map(option => {
-                  const selected = sortBy === option;
-                  const label = option === 'name' ? 'Name' : option === 'status' ? 'Status' : 'Recent';
+                {SORT_OPTIONS.map(option => {
+                  const selected = sortBy === option.key;
 
                   return (
                     <Pressable
-                      key={option}
-                      onPress={() => handleSortChange(option)}
+                      key={option.key}
+                      onPress={() => handleSortChange(option.key)}
                       style={[
                         styles.sortOption,
                         selected && { backgroundColor: colors.accentBg },
                       ]}
                       accessibilityRole="button"
-                      accessibilityLabel={`Sort printers by ${label}`}
+                      accessibilityLabel={option.description}
                       accessibilityState={{ selected }}
                     >
                       <Text
@@ -735,11 +808,59 @@ export default function PrintersDashboardScreen() {
                           { color: selected ? colors.accentLight : colors.textSecondary },
                         ]}
                       >
-                        {label}
+                        {option.label}
                       </Text>
                     </Pressable>
                   );
                 })}
+              </View>
+            </View>
+            <View style={styles.sortRow}>
+              <Text style={[styles.sortSecondaryLabel, { color: colors.textTertiary }]}>Then</Text>
+              <View
+                style={[
+                  styles.sortControl,
+                  { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                ]}
+              >
+                {SECONDARY_SORT_OPTIONS.map(option => {
+                  const selected = sortSecondary === option.key;
+
+                  return (
+                    <Pressable
+                      key={option.key}
+                      onPress={() => handleSecondarySortChange(option.key)}
+                      style={[
+                        styles.sortOption,
+                        selected && { backgroundColor: colors.accentBg },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Secondary sort by ${option.label}`}
+                      accessibilityState={{ selected }}
+                    >
+                      <Text
+                        style={[
+                          styles.sortOptionLabel,
+                          { color: selected ? colors.accentLight : colors.textSecondary },
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <View
+                style={[
+                  styles.sortIndicator,
+                  { backgroundColor: colors.accentBg + '33', borderColor: colors.accent + '66' },
+                ]}
+              >
+                <Text style={[styles.sortIndicatorText, { color: colors.accent }]}>
+                  {sortSecondary !== 'none' && sortSecondary !== sortBy
+                    ? `${SECONDARY_SORT_OPTIONS.find(o => o.key === sortSecondary)?.label ?? ''}`
+                    : ''}
+                </Text>
               </View>
             </View>
           </View>
@@ -882,6 +1003,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sortOptionLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+  },
+  sortSecondaryLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    opacity: 0.7,
+  },
+  sortIndicator: {
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  sortIndicatorText: {
     fontSize: fontSize.xs,
     fontWeight: '600',
   },
