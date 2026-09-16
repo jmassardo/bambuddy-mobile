@@ -31,20 +31,37 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import type { RootNavigationProp } from '@/navigation/types';
 import { useTheme } from '@/theme';
-import { fontSize, fontWeight, spacing } from '@/theme/tokens';
+import { fontSize, fontWeight, spacing, borderRadius } from '@/theme/tokens';
 import type {
+  ApiEntity,
   VirtualPrinterConfig,
   VirtualPrinterListResponse,
+  VirtualPrinterMode,
 } from '@/types/api';
-import { statusColor } from '@/utils/data';
+import { pickBoolean, pickNumber, pickString, statusColor } from '@/utils/data';
 
 const VIRTUAL_PRINTERS_QUERY_KEY = ['virtualPrinters'] as const;
+
+const VIRTUAL_PRINTER_MODES: Array<{ key: VirtualPrinterMode; label: string; description: string }> = [
+  { key: 'archive', label: 'Archive', description: 'Automatically archive prints' },
+  { key: 'review', label: 'Review', description: 'Queue prints for review before printing' },
+  { key: 'queue', label: 'Queue', description: 'Add prints to the queue' },
+  { key: 'proxy', label: 'Proxy', description: 'Proxy to a real Bambu printer' },
+  { key: 'immediate', label: 'Immediate', description: 'Print files immediately' },
+  { key: 'print_queue', label: 'Print Queue', description: 'Direct print queue integration' },
+];
 
 type VirtualPrinterFormState = {
   name: string;
   model: string;
   accessCode: string;
   enabled: boolean;
+  mode: VirtualPrinterMode;
+  targetPrinterId: string;
+  autoDispatch: boolean;
+  queueForceColorMatch: boolean;
+  gcodeInjection: boolean;
+  tailscaleDisabled: boolean;
 };
 
 const EMPTY_FORM: VirtualPrinterFormState = {
@@ -52,6 +69,12 @@ const EMPTY_FORM: VirtualPrinterFormState = {
   model: 'BL-P001',
   accessCode: '',
   enabled: false,
+  mode: 'archive',
+  targetPrinterId: '',
+  autoDispatch: false,
+  queueForceColorMatch: false,
+  gcodeInjection: false,
+  tailscaleDisabled: false,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -101,6 +124,12 @@ export default function VirtualPrintersScreen() {
   const [form, setForm] = useState<VirtualPrinterFormState>(EMPTY_FORM);
   const [pendingDelete, setPendingDelete] =
     useState<VirtualPrinterConfig | null>(null);
+  const [testingPrinter, setTestingPrinter] = useState<number | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, {
+    status: 'loading' | 'success' | 'error';
+    message: string;
+  }>>({});
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Virtual Printers' });
@@ -145,10 +174,18 @@ export default function VirtualPrintersScreen() {
         name: form.name.trim(),
         model: form.model.trim() || undefined,
         enabled: form.enabled,
+        mode: form.mode,
       };
       if (form.accessCode.trim()) {
         payload.access_code = form.accessCode.trim();
       }
+      if (form.targetPrinterId) {
+        payload.target_printer_id = Number(form.targetPrinterId);
+      }
+      payload.auto_dispatch = form.autoDispatch;
+      payload.queue_force_color_match = form.queueForceColorMatch;
+      payload.gcode_injection = form.gcodeInjection;
+      payload.tailscale_disabled = form.tailscaleDisabled;
 
       return editingPrinter
         ? api.updateVirtualPrinter(editingPrinter.id, payload)
@@ -180,10 +217,59 @@ export default function VirtualPrintersScreen() {
     },
   });
 
+  const testConnectionMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await api.testVirtualPrinterConnection(id);
+      return response;
+    },
+    onSuccess: (result, id) => {
+      const success = pickBoolean(result, ['ok', 'success']);
+      setTestResults(prev => ({
+        ...prev,
+        [id]: {
+          status: success ? 'success' : 'error',
+          message: pickString(result, ['message', 'error'], success ? 'Connection successful' : 'Connection failed'),
+        },
+      }));
+      if (!success) {
+        showToast(
+          pickString(result, ['message', 'error'], 'Connection test failed'),
+          'error',
+        );
+      } else {
+        showToast('Connection test successful!', 'success');
+      }
+    },
+    onError: (error: Error, id) => {
+      setTestResults(prev => ({
+        ...prev,
+        [id]: {
+          status: 'error',
+          message: error.message || 'Connection test failed',
+        },
+      }));
+      showToast(error.message || 'Connection test failed.', 'error');
+    },
+    onSettled: (_, __, id) => {
+      setTestingPrinter(null);
+    },
+  });
+
+  function testConnection(printer: VirtualPrinterConfig) {
+    const printerId = printer.id;
+    setTestingPrinter(printerId);
+    setTestResults(prev => ({
+      ...prev,
+      [printerId]: { status: 'loading', message: 'Testing...' },
+    }));
+    testConnectionMutation.mutate(printerId);
+  }
+
   function closeModal() {
     setModalVisible(false);
     setEditingPrinter(null);
     setForm(EMPTY_FORM);
+    setTestResults({});
   }
 
   function openModal(printer?: VirtualPrinterConfig) {
@@ -194,6 +280,12 @@ export default function VirtualPrintersScreen() {
         model: printer.model || printer.model_name || 'BL-P001',
         accessCode: printer.serial,
         enabled: printer.enabled,
+        mode: pickString(printer, ['mode'], 'archive') as VirtualPrinterMode,
+        targetPrinterId: String(pickNumber(printer, ['target_printer_id']) || ''),
+        autoDispatch: pickBoolean(printer, ['auto_dispatch'], false),
+        queueForceColorMatch: pickBoolean(printer, ['queue_force_color_match'], false),
+        gcodeInjection: pickBoolean(printer, ['gcode_injection'], false),
+        tailscaleDisabled: pickBoolean(printer, ['tailscale_disabled'], false),
       });
     } else {
       setEditingPrinter(null);
@@ -207,8 +299,25 @@ export default function VirtualPrintersScreen() {
       showToast('Virtual printer name is required.', 'error');
       return;
     }
+    if (form.mode === 'proxy' && !form.targetPrinterId) {
+      showToast('Please select a target printer for proxy mode.', 'error');
+      return;
+    }
     saveMutation.mutate();
   }
+
+  function handleTestProxyPrinter() {
+    if (form.targetPrinterId && !editingPrinter) {
+      const printerId = Number(form.targetPrinterId);
+      if (printerId > 0) {
+        setTestingPrinter(printerId);
+        showToast('Testing target printer connection...', 'info');
+      }
+    }
+  }
+
+  const isProxyMode = form.mode === 'proxy';
+  const isNewPrinter = !editingPrinter;
 
   if (printersQuery.isLoading) {
     return <LoadingScreen message="Loading virtual printers..." />;
@@ -241,13 +350,13 @@ export default function VirtualPrintersScreen() {
             Virtual Printers
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Software-defined printers for testing, planning, and tracking.
+            Software-defined printers for Bambu Studio/OrcaSlicer integration. Test connections, manage lifecycle, and configure modes.
           </Text>
         </View>
 
         <SectionCard
           title="Manage virtual printers"
-          subtitle="Create, edit, start, stop, and remove virtual printers."
+          subtitle="Create, edit, test, start, stop, and remove virtual printers."
         >
           {isAdmin ? (
             <PrimaryButton
@@ -289,7 +398,7 @@ export default function VirtualPrintersScreen() {
                         {printer.model_name ||
                           printer.model ||
                           'Unknown model'}{' '}
-                        • Pending {printer.status.pending_files}
+                        • {printer.mode} • Pending {printer.status.pending_files}
                       </Text>
                     </View>
                     <StatusBadge
@@ -300,6 +409,26 @@ export default function VirtualPrintersScreen() {
                       )}
                     />
                   </View>
+
+                  {/* Connection test result */}
+                  {testResults[printer.id] && (
+                    <View style={styles.testResult}>
+                      <Text
+                        style={[
+                          styles.testResultText,
+                          {
+                            color:
+                              testResults[printer.id].status === 'success'
+                                ? colors.success
+                                : colors.error,
+                          },
+                        ]}
+                      >
+                        {testResults[printer.id].message}
+                      </Text>
+                    </View>
+                  )}
+
                   <View style={settingsStyles.actions}>
                     <PrimaryButton
                       label="Start"
@@ -325,6 +454,12 @@ export default function VirtualPrintersScreen() {
                     />
                     {isAdmin ? (
                       <>
+                    <PrimaryButton
+                      label="Test"
+                      variant="secondary"
+                      onPress={() => testConnection(printer)}
+                      loading={testingPrinter === printer.id}
+                    />
                         <PrimaryButton
                           label="Edit"
                           variant="secondary"
@@ -354,7 +489,7 @@ export default function VirtualPrintersScreen() {
       <SimpleModal
         visible={modalVisible}
         title={editingPrinter ? 'Edit virtual printer' : 'Create virtual printer'}
-        subtitle="Configure the name, model, access code, and enabled state."
+        subtitle="Configure the name, mode, connection details, and advanced options."
         onClose={closeModal}
       >
         <ScrollView contentContainerStyle={settingsStyles.modalBody}>
@@ -362,18 +497,55 @@ export default function VirtualPrintersScreen() {
             label="Name"
             value={form.name}
             onChangeText={name => setForm(current => ({ ...current, name }))}
+            placeholder="e.g., Bambu Lab X1C"
           />
+
+          <OptionChipsField
+            label="Mode"
+            value={form.mode}
+            options={VIRTUAL_PRINTER_MODES}
+            onChange={mode => setForm(current => ({ ...current, mode }))}
+          />
+
           <OptionChipsField
             label="Model"
             value={form.model}
             options={modelOptions}
             onChange={model => setForm(current => ({ ...current, model }))}
           />
-          <TextField
-            label="Custom model"
-            value={form.model}
-            onChangeText={model => setForm(current => ({ ...current, model }))}
-          />
+
+          {isProxyMode && (
+            <View style={styles.proxySection}>
+              <Text style={[styles.proxyLabel, { color: colors.text }]}>
+                Target Printer
+              </Text>
+              <View style={styles.proxyInputRow}>
+                <TextField
+                  label="Printer ID"
+                  value={form.targetPrinterId}
+                  onChangeText={targetPrinterId =>
+                    setForm(current => ({ ...current, targetPrinterId }))
+                  }
+                  placeholder="Enter printer ID"
+                  style={styles.proxyInput}
+                />
+                {isNewPrinter && form.targetPrinterId && (
+                  <View style={styles.testButton}>
+                    <PrimaryButton
+                      label="Test"
+                      variant="secondary"
+                      onPress={handleTestProxyPrinter}
+                      loading={testingPrinter !== null}
+                    />
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.proxyHint, { color: colors.textSecondary }]}>
+                The physical Bambu printer to proxy prints to (for proxy mode only).
+              </Text>
+            </View>
+          )}
+
           <TextField
             label="Access code"
             value={form.accessCode}
@@ -381,7 +553,9 @@ export default function VirtualPrintersScreen() {
               setForm(current => ({ ...current, accessCode }))
             }
             autoCapitalize="characters"
+            placeholder="Bambu printer access code"
           />
+
           <SwitchRow
             label="Enabled"
             value={form.enabled}
@@ -389,6 +563,49 @@ export default function VirtualPrintersScreen() {
               setForm(current => ({ ...current, enabled }))
             }
           />
+
+          <View style={styles.advancedToggle}>
+            <Text
+              style={[styles.advancedTitle, { color: colors.text }]}
+              onPress={() => setShowAdvanced(!showAdvanced)}
+            >
+              Advanced Options {showAdvanced ? '▲' : '▼'}
+            </Text>
+          </View>
+
+          {showAdvanced && (
+            <View style={styles.advancedSection}>
+              <SwitchRow
+                label="Auto dispatch"
+                value={form.autoDispatch}
+                onValueChange={autoDispatch =>
+                  setForm(current => ({ ...current, autoDispatch }))
+                }
+              />
+              <SwitchRow
+                label="Force color match"
+                value={form.queueForceColorMatch}
+                onValueChange={queueForceColorMatch =>
+                  setForm(current => ({ ...current, queueForceColorMatch }))
+                }
+              />
+              <SwitchRow
+                label="G-code injection"
+                value={form.gcodeInjection}
+                onValueChange={gcodeInjection =>
+                  setForm(current => ({ ...current, gcodeInjection }))
+                }
+              />
+              <SwitchRow
+                label="Disable Tailscale"
+                value={form.tailscaleDisabled}
+                onValueChange={tailscaleDisabled =>
+                  setForm(current => ({ ...current, tailscaleDisabled }))
+                }
+              />
+            </View>
+          )}
+
           <View style={settingsStyles.modalFooter}>
             <PrimaryButton
               label="Cancel"
@@ -451,5 +668,51 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: fontSize.base,
     lineHeight: 22,
+  },
+  testResult: {
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  testResultText: {
+    fontSize: fontSize.sm,
+  },
+  proxySection: {
+    marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  proxyLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  proxyInputRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  proxyInput: {
+    flex: 1,
+  },
+  testButton: {
+    minWidth: 70,
+  },
+  proxyHint: {
+    fontSize: fontSize.sm,
+    lineHeight: 18,
+  },
+  advancedToggle: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  advancedTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  advancedSection: {
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+    marginTop: spacing.xs,
   },
 });

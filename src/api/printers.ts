@@ -506,6 +506,11 @@ export const printersApi = {
       },
     ),
 
+  testVirtualPrinterConnection: async (id: number) =>
+    request<Record<string, unknown>>(`/virtual-printers/${id}/test`, {
+      method: 'POST',
+    }),
+
   discoverPrinters: async (duration: number = 10) =>
     request<DiscoveryStatus>(`/discovery/start?duration=${duration}`, {
       method: 'POST',
