@@ -22,7 +22,8 @@ export type BuiltInNavId =
   | 'system'
   | 'spoolbuddy'
   | 'scanner'
-  | 'failure-analysis';
+  | 'failure-analysis'
+  | 'print-log';
 
 type NavLocation = 'tab' | 'more';
 
@@ -58,6 +59,7 @@ export const BUILT_IN_NAV_ITEMS: readonly BuiltInNavigationItem[] = [
   { id: 'spoolbuddy', label: 'SpoolBuddy', subtitle: 'SpoolBuddy devices, status, and configuration', icon: 'nfc', location: 'more', stackRoute: 'SpoolBuddy', lockVisibility: true },
   { id: 'scanner', label: 'Scanner', subtitle: 'Scan QR and NFC related data', icon: 'qr-code', location: 'more', stackRoute: 'Scanner' },
   { id: 'failure-analysis', label: 'Failure Analysis', subtitle: 'Analyze print failures and identify patterns', icon: 'alert-circle', location: 'more', stackRoute: 'FailureAnalysis' },
+  { id: 'print-log', label: 'Print Log', subtitle: 'Search, filter, and export print history', icon: 'clipboard-list', location: 'more', stackRoute: 'PrintLog' },
 ];
 
 const BUILT_IN_BY_ID = new Map(BUILT_IN_NAV_ITEMS.map(item => [item.id, item]));

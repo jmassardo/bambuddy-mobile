@@ -17,6 +17,7 @@ import {
   Bell,
   ChevronRight,
   Circle,
+  ClipboardList,
   Copy,
   Cpu,
   Download,
@@ -73,6 +74,7 @@ const APP_UI_ICONS: Record<
   cpu: Cpu,
   'qr-code': QrCode,
   'alert-circle': AlertCircle,
+  'clipboard-list': ClipboardList,
 };
 
 export function SearchBar({

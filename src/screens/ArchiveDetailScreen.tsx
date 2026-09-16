@@ -472,7 +472,7 @@ export default function ArchiveDetailScreen() {
             <PrimaryButton
               label="Print log"
               variant="secondary"
-              onPress={() => setShowPrintLog(true)}
+              onPress={() => rootNavigation.navigate('PrintLog', { archiveId })}
             />
           </View>
           <View style={styles.actionCell}>

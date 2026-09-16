@@ -212,6 +212,28 @@ export const archivesApi = {
     }
   },
 
+  getPrintLogs: async (params?: {
+    printName?: string;
+    printerName?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.printName) searchParams.set('print_name', params.printName);
+    if (params?.printerName) searchParams.set('printer_name', params.printerName);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.dateFrom) searchParams.set('date_from', params.dateFrom);
+    if (params?.dateTo) searchParams.set('date_to', params.dateTo);
+    if (params?.search) searchParams.set('q', params.search);
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.offset) searchParams.set('offset', String(params.offset));
+    return request<ApiEntity<PrintLogResponse>>(`/print-log/?${searchParams}`);
+  },
+
   restoreArchive: async (archiveId: number) =>
     request<Record<string, unknown>>(`/archives/${archiveId}/restore`, {
       method: 'POST',

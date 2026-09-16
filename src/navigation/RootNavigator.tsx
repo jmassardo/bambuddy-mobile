@@ -37,6 +37,7 @@ import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
 import FailureAnalysisScreen from '@/screens/FailureAnalysisScreen';
 import WebSocketStatusScreen from '@/screens/WebSocketStatusScreen';
 import TimelapseEditorScreen from '@/screens/TimelapseEditorScreen';
+import PrintLogScreen from '@/screens/PrintLogScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -222,6 +223,11 @@ export default function RootNavigator() {
         name="TimelapseEditor"
         component={TimelapseEditorScreen}
         options={{ title: 'Edit Timelapse' }}
+      />
+      <Stack.Screen
+        name="PrintLog"
+        component={PrintLogScreen}
+        options={{ title: 'Print Log' }}
       />
     </Stack.Navigator>
   );
