@@ -4125,6 +4125,80 @@ export interface SpoolBuddyDeviceUpdateRequest {
   tare_offset?: number;
 }
 
+export interface SpoolBuddySlot {
+  id: number;
+  device_id: string;
+  slot_index: number;
+  spool_id: number | null;
+  spool_brand: string | null;
+  spool_material: string | null;
+  spool_color_name: string | null;
+  spool_tag_uid: string | null;
+  spool_tray_uuid: string | null;
+  weight_g: number;
+  calibrated_weight_g: number;
+  nfc_read_count: number;
+  last_read_at: string | null;
+  scale_ok: boolean;
+  nfc_ok: boolean;
+  empty: boolean;
+}
+
+export interface SpoolBuddySlotAssignment {
+  id: number;
+  device_id: string;
+  slot_index: number;
+  spool_id: number;
+  spool_brand: string | null;
+  spool_material: string | null;
+  spool_color_name: string | null;
+  assigned_at: string;
+  assigned_by?: string | null;
+}
+
+export interface SpoolBuddyUsageRecord {
+  id: number;
+  device_id: string;
+  slot_index: number;
+  spool_id: number | null;
+  spool_brand: string | null;
+  spool_material: string | null;
+  weight_g: number;
+  weight_used_g: number;
+  calibrated_weight_g: number;
+  recorded_at: string;
+}
+
+export interface SpoolBuddySlotCreateRequest {
+  device_id: string;
+  slot_index: number;
+  spool_id?: number;
+}
+
+export interface SpoolBuddySlotUpdateRequest {
+  spool_id?: number | null;
+  tare_offset?: number;
+  calibration_factor?: number;
+}
+
+export interface SpoolBuddySlotAssignRequest {
+  device_id: string;
+  slot_index: number;
+  spool_id: number;
+}
+
+export interface SpoolBuddyUsageSummary {
+  device_id: string;
+  total_weight_used_g: number;
+  total_weight_remaining_g: number;
+  spool_consumptions: Array<{
+    spool_id: number;
+    spool_label: string;
+    total_used_g: number;
+    print_count: number;
+  }>;
+}
+
 export interface DaemonUpdateCheck {
   current_version: string;
   latest_version: string | null;
