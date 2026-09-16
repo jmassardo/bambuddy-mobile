@@ -8,6 +8,7 @@ interface DraggableQueueItemProps {
   selected?: boolean;
   selectionMode?: boolean;
   index?: number | null;
+  _index?: number;
   onPress?: () => void;
   onLongPress?: () => void;
   onToggleSelect?: () => void;

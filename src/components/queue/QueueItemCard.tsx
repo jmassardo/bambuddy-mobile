@@ -192,11 +192,11 @@ interface QueueItemCardContentProps {
   onReassign?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
-  onDragStart?: (index: number) => void;
-  onDragMove?: (index: number, targetIndex: number) => void;
-  onDragEnd?: () => void;
-  isDragging?: boolean;
-  dragIndex?: number;
+  _onDragStart?: (index: number) => void;
+  _onDragMove?: (index: number, targetIndex: number) => void;
+  _onDragEnd?: () => void;
+  _isDragging?: boolean;
+  _dragIndex?: number;
   dragTargetIndex?: number;
   dragEnabled?: boolean;
 }
@@ -223,7 +223,8 @@ export function QueueItemCardContent({
   _onDragEnd,
   _isDragging,
   _dragIndex,
-  _dragTargetIndex,
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+  dragTargetIndex,
   dragEnabled = false,
 }: QueueItemCardContentProps) {
   const { colors } = useTheme();
@@ -550,13 +551,14 @@ export function QueueItemCard({
   onMoveUp,
   onMoveDown,
   onReorder,
-  _onDragStart,
-  _onDragMove,
-  _onDragEnd,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
   index,
   isDragging: parentIsDragging = false,
-  _dragIndex,
-  _dragTargetIndex,
+  dragIndex,
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+  dragTargetIndex,
   dragEnabled = false,
 }: QueueItemCardProps) {
   const { colors } = useTheme();
@@ -698,11 +700,11 @@ export function QueueItemCard({
         onReassign={onReassign}
         onMoveUp={onMoveUp}
         onMoveDown={onMoveDown}
-        onDragStart={onDragStart}
-        onDragMove={onDragMove}
-        onDragEnd={onDragEnd}
-        isDragging={parentIsDragging}
-        dragIndex={dragIndex}
+        _onDragStart={onDragStart}
+        _onDragMove={onDragMove}
+        _onDragEnd={onDragEnd}
+        _isDragging={parentIsDragging}
+        _dragIndex={dragIndex}
         dragTargetIndex={dragTargetIndex}
         dragEnabled
       />
@@ -741,11 +743,11 @@ export function QueueItemCard({
             onReassign={onReassign}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
-            onDragStart={onDragStart}
-            onDragMove={onDragMove}
-            onDragEnd={onDragEnd}
-            isDragging={parentIsDragging}
-            dragIndex={dragIndex}
+            _onDragStart={onDragStart}
+            _onDragMove={onDragMove}
+            _onDragEnd={onDragEnd}
+            _isDragging={parentIsDragging}
+            _dragIndex={dragIndex}
             dragTargetIndex={dragTargetIndex}
             dragEnabled
           />
