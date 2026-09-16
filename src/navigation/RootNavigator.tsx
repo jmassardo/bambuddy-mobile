@@ -23,6 +23,7 @@ import SetupScreen from '@/screens/SetupScreen';
 import NotificationsScreen from '@/screens/NotificationsScreen';
 import InventoryScreen from '@/screens/InventoryScreen';
 import MaintenanceScreen from '@/screens/MaintenanceScreen';
+import Model3DPreviewScreen from '@/screens/Model3DPreviewScreen';
 import MakerWorldScreen from '@/screens/MakerWorldScreen';
 import ProfilesScreen from '@/screens/ProfilesScreen';
 import ProjectsScreen from '@/screens/ProjectsScreen';
@@ -198,6 +199,11 @@ export default function RootNavigator() {
         name="ExternalLinkBrowser"
         component={ExternalLinkBrowserScreen}
         options={{ title: 'External Link' }}
+      />
+      <Stack.Screen
+        name="Model3DPreview"
+        component={Model3DPreviewScreen}
+        options={{ title: '3D Preview' }}
       />
     </Stack.Navigator>
   );

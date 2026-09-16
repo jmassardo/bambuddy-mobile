@@ -11,6 +11,7 @@ import {
   ApiError,
   buildMediaUrl,
   request,
+  requestBlob,
   requestTextWithFallback,
   requestWithFallback,
   uploadFile,
@@ -290,4 +291,7 @@ export const filesApi = {
 
   getPendingUploads: async () =>
     request<Record<string, unknown>[]>('/pending-uploads/'),
+
+  downloadFileBlob: async (id: number): Promise<Blob> =>
+    requestBlob(`/library/files/${id}/download`),
 };
