@@ -61,6 +61,8 @@ import type {
 import { withCacheBuster } from '@/utils/data';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMediaToken } from '@/hooks/useStreamToken';
+import { useStreamRetry, type RetryState } from '@/hooks/useStreamRetry';
+import { useStreamHealth, type StreamHealthStatus } from '@/hooks/useStreamHealth';
 import { WebView } from 'react-native-webview';
 
 interface CameraWebViewProps {
@@ -126,6 +128,76 @@ function ConnectionCheckIcon({ status, colors }: { status: DiagnosticStatus; col
   if (status === 'fail') return <XCircle size={16} color={colors.error} strokeWidth={2} />;
   if (status === 'warn') return <AlertTriangle size={16} color={colors.warning} strokeWidth={2} />;
   return <MinusCircle size={16} color={colors.textTertiary} strokeWidth={2} />;
+}
+
+function StreamStatusIndicator({
+  retryState,
+  healthStatus,
+  retryCount,
+  maxRetries,
+  refreshCount,
+  colors,
+}: {
+  retryState: RetryState;
+  healthStatus: StreamHealthStatus;
+  retryCount: number;
+  maxRetries: number;
+  refreshCount: number;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  const isRetryActive = retryState === 'retrying';
+  const isRetryFailed = retryState === 'failed';
+  const isDegraded = healthStatus === 'degraded';
+  const isStale = healthStatus === 'stale';
+  const isOffline = healthStatus === 'offline';
+
+  if (!isRetryActive && !isRetryFailed && !isDegraded && !isStale && !isOffline && refreshCount < 2) {
+    return null;
+  }
+
+  let label = '';
+  let iconColor = colors.accent;
+
+  if (isRetryActive) {
+    label = `Retrying… (${retryCount}/${maxRetries})`;
+    iconColor = colors.warning;
+  } else if (isRetryFailed) {
+    label = 'Stream unavailable';
+    iconColor = colors.error;
+  } else if (isDegraded) {
+    label = 'Stream slow';
+    iconColor = colors.warning;
+  } else if (isStale) {
+    label = 'Stream stale';
+    iconColor = colors.error;
+  } else if (isOffline) {
+    label = 'Stream offline';
+    iconColor = colors.error;
+  }
+
+  if (!label) return null;
+
+  return (
+    <View
+      style={[
+        styles.streamStatusBadge,
+        { backgroundColor: `${iconColor}15`, borderColor: `${iconColor}40` },
+      ]}
+    >
+      <View style={styles.streamStatusIconContainer}>
+        {isRetryActive ? (
+          <ActivityIndicator size="small" color={iconColor} />
+        ) : isDegraded ? (
+          <AlertTriangle size={14} color={iconColor} strokeWidth={2} />
+        ) : (
+          <XCircle size={14} color={iconColor} strokeWidth={2} />
+        )}
+      </View>
+      <Text style={[styles.streamStatusText, { color: iconColor }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
 }
 
 function CameraStageIcon({ status, colors }: { status: CameraDiagnoseResult['stages'][number]['status']; colors: ReturnType<typeof useTheme>['colors'] }) {
@@ -355,6 +427,11 @@ const MAX_CAMERA_ZOOM = 4;
 export const CAMERA_STREAM_TIMEOUT_MS = 15_000;
 const IOS_INITIAL_STREAM_TIMEOUT_MS = 30_000;
 const IOS_RETRY_STREAM_TIMEOUT_MS = 20_000;
+const STREAM_RETRY_MAX_RETRIES = 3;
+const STREAM_RETRY_INITIAL_DELAY_MS = 1000;
+const STREAM_RETRY_MAX_DELAY_MS = 10_000;
+const STREAM_STALE_THRESHOLD_MS = 10_000;
+const STREAM_DEGRADED_THRESHOLD_MS = 5_000;
 const DEFAULT_PLATE_ROI: PlateDetectionROI = {
   x: 0.18,
   y: 0.2,
@@ -591,6 +668,18 @@ export default function CameraScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { token: mediaToken, isReady: mediaTokenReady } = useMediaToken();
+  const [streamRetryCount, setStreamRetryCount] = useState(0);
+  const streamRetry = useStreamRetry({
+    maxRetries: STREAM_RETRY_MAX_RETRIES,
+    initialDelayMs: STREAM_RETRY_INITIAL_DELAY_MS,
+    maxDelayMs: STREAM_RETRY_MAX_DELAY_MS,
+    enabled: true,
+  });
+  const streamHealth = useStreamHealth({
+    staleThresholdMs: STREAM_STALE_THRESHOLD_MS,
+    degradedThresholdMs: STREAM_DEGRADED_THRESHOLD_MS,
+    autoRefreshEnabled: true,
+  });
   const [fitMode, setFitMode] = useState<'cover' | 'contain'>('contain');
   const [streamSeed, setStreamSeed] = useState(() => Date.now());
   const [streamLoading, setStreamLoading] = useState(true);
@@ -753,11 +842,12 @@ export default function CameraScreen() {
         iosInitialLoad.current = true;
         setWebCameraFailed(false);
         setStreamError(false);
+        streamRetry.recover();
         setStreamSeed(current => Math.max(Date.now(), current + 1));
         setWebViewGeneration(current => current + 1);
       }, 1000);
     }
-  }, []);
+  }, [streamRetry]);
 
   const handleWebCameraHttpFailure = useCallback(
     (event: { nativeEvent?: { statusCode?: number } }) => {
@@ -819,6 +909,7 @@ export default function CameraScreen() {
           setStreamLoading(false);
           setStreamError(true);
           iosRetryCount.current = 0;
+          streamHealth.refresh();
           resetZoom();
         }, IOS_INITIAL_STREAM_TIMEOUT_MS);
         return;
@@ -828,6 +919,7 @@ export default function CameraScreen() {
           streamTimeoutRef.current = null;
           setStreamLoading(false);
           setStreamError(true);
+          streamHealth.refresh();
           resetZoom();
         }, IOS_RETRY_STREAM_TIMEOUT_MS);
         return;
@@ -837,15 +929,31 @@ export default function CameraScreen() {
       streamTimeoutRef.current = null;
       setStreamLoading(false);
       setStreamError(true);
+      streamHealth.refresh();
       resetZoom();
     }, CAMERA_STREAM_TIMEOUT_MS);
-  }, [clearStreamTimeout, resetZoom]);
+  }, [clearStreamTimeout, resetZoom, streamHealth]);
 
   const handleStreamLoadStart = useCallback(() => {
     setStreamLoading(true);
     setStreamError(false);
     armStreamTimeout();
   }, [armStreamTimeout]);
+
+  const handleStreamLoadSuccess = useCallback(() => {
+    clearStreamTimeout();
+    setStreamLoading(false);
+    streamRetry.recover();
+    streamHealth.recordFrame();
+  }, [clearStreamTimeout, streamRetry, streamHealth]);
+
+  const handleStreamLoadError = useCallback(() => {
+    clearStreamTimeout();
+    setStreamLoading(false);
+    setStreamError(true);
+    streamHealth.refresh();
+    resetZoom();
+  }, [clearStreamTimeout, streamHealth, resetZoom]);
 
   useEffect(() => clearStreamTimeout, [clearStreamTimeout]);
 
@@ -1113,6 +1221,25 @@ export default function CameraScreen() {
         : null;
 
   useEffect(() => {
+    if (streamError && validPrinterId && !cameraUnavailableReason && streamRetry.currentState !== 'failed') {
+      setStreamRetryCount(prev => prev + 1);
+      streamRetry.retry();
+    }
+  }, [streamError, validPrinterId, cameraUnavailableReason, streamRetry]);
+
+  useEffect(() => {
+    if (streamRetry.currentState === 'recovered') {
+      setStreamError(false);
+    }
+  }, [streamRetry.currentState]);
+
+  useEffect(() => {
+    if (streamRetry.currentState === 'failed' && !streamError) {
+      setStreamError(true);
+    }
+  }, [streamRetry.currentState, streamError]);
+
+  useEffect(() => {
     if (streamUrl && !cameraUnavailableReason && streamLoading && !streamError && streamTimeoutRef.current == null) {
       iosInitialLoad.current = false;
       iosRetryCount.current = 0;
@@ -1326,18 +1453,18 @@ export default function CameraScreen() {
                 style={styles.stream}
                 resizeMode={fitMode}
                 onLoadStart={handleStreamLoadStart}
-                onLoad={() => {
-                  clearStreamTimeout();
-                  setStreamLoading(false);
-                }}
-                onError={() => {
-                  clearStreamTimeout();
-                  setStreamLoading(false);
-                  setStreamError(true);
-                  resetZoom();
-                }}
+                onLoad={handleStreamLoadSuccess}
+                onError={handleStreamLoadError}
               />
             </Animated.View>
+            <StreamStatusIndicator
+              retryState={streamRetry.currentState}
+              healthStatus={streamHealth.status}
+              retryCount={streamRetry.retryCount}
+              maxRetries={streamRetry.maxRetries}
+              refreshCount={streamRetryCount}
+              colors={colors}
+            />
             {plateDetectionEnabled ? (
               <View pointerEvents="none" style={styles.calibrationOverlay}>
                 <View
@@ -1370,7 +1497,13 @@ export default function CameraScreen() {
             {streamLoading ? (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color={colors.accent} />
-                <Text style={[styles.loadingLabel, { color: colors.text }]}>Connecting to live stream…</Text>
+                {streamRetry.currentState === 'retrying' ? (
+                  <Text style={[styles.loadingLabel, { color: colors.text }]}>
+                    Retrying camera stream… ({streamRetry.retryCount}/{streamRetry.maxRetries})
+                  </Text>
+                ) : (
+                  <Text style={[styles.loadingLabel, { color: colors.text }]}>Connecting to live stream…</Text>
+                )}
               </View>
             ) : null}
           </View>
@@ -1889,6 +2022,28 @@ const styles = StyleSheet.create({
   },
   loadingLabel: {
     fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  streamStatusBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
+    right: spacing.sm,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+  },
+  streamStatusIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streamStatusText: {
+    fontSize: fontSize.xs,
     fontWeight: fontWeight.medium,
   },
   stateWrap: {
