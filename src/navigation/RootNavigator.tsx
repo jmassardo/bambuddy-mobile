@@ -35,6 +35,7 @@ import VirtualPrintersScreen from '@/screens/VirtualPrintersScreen';
 import SpoolBuddyScreen from '@/screens/SpoolBuddyScreen';
 import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
 import FailureAnalysisScreen from '@/screens/FailureAnalysisScreen';
+import WebSocketStatusScreen from '@/screens/WebSocketStatusScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -210,6 +211,11 @@ export default function RootNavigator() {
         name="FailureAnalysis"
         component={FailureAnalysisScreen}
         options={{ title: 'Failure Analysis' }}
+      />
+      <Stack.Screen
+        name="WebSocketStatus"
+        component={WebSocketStatusScreen}
+        options={{ title: 'WebSocket Status' }}
       />
     </Stack.Navigator>
   );

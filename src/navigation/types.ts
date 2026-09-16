@@ -49,6 +49,7 @@ export type RootStackParamList = {
     source3mfPath?: string;
   };
   FailureAnalysis: undefined;
+  WebSocketStatus: undefined;
 };
 
 export type RootNavigationProp<
