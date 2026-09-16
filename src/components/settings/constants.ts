@@ -3,6 +3,7 @@ import type {
   MQTTStatus,
   SMTPSettings,
   SmartPlug,
+  StorageLocation,
 } from '@/types/api';
 import { pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import type {
@@ -23,6 +24,7 @@ import type {
   SmartPlugFormState,
   SmtpSecurity,
   SmartPlugType,
+  StorageLocationFormState,
   VirtualPrinterFormState,
 } from './types';
 
@@ -44,6 +46,7 @@ export const SECTION_ITEMS: SectionItem[] = [
   { key: 'failure-detection', icon: 'shield', title: 'Failure Detection', description: 'Obico service status and model settings.' },
   { key: 'users', icon: 'users', title: 'Users & Security', description: 'Auth, SMTP, LDAP, OIDC, and 2FA management.' },
   { key: 'backup', icon: 'download', title: 'Backup', description: 'Local backups, exports, GitHub backup status, and recovery.' },
+  { key: 'storage-locations', icon: 'layers', title: 'Storage Locations', description: 'Shelves, drawers, and boxes for organizing filament spools.' },
 ];
 
 export const LANGUAGE_OPTIONS = [
@@ -237,6 +240,13 @@ export const EMPTY_K_PROFILE_FORM: KProfileFormState = {
   setting_id: '',
 };
 
+export const EMPTY_STORAGE_LOCATION_FORM: StorageLocationFormState = {
+  name: '',
+  identifier: '',
+  address: '',
+  notes: '',
+};
+
 export type SectionSummaryQueries = {
   settings?: ApiRecord;
   smartPlugs?: SmartPlug[];
@@ -252,6 +262,7 @@ export type SectionSummaryQueries = {
   mqttStatus?: MQTTStatus;
   customNavItems?: Array<{ name: string }>;
   kprofiles?: KProfile[];
+  storageLocations?: Array<{ id: number; name: string }>;
 };
 
 export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
@@ -294,6 +305,8 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
       return pickBoolean(queries.advancedAuthStatus, ['advanced_auth_enabled']) ? 'Security enabled' : 'Basic auth';
     case 'backup':
       return pickString(queries.githubBackupStatus, ['last_backup_status'], 'No recent backup');
+    case 'storage-locations':
+      return `${(queries.storageLocations ?? []).length} locations`;
     default:
       return '';
   }

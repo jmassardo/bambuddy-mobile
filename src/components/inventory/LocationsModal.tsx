@@ -17,6 +17,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { StorageLocation } from '@/types/api';
+import { pickNumber, pickString } from '@/utils/data';
 
 interface LocationsModalProps {
   visible: boolean;
@@ -37,6 +38,8 @@ export function LocationsModal({
   const [editing, setEditing] = useState<StorageLocation | null>(null);
   const [name, setName] = useState('');
   const [identifier, setIdentifier] = useState('');
+  const [address, setAddress] = useState('');
+  const [notes, setNotes] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<StorageLocation | null>(null);
 
   const locationsQuery = useQuery({
@@ -55,6 +58,8 @@ export function LocationsModal({
       setEditing(null);
       setName('');
       setIdentifier('');
+      setAddress('');
+      setNotes('');
       setDeleteTarget(null);
     }
   }, [visible]);
@@ -71,6 +76,8 @@ export function LocationsModal({
       const payload = {
         name: name.trim(),
         identifier: identifier.trim() || null,
+        address: address.trim() || null,
+        notes: notes.trim() || null,
       };
       if (editing) return api.updateLocation(editing.id, payload);
       return api.createLocation(payload);
@@ -81,6 +88,8 @@ export function LocationsModal({
       setEditing(null);
       setName('');
       setIdentifier('');
+      setAddress('');
+      setNotes('');
     },
     onError: (error: Error) => showToast(error.message || 'Unable to save the location.', 'error'),
   });
@@ -111,6 +120,8 @@ export function LocationsModal({
     setEditing(location);
     setName(location.name);
     setIdentifier(location.identifier ?? '');
+    setAddress(location.address ?? '');
+    setNotes(location.notes ?? '');
   };
 
   return (
@@ -131,6 +142,8 @@ export function LocationsModal({
             <SectionCard title={editing ? 'Edit location' : 'Add location'}>
               <TextField label="Name" value={name} onChangeText={setName} placeholder="Shelf A" />
               <TextField label="Identifier" value={identifier} onChangeText={setIdentifier} placeholder="A-1" />
+              <TextField label="Address / Location details" value={address} onChangeText={setAddress} placeholder="Garage, left wall" />
+              <TextField label="Notes" value={notes} onChangeText={setNotes} multiline placeholder="Any additional notes about this location" />
               <View style={styles.formActions}>
                 {editing ? (
                   <PrimaryButton

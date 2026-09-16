@@ -25,6 +25,7 @@ import type {
   SmartPlug,
   SmartPlugCreate,
   SmartPlugUpdate,
+  StorageLocation,
   TOTPSetupResponse,
   TwoFAStatus,
 } from '@/types/api';
@@ -42,6 +43,7 @@ import {
   EMPTY_K_PROFILE_FORM,
   EMPTY_PROVIDER_FORM,
   EMPTY_SMART_PLUG_FORM,
+  EMPTY_STORAGE_LOCATION_FORM,
   EMPTY_VIRTUAL_PRINTER_FORM,
   NOZZLE_DIAMETER_OPTIONS,
   SMTP_PORT_BY_SECURITY,
@@ -59,6 +61,7 @@ import type {
   ProviderFormState,
   SectionKey,
   SmartPlugFormState,
+  StorageLocationFormState,
   UserPanelKey,
   VirtualPrinterFormState,
 } from './types';
@@ -146,12 +149,17 @@ export function useSettingsScreenController() {
     form: { ...EMPTY_K_PROFILE_FORM },
   });
   const [pendingDeleteKProfile, setPendingDeleteKProfile] = useState<KProfile | null>(null);
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<StorageLocation | null>(null);
+  const [locationForm, setLocationForm] = useState<StorageLocationFormState>(EMPTY_STORAGE_LOCATION_FORM);
+  const [pendingDeleteLocation, setPendingDeleteLocation] = useState<StorageLocation | null>(null);
 
   const canUpdateSettings = !authEnabled || hasPermission('settings:update');
   const canManageSmartPlugs = !authEnabled || hasPermission('smart_plugs:create') || hasPermission('smart_plugs:update');
   const canDeleteSmartPlugs = !authEnabled || hasPermission('smart_plugs:delete');
   const canControlSmartPlugs = !authEnabled || hasPermission('smart_plugs:control');
   const canManageSecurity = !authEnabled || isAdmin || hasPermission('settings:update');
+  const canManageSpools = !authEnabled || hasPermission('inventory:create') || hasPermission('inventory:update');
 
   const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: api.getSettings });
   const smartPlugsQuery = useQuery({ queryKey: ['smartPlugs'], queryFn: api.getSmartPlugs });
@@ -188,6 +196,11 @@ export function useSettingsScreenController() {
     queryKey: ['kprofiles'],
     queryFn: () => api.getKProfiles(),
     enabled: section === 'kprofiles',
+  });
+  const storageLocationsQuery = useQuery({
+    queryKey: ['storageLocations'],
+    queryFn: api.getLocations,
+    enabled: section === 'storage-locations',
   });
   const obicoQuery = useQuery({ queryKey: ['obicoStatus'], queryFn: api.getObicoStatus });
   const advancedAuthQuery = useQuery<AdvancedAuthStatus>({ queryKey: ['advancedAuthStatus'], queryFn: api.getAdvancedAuthStatus });
@@ -760,6 +773,48 @@ export function useSettingsScreenController() {
     onError: (error: Error) => showToast(error.message || 'Unable to delete K-profile.', 'error'),
   });
 
+  const createLocationMutation = useMutation({
+    mutationFn: async () =>
+      api.createLocation({
+        name: locationForm.name.trim(),
+        identifier: locationForm.identifier.trim() || null,
+        address: locationForm.address.trim() || null,
+        notes: locationForm.notes.trim() || null,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['storageLocations'] });
+      closeLocationModal();
+      showToast('Storage location created.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to create storage location.', 'error'),
+  });
+
+  const updateLocationMutation = useMutation({
+    mutationFn: async () =>
+      api.updateLocation(editingLocation!.id, {
+        name: locationForm.name.trim(),
+        identifier: locationForm.identifier.trim() || null,
+        address: locationForm.address.trim() || null,
+        notes: locationForm.notes.trim() || null,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['storageLocations'] });
+      closeLocationModal();
+      showToast('Storage location updated.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to update storage location.', 'error'),
+  });
+
+  const deleteLocationMutation = useMutation({
+    mutationFn: (id: number) => api.deleteLocation(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['storageLocations'] });
+      setPendingDeleteLocation(null);
+      showToast('Storage location deleted.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to delete storage location.', 'error'),
+  });
+
   const testObicoMutation = useMutation({
     mutationFn: async (url: string) => api.testObicoConnection(url),
     onSuccess: result => {
@@ -932,6 +987,7 @@ export function useSettingsScreenController() {
       mqttStatus: mqttStatusQuery.data,
       customNavItems: useCustomNavStore.getState().items,
       kprofiles: kprofilesQuery.data?.profiles as KProfile[] | undefined,
+      storageLocations: (Array.isArray(storageLocationsQuery.data) ? (storageLocationsQuery.data as unknown as StorageLocation[]) : []),
     }),
     [
       advancedAuthQuery.data,
@@ -946,6 +1002,7 @@ export function useSettingsScreenController() {
       settingsQuery.data,
       smartPlugsQuery.data,
       spoolbuddyQuery.data,
+      storageLocationsQuery.data,
       virtualPrinterListQuery.data,
     ],
   );
@@ -1163,6 +1220,41 @@ export function useSettingsScreenController() {
         form: { ...EMPTY_K_PROFILE_FORM },
       });
     }
+  }
+
+  function closeLocationModal() {
+    setLocationModalVisible(false);
+    setEditingLocation(null);
+    setLocationForm(EMPTY_STORAGE_LOCATION_FORM);
+  }
+
+  function openLocationModal(location?: StorageLocation) {
+    if (location) {
+      setEditingLocation(location);
+      setLocationForm({
+        name: location.name,
+        identifier: location.identifier ?? '',
+        address: location.address ?? '',
+        notes: location.notes ?? '',
+      });
+    } else {
+      setEditingLocation(null);
+      setLocationForm(EMPTY_STORAGE_LOCATION_FORM);
+    }
+    setLocationModalVisible(true);
+  }
+
+  function handleSaveLocation() {
+    if (!locationForm.name.trim()) {
+      showToast('Location name is required.', 'error');
+      return;
+    }
+
+    if (editingLocation) {
+      updateLocationMutation.mutate();
+      return;
+    }
+    createLocationMutation.mutate();
   }
 
   const handleProviderSave = () => {
@@ -1528,6 +1620,10 @@ export function useSettingsScreenController() {
       emailDisablePassword,
       kprofileModal,
       pendingDeleteKProfile,
+      locationModalVisible,
+      editingLocation,
+      locationForm,
+      pendingDeleteLocation,
     },
     permissions: {
       canUpdateSettings,
@@ -1535,6 +1631,7 @@ export function useSettingsScreenController() {
       canDeleteSmartPlugs,
       canControlSmartPlugs,
       canManageSecurity,
+      canManageSpools,
     },
     queries: {
       settingsQuery,
@@ -1565,6 +1662,7 @@ export function useSettingsScreenController() {
       totpSetupQuery,
       mqttStatusQuery,
       kprofilesQuery,
+      storageLocationsQuery,
     },
     mutations: {
       saveSettingsMutation,
@@ -1616,6 +1714,9 @@ export function useSettingsScreenController() {
       createKProfileMutation,
       updateKProfileMutation,
       deleteKProfileMutation,
+      createLocationMutation,
+      updateLocationMutation,
+      deleteLocationMutation,
     },
     derived: {
       sectionSummaries,
@@ -1720,6 +1821,19 @@ export function useSettingsScreenController() {
       setPendingDeleteKProfile,
       showToast,
       queryClient,
+      setLocationModalVisible,
+      setEditingLocation,
+      setLocationForm: (value: StorageLocationFormState | ((current: StorageLocationFormState) => StorageLocationFormState)) => {
+        if (typeof value === 'function') {
+          setLocationForm(value as (current: StorageLocationFormState) => StorageLocationFormState);
+        } else {
+          setLocationForm(value);
+        }
+      },
+      setPendingDeleteLocation,
+      closeLocationModal,
+      openLocationModal,
+      handleSaveLocation,
     },
   };
 }

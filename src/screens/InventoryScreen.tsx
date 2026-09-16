@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Chip } from '@/components/common/AppUI';
 import {
   errorCodes,
   isErrorWithCode,
@@ -31,7 +32,7 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDateTime, formatWeight, pickArray, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
-import type { Printer, SpoolKProfile, SpoolLabelTemplate, SpoolUsageRecord } from '@/types/api';
+import type { Printer, SpoolKProfile, SpoolLabelTemplate, SpoolUsageRecord, StorageLocation } from '@/types/api';
 
 type ArchiveFilter = 'active' | 'archived';
 type ViewMode = 'cards' | 'forecast';
@@ -412,6 +413,10 @@ export default function InventoryScreen() {
   const printers = useMemo(
     () => ((printersQuery.data ?? []) as unknown as Printer[]),
     [printersQuery.data],
+  );
+  const locations = useMemo(
+    () => (Array.isArray(locationsQuery.data) ? (locationsQuery.data as unknown as StorageLocation[]) : []),
+    [locationsQuery.data],
   );
   const labelTemplates = useMemo(
     () => (Array.isArray(labelTemplatesQuery.data) ? (labelTemplatesQuery.data as ApiRecord[]) : []),
@@ -964,7 +969,15 @@ export default function InventoryScreen() {
               </View>
               <View style={styles.splitRow}>
                 <View style={styles.splitField}><TextField label="Category" value={form.category} onChangeText={value => setForm(current => ({ ...current, category: value }))} /></View>
-                <View style={styles.splitField}><TextField label="Storage location" value={form.storageLocation} onChangeText={value => setForm(current => ({ ...current, storageLocation: value }))} placeholder={pickString(locationsQuery.data, ['0.name'], 'Shelf A')} /></View>
+                <View style={styles.splitField}>
+                  <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} accessibilityRole="text">Storage location</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                    <Chip label="None" selected={!form.storageLocation} onPress={() => setForm(current => ({ ...current, storageLocation: '' }))} />
+                    {locations.map(loc => (
+                      <Chip key={loc.id} label={loc.name} selected={form.storageLocation === loc.name} onPress={() => setForm(current => ({ ...current, storageLocation: loc.name }))} />
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
               <TextField label="NFC tag UID" value={form.tagUid} onChangeText={value => setForm(current => ({ ...current, tagUid: value }))} />
               <TextField label="AMS tray UUID" value={form.trayUuid} onChangeText={value => setForm(current => ({ ...current, trayUuid: value }))} />
@@ -1337,6 +1350,15 @@ const styles = StyleSheet.create({
   },
   rowMeta: {
     fontSize: fontSize.sm,
+  },
+  fieldLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    marginBottom: spacing.xs,
+  },
+  chipRow: {
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   historyRow: {
     paddingVertical: spacing.sm,

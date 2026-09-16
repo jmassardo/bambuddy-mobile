@@ -44,6 +44,10 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
     plugDeleteTarget,
     pendingDeleteExternalLink,
     pendingDeleteVirtualPrinter,
+    locationModalVisible,
+    editingLocation,
+    locationForm,
+    pendingDeleteLocation,
   } = controller.state;
 
   const { actions, mutations, queries } = controller;
@@ -230,6 +234,26 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
       </SimpleModal>
 
       <ConfirmModal visible={pendingDeleteExternalCamera !== null} title="Delete external camera" message={pendingDeleteExternalCamera ? `Delete ${pickString(pendingDeleteExternalCamera, ['name'], 'this external camera')}?` : 'Delete this external camera?'} confirmLabel="Delete" onClose={() => actions.setPendingDeleteExternalCamera(null)} onConfirm={() => pendingDeleteExternalCamera && void mutations.deleteExternalCameraMutation.mutateAsync(pickNumber(pendingDeleteExternalCamera, ['id']))} loading={mutations.deleteExternalCameraMutation.isPending} />
+
+      <SimpleModal visible={locationModalVisible} title={editingLocation ? 'Edit storage location' : 'Add storage location'} subtitle="Location name, optional identifier, address, and notes for organizing filament spools." onClose={actions.closeLocationModal}>
+        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+          <TextField label="Name" value={locationForm.name} onChangeText={value => actions.setLocationForm(current => ({ ...current, name: value }))} placeholder="Shelf A" />
+          <TextField label="Identifier" value={locationForm.identifier} onChangeText={value => actions.setLocationForm(current => ({ ...current, identifier: value }))} placeholder="A-1" />
+          <TextField label="Address / Location details" value={locationForm.address} onChangeText={value => actions.setLocationForm(current => ({ ...current, address: value }))} placeholder="Garage, left wall" />
+          <TextField label="Notes" value={locationForm.notes} onChangeText={value => actions.setLocationForm(current => ({ ...current, notes: value }))} multiline placeholder="Any additional notes about this location" />
+          <View style={settingsStyles.modalFooter}>
+            <PrimaryButton label="Cancel" variant="secondary" onPress={actions.closeLocationModal} />
+            <PrimaryButton
+              label={editingLocation ? (mutations.updateLocationMutation.isPending ? 'Saving…' : 'Save location') : (mutations.createLocationMutation.isPending ? 'Creating…' : 'Create location')}
+              onPress={actions.handleSaveLocation}
+              loading={mutations.createLocationMutation.isPending || mutations.updateLocationMutation.isPending}
+              disabled={mutations.createLocationMutation.isPending || mutations.updateLocationMutation.isPending}
+            />
+          </View>
+        </ScrollView>
+      </SimpleModal>
+
+      <ConfirmModal visible={pendingDeleteLocation !== null} title="Delete storage location" message={pendingDeleteLocation ? `Delete ${pendingDeleteLocation.name}? Locations with assigned spools cannot be removed.` : 'Delete this storage location?'} confirmLabel="Delete" onClose={() => actions.setPendingDeleteLocation(null)} onConfirm={() => pendingDeleteLocation && void mutations.deleteLocationMutation.mutateAsync(pendingDeleteLocation.id)} loading={mutations.deleteLocationMutation.isPending} />
     </>
   );
 }

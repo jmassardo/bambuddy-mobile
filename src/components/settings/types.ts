@@ -17,7 +17,8 @@ export type SectionKey =
   | 'spoolbuddy'
   | 'failure-detection'
   | 'users'
-  | 'backup';
+  | 'backup'
+  | 'storage-locations';
 
 export type UserPanelKey = 'auth' | 'email' | 'ldap' | 'oidc' | 'twofa';
 export type ThemeMode = 'dark' | 'light' | 'system';
@@ -169,3 +170,10 @@ export type DeleteKProfileTarget = {
   filament_id: string;
   setting_id: string;
 } | null;
+
+export type StorageLocationFormState = {
+  name: string;
+  identifier: string;
+  address: string;
+  notes: string;
+};

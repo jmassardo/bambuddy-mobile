@@ -104,7 +104,12 @@ export const inventoryApi = {
 
   getLocations: async () => request<Record<string, unknown>[]>('/inventory/locations'),
 
-  createLocation: async (data: { name: string; identifier?: string | null }) =>
+  createLocation: async (data: {
+    name: string;
+    identifier?: string | null;
+    address?: string | null;
+    notes?: string | null;
+  }) =>
     request<Record<string, unknown>>('/inventory/locations', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -112,7 +117,12 @@ export const inventoryApi = {
 
   updateLocation: async (
     id: number,
-    data: { name?: string; identifier?: string | null },
+    data: {
+      name?: string;
+      identifier?: string | null;
+      address?: string | null;
+      notes?: string | null;
+    },
   ) =>
     request<Record<string, unknown>>(`/inventory/locations/${id}`, {
       method: 'PATCH',

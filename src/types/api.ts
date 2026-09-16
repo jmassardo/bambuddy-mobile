@@ -2817,6 +2817,8 @@ export interface StorageLocation {
   id: number;
   name: string;
   identifier: string | null;
+  address: string | null;
+  notes: string | null;
   spool_count: number;
   created_at: string;
   updated_at: string;

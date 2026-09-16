@@ -15,6 +15,7 @@ import { NotificationsSettingsSection } from './NotificationsSettingsSection';
 import { QueueSettingsSection } from './QueueSettingsSection';
 import { SmartPlugsSection } from './SmartPlugsSection';
 import { SpoolBuddySettingsSection } from './SpoolBuddySettingsSection';
+import { StorageLocationsSection } from './StorageLocationsSection';
 import { settingsStyles } from './shared';
 import { UsersSecuritySection } from './UsersSecuritySection';
 import { VirtualPrinterSettingsSection } from './VirtualPrinterSettingsSection';
@@ -46,6 +47,7 @@ export function SettingsSectionContent({ controller }: { controller: SettingsScr
       {section === 'failure-detection' ? <FailureDetectionSettingsSection controller={controller} /> : null}
       {section === 'users' ? <UsersSecuritySection controller={controller} /> : null}
       {section === 'backup' ? <BackupSettingsSection controller={controller} /> : null}
+      {section === 'storage-locations' ? <StorageLocationsSection controller={controller} /> : null}
       {controller.derived.isDirtySection ? (
         <PrimaryButton
           label={controller.mutations.saveSettingsMutation.isPending ? 'Saving…' : 'Save settings'}
