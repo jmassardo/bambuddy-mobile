@@ -15,6 +15,7 @@ import type {
   BackupCodesResponse,
   ExternalCameraCreate,
   ExternalCameraUpdate,
+  KProfile,
   LDAPStatus,
   MQTTStatus,
   OIDCLink,
@@ -38,9 +39,11 @@ import {
   EMPTY_EXTERNAL_CAMERA_FORM,
   EMPTY_EXTERNAL_LINK_FORM,
   EMPTY_GITHUB_BACKUP_FORM,
+  EMPTY_K_PROFILE_FORM,
   EMPTY_PROVIDER_FORM,
   EMPTY_SMART_PLUG_FORM,
   EMPTY_VIRTUAL_PRINTER_FORM,
+  NOZZLE_DIAMETER_OPTIONS,
   SMTP_PORT_BY_SECURITY,
 } from './constants';
 import type {
@@ -49,6 +52,8 @@ import type {
   ExternalCameraFormState,
   ExternalLinkFormState,
   GitHubBackupFormState,
+  KProfileFormState,
+  KProfileModalState,
   LDAPFormState,
   MqttFormState,
   ProviderFormState,
@@ -135,6 +140,12 @@ export function useSettingsScreenController() {
   const [emailSetupCode, setEmailSetupCode] = useState('');
   const [showDisableEmail2FA, setShowDisableEmail2FA] = useState(false);
   const [emailDisablePassword, setEmailDisablePassword] = useState('');
+  const [kprofileModal, setKprofileModal] = useState<KProfileModalState>({
+    visible: false,
+    editingKProfile: null,
+    form: { ...EMPTY_K_PROFILE_FORM },
+  });
+  const [pendingDeleteKProfile, setPendingDeleteKProfile] = useState<KProfile | null>(null);
 
   const canUpdateSettings = !authEnabled || hasPermission('settings:update');
   const canManageSmartPlugs = !authEnabled || hasPermission('smart_plugs:create') || hasPermission('smart_plugs:update');
@@ -172,6 +183,11 @@ export function useSettingsScreenController() {
     queryKey: ['spoolmanSyncStatus'],
     queryFn: api.getSpoolmanSyncStatus,
     enabled: section === 'filament',
+  });
+  const kprofilesQuery = useQuery({
+    queryKey: ['kprofiles'],
+    queryFn: () => api.getKProfiles(),
+    enabled: section === 'kprofiles',
   });
   const obicoQuery = useQuery({ queryKey: ['obicoStatus'], queryFn: api.getObicoStatus });
   const advancedAuthQuery = useQuery<AdvancedAuthStatus>({ queryKey: ['advancedAuthStatus'], queryFn: api.getAdvancedAuthStatus });
@@ -710,6 +726,40 @@ export function useSettingsScreenController() {
     onError: (error: Error) => showToast(error.message || 'Unable to sync Spoolman inventory.', 'error'),
   });
 
+  const createKProfileMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.createKProfile(data),
+    onSuccess: async () => {
+      closeKProfileModal();
+      showToast('K-profile created.', 'success');
+      await queryClient.invalidateQueries({ queryKey: ['kprofiles'] });
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to create K-profile.', 'error'),
+  });
+
+  const updateKProfileMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: Record<string, unknown> }) =>
+      api.updateKProfile(id, payload),
+    onSuccess: async () => {
+      closeKProfileModal();
+      showToast('K-profile updated.', 'success');
+      await queryClient.invalidateQueries({ queryKey: ['kprofiles'] });
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to update K-profile.', 'error'),
+  });
+
+  const deleteKProfileMutation = useMutation({
+    mutationFn: async (profile: KProfile) => {
+      const id = profile.slot_id;
+      return api.deleteKProfile(id);
+    },
+    onSuccess: async () => {
+      setPendingDeleteKProfile(null);
+      showToast('K-profile deleted.', 'success');
+      await queryClient.invalidateQueries({ queryKey: ['kprofiles'] });
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to delete K-profile.', 'error'),
+  });
+
   const testObicoMutation = useMutation({
     mutationFn: async (url: string) => api.testObicoConnection(url),
     onSuccess: result => {
@@ -881,6 +931,7 @@ export function useSettingsScreenController() {
       githubBackupStatus: githubBackupQuery.data,
       mqttStatus: mqttStatusQuery.data,
       customNavItems: useCustomNavStore.getState().items,
+      kprofiles: kprofilesQuery.data?.profiles as KProfile[] | undefined,
     }),
     [
       advancedAuthQuery.data,
@@ -888,6 +939,7 @@ export function useSettingsScreenController() {
       cameraTokensQuery.data,
       externalCamerasQuery.data,
       githubBackupQuery.data,
+      kprofilesQuery.data,
       mqttStatusQuery.data,
       obicoQuery.data,
       providersQuery.data,
@@ -902,9 +954,9 @@ export function useSettingsScreenController() {
     section === 'general' ||
     section === 'queue' ||
     section === 'filament' ||
+    section === 'kprofiles' ||
     section === 'network' ||
     section === 'mqtt' ||
-    section === 'failure-detection' ||
     section === 'backup' ||
     section === 'custom-navigation' ||
     (section === 'users' && userPanel === 'auth');
@@ -1075,6 +1127,42 @@ export function useSettingsScreenController() {
       setVirtualPrinterForm(EMPTY_VIRTUAL_PRINTER_FORM);
     }
     setVirtualPrinterModalVisible(true);
+  }
+
+  function closeKProfileModal() {
+    setKprofileModal({
+      visible: false,
+      editingKProfile: null,
+      form: { ...EMPTY_K_PROFILE_FORM },
+    });
+  }
+
+  function openKProfileModal(profile?: KProfile) {
+    if (profile) {
+      setKprofileModal({
+        visible: true,
+        editingKProfile: profile,
+        form: {
+          slot_id: String(profile.slot_id),
+          extruder_id: String(profile.extruder_id),
+          nozzle_id: profile.nozzle_id,
+          nozzle_diameter: profile.nozzle_diameter,
+          filament_id: profile.filament_id,
+          name: profile.name,
+          k_value: profile.k_value,
+          n_coef: profile.n_coef || '',
+          ams_id: String(profile.ams_id),
+          tray_id: String(profile.tray_id),
+          setting_id: profile.setting_id || '',
+        },
+      });
+    } else {
+      setKprofileModal({
+        visible: true,
+        editingKProfile: null,
+        form: { ...EMPTY_K_PROFILE_FORM },
+      });
+    }
   }
 
   const handleProviderSave = () => {
@@ -1248,6 +1336,65 @@ export function useSettingsScreenController() {
     saveVirtualPrinterMutation.mutate();
   };
 
+  const handleSaveKProfile = () => {
+    if (!kprofileModal.form.nozzle_id.trim()) {
+      showToast('Nozzle ID is required.', 'error');
+      return;
+    }
+    if (!kprofileModal.form.filament_id.trim()) {
+      showToast('Filament ID is required.', 'error');
+      return;
+    }
+    if (!kprofileModal.form.k_value.trim()) {
+      showToast('K value is required.', 'error');
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      nozzle_id: kprofileModal.form.nozzle_id.trim(),
+      nozzle_diameter: kprofileModal.form.nozzle_diameter,
+      filament_id: kprofileModal.form.filament_id.trim(),
+      name: kprofileModal.form.name.trim() || kprofileModal.form.filament_id,
+      k_value: kprofileModal.form.k_value,
+    };
+
+    const slotId = Number(kprofileModal.form.slot_id);
+    if (Number.isFinite(slotId) && slotId > 0) {
+      payload.slot_id = slotId;
+    }
+
+    const extruderId = Number(kprofileModal.form.extruder_id);
+    if (Number.isFinite(extruderId)) {
+      payload.extruder_id = extruderId;
+    }
+
+    const nCoef = kprofileModal.form.n_coef.trim();
+    if (nCoef) {
+      payload.n_coef = nCoef;
+    }
+
+    const amsId = Number(kprofileModal.form.ams_id);
+    if (Number.isFinite(amsId)) {
+      payload.ams_id = amsId;
+    }
+
+    const trayId = Number(kprofileModal.form.tray_id);
+    if (Number.isFinite(trayId)) {
+      payload.tray_id = trayId;
+    }
+
+    const settingId = kprofileModal.form.setting_id.trim();
+    if (settingId) {
+      payload.setting_id = settingId;
+    }
+
+    if (kprofileModal.editingKProfile) {
+      updateKProfileMutation.mutate({ id: kprofileModal.editingKProfile.slot_id, payload });
+    } else {
+      createKProfileMutation.mutate(payload);
+    }
+  };
+
   const handleSaveGitHubBackup = () => {
     if (!githubBackupForm.repository_url.trim()) {
       showToast('Repository URL is required.', 'error');
@@ -1379,6 +1526,8 @@ export function useSettingsScreenController() {
       emailSetupCode,
       showDisableEmail2FA,
       emailDisablePassword,
+      kprofileModal,
+      pendingDeleteKProfile,
     },
     permissions: {
       canUpdateSettings,
@@ -1415,6 +1564,7 @@ export function useSettingsScreenController() {
       oidcLinksQuery,
       totpSetupQuery,
       mqttStatusQuery,
+      kprofilesQuery,
     },
     mutations: {
       saveSettingsMutation,
@@ -1463,6 +1613,9 @@ export function useSettingsScreenController() {
       disableEmailOTPMutation,
       unlinkOIDCLinkMutation,
       saveCustomNavMutation,
+      createKProfileMutation,
+      updateKProfileMutation,
+      deleteKProfileMutation,
     },
     derived: {
       sectionSummaries,
@@ -1479,6 +1632,7 @@ export function useSettingsScreenController() {
       securityRows,
       mqttStatus: mqttStatusQuery.data,
       smtpPortBySecurity: SMTP_PORT_BY_SECURITY,
+      nozzleDiameterOptions: NOZZLE_DIAMETER_OPTIONS,
     },
     actions: {
       refreshAll,
@@ -1551,6 +1705,19 @@ export function useSettingsScreenController() {
       handleSaveExternalLink,
       handleSaveVirtualPrinter,
       handleSaveGitHubBackup,
+      handleSaveKProfile,
+      setKprofileForm: (value: KProfileFormState | ((current: KProfileFormState) => KProfileFormState)) => {
+        if (typeof value === 'function') {
+          setKprofileModal(current => ({ ...current, form: (value as (current: KProfileFormState) => KProfileFormState)(current.form) }));
+        } else {
+          setKprofileModal(current => ({ ...current, form: value }));
+        }
+      },
+      setKprofileModalVisible: (visible: boolean) => setKprofileModal(current => ({ ...current, visible })),
+      setEditingKProfile: (profile: KProfile | null) => setKprofileModal(current => ({ ...current, editingKProfile: profile })),
+      closeKProfileModal,
+      openKProfileModal,
+      setPendingDeleteKProfile,
       showToast,
       queryClient,
     },

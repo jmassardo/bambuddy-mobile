@@ -7,6 +7,7 @@ import { BackupSettingsSection } from './BackupSettingsSection';
 import { FailureDetectionSettingsSection } from './FailureDetectionSettingsSection';
 import { FilamentSettingsSection } from './FilamentSettingsSection';
 import { GeneralSettingsSection } from './GeneralSettingsSection';
+import { KProfileSettingsSection } from './KProfileSettingsSection';
 import { MqttSettingsSection } from './MqttSettingsSection';
 import { NetworkSettingsSection } from './NetworkSettingsSection';
 import { NavigationSettingsSection } from './NavigationSettingsSection';
@@ -34,6 +35,7 @@ export function SettingsSectionContent({ controller }: { controller: SettingsScr
       {section === 'notifications' ? <NotificationsSettingsSection controller={controller} /> : null}
       {section === 'queue' ? <QueueSettingsSection controller={controller} /> : null}
       {section === 'filament' ? <FilamentSettingsSection controller={controller} /> : null}
+      {section === 'kprofiles' ? <KProfileSettingsSection controller={controller} /> : null}
       {section === 'network' ? <NetworkSettingsSection controller={controller} /> : null}
       {section === 'mqtt' ? <MqttSettingsSection controller={controller} /> : null}
       {section === 'navigation' ? <NavigationSettingsSection controller={controller} /> : null}

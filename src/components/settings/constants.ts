@@ -1,4 +1,5 @@
 import type {
+  KProfile,
   MQTTStatus,
   SMTPSettings,
   SmartPlug,
@@ -11,8 +12,10 @@ import type {
   ExternalCameraType,
   ExternalLinkFormState,
   GitHubBackupFormState,
+  KProfileFormState,
   LDAPFormState,
   MqttFormState,
+  NozzleDiameterOption,
   OptionItem,
   ProviderFormState,
   SectionItem,
@@ -29,6 +32,7 @@ export const SECTION_ITEMS: SectionItem[] = [
   { key: 'notifications', icon: 'bell', title: 'Notifications', description: 'Provider status and shortcuts into user notification settings.' },
   { key: 'queue', icon: 'list-ordered', title: 'Queue', description: 'Default print options, preheat, staggering, and slicer preferences.' },
   { key: 'filament', icon: 'package', title: 'Filament', description: 'Warnings, Spoolman, RFID handling, and forecasting defaults.' },
+  { key: 'kprofiles', icon: 'activity', title: 'K-Profile & Pressure Advance', description: 'Pressure advance calibration data (K, N values), nozzle diameter, and filament mapping.' },
   { key: 'network', icon: 'globe', title: 'Network', description: 'External URLs, FTP retry, Prometheus, and Home Assistant.' },
   { key: 'mqtt', icon: 'wifi', title: 'MQTT', description: 'Broker configuration, topic prefix, and connection testing.' },
   { key: 'navigation', icon: 'menu', title: 'Navigation', description: 'Choose which pages appear and arrange tabs and the More menu.' },
@@ -212,6 +216,27 @@ export const DEFAULT_MQTT_FORM: MqttFormState = {
   mqtt_use_tls: false,
 };
 
+export const NOZZLE_DIAMETER_OPTIONS: ReadonlyArray<OptionItem<NozzleDiameterOption>> = [
+  { key: '0.2', label: '0.2 mm' },
+  { key: '0.4', label: '0.4 mm' },
+  { key: '0.6', label: '0.6 mm' },
+  { key: '0.8', label: '0.8 mm' },
+];
+
+export const EMPTY_K_PROFILE_FORM: KProfileFormState = {
+  slot_id: '0',
+  extruder_id: '0',
+  nozzle_id: '',
+  nozzle_diameter: '0.4',
+  filament_id: '',
+  name: '',
+  k_value: '',
+  n_coef: '',
+  ams_id: '',
+  tray_id: '',
+  setting_id: '',
+};
+
 export type SectionSummaryQueries = {
   settings?: ApiRecord;
   smartPlugs?: SmartPlug[];
@@ -226,6 +251,7 @@ export type SectionSummaryQueries = {
   githubBackupStatus?: unknown;
   mqttStatus?: MQTTStatus;
   customNavItems?: Array<{ name: string }>;
+  kprofiles?: KProfile[];
 };
 
 export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
@@ -241,6 +267,8 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
       return pickBoolean(settings, ['preheat_enabled']) ? 'Preheat enabled' : 'Preheat disabled';
     case 'filament':
       return `Low stock ${pickNumber(settings, ['low_stock_threshold'], 20)}%`;
+    case 'kprofiles':
+      return `${(queries.kprofiles ?? []).length} profiles`;
     case 'network':
       return `External URL set • Prometheus ${pickBoolean(settings, ['prometheus_enabled']) ? 'enabled' : 'disabled'}`;
     case 'mqtt': {
