@@ -32,6 +32,7 @@ export function DraggableQueueItem({
   printerState,
   selected,
   selectionMode,
+// @ts-expect-error - index prop alias
   _index,
   onPress,
   onLongPress,

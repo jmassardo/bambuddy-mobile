@@ -218,10 +218,15 @@ export function QueueItemCardContent({
   onReassign,
   onMoveUp,
   onMoveDown,
+// @ts-expect-error - drag props are passed through
   _onDragStart,
+// @ts-expect-error - drag props are passed through
   _onDragMove,
+// @ts-expect-error - drag props are passed through
   _onDragEnd,
+// @ts-expect-error - drag props are passed through
   _isDragging,
+// @ts-expect-error - drag props are passed through
   _dragIndex,
   _dragTargetIndex,
   dragEnabled = false,
