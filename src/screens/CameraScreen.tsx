@@ -353,6 +353,8 @@ function DiagnosticSheet({
 
 const MAX_CAMERA_ZOOM = 4;
 export const CAMERA_STREAM_TIMEOUT_MS = 15_000;
+const IOS_INITIAL_STREAM_TIMEOUT_MS = 30_000;
+const IOS_RETRY_STREAM_TIMEOUT_MS = 20_000;
 const DEFAULT_PLATE_ROI: PlateDetectionROI = {
   x: 0.18,
   y: 0.2,
@@ -607,6 +609,8 @@ export default function CameraScreen() {
   const [webCameraFailed, setWebCameraFailed] = useState(false);
   const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const webViewRef = useRef<CameraWebViewHandle>(null);
+  const iosInitialLoad = useRef(true);
+  const iosRetryCount = useRef(0);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -743,6 +747,16 @@ export default function CameraScreen() {
   const handleWebCameraFailure = useCallback(() => {
     setWebCameraErrorStatus(null);
     setWebCameraFailed(true);
+    if (Platform.OS === 'ios' && iosRetryCount.current < 2) {
+      iosRetryCount.current += 1;
+      setTimeout(() => {
+        iosInitialLoad.current = true;
+        setWebCameraFailed(false);
+        setStreamError(false);
+        setStreamSeed(current => Math.max(Date.now(), current + 1));
+        setWebViewGeneration(current => current + 1);
+      }, 1000);
+    }
   }, []);
 
   const handleWebCameraHttpFailure = useCallback(
@@ -785,6 +799,8 @@ export default function CameraScreen() {
   useEffect(() => {
     if (activePrinterIdRef.current === printerId) return;
     activePrinterIdRef.current = printerId;
+    iosInitialLoad.current = true;
+    iosRetryCount.current = 0;
     setWebCameraErrorStatus(null);
     setWebCameraFailed(false);
     setStreamError(false);
@@ -795,6 +811,28 @@ export default function CameraScreen() {
 
   const armStreamTimeout = useCallback(() => {
     clearStreamTimeout();
+    if (Platform.OS === 'ios') {
+      if (iosInitialLoad.current) {
+        iosInitialLoad.current = false;
+        streamTimeoutRef.current = setTimeout(() => {
+          streamTimeoutRef.current = null;
+          setStreamLoading(false);
+          setStreamError(true);
+          iosRetryCount.current = 0;
+          resetZoom();
+        }, IOS_INITIAL_STREAM_TIMEOUT_MS);
+        return;
+      }
+      if (iosRetryCount.current > 0) {
+        streamTimeoutRef.current = setTimeout(() => {
+          streamTimeoutRef.current = null;
+          setStreamLoading(false);
+          setStreamError(true);
+          resetZoom();
+        }, IOS_RETRY_STREAM_TIMEOUT_MS);
+        return;
+      }
+    }
     streamTimeoutRef.current = setTimeout(() => {
       streamTimeoutRef.current = null;
       setStreamLoading(false);
@@ -810,6 +848,13 @@ export default function CameraScreen() {
   }, [armStreamTimeout]);
 
   useEffect(() => clearStreamTimeout, [clearStreamTimeout]);
+
+  useEffect(() => {
+    if (Platform.OS === 'ios' && validPrinterId && webCamera && !webCameraFailed && isFocused) {
+      iosInitialLoad.current = false;
+      iosRetryCount.current = 0;
+    }
+  }, [isFocused, validPrinterId, webCamera, webCameraFailed]);
 
   useEffect(() => {
     clearStreamTimeout();
@@ -1068,13 +1113,9 @@ export default function CameraScreen() {
         : null;
 
   useEffect(() => {
-    if (
-      streamUrl &&
-      !cameraUnavailableReason &&
-      streamLoading &&
-      !streamError &&
-      streamTimeoutRef.current == null
-    ) {
+    if (streamUrl && !cameraUnavailableReason && streamLoading && !streamError && streamTimeoutRef.current == null) {
+      iosInitialLoad.current = false;
+      iosRetryCount.current = 0;
       armStreamTimeout();
     }
   }, [armStreamTimeout, cameraUnavailableReason, streamError, streamLoading, streamUrl]);
@@ -1183,8 +1224,8 @@ export default function CameraScreen() {
         renderState(
           'Unable to load Web camera',
           webCameraErrorStatus == null
-            ? 'The Web camera page could not be loaded.'
-            : `The Web camera page could not be loaded (HTTP ${webCameraErrorStatus}).`,
+            ? 'The Web camera page could not be loaded. Check Settings → Privacy → Local Network and allow Bambuddy, then retry.'
+            : `The Web camera page could not be loaded (HTTP ${webCameraErrorStatus}). Check local network permissions and retry.`,
           'Retry',
           () => void refreshCamera(),
         )
