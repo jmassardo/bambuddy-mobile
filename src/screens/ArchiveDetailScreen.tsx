@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
+import type { RootNavigationProp, RootRouteProp, AppNavigationProp } from '@/navigation/types';
 import {
   ActivityIndicator,
   Image,
@@ -73,6 +73,7 @@ function assetToUpload(asset: Asset) {
 
 export default function ArchiveDetailScreen() {
   const navigation = useNavigation<RootNavigationProp<'ArchiveDetail'>>();
+  const rootNavigation = useNavigation<AppNavigationProp>();
   const route = useRoute<RootRouteProp<'ArchiveDetail'>>();
   const { id } = (route.params ?? {}) as { id: string };
   const archiveId = Number(id);
@@ -90,6 +91,7 @@ export default function ArchiveDetailScreen() {
     null,
   );
   const [showTimelapseFullscreen, setShowTimelapseFullscreen] = useState(false);
+  const [preview3dArchiveId, setPreview3dArchiveId] = useState<number | null>(null);
   const [timelapseError, setTimelapseError] = useState(false);
   const [timelapseRetrySeed, setTimelapseRetrySeed] = useState(0);
   const [thumbnailError, setThumbnailError] = useState(false);
@@ -190,6 +192,20 @@ export default function ArchiveDetailScreen() {
         : undefined,
     });
   }, [archive, colors.text, navigation]);
+
+  React.useEffect(() => {
+    if (preview3dArchiveId != null && archive) {
+      const source3mfPath = pickString(archive as unknown as ApiRecord, ['source_3mf_path']) as string | undefined;
+      if (source3mfPath) {
+        rootNavigation.navigate('Model3DPreview', {
+          archiveId,
+          filename: archive.print_name || archive.filename,
+          source3mfPath,
+        });
+      }
+      setPreview3dArchiveId(null);
+    }
+  }, [preview3dArchiveId, archive, archiveId, rootNavigation]);
 
   const invalidateArchiveQueries = async () => {
     await Promise.all([
@@ -482,6 +498,15 @@ export default function ArchiveDetailScreen() {
               }
             />
           </View>
+          {pickString(archive as unknown as ApiRecord, ['source_3mf_path']) ? (
+            <View style={styles.actionCell}>
+              <PrimaryButton
+                label="3D Preview"
+                variant="secondary"
+                onPress={() => setPreview3dArchiveId(archiveId)}
+              />
+            </View>
+          ) : null}
           {isSoftDeleted ? (
             <View style={styles.actionCell}>
               <PrimaryButton
