@@ -50,6 +50,7 @@ export type RootStackParamList = {
   };
   FailureAnalysis: undefined;
   WebSocketStatus: undefined;
+  TimelapseEditor: { archiveId: number };
 };
 
 export type RootNavigationProp<

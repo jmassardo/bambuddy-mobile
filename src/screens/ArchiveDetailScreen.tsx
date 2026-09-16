@@ -586,6 +586,11 @@ export default function ArchiveDetailScreen() {
             </View>
             <View style={styles.inlineActions}>
               <PrimaryButton
+                label="Edit timelapse"
+                variant="secondary"
+                onPress={() => navigation.navigate('TimelapseEditor', { archiveId })}
+              />
+              <PrimaryButton
                 label="Fullscreen"
                 variant="secondary"
                 onPress={() => setShowTimelapseFullscreen(true)}

@@ -158,6 +158,33 @@ export const archivesApi = {
   getArchiveTimelapse: (id: number): string =>
     buildMediaUrl(`/archives/${id}/timelapse`),
 
+  getArchiveTimelapseThumbnail: (id: number): string =>
+    buildMediaUrl(`/archives/${id}/timelapse/thumbnail`),
+
+  updateArchiveTimelapse: async (
+    id: number,
+    data: {
+      start_offset?: number;
+      end_offset?: number;
+      speed?: number;
+    },
+  ) =>
+    request<Record<string, unknown>>(`/archives/${id}/timelapse`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  uploadTimelapseMusic: async (archiveId: number, file: UploadableFile) =>
+    uploadFile<Record<string, unknown>>(
+      `/archives/${archiveId}/timelapse/music`,
+      file,
+    ),
+
+  removeTimelapseMusic: async (archiveId: number) =>
+    request<Record<string, unknown>>(`/archives/${archiveId}/timelapse/music`, {
+      method: 'DELETE',
+    }),
+
   getArchivePhotoUrl: (archiveId: number, filename: string): string =>
     buildMediaUrl(
       `/archives/${archiveId}/photos/${encodeURIComponent(filename)}`,

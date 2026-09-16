@@ -36,6 +36,7 @@ import SpoolBuddyScreen from '@/screens/SpoolBuddyScreen';
 import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
 import FailureAnalysisScreen from '@/screens/FailureAnalysisScreen';
 import WebSocketStatusScreen from '@/screens/WebSocketStatusScreen';
+import TimelapseEditorScreen from '@/screens/TimelapseEditorScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -216,6 +217,11 @@ export default function RootNavigator() {
         name="WebSocketStatus"
         component={WebSocketStatusScreen}
         options={{ title: 'WebSocket Status' }}
+      />
+      <Stack.Screen
+        name="TimelapseEditor"
+        component={TimelapseEditorScreen}
+        options={{ title: 'Edit Timelapse' }}
       />
     </Stack.Navigator>
   );
