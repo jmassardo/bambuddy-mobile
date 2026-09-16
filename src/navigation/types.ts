@@ -40,6 +40,14 @@ export type RootStackParamList = {
   VirtualPrinters: undefined;
   SpoolBuddy: undefined;
   ExternalLinkBrowser: { url: string; title?: string };
+  Model3DPreview: {
+    fileId?: number;
+    archiveId?: number;
+    filename: string;
+    fileUrl?: string;
+    fileSize?: number;
+    source3mfPath?: string;
+  };
 };
 
 export type RootNavigationProp<

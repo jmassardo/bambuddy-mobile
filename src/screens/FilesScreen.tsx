@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import type { MainTabNavigationProp } from '@/navigation/types';
+import type { MainTabNavigationProp, AppNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Linking,
@@ -125,6 +125,7 @@ function sortEntries(entries: ApiRecord[], sort: FileSort) {
 
 export default function FilesScreen() {
   const navigation = useNavigation<MainTabNavigationProp<'Files'>>();
+  const rootNavigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Files' });
   }, [navigation]);
@@ -148,6 +149,7 @@ export default function FilesScreen() {
   const [deleteIds, setDeleteIds] = useState<number[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [printFileId, setPrintFileId] = useState<number | null>(null);
+  const [preview3dFileId, setPreview3dFileId] = useState<number | null>(null);
   const [showExternalFolderModal, setShowExternalFolderModal] = useState(false);
   const [externalFolderName, setExternalFolderName] = useState('');
   const [externalFolderPath, setExternalFolderPath] = useState('');
@@ -276,6 +278,18 @@ export default function FilesScreen() {
   React.useEffect(() => {
     setReadmeExpanded(true);
   }, [currentFolder.id, readmeFileId]);
+
+  React.useEffect(() => {
+    if (preview3dFileId != null) {
+      const file = entries.find(item => Number(pickId(item)) === preview3dFileId);
+      if (file) {
+        const filename = pickString(file, ['filename', 'name'], 'Model');
+        const url = api.getLibraryFileDownloadUrl(preview3dFileId);
+        rootNavigation.navigate('Model3DPreview', { fileId: preview3dFileId, filename, fileUrl: url });
+      }
+      setPreview3dFileId(null);
+    }
+  }, [preview3dFileId, entries, rootNavigation]);
 
   const filteredEntries = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -688,6 +702,7 @@ export default function FilesScreen() {
                 }}
                 onPreview={() => setPreviewItem(item)}
                 onSlice={() => showToast('Slicing presets and execution are only available in the web UI for now.', 'warning')}
+                on3dPreview={() => setPreview3dFileId(id)}
               />
             </View>
           );
@@ -1084,15 +1099,26 @@ export default function FilesScreen() {
               </SectionCard>
             ) : null}
 
-            {!isFolderEntry(previewItem) && /(\.3mf|\.gcode(\.3mf)?)$/i.test(pickString(previewItem, ['filename', 'name'])) ? (
-              <PrimaryButton
-                label="Print this file"
-                onPress={() => {
-                  setPreviewItem(null);
-                  setPrintFileId(Number(pickId(previewItem)));
-                }}
-              />
-            ) : null}
+             {!isFolderEntry(previewItem) && /(\.3mf|\.gcode(\.3mf)?)$/i.test(pickString(previewItem, ['filename', 'name'])) ? (
+               <PrimaryButton
+                 label="Print this file"
+                 onPress={() => {
+                   setPreviewItem(null);
+                   setPrintFileId(Number(pickId(previewItem)));
+                 }}
+               />
+             ) : null}
+
+             {!isFolderEntry(previewItem) && /\.(stl|3mf)$/i.test(pickString(previewItem, ['filename', 'name'])) ? (
+               <PrimaryButton
+                 label="3D Preview"
+                 variant="secondary"
+                 onPress={() => {
+                   setPreview3dFileId(Number(pickId(previewItem)));
+                   setPreviewItem(null);
+                 }}
+               />
+             ) : null}
           </ScrollView>
         ) : null}
         <View style={styles.modalFooter}>
