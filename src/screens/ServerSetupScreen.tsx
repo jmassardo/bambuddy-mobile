@@ -99,6 +99,22 @@ export default function ServerConfigScreen() {
 
   const busy = connectMutation.isPending || demoMutation.isPending;
 
+  /** Shows a demo mode confirmation dialog before connecting. */
+  function handleDemo() {
+    Alert.alert(
+      'Demo Mode',
+      'You will connect to a shared demo server with sample data. Demo mode is read-only — you cannot start or manage real prints.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => void demoMutation.mutate(),
+        },
+      ],
+    );
+  }
+
   /** Initiates connection, showing a warning if the URL uses plain HTTP */
   function handleConnect() {
     const normalized = normalizeUrl(serverUrl);
@@ -187,7 +203,7 @@ export default function ServerConfigScreen() {
               label={
                 demoMutation.isPending ? 'Starting demo…' : 'Try the demo'
               }
-              onPress={() => demoMutation.mutate()}
+              onPress={handleDemo}
               variant="secondary"
               loading={demoMutation.isPending}
               disabled={connectMutation.isPending}
