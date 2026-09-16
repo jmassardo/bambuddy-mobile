@@ -318,7 +318,7 @@ export default function UsersScreen() {
                 onPress={() => { setEditGroupId(null); setShowGroupEdit(true); }}
                 style={[styles.groupAddBtn, { backgroundColor: colors.accent }]}
               >
-                <Plus size={14} color="#fff" strokeWidth={2.5} />
+                <Plus size={14} color={colors.textInverse} strokeWidth={2.5} />
               </Pressable>
             </View>
             {groups.length > 0 ? groups.map(group => {

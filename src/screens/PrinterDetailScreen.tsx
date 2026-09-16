@@ -469,7 +469,7 @@ export default function PrinterDetailScreen() {
       >
         <Image
           source={{ uri: api.getCameraSnapshotUrl(printerId) }}
-          style={styles.snapshot}
+          style={[styles.snapshot, { backgroundColor: colors.surface }]}
         />
       </Pressable>
 
@@ -1138,7 +1138,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     borderRadius: borderRadius.xl,
-    backgroundColor: '#111827',
   },
   progressTrack: {
     height: 10,

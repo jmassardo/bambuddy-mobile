@@ -1,5 +1,6 @@
 import {
   ActivityIndicator,
+  PixelRatio,
   Pressable,
   StyleSheet,
   Text,
@@ -26,6 +27,14 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
+
+// Helper to manually scale font sizes based on OS font scale.
+// Currently Text/TextInput use allowFontScaling={false} to prevent OS font scaling from breaking layouts.
+const fontScale = PixelRatio.getFontScale();
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function scaleFontSize(size: number): number {
+  return Math.round(size * fontScale);
+}
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
   settings: Settings,
@@ -78,9 +87,9 @@ export function Button({
   };
 
   const textColors: Record<ButtonVariant, string> = {
-    primary: '#ffffff',
+    primary: colors.textInverse,
     secondary: colors.text,
-    danger: '#ffffff',
+    danger: colors.textInverse,
     ghost: colors.accent,
   };
 
@@ -107,13 +116,16 @@ export function Button({
         },
         style,
       ]}
+      accessibilityLabel={title}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
     >
       {loading ? (
         <ActivityIndicator size="small" color={textColors[variant]} />
       ) : (
         <View style={styles.buttonContent}>
-          {icon && <Text style={{ fontSize: fontSizes[size], marginRight: spacing.sm }}>{icon}</Text>}
-          <Text style={[styles.buttonText, { color: textColors[variant], fontSize: fontSizes[size] }]}>
+          {icon && <Text style={{ fontSize: fontSizes[size], marginRight: spacing.sm }} allowFontScaling={false}>{icon}</Text>}
+          <Text style={[styles.buttonText, { color: textColors[variant], fontSize: fontSizes[size] }]} allowFontScaling={false}>
             {title}
           </Text>
         </View>
@@ -135,7 +147,7 @@ export function Input({ label, error, containerStyle, style, ...props }: InputPr
 
   return (
     <View style={[styles.inputContainer, containerStyle]}>
-      {label && <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>{label}</Text>}
+      {label && <Text style={[styles.inputLabel, { color: colors.textSecondary }]} allowFontScaling={false}>{label}</Text>}
       <TextInput
         style={[
           styles.input,
@@ -149,9 +161,11 @@ export function Input({ label, error, containerStyle, style, ...props }: InputPr
         placeholderTextColor={colors.inputPlaceholder}
         autoCapitalize="none"
         autoCorrect={false}
+        accessibilityLabel={label}
+        allowFontScaling={false}
         {...props}
       />
-      {error && <Text style={[styles.inputError, { color: colors.error }]}>{error}</Text>}
+      {error && <Text style={[styles.inputError, { color: colors.error }]} allowFontScaling={false}>{error}</Text>}
     </View>
   );
 }
@@ -162,9 +176,10 @@ interface CardProps {
   children: React.ReactNode;
   style?: ViewStyle;
   onPress?: () => void;
+  accessibilityLabel?: string;
 }
 
-export function Card({ children, style, onPress }: CardProps) {
+export function Card({ children, style, onPress, accessibilityLabel }: CardProps) {
   const { colors } = useTheme();
 
   const cardStyle = [
@@ -181,13 +196,15 @@ export function Card({ children, style, onPress }: CardProps) {
       <Pressable
         onPress={onPress}
         style={({ pressed }) => [...cardStyle, { opacity: pressed ? 0.8 : 1 }]}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole="button"
       >
         {children}
       </Pressable>
     );
   }
 
-  return <View style={cardStyle}>{children}</View>;
+  return <View style={cardStyle} accessibilityLabel={accessibilityLabel}>{children}</View>;
 }
 
 // --- Badge ---
@@ -220,10 +237,10 @@ export function SectionHeader({ title, action }: SectionHeaderProps) {
 
   return (
     <View style={styles.sectionHeader}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
+      <Text style={[styles.sectionTitle, { color: colors.text }]} allowFontScaling={false}>{title}</Text>
       {action && (
-        <Pressable onPress={action.onPress}>
-          <Text style={[styles.sectionAction, { color: colors.accent }]}>{action.label}</Text>
+        <Pressable onPress={action.onPress} accessibilityLabel={action.label} accessibilityRole="button">
+          <Text style={[styles.sectionAction, { color: colors.accent }]} allowFontScaling={false}>{action.label}</Text>
         </Pressable>
       )}
     </View>
@@ -251,9 +268,9 @@ export function StatCard({ label, value, icon, color }: StatCardProps) {
 
   return (
     <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-      {icon && <Text style={styles.statIcon}>{icon}</Text>}
-      <Text style={[styles.statValue, { color: color || colors.text }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
+      {icon && <Text style={styles.statIcon} allowFontScaling={false}>{icon}</Text>}
+      <Text style={[styles.statValue, { color: color || colors.text }]} allowFontScaling={false}>{value}</Text>
+      <Text style={[styles.statLabel, { color: colors.textSecondary }]} allowFontScaling={false}>{label}</Text>
     </View>
   );
 }
@@ -304,6 +321,8 @@ export function MenuItem({ icon, label, subtitle, onPress, badge, destructive }:
         styles.menuItem,
         { backgroundColor: pressed ? colors.surfaceHover : 'transparent' },
       ]}
+      accessibilityLabel={subtitle ? `${label}, ${subtitle}` : label}
+      accessibilityRole="button"
     >
       {(() => {
         const IconComponent = ICON_MAP[icon];
@@ -313,16 +332,16 @@ export function MenuItem({ icon, label, subtitle, onPress, badge, destructive }:
           </View>
         ) : (
           <View style={styles.menuIcon}>
-            <Text style={{ color: colors.textSecondary }}>{icon}</Text>
+            <Text style={{ color: colors.textSecondary }} allowFontScaling={false}>{icon}</Text>
           </View>
         );
       })()}
       <View style={styles.menuContent}>
-        <Text style={[styles.menuLabel, { color: destructive ? colors.error : colors.text }]}>
+        <Text style={[styles.menuLabel, { color: destructive ? colors.error : colors.text }]} allowFontScaling={false}>
           {label}
         </Text>
         {subtitle && (
-          <Text style={[styles.menuSubtitle, { color: colors.textTertiary }]}>{subtitle}</Text>
+          <Text style={[styles.menuSubtitle, { color: colors.textTertiary }]} allowFontScaling={false}>{subtitle}</Text>
         )}
       </View>
       {badge && <Badge label={badge} />}

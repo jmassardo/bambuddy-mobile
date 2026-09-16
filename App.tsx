@@ -4,8 +4,9 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { MutationCache, QueryClient, QueryClientProvider, QueryErrorResetBoundary } from '@tanstack/react-query';
+import { MutationCache, QueryClient, QueryClientProvider, QueryErrorResetBoundary, useQueryClient } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { useOffline } from '@/hooks/useOffline';
 import { ToastProvider } from '@/contexts/ToastContext';
 import RootNavigator from '@/navigation/RootNavigator';
 import { ThemeProvider, useTheme } from '@/theme';
@@ -26,6 +27,7 @@ const queryClient = new QueryClient({
       retry: 2,
       staleTime: 30_000,
       refetchOnWindowFocus: false,
+      gcTime: typeof jest !== 'undefined' ? 0 : undefined,
     },
     mutations: {
       retry: 0,
@@ -35,6 +37,16 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const theme = useTheme();
+  const { isOffline } = useOffline();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    queryClient.setDefaultOptions({
+      queries: {
+        refetchInterval: isOffline ? false : undefined,
+      },
+    });
+  }, [queryClient, isOffline]);
 
   return (
     <NavigationContainer

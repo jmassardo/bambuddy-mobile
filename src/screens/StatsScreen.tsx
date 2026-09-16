@@ -576,7 +576,7 @@ export default function StatsScreen() {
         <SectionCard title="Print habits" subtitle="Which days do you print most?">
           {habitsData.some(d => d.value > 0) ? (
             <SimpleBarChart
-              data={habitsData.map(d => ({ label: d.label, value: d.value, color: '#3b82f6' }))}
+              data={habitsData.map(d => ({ label: d.label, value: d.value, color: colors.info }))}
               height={160}
             />
           ) : (
@@ -587,7 +587,7 @@ export default function StatsScreen() {
         <SectionCard title="Time of day" subtitle="When you start prints during the day.">
           {hourlyData.some(d => d.value > 0) ? (
             <SimpleBarChart
-              data={hourlyData.filter((_, i) => i % 2 === 0).map(d => ({ label: d.label, value: d.value, color: '#f59e0b' }))}
+              data={hourlyData.filter((_, i) => i % 2 === 0).map(d => ({ label: d.label, value: d.value, color: colors.warning }))}
               height={160}
             />
           ) : (

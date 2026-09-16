@@ -44,14 +44,12 @@ class MockWebSocket {
   readyState = MockWebSocket.CONNECTING;
   onopen: (() => void) | null = null;
   onmessage: ((event: { data: string }) => void) | null = null;
-  onclose: ((event: { code: number }) => void) | null = null;
+  onclose: ((event: { code: number; reason?: string }) => void) | null = null;
   onerror: (() => void) | null = null;
   send = jest.fn();
   close = jest.fn(() => {
     if (this.readyState === 3) return; // already closed
     this.readyState = 3;
-    // Real WebSocket fires onclose after close() — match that behavior
-    // so tests exercise the cleanup path (e.g. clearing pingInterval).
     this.onclose?.({ code: 1000 });
   });
 
@@ -69,25 +67,33 @@ class MockWebSocket {
     this.onmessage?.({ data: JSON.stringify(payload) });
   }
 
-  emitClose(code = 1006) {
+  emitClose(code = 1006, reason?: string) {
     this.readyState = 3;
-    this.onclose?.({ code });
+    this.onclose?.({ code, reason });
+  }
+
+  triggerError() {
+    this.onerror?.();
   }
 }
 
 describe('useWebSocket', () => {
-  let latestHook: ReturnType<typeof useWebSocket> | null = null;
+  let hookRef = { current: null as ReturnType<typeof useWebSocket> | null };
 
   function HookHarness() {
-    latestHook = useWebSocket();
+    hookRef.current = useWebSocket();
     return null;
+  }
+
+  function getLatest(): ReturnType<typeof useWebSocket> | null {
+    return hookRef.current;
   }
 
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     MockWebSocket.instances = [];
-    latestHook = null;
+    hookRef.current = null;
     mockGetWebSocketToken.mockResolvedValue({ token: 'ws-token' });
     (globalThis as typeof globalThis & { WebSocket: typeof WebSocket }).WebSocket = MockWebSocket as unknown as typeof WebSocket;
     jest.spyOn(AppState, 'addEventListener').mockImplementation(() => ({ remove: jest.fn() }) as any);
@@ -151,7 +157,7 @@ describe('useWebSocket', () => {
       jest.advanceTimersByTime(100);
     });
 
-    expect(latestHook?.isConnected).toBe(true);
+    expect(getLatest()?.isConnected).toBe(true);
     expect(mockSetQueryData).toHaveBeenCalledWith(['printerStatus', 7], expect.any(Function));
 
     const updater = mockSetQueryData.mock.calls[0][1] as (old: Record<string, unknown> | undefined) => Record<string, unknown>;
@@ -187,12 +193,10 @@ describe('useWebSocket', () => {
 
     act(() => { jest.advanceTimersByTime(1500); });
     await act(async () => { await Promise.resolve(); });
-    // With jitter, might not have reconnected yet at 1.5s for 2s base
     const countAfter1_5s = MockWebSocket.instances.length;
 
     act(() => { jest.advanceTimersByTime(2000); });
     await act(async () => { await Promise.resolve(); });
-    // Should definitely have reconnected after 3.5s total
     expect(MockWebSocket.instances.length).toBeGreaterThan(countAfter1_5s);
 
     await act(async () => {
@@ -203,7 +207,6 @@ describe('useWebSocket', () => {
   it('resets backoff counter on successful connection', async () => {
     const renderer = await renderHookHarness();
 
-    // Disconnect and reconnect a few times to build up backoff
     act(() => { MockWebSocket.instances[0]?.emitClose(1006); });
     act(() => { jest.advanceTimersByTime(5000); });
     await act(async () => { await Promise.resolve(); });
@@ -212,17 +215,14 @@ describe('useWebSocket', () => {
     act(() => { jest.advanceTimersByTime(5000); });
     await act(async () => { await Promise.resolve(); });
 
-    // Now open successfully — backoff should reset
     act(() => { MockWebSocket.instances[2]?.open(); });
 
-    // Disconnect again — should use initial ~1s delay, not escalated
     act(() => { MockWebSocket.instances[2]?.emitClose(1006); });
 
     const countBefore = MockWebSocket.instances.length;
     act(() => { jest.advanceTimersByTime(1500); });
     await act(async () => { await Promise.resolve(); });
 
-    // Should have reconnected quickly (within 1.3s)
     expect(MockWebSocket.instances.length).toBeGreaterThan(countBefore);
 
     await act(async () => {
@@ -237,7 +237,6 @@ describe('useWebSocket', () => {
       MockWebSocket.instances[0]?.open();
       MockWebSocket.instances[0]?.emitMessage({ type: 'archive_created' });
       MockWebSocket.instances[0]?.emitMessage({ type: 'inventory_changed' });
-      // Debounced — advance past debounce timer
       jest.advanceTimersByTime(3000);
     });
 
@@ -290,11 +289,246 @@ describe('useWebSocket', () => {
       await Promise.resolve();
     });
 
-    // Should NOT create a second WebSocket
     expect(MockWebSocket.instances).toHaveLength(1);
 
     await act(async () => {
       renderer.unmount();
+    });
+  });
+
+  describe('error logging and recovery', () => {
+    it('captures errors from onerror handler', async () => {
+      const renderer = await renderHookHarness();
+
+      act(() => {
+        MockWebSocket.instances[0]?.open();
+        MockWebSocket.instances[0]?.triggerError();
+      });
+
+      expect(getLatest()?.errors).toHaveLength(1);
+      expect(getLatest()?.errors[0]?.message).toContain('error on attempt 1');
+      expect(getLatest()?.errors[0]?.attempt).toBe(0);
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('captures close events with non-standard codes', async () => {
+      const renderer = await renderHookHarness();
+
+      act(() => {
+        MockWebSocket.instances[0]?.emitClose(1006, 'connection timeout');
+      });
+
+      const closeErrors = (getLatest()?.errors ?? []).filter(
+        (e) => e.code === 1006,
+      );
+      expect(closeErrors).toHaveLength(1);
+      expect(closeErrors[0]?.message).toContain('code 1006');
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('captures unauthorized close as error', async () => {
+      const renderer = await renderHookHarness();
+
+      act(() => {
+        MockWebSocket.instances[0]?.emitClose(4401);
+      });
+
+      const authErrors = (getLatest()?.errors ?? []).filter(
+        (e) => e.message.includes('unauthorized'),
+      );
+      expect(authErrors).toHaveLength(1);
+      expect(authErrors[0]?.code).toBe(4401);
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('caps error queue at 50 entries', async () => {
+      const renderer = await renderHookHarness();
+
+      act(() => {
+        MockWebSocket.instances[0]?.emitClose(1006);
+        // Already capped at 50 by the hook, create more via close events
+        for (let i = 0; i < 60; i++) {
+          MockWebSocket.instances[0]?.emitClose(1000);
+        }
+      });
+
+      expect(getLatest()?.errors.length).toBeLessThanOrEqual(50);
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('triggers onError callback on error', async () => {
+      const onError = jest.fn();
+      let hook: ReturnType<typeof useWebSocket> | null = null;
+
+      function HookWithCallback() {
+        hook = useWebSocket({ onError });
+        return null;
+      }
+
+      let renderer!: ReactTestRenderer.ReactTestRenderer;
+      await act(async () => {
+        renderer = ReactTestRenderer.create(React.createElement(HookWithCallback));
+        await Promise.resolve();
+      });
+
+      act(() => {
+        MockWebSocket.instances[0]?.open();
+        MockWebSocket.instances[0]?.triggerError();
+      });
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError.mock.calls[0][0]?.message).toContain('error on attempt 1');
+      expect(onError.mock.calls[0][0]?.attempt).toBe(0);
+      expect(onError.mock.calls[0][0]?.timestamp).toBeDefined();
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('resets error queue when clearErrors is called', async () => {
+      const renderer = await renderHookHarness();
+
+      act(() => {
+        MockWebSocket.instances[0]?.open();
+        MockWebSocket.instances[0]?.triggerError();
+      });
+
+      expect(getLatest()?.errors).toHaveLength(1);
+
+      await act(async () => {
+        getLatest()?.clearErrors();
+        await Promise.resolve();
+      });
+
+      expect(getLatest()?.errors).toHaveLength(0);
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+  });
+
+  describe('reconnection callbacks', () => {
+    it('triggers onReconnect callback with attempt number', async () => {
+      const onReconnect = jest.fn();
+      let hook: ReturnType<typeof useWebSocket> | null = null;
+
+      function HookWithCallback() {
+        hook = useWebSocket({ onReconnect });
+        return null;
+      }
+
+      let renderer!: ReactTestRenderer.ReactTestRenderer;
+      await act(async () => {
+        renderer = ReactTestRenderer.create(React.createElement(HookWithCallback));
+        await Promise.resolve();
+      });
+
+      act(() => {
+        MockWebSocket.instances[0]?.emitClose(1006);
+        jest.advanceTimersByTime(1500);
+      });
+
+      // Flush async connect() microtasks
+      await act(async () => { await Promise.resolve(); });
+
+      expect(onReconnect).toHaveBeenCalledWith(0);
+
+      // Second reconnect attempt
+      act(() => {
+        MockWebSocket.instances[1]?.emitClose(1006);
+        jest.advanceTimersByTime(3000);
+      });
+
+      await act(async () => { await Promise.resolve(); });
+
+      expect(onReconnect).toHaveBeenCalledWith(1);
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('stops reconnecting after max attempts', async () => {
+      const onReconnect = jest.fn();
+      const hookRef = { current: null as ReturnType<typeof useWebSocket> | null };
+
+      function HookWithMax() {
+        hookRef.current = useWebSocket({ onReconnect });
+        return null;
+      }
+
+      let renderer!: ReactTestRenderer.ReactTestRenderer;
+      await act(async () => {
+        renderer = ReactTestRenderer.create(React.createElement(HookWithMax));
+        await Promise.resolve();
+      });
+
+      // Manually exhaust reconnect attempts
+      for (let i = 0; i < 16; i++) {
+        act(() => {
+          MockWebSocket.instances.at(-1)?.emitClose(1006);
+          jest.advanceTimersByTime(30000);
+        });
+        await act(async () => { await Promise.resolve(); });
+      }
+
+      const initialCount = MockWebSocket.instances.length;
+
+      act(() => {
+        jest.advanceTimersByTime(30000);
+      });
+      await act(async () => { await Promise.resolve(); });
+
+      // Should not create new connections after max attempts
+      expect(MockWebSocket.instances.length).toBe(initialCount);
+      expect(hookRef.current && hookRef.current.isReconnecting).toBe(false);
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('isReconnecting becomes false when connection succeeds', async () => {
+      const renderer = await renderHookHarness();
+
+      // Trigger a disconnect to set isReconnecting
+      act(() => {
+        MockWebSocket.instances[0]?.emitClose(1006);
+        jest.advanceTimersByTime(3000);
+      });
+
+      // Flush async connect() microtasks
+      await act(async () => { await Promise.resolve(); });
+
+      expect(getLatest()?.isReconnecting).toBe(true);
+
+      // Open the next connection
+      if (MockWebSocket.instances.length > 1) {
+        act(() => {
+          MockWebSocket.instances[1]?.open();
+        });
+      }
+
+      expect(getLatest()?.isReconnecting).toBe(false);
+      expect(getLatest()?.isConnected).toBe(true);
+
+      await act(async () => {
+        renderer.unmount();
+      });
     });
   });
 });

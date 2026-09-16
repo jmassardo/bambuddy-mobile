@@ -247,7 +247,7 @@ export default function EnergyScreen() {
                 { backgroundColor: selectedPrinterId === null ? colors.accent : colors.surfaceElevated },
               ]}
             >
-              <Text style={[styles.filterChipText, { color: selectedPrinterId === null ? '#fff' : colors.text }]}>
+              <Text style={[styles.filterChipText, { color: selectedPrinterId === null ? colors.textInverse : colors.text }]}>
                 All printers
               </Text>
             </Pressable>
@@ -264,7 +264,7 @@ export default function EnergyScreen() {
                 <Text
                   style={[
                     styles.filterChipText,
-                    { color: selectedPrinterId === row.printerId ? '#fff' : colors.text },
+                    { color: selectedPrinterId === row.printerId ? colors.textInverse : colors.text },
                   ]}
                 >
                   {row.printerName}

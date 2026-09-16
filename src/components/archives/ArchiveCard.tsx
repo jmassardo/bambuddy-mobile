@@ -338,12 +338,10 @@ const styles = StyleSheet.create({
   gridThumbnail: {
     width: '100%',
     aspectRatio: 16 / 10,
-    backgroundColor: '#1f2937',
   },
   listThumbnail: {
     width: '100%',
     height: 180,
-    backgroundColor: '#1f2937',
   },
   selectBadge: {
     position: 'absolute',

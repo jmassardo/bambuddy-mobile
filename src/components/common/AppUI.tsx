@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  PixelRatio,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -37,6 +38,15 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
+
+const fontScale = PixelRatio.getFontScale();
+
+// Helper to manually scale font sizes based on OS font scale.
+// Currently Text/TextInput use allowFontScaling={false} to prevent OS font scaling from breaking layouts.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function scaleFontSize(size: number): number {
+  return Math.round(size * fontScale);
+}
 
 const APP_UI_ICONS: Record<
   string,
@@ -88,6 +98,7 @@ export function SearchBar({
           style={[styles.searchInput, { color: colors.inputText }]}
           autoCapitalize="none"
           autoCorrect={false}
+          allowFontScaling={false}
           accessibilityLabel={placeholder}
           accessibilityRole="search"
         />
@@ -124,7 +135,7 @@ export const SectionCard = React.memo(function SectionCard({
       {(title || subtitle || right) && (
         <View style={styles.cardHeader}>
           <View style={styles.cardHeaderText}>
-            {title ? <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text> : null}
+            {title ? <Text style={[styles.cardTitle, { color: colors.text }]} accessibilityRole="header" accessibilityLabel={title}>{title}</Text> : null}
             {subtitle ? <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
           </View>
           {right}
@@ -175,7 +186,7 @@ export function InlineTabBar<T extends string>({
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
           >
-            <Text style={[styles.inlineTabText, { color: active ? colors.accentLight : colors.textSecondary }]}>
+            <Text style={[styles.inlineTabText, { color: active ? colors.accentLight : colors.textSecondary }]} allowFontScaling={false}>
               {tab.label}
             </Text>
           </Pressable>
@@ -210,7 +221,7 @@ export const Chip = React.memo(function Chip({
       accessibilityRole="button"
       accessibilityState={{ selected }}
     >
-      <Text style={[styles.chipText, { color: selected ? colors.accentLight : colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.chipText, { color: selected ? colors.accentLight : colors.textSecondary }]} allowFontScaling={false}>{label}</Text>
     </Pressable>
   );
 });
@@ -239,11 +250,11 @@ export function SettingRow({
       </View>
       <View style={styles.settingContent}>
         <Text style={[styles.settingLabel, { color: colors.text }]}>{label}</Text>
-        {description ? <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>{description}</Text> : null}
+        {description ? <Text style={[styles.settingDescription, { color: colors.textSecondary }]} allowFontScaling={false}>{description}</Text> : null}
       </View>
       {right ?? (
         <View style={styles.settingRight}>
-          {value ? <Text style={[styles.settingValue, { color: colors.textSecondary }]}>{value}</Text> : null}
+          {value ? <Text style={[styles.settingValue, { color: colors.textSecondary }]} allowFontScaling={false}>{value}</Text> : null}
           {onPress ? <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} /> : null}
         </View>
       )}
@@ -276,8 +287,8 @@ export const StatCard = React.memo(function StatCard({
 
   const content = (
     <View style={[styles.statCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-      <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.statValue, { color: colors.text }]} allowFontScaling={false}>{value}</Text>
+      <Text style={[styles.statLabel, { color: colors.textSecondary }]} allowFontScaling={false}>{label}</Text>
     </View>
   );
 
@@ -323,7 +334,7 @@ export function PrimaryButton({
       accessibilityRole="button"
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
     >
-      {loading ? <ActivityIndicator size="small" color={palette.text} /> : <Text style={[styles.buttonText, { color: palette.text }]}>{label}</Text>}
+      {loading ? <ActivityIndicator size="small" color={palette.text} /> : <Text style={[styles.buttonText, { color: palette.text }]} allowFontScaling={false}>{label}</Text>}
     </Pressable>
   );
 }
@@ -355,6 +366,8 @@ export function TextField({
           },
           style,
         ]}
+        accessibilityLabel={label}
+        allowFontScaling={false}
       />
       {error ? <Text style={[styles.fieldError, { color: colors.error }]}>{error}</Text> : null}
     </View>
@@ -376,7 +389,7 @@ export function FloatingActionButton({
   return (
     <Pressable onPress={onPress} style={[styles.fab, { backgroundColor: colors.accent }]} accessibilityLabel={label} accessibilityRole="button"> 
       <IconComponent size={18} color={colors.textInverse} strokeWidth={2} />
-      <Text style={[styles.fabText, { color: colors.textInverse }]}>{label}</Text>
+      <Text style={[styles.fabText, { color: colors.textInverse }]} allowFontScaling={false}>{label}</Text>
     </Pressable>
   );
 }
@@ -386,8 +399,8 @@ export const KeyValueRow = React.memo(function KeyValueRow({ label, value }: { l
 
   return (
     <View style={styles.keyValueRow}>
-      <Text style={[styles.keyValueLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.keyValueValue, { color: colors.text }]}>{value}</Text>
+      <Text style={[styles.keyValueLabel, { color: colors.textSecondary }]} allowFontScaling={false}>{label}</Text>
+      <Text style={[styles.keyValueValue, { color: colors.text }]} allowFontScaling={false}>{value}</Text>
     </View>
   );
 });
@@ -707,7 +720,7 @@ export function Button({
               <IconComponent size={fontSizes[size]} color={textColors[variant]} strokeWidth={2} />
             </View>
           )}
-          <Text style={[consolidatedStyles.buttonText, { color: textColors[variant], fontSize: fontSizes[size] }]}>
+          <Text style={[consolidatedStyles.buttonText, { color: textColors[variant], fontSize: fontSizes[size] }]} allowFontScaling={false}>
             {title}
           </Text>
         </View>
@@ -727,7 +740,7 @@ export function Input({ label, error, containerStyle, style, ...props }: InputPr
 
   return (
     <View style={[consolidatedStyles.inputContainer, containerStyle]}>
-      {label && <Text style={[consolidatedStyles.inputLabel, { color: colors.textSecondary }]}>{label}</Text>}
+      {label && <Text style={[consolidatedStyles.inputLabel, { color: colors.textSecondary }]} allowFontScaling={false}>{label}</Text>}
       <TextInput
         {...props}
         placeholderTextColor={colors.inputPlaceholder}
@@ -742,8 +755,10 @@ export function Input({ label, error, containerStyle, style, ...props }: InputPr
         ]}
         autoCapitalize="none"
         autoCorrect={false}
+        accessibilityLabel={label}
+        allowFontScaling={false}
       />
-      {error && <Text style={[consolidatedStyles.inputError, { color: colors.error }]}>{error}</Text>}
+      {error && <Text style={[consolidatedStyles.inputError, { color: colors.error }]} allowFontScaling={false}>{error}</Text>}
     </View>
   );
 }
@@ -752,9 +767,10 @@ interface CardProps {
   children: React.ReactNode;
   style?: ViewStyle;
   onPress?: () => void;
+  accessibilityLabel?: string;
 }
 
-export function Card({ children, style, onPress }: CardProps) {
+export function Card({ children, style, onPress, accessibilityLabel }: CardProps) {
   const { colors } = useTheme();
 
   const cardStyle = [
@@ -771,6 +787,7 @@ export function Card({ children, style, onPress }: CardProps) {
       <Pressable
         onPress={onPress}
         style={({ pressed }) => [...cardStyle, { opacity: pressed ? 0.8 : 1 }]}
+        accessibilityLabel={accessibilityLabel}
         accessibilityRole="button"
       >
         {children}
@@ -778,7 +795,7 @@ export function Card({ children, style, onPress }: CardProps) {
     );
   }
 
-  return <View style={cardStyle}>{children}</View>;
+  return <View style={cardStyle} accessibilityLabel={accessibilityLabel}>{children}</View>;
 }
 
 interface BadgeProps {
@@ -807,7 +824,7 @@ export function SectionHeader({ title, action }: SectionHeaderProps) {
 
   return (
     <View style={consolidatedStyles.sectionHeader}>
-      <Text style={[consolidatedStyles.sectionTitle, { color: colors.text }]}>{title}</Text>
+      <Text style={[consolidatedStyles.sectionTitle, { color: colors.text }]} allowFontScaling={false}>{title}</Text>
       {action && (
         <Pressable onPress={action.onPress} accessibilityLabel={action.label} accessibilityRole="button">
           <Text style={[consolidatedStyles.sectionAction, { color: colors.accent }]}>{action.label}</Text>
@@ -849,11 +866,11 @@ export const MenuItem = React.memo(function MenuItem({ icon, label, subtitle, on
         <IconComponent size={18} color={colors.accentLight} strokeWidth={2} />
       </View>
       <View style={consolidatedStyles.menuContent}>
-        <Text style={[consolidatedStyles.menuLabel, { color: destructive ? colors.error : colors.text }]}>
+        <Text style={[consolidatedStyles.menuLabel, { color: destructive ? colors.error : colors.text }]} allowFontScaling={false}>
           {label}
         </Text>
         {subtitle && (
-          <Text style={[consolidatedStyles.menuSubtitle, { color: colors.textTertiary }]}>{subtitle}</Text>
+          <Text style={[consolidatedStyles.menuSubtitle, { color: colors.textTertiary }]} allowFontScaling={false}>{subtitle}</Text>
         )}
       </View>
       {badge && <Badge label={badge} />}

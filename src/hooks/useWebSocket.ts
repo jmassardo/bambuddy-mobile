@@ -9,6 +9,19 @@ import { useServerStore, wsUrl } from '../api/server';
 import { useToast } from '../contexts/ToastContext';
 
 const WS_CLOSE_UNAUTHORIZED = 4401;
+const MAX_RECONNECT_ATTEMPTS = 15;
+
+export interface WebSocketError {
+  timestamp: number;
+  message: string;
+  attempt?: number;
+  code?: number;
+}
+
+export interface UseWebSocketOptions {
+  onReconnect?: (attempt: number) => void;
+  onError?: (error: WebSocketError) => void;
+}
 
 interface WebSocketMessage {
   type: string;
@@ -19,7 +32,7 @@ interface WebSocketMessage {
   run?: { pipeline_id?: number | null };
 }
 
-export function useWebSocket() {
+export function useWebSocket(options?: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
@@ -27,8 +40,11 @@ export function useWebSocket() {
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [errors, setErrors] = useState<WebSocketError[]>([]);
   const { showToast } = useToast();
   const serverUrl = useServerStore((s) => s.serverUrl);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   // Debounced invalidation
   const pendingInvalidations = useRef<Set<string>>(new Set());
@@ -78,6 +94,23 @@ export function useWebSocket() {
       }
     },
     [queryClient],
+  );
+
+  const addError = useCallback(
+    (message: string, attempt?: number, code?: number) => {
+      const error: WebSocketError = {
+        timestamp: Date.now(),
+        message,
+        attempt,
+        code,
+      };
+      setErrors((prev) => {
+        const next = [...prev, error];
+        return next.slice(-50);
+      });
+      optionsRef.current?.onError?.(error);
+    },
+    [],
   );
 
   const handleMessage = useCallback(
@@ -194,6 +227,12 @@ export function useWebSocket() {
       }
     };
 
+    ws.onerror = () => {
+      const attempt = reconnectAttemptRef.current;
+      addError(`WebSocket error on attempt ${attempt + 1}`, attempt);
+      ws.close();
+    };
+
     ws.onclose = (event) => {
       if (pingIntervalRef.current) {
         clearInterval(pingIntervalRef.current);
@@ -202,19 +241,39 @@ export function useWebSocket() {
       setIsConnected(false);
       wsRef.current = null;
 
-      if (disposedRef.current || event.code === WS_CLOSE_UNAUTHORIZED) return;
+      if (disposedRef.current) return;
+
+      if (event.code === WS_CLOSE_UNAUTHORIZED) {
+        addError(`WebSocket closed: unauthorized (code ${event.code})`, undefined, event.code);
+        return;
+      }
+
+      if (event.code !== 1000 && event.code !== 1001) {
+        addError(
+          `WebSocket closed unexpectedly (code ${event.code}, reason: ${event.reason || 'no reason'})`,
+          undefined,
+          event.code,
+        );
+      }
 
       setIsReconnecting(true);
       const attempt = reconnectAttemptRef.current++;
+
+      if (attempt >= MAX_RECONNECT_ATTEMPTS) {
+        addError(`Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
+        setIsReconnecting(false);
+        return;
+      }
+
+      optionsRef.current?.onReconnect?.(attempt);
+
       const baseDelay = Math.min(1000 * Math.pow(2, attempt), 30000);
       const jitter = baseDelay * 0.3 * Math.random();
       reconnectTimeoutRef.current = setTimeout(() => connect(), baseDelay + jitter);
     };
 
-    ws.onerror = () => ws.close();
-
     wsRef.current = ws;
-  }, [serverUrl]);
+  }, [serverUrl, addError]);
 
   // App state handling — disconnect when backgrounded, reconnect when foregrounded
   useEffect(() => {
@@ -254,5 +313,9 @@ export function useWebSocket() {
     }
   }, []);
 
-  return { isConnected, isReconnecting, sendMessage };
+  const clearErrors = useCallback(() => {
+    setErrors([]);
+  }, []);
+
+  return { isConnected, isReconnecting, errors, sendMessage, clearErrors };
 }

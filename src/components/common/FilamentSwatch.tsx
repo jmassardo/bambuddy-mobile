@@ -1,4 +1,6 @@
 import { StyleSheet, View } from 'react-native';
+import { useTheme } from '@/theme';
+
 interface FilamentSwatchProps {
   color: string;
   size?: number;
@@ -8,8 +10,11 @@ interface FilamentSwatchProps {
 export function FilamentSwatch({
   color,
   size = 24,
-  borderColor = '#3f3f46',
+  borderColor,
 }: FilamentSwatchProps) {
+  const { colors } = useTheme();
+  const resolvedBorder = borderColor ?? colors.border;
+
   // Parse color — Bambu sends colors as hex without # prefix
   const normalizedColor = color.startsWith('#')
     ? color
@@ -24,7 +29,7 @@ export function FilamentSwatch({
           width: size,
           height: size,
           borderRadius: size / 4,
-          borderColor,
+          borderColor: resolvedBorder,
         },
       ]}
     />

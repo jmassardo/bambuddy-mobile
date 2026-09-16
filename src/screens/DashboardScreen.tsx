@@ -689,7 +689,7 @@ export default function PrintersDashboardScreen() {
                 onPress={() => setShowAddPrinter(true)}
                 style={[styles.addBtn, { backgroundColor: colors.accent }]}
               >
-                <Plus size={18} color="#fff" strokeWidth={2.5} />
+                <Plus size={18} color={colors.textInverse} strokeWidth={2.5} />
               </Pressable>
             </View>
 
