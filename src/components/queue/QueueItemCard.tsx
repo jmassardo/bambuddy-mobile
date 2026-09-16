@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -9,6 +9,7 @@ import {
 import {
   CheckCircle,
   Clock3,
+  GripVertical,
   Layers,
   Pause,
   Play,
@@ -19,6 +20,15 @@ import {
   Trash2,
   X,
 } from 'lucide-react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  cancelAnimation,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { withStreamToken } from '@/api/client';
 import { useServerStore } from '@/api/server';
 import { StatusBadge } from '@/components/common/AppUI';
@@ -35,6 +45,12 @@ import {
   formatDuration,
   formatWeight,
 } from '@/utils/data';
+import HapticFeedback from 'react-native-haptic-feedback';
+
+const HAPTIC_OPTIONS = {
+  enableVibrateFallback: true,
+  ignoreAndroidSystemSettings: false,
+};
 
 type QueueActionIconName = 'play' | 'printer' | 'x' | 'trash' | 'pause' | 'stop' | 'refresh';
 
@@ -65,6 +81,8 @@ interface QueueItemCardProps {
   onReassign?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onReorder?: (direction: 'up' | 'down') => void;
+  dragEnabled?: boolean;
 }
 
 function statusPresentation(
@@ -150,13 +168,33 @@ function OptionChip({
   );
 }
 
-export function QueueItemCard({
+interface QueueItemCardContentProps {
+  item: PrintQueueItem;
+  printerState?: string | null;
+  selected?: boolean;
+  showSelection?: boolean;
+  _onPress?: () => void;
+  _onLongPress?: () => void;
+  onToggleSelect?: () => void;
+  onStart?: () => void;
+  onCancel?: () => void;
+  onPause?: () => void;
+  onStop?: () => void;
+  onDelete?: () => void;
+  onRetry?: () => void;
+  onReassign?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  dragEnabled?: boolean;
+}
+
+export function QueueItemCardContent({
   item,
   printerState,
   selected = false,
   showSelection = false,
-  onPress,
-  onLongPress,
+  _onPress,
+  _onLongPress,
   onToggleSelect,
   onStart,
   onCancel,
@@ -167,7 +205,8 @@ export function QueueItemCard({
   onReassign,
   onMoveUp,
   onMoveDown,
-}: QueueItemCardProps) {
+  dragEnabled = false,
+}: QueueItemCardContentProps) {
   const { colors } = useTheme();
   const serverUrl = useServerStore(s => s.serverUrl);
 
@@ -237,78 +276,76 @@ export function QueueItemCard({
   const hasPendingActions = !!onStart || !!onReassign || !!onCancel || !!onDelete;
   const hasPrintingActions = !!onPause || !!onStop;
   const hasHistoryActions = !!onRetry || !!onDelete;
-  const hasReorderActions = !!onMoveUp || !!onMoveDown;
+  const hasReorderActions = !!onMoveUp || !!onMoveDown || dragEnabled;
   const shouldShowFooter = hasPendingActions || hasPrintingActions || hasHistoryActions || hasReorderActions;
 
   return (
-    <Pressable
-      onPress={onPress}
-      onLongPress={onLongPress}
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.card,
         {
           backgroundColor: selected ? colors.accentBg : colors.card,
           borderColor: selected ? colors.accent : colors.cardBorder,
-          opacity: pressed ? 0.96 : 1,
         },
       ]}
     >
       <View style={styles.headerRow}>
-        <View style={styles.headerLeft}>
-          {showSelection ? (
-            <Pressable
-              onPress={onToggleSelect}
-              style={[
-                styles.selectBox,
-                {
-                  backgroundColor: selected ? colors.accent : 'transparent',
-                  borderColor: selected ? colors.accent : colors.border,
-                },
-              ]}
-            >
-              {selected ? (
-                <CheckCircle size={16} color={colors.textInverse} strokeWidth={2} />
-              ) : null}
-            </Pressable>
-          ) : null}
-          <View
+        {dragEnabled ? (
+          <View style={styles.gripHandle}>
+            <GripVertical size={16} color={colors.textTertiary} strokeWidth={2} />
+          </View>
+        ) : null}
+        {showSelection ? (
+          <Pressable
+            onPress={onToggleSelect}
             style={[
-              styles.thumbnailWrap,
-              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+              styles.selectBox,
+              {
+                backgroundColor: selected ? colors.accent : 'transparent',
+                borderColor: selected ? colors.accent : colors.border,
+              },
             ]}
           >
-            {thumbnailUri && !thumbError ? (
-              <>
-                <Image
-                  source={{ uri: thumbnailUri }}
-                  style={styles.thumbnail}
-                  onError={() => setThumbError(true)}
-                />
-              </>
-            ) : (
-              <Layers size={20} color={colors.textTertiary} strokeWidth={2} />
-            )}
-          </View>
-          <View style={styles.titleGroup}>
-            <View style={styles.titleRow}>
-              <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
-                {title}
-              </Text>
-              {item.batch_name ? (
-                <View
-                  style={[
-                    styles.batchBadge,
-                    { backgroundColor: colors.infoBg, borderColor: `${colors.info}44` },
-                  ]}
-                >
-                  <Text style={[styles.batchBadgeText, { color: colors.infoLight }]}>Batch</Text>
-                </View>
-              ) : null}
-            </View>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={2}>
-              {printerLabel}
+            {selected ? (
+              <CheckCircle size={16} color={colors.textInverse} strokeWidth={2} />
+            ) : null}
+          </Pressable>
+        ) : null}
+        <View
+          style={[
+            styles.thumbnailWrap,
+            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+          ]}
+        >
+          {thumbnailUri && !thumbError ? (
+            <Image
+              source={{ uri: thumbnailUri }}
+              style={styles.thumbnail}
+              onError={() => setThumbError(true)}
+            />
+          ) : (
+            <Layers size={20} color={colors.textTertiary} strokeWidth={2} />
+          )}
+        </View>
+        <View style={styles.titleGroup}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
+              {title}
             </Text>
+            {item.batch_name ? (
+              <View
+                style={[
+                  styles.batchBadge,
+                  { backgroundColor: colors.infoBg, borderColor: `${colors.info}44` },
+                ]}
+              >
+                <Text style={[styles.batchBadgeText, { color: colors.infoLight }]}>Batch</Text>
+              </View>
+            ) : null}
           </View>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={2}>
+            {printerLabel}
+          </Text>
         </View>
         <View style={styles.headerRight}>
           <StatusBadge label={status.label} color={status.color} />
@@ -398,21 +435,28 @@ export function QueueItemCard({
       ) : null}
 
       {shouldShowFooter ? (
-        <View style={[styles.footerRow, { borderColor: colors.borderSubtle }]}> 
-          <View style={styles.reorderRow}>
-            <QueueActionButton
-              label="Move ↑"
-              onPress={onMoveUp}
-              color={colors.textSecondary}
-              subtle
-            />
-            <QueueActionButton
-              label="Move ↓"
-              onPress={onMoveDown}
-              color={colors.textSecondary}
-              subtle
-            />
-          </View>
+        <View style={[styles.footerRow, { borderColor: colors.borderSubtle }]}>
+          {dragEnabled ? (
+            <View style={styles.reorderRow}>
+              <Text style={[styles.reorderHint, { color: colors.textTertiary }]}>Drag to reorder</Text>
+            </View>
+          ) : null}
+          {hasReorderActions && !dragEnabled ? (
+            <View style={styles.reorderRow}>
+              <QueueActionButton
+                label="Move ↑"
+                onPress={onMoveUp}
+                color={colors.textSecondary}
+                subtle
+              />
+              <QueueActionButton
+                label="Move ↓"
+                onPress={onMoveDown}
+                color={colors.textSecondary}
+                subtle
+              />
+            </View>
+          ) : null}
           <View style={styles.actionsRow}>
             {item.status === 'pending' ? (
               <>
@@ -465,7 +509,164 @@ export function QueueItemCard({
       {item.status === 'completed' && item.filament_used_grams ? (
         <Text style={[styles.costHint, { color: colors.textTertiary }]}>Estimated material cost {formatCurrency((item.filament_used_grams / 1000) * 24)}</Text>
       ) : null}
-    </Pressable>
+    </View>
+  );
+}
+
+export function QueueItemCard({
+  item,
+  printerState,
+  selected = false,
+  showSelection = false,
+  onPress,
+  onLongPress,
+  onToggleSelect,
+  onStart,
+  onCancel,
+  onPause,
+  onStop,
+  onDelete,
+  onRetry,
+  onReassign,
+  onMoveUp,
+  onMoveDown,
+  onReorder,
+  dragEnabled = false,
+}: QueueItemCardProps) {
+  const { colors } = useTheme();
+  const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+  const isDragging = useSharedValue(false);
+  const animationRef = useRef<{ animate: () => void } | null>(null);
+
+  const handleLongPress = useCallback(() => {
+    if (onLongPress) {
+      onLongPress();
+    }
+  }, [onLongPress]);
+
+  const resetAnimation = useCallback(() => {
+    translateY.value = withSpring(0);
+    scale.value = withSpring(1);
+    opacity.value = withTiming(0.6, { duration: 150 });
+    isDragging.value = false;
+
+    animationRef.current = {
+      animate() {
+        opacity.value = withTiming(1, { duration: 150 });
+      },
+    };
+  }, [translateY, scale, opacity, isDragging]);
+
+  const handleReorder = useCallback((direction: 'up' | 'down') => {
+    if (onReorder) {
+      onReorder(direction);
+    } else if (direction === 'up') {
+      onMoveUp?.();
+    } else {
+      onMoveDown?.();
+    }
+  }, [onReorder, onMoveUp, onMoveDown]);
+
+  const panGesture = Gesture
+    .Pan()
+    .minDistance(0)
+    .onStart(() => {
+      'worklet';
+      cancelAnimation(translateY);
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
+      isDragging.value = true;
+      HapticFeedback.trigger('impactMedium', HAPTIC_OPTIONS);
+    })
+    .onUpdate(event => {
+      'worklet';
+      translateY.value = event.translationY;
+      const absDelta = Math.abs(event.translationY);
+      scale.value = 1 - Math.min(absDelta / 200, 0.08);
+      opacity.value = 1 - Math.min(absDelta / 300, 0.3);
+    })
+    .onEnd((event, success) => {
+      'worklet';
+      if (!success) {
+        runOnJS(resetAnimation)();
+        return;
+      }
+      const distance = event.translationY;
+      if (Math.abs(distance) > 30) {
+        const direction: 'up' | 'down' = distance < 0 ? 'up' : 'down';
+        runOnJS(handleReorder)(direction);
+      }
+      runOnJS(resetAnimation)();
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+    opacity: opacity.value,
+  }));
+
+  if (!dragEnabled) {
+    return (
+      <QueueItemCardContent
+        item={item}
+        printerState={printerState}
+        selected={selected}
+        showSelection={showSelection}
+        _onPress={onPress}
+        _onLongPress={onLongPress}
+        onToggleSelect={onToggleSelect}
+        onStart={onStart}
+        onCancel={onCancel}
+        onPause={onPause}
+        onStop={onStop}
+        onDelete={onDelete}
+        onRetry={onRetry}
+        onReassign={onReassign}
+        onMoveUp={onMoveUp}
+        onMoveDown={onMoveDown}
+      />
+    );
+  }
+
+  return (
+    <GestureDetector gesture={panGesture}>
+      <Animated.View style={[animatedStyle]}>
+        <Pressable
+          onPress={onPress}
+          onLongPress={handleLongPress}
+          style={({ pressed }) => [
+            styles.card,
+            {
+              backgroundColor: selected ? colors.accentBg : colors.card,
+              borderColor: selected ? colors.accent : colors.cardBorder,
+              opacity: pressed && !isDragging.value ? 0.96 : 1,
+            },
+          ]}
+        >
+          <QueueItemCardContent
+            item={item}
+            printerState={printerState}
+            selected={selected}
+            showSelection={showSelection}
+            onToggleSelect={onToggleSelect}
+            onStart={onStart}
+            onCancel={onCancel}
+            onPause={onPause}
+            onStop={onStop}
+            onDelete={onDelete}
+            onRetry={onRetry}
+            onReassign={onReassign}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            dragEnabled
+          />
+        </Pressable>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -480,6 +681,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: spacing.md,
+  },
+  gripHandle: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
   },
   headerLeft: {
     flex: 1,
@@ -628,6 +835,10 @@ const styles = StyleSheet.create({
   reorderRow: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  reorderHint: {
+    fontSize: fontSize.xs,
+    fontStyle: 'italic',
   },
   actionsRow: {
     flexDirection: 'row',
