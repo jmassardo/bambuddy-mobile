@@ -2899,6 +2899,23 @@ export interface CloudProfileDetail extends SlicerSettingDetail {
   inherits_from?: string | null;
 }
 
+export interface CloudPerProfileSyncState {
+  setting_id: string;
+  name?: string | null;
+  enabled: boolean;
+  last_sync_at?: string | null;
+  last_synced_at?: string | null;
+  error?: string | null;
+  sync_state?: CloudProfileSyncState | string | null;
+  syncing?: boolean | null;
+  last_sync_result?: 'success' | 'failed' | 'skipped' | string | null;
+}
+
+export interface CloudPerProfileSyncResponse {
+  profiles: CloudPerProfileSyncState[];
+  auto_sync?: boolean | null;
+}
+
 export interface CloudProfileDiffField {
   path: string;
   left_value: unknown;
