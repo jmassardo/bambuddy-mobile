@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-shadow -- Test file with React imports shadowing globals */
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import StatsScreen from '@/screens/StatsScreen';

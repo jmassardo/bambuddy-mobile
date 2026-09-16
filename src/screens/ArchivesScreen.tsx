@@ -169,6 +169,7 @@ export default function ArchivesScreen() {
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
+       
       title: 'Archives',
       headerRight: () => (
         <Pressable onPress={() => setShowExportModal(true)} style={styles.headerButton} hitSlop={8}>

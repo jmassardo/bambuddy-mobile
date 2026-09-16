@@ -291,8 +291,8 @@ export default function PrinterDetailScreen() {
       showToast(getErrorMessage(error, 'Unable to home the printer.'), 'error'),
   });
 
-  const heaterHistorySeries = heaterHistoryQuery.data?.series ?? [];
   const heaterHistory = React.useMemo(() => {
+    const heaterHistorySeries = heaterHistoryQuery.data?.series ?? [];
     const pointsByKind: Record<
       SupportedHeaterKind,
       Map<string, { value: number | null; target: number | null }>
@@ -346,7 +346,7 @@ export default function PrinterDetailScreen() {
       points,
       chamberHasData,
     };
-  }, [heaterHistorySeries, heaterRange]);
+  }, [heaterHistoryQuery.data?.series, heaterRange]);
 
   const heaterChartSeries = React.useMemo(
     () => [

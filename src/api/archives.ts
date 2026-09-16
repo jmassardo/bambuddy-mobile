@@ -233,4 +233,9 @@ export const archivesApi = {
     }
     return request<Record<string, unknown>>(`/archives/stats?${searchParams}`);
   },
+
+  sliceArchive: async (id: number) =>
+    request<Record<string, unknown>>(`/archives/${id}/slice`, {
+      method: 'POST',
+    }),
 };

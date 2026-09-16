@@ -741,13 +741,17 @@ function SelectionModal({
                 </Pressable>
               );
             }}
-            ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+            ItemSeparatorComponent={SelectionItemSeparator}
           />
           <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
         </Pressable>
       </Pressable>
     </Modal>
   );
+}
+
+function SelectionItemSeparator() {
+  return <View style={{ height: spacing.sm }} />;
 }
 
 const styles = StyleSheet.create({

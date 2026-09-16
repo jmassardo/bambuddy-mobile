@@ -111,7 +111,7 @@ export function GeneralSettingsSection({ controller }: { controller: SettingsScr
         />
         <SwitchRow label="Check for updates" description="Automatically look for Bambuddy updates." value={Boolean(draft.check_updates ?? true)} onValueChange={value => setDraft(current => ({ ...current, check_updates: value }))} />
         <SwitchRow label="Check printer firmware" description="Include printer firmware updates in the check flow." value={Boolean(draft.check_printer_firmware ?? true)} onValueChange={value => setDraft(current => ({ ...current, check_printer_firmware: value }))} />
-        <SwitchRow label="Include beta updates" description="Receive prerelease update notifications." value={Boolean(draft.include_beta_updates)} onValueChange={value => setDraft(current => ({ ...current, include_beta_updates: value }))} disabled={!Boolean(draft.check_updates ?? true)} />
+        <SwitchRow label="Include beta updates" description="Receive prerelease update notifications." value={Boolean(draft.include_beta_updates)} onValueChange={value => setDraft(current => ({ ...current, include_beta_updates: value }))} disabled={!(draft.check_updates ?? true)} />
       </SectionCard>
     </>
   );

@@ -19,7 +19,7 @@ import {
   Card,
   Input,
   SectionHeader,
-} from '@/components/common/UIComponents';
+} from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import {
   EmptyState,

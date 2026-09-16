@@ -50,7 +50,7 @@ export function FilamentSettingsSection({ controller }: { controller: SettingsSc
             void saveSpoolmanAutoSyncMutation.mutateAsync(value);
           }}
           description="Automatically sync Spoolman inventory updates into BambuBuddy."
-          disabled={saveSpoolmanAutoSyncMutation.isPending || !Boolean(draft.spoolman_enabled)}
+          disabled={saveSpoolmanAutoSyncMutation.isPending || !draft.spoolman_enabled}
         />
         <SwitchRow label="Auto add unknown RFID" value={Boolean(draft.auto_add_unknown_rfid)} onValueChange={value => setDraft(current => ({ ...current, auto_add_unknown_rfid: value }))} />
         <TextField label="Spoolman URL" value={String(draft.spoolman_url ?? '')} onChangeText={value => setDraft(current => ({ ...current, spoolman_url: value }))} autoCapitalize="none" />
@@ -66,14 +66,14 @@ export function FilamentSettingsSection({ controller }: { controller: SettingsSc
           variant="secondary"
           onPress={() => void testSpoolmanMutation.mutateAsync()}
           loading={testSpoolmanMutation.isPending}
-          disabled={testSpoolmanMutation.isPending || !String(draft.spoolman_url ?? '').trim() || !Boolean(draft.spoolman_enabled)}
+          disabled={testSpoolmanMutation.isPending || !String(draft.spoolman_url ?? '').trim() || !draft.spoolman_enabled}
         />
         <PrimaryButton
           label={syncSpoolmanMutation.isPending ? 'Syncing…' : 'Sync now'}
           variant="secondary"
           onPress={() => void syncSpoolmanMutation.mutateAsync()}
           loading={syncSpoolmanMutation.isPending}
-          disabled={syncSpoolmanMutation.isPending || !Boolean(draft.spoolman_enabled)}
+          disabled={syncSpoolmanMutation.isPending || !draft.spoolman_enabled}
         />
       </SectionCard>
     </>

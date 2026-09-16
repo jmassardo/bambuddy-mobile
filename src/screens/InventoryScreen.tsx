@@ -597,7 +597,7 @@ export default function InventoryScreen() {
         data={viewMode === 'cards' ? filteredSpools : []}
         keyExtractor={item => pickString(item, ['id'])}
         contentContainerStyle={styles.content}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+        ItemSeparatorComponent={InventoryItemSeparator}
         refreshControl={
           <RefreshControl
             refreshing={spoolsQuery.isRefetching || assignmentsQuery.isRefetching}
@@ -1232,6 +1232,10 @@ function InventoryCard({
       </View>
     </Pressable>
   );
+}
+
+function InventoryItemSeparator() {
+  return <View style={{ height: spacing.md }} />;
 }
 
 const styles = StyleSheet.create({

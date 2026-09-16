@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-shadow -- Test file with React imports shadowing globals */
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import EnergyScreen, { getEnergyRangeParams } from '@/screens/EnergyScreen';

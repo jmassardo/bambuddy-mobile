@@ -32,9 +32,9 @@ export default function MainNavigator() {
         headerStyle: { backgroundColor: theme.colors.surface },
         headerTintColor: theme.colors.text,
         headerTitleStyle: { color: theme.colors.text, fontWeight: '700' },
-        tabBarIcon: ({ color }) => {
+        tabBarIcon: ({ color, size }) => {
           const IconComponent = TAB_ICONS[route.name] || Menu;
-          return <IconComponent size={22} color={color} />;
+          return <IconComponent size={size} color={color} />;
         },
         tabBarActiveTintColor: theme.colors.accent,
         tabBarInactiveTintColor: theme.colors.textSecondary,

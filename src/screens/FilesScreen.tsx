@@ -567,6 +567,15 @@ export default function FilesScreen() {
     onError: (error: Error) => showToast(error.message || 'Unable to update file tags.', 'error'),
   });
 
+  const sliceMutation = useMutation({
+    mutationFn: (id: number) => api.sliceFile(id),
+    onSuccess: async () => {
+      await invalidateFiles();
+      showToast('File slicing started. It may take a few minutes to complete.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to slice the file.', 'error'),
+  });
+
   const toggleSelected = (id: number) => {
     setSelectedIds(current =>
       current.includes(id) ? current.filter(value => value !== id) : [...current, id],
@@ -701,7 +710,9 @@ export default function FilesScreen() {
                   });
                 }}
                 onPreview={() => setPreviewItem(item)}
-                onSlice={() => showToast('Slicing presets and execution are only available in the web UI for now.', 'warning')}
+                onSlice={() => {
+                  void sliceMutation.mutateAsync(Number(pickId(item)));
+                }}
               />
             </View>
           );

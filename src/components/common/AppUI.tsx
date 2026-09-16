@@ -117,7 +117,7 @@ export function SearchBar({
   );
 }
 
-export const SectionCard = React.memo(function SectionCard({
+export const SectionCard = React.memo(function SectionCardComponent({
   title,
   subtitle,
   right,
@@ -146,7 +146,7 @@ export const SectionCard = React.memo(function SectionCard({
   );
 });
 
-export const StatusBadge = React.memo(function StatusBadge({ label, color }: { label: string; color: string }) {
+export const StatusBadge = React.memo(function StatusBadgeComponent({ label, color }: { label: string; color: string }) {
   const { colors } = useTheme();
 
   return (
@@ -196,7 +196,7 @@ export function InlineTabBar<T extends string>({
   );
 }
 
-export const Chip = React.memo(function Chip({
+export const Chip = React.memo(function ChipComponent({
   label,
   selected,
   onPress,
@@ -272,7 +272,7 @@ export function SettingRow({
   return <View style={[styles.rowPressable, { borderBottomColor: colors.borderSubtle }]}>{content}</View>;
 }
 
-export const StatCard = React.memo(function StatCard({
+export const StatCard = React.memo(function StatCardComponent({
   label,
   value,
   helper: _helper,
@@ -394,7 +394,7 @@ export function FloatingActionButton({
   );
 }
 
-export const KeyValueRow = React.memo(function KeyValueRow({ label, value }: { label: string; value: string }) {
+export const KeyValueRow = React.memo(function KeyValueRowComponent({ label, value }: { label: string; value: string }) {
   const { colors } = useTheme();
 
   return (
@@ -641,7 +641,6 @@ export function ProgressBar({
   );
 }
 
-// --- Components consolidated from UIComponents.tsx ---
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -848,7 +847,7 @@ interface MenuItemProps {
   destructive?: boolean;
 }
 
-export const MenuItem = React.memo(function MenuItem({ icon, label, subtitle, onPress, badge, destructive }: MenuItemProps) {
+export const MenuItem = React.memo(function MenuItemComponent({ icon, label, subtitle, onPress, badge, destructive }: MenuItemProps) {
   const { colors } = useTheme();
   const IconComponent = APP_UI_ICONS[icon] ?? Circle;
 

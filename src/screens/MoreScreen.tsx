@@ -4,7 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import type { MainTabNavigationProp, RootStackParamList } from '@/navigation/types';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
-import { MenuItem, SectionHeader } from '@/components/common/UIComponents';
+import { MenuItem, SectionHeader } from '@/components/common/AppUI';
 import { useServerStore } from '@/api/server';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
