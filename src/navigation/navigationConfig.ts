@@ -1,5 +1,6 @@
 import type { ExternalLink } from '@/types/api';
 import type { MainTabParamList, RootStackParamList } from './types';
+import type { CustomNavItem } from '@/store/navigationStore';
 
 export type BuiltInNavId =
   | 'dashboard'
@@ -68,6 +69,7 @@ export type NavigationLayout = {
   tabItems: BuiltInNavigationItem[];
   moreItems: BuiltInNavigationItem[];
   externalLinks: ExternalLink[];
+  customNavItems: CustomNavItem[];
 };
 
 export function parseNavigationOrder(raw: string | null | undefined): string[] {
@@ -130,6 +132,7 @@ function sortExternalLinks(links: ExternalLink[]): ExternalLink[] {
 export function getNavigationLayout(input: {
   defaultSidebarOrder?: string | null;
   externalLinks?: ExternalLink[] | null;
+  customNavItems?: CustomNavItem[];
   maxTabs?: number;
 }): NavigationLayout {
   const maxTabs = Math.max(1, input.maxTabs ?? 5);
@@ -176,5 +179,6 @@ export function getNavigationLayout(input: {
     tabItems,
     moreItems,
     externalLinks: sortExternalLinks(input.externalLinks ?? []),
+    customNavItems: input.customNavItems ?? [],
   };
 }

@@ -34,6 +34,7 @@ import {
   DEFAULT_MQTT_FORM,
   DEFAULT_SMTP_SETTINGS,
   EMPTY_CAMERA_TOKEN_FORM,
+  EMPTY_CUSTOM_NAV_ITEM_FORM,
   EMPTY_EXTERNAL_CAMERA_FORM,
   EMPTY_EXTERNAL_LINK_FORM,
   EMPTY_GITHUB_BACKUP_FORM,
@@ -44,6 +45,7 @@ import {
 } from './constants';
 import type {
   CameraTokenFormState,
+  CustomNavItemFormState,
   ExternalCameraFormState,
   ExternalLinkFormState,
   GitHubBackupFormState,
@@ -55,6 +57,7 @@ import type {
   UserPanelKey,
   VirtualPrinterFormState,
 } from './types';
+import { useCustomNavStore } from '@/store/navigationStore';
 
 const DEFAULT_NAVIGATION_ORDER = BUILT_IN_NAV_ITEMS.map(item => item.id);
 
@@ -97,6 +100,9 @@ export function useSettingsScreenController() {
   const [externalLinkModalVisible, setExternalLinkModalVisible] = useState(false);
   const [externalLinkForm, setExternalLinkForm] = useState<ExternalLinkFormState>(EMPTY_EXTERNAL_LINK_FORM);
   const [pendingDeleteExternalLink, setPendingDeleteExternalLink] = useState<ApiRecord | null>(null);
+  const [customNavModalVisible, setCustomNavModalVisible] = useState(false);
+  const [editingCustomNav, setEditingCustomNav] = useState<ApiRecord | null>(null);
+  const [customNavForm, setCustomNavForm] = useState<CustomNavItemFormState>(EMPTY_CUSTOM_NAV_ITEM_FORM);
   const [editingExternalCamera, setEditingExternalCamera] = useState<ApiRecord | null>(null);
   const [externalCameraModalVisible, setExternalCameraModalVisible] = useState(false);
   const [externalCameraForm, setExternalCameraForm] = useState<ExternalCameraFormState>(EMPTY_EXTERNAL_CAMERA_FORM);
@@ -856,6 +862,10 @@ export function useSettingsScreenController() {
     onError: (error: Error) => showToast(error.message || 'Unable to remove linked account.', 'error'),
   });
 
+  const saveCustomNavMutation = useMutation({
+    mutationFn: async () => undefined,
+  });
+
   const sectionSummaries = useMemo(
     () => ({
       settings: settingsQuery.data,
@@ -870,6 +880,7 @@ export function useSettingsScreenController() {
       advancedAuthStatus: advancedAuthQuery.data,
       githubBackupStatus: githubBackupQuery.data,
       mqttStatus: mqttStatusQuery.data,
+      customNavItems: useCustomNavStore.getState().items,
     }),
     [
       advancedAuthQuery.data,
@@ -895,6 +906,7 @@ export function useSettingsScreenController() {
     section === 'mqtt' ||
     section === 'failure-detection' ||
     section === 'backup' ||
+    section === 'custom-navigation' ||
     (section === 'users' && userPanel === 'auth');
 
   function closeProviderModal() {
@@ -971,6 +983,52 @@ export function useSettingsScreenController() {
       setExternalLinkForm(EMPTY_EXTERNAL_LINK_FORM);
     }
     setExternalLinkModalVisible(true);
+  }
+
+  function closeCustomNavModal() {
+    setCustomNavModalVisible(false);
+    setEditingCustomNav(null);
+    setCustomNavForm(EMPTY_CUSTOM_NAV_ITEM_FORM);
+  }
+
+  function openCustomNavModal(item?: ApiRecord) {
+    if (item) {
+      setEditingCustomNav(item);
+      setCustomNavForm({
+        name: pickString(item, ['name']),
+        url: pickString(item, ['url']),
+        icon: pickString(item, ['icon'], 'link'),
+        open_in_new_tab: pickBoolean(item, ['open_in_new_tab'], true),
+        sort_order: String(pickNumber(item, ['sort_order'], 0)),
+      });
+    } else {
+      setEditingCustomNav(null);
+      setCustomNavForm(EMPTY_CUSTOM_NAV_ITEM_FORM);
+    }
+    setCustomNavModalVisible(true);
+  }
+
+  function handleSaveCustomNav() {
+    if (!customNavForm.name.trim() || !customNavForm.url.trim()) {
+      showToast('Name and URL are required.', 'error');
+      return;
+    }
+    if (!/^https?:\/\//i.test(customNavForm.url.trim())) {
+      showToast('URL must start with http:// or https://', 'error');
+      return;
+    }
+    useCustomNavStore.getState().updateItem(
+      pickString(editingCustomNav, ['id']),
+      {
+        name: customNavForm.name.trim(),
+        url: customNavForm.url.trim(),
+        icon: customNavForm.icon,
+        open_in_new_tab: customNavForm.open_in_new_tab,
+        sort_order: Number(customNavForm.sort_order) || 0,
+      },
+    );
+    closeCustomNavModal();
+    showToast(editingCustomNav ? 'Custom link updated.' : 'Custom link added.', 'success');
   }
 
   function closeExternalCameraModal() {
@@ -1286,6 +1344,9 @@ export function useSettingsScreenController() {
       externalLinkModalVisible,
       externalLinkForm,
       pendingDeleteExternalLink,
+      customNavModalVisible,
+      editingCustomNav,
+      customNavForm,
       editingExternalCamera,
       externalCameraModalVisible,
       externalCameraForm,
@@ -1401,6 +1462,7 @@ export function useSettingsScreenController() {
       confirmEnableEmailOTPMutation,
       disableEmailOTPMutation,
       unlinkOIDCLinkMutation,
+      saveCustomNavMutation,
     },
     derived: {
       sectionSummaries,
@@ -1433,6 +1495,9 @@ export function useSettingsScreenController() {
       setExternalLinkModalVisible,
       setExternalLinkForm,
       setPendingDeleteExternalLink,
+      setCustomNavModalVisible,
+      setEditingCustomNav,
+      setCustomNavForm,
       setEditingExternalCamera,
       setExternalCameraModalVisible,
       setExternalCameraForm,
@@ -1474,6 +1539,9 @@ export function useSettingsScreenController() {
       openPlugModal,
       closeExternalLinkModal,
       openExternalLinkModal,
+      closeCustomNavModal,
+      openCustomNavModal,
+      handleSaveCustomNav,
       closeVirtualPrinterModal,
       openVirtualPrinterModal,
       handleProviderSave,

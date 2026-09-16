@@ -6,6 +6,7 @@ import type {
 import { pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import type {
   CameraTokenFormState,
+  CustomNavItemFormState,
   ExternalCameraFormState,
   ExternalCameraType,
   ExternalLinkFormState,
@@ -31,6 +32,7 @@ export const SECTION_ITEMS: SectionItem[] = [
   { key: 'network', icon: 'globe', title: 'Network', description: 'External URLs, FTP retry, Prometheus, and Home Assistant.' },
   { key: 'mqtt', icon: 'wifi', title: 'MQTT', description: 'Broker configuration, topic prefix, and connection testing.' },
   { key: 'navigation', icon: 'menu', title: 'Navigation', description: 'Choose which pages appear and arrange tabs and the More menu.' },
+  { key: 'custom-navigation', icon: 'link', title: 'Custom Navigation', description: 'Add custom external links that appear in your navigation menu.' },
   { key: 'apikeys', icon: 'key', title: 'API Keys', description: 'Create and revoke API keys for scripts and integrations.' },
   { key: 'external-cameras', icon: 'camera', title: 'External Cameras', description: 'Configure IP camera streams, test connectivity, and map cameras to printers.' },
   { key: 'virtual-printer', icon: 'printer', title: 'Virtual Printer', description: 'Virtual printer status plus start and stop controls.' },
@@ -146,6 +148,14 @@ export const EMPTY_EXTERNAL_LINK_FORM: ExternalLinkFormState = {
   sort_order: '0',
 };
 
+export const EMPTY_CUSTOM_NAV_ITEM_FORM: CustomNavItemFormState = {
+  name: '',
+  url: '',
+  icon: 'link',
+  open_in_new_tab: true,
+  sort_order: '0',
+};
+
 export const EMPTY_EXTERNAL_CAMERA_FORM: ExternalCameraFormState = {
   name: '',
   stream_url: '',
@@ -215,6 +225,7 @@ export type SectionSummaryQueries = {
   advancedAuthStatus?: unknown;
   githubBackupStatus?: unknown;
   mqttStatus?: MQTTStatus;
+  customNavItems?: Array<{ name: string }>;
 };
 
 export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
@@ -239,6 +250,8 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
     }
     case 'navigation':
       return pickString(settings, ['default_sidebar_order']) ? 'Customized' : 'Default order';
+    case 'custom-navigation':
+      return `${(queries.customNavItems ?? []).length} custom links`;
     case 'apikeys':
       return `${(queries.apiKeys ?? []).length} keys • ${(queries.cameraTokens ?? []).length} camera tokens`;
     case 'external-cameras':

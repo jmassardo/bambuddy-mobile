@@ -12,6 +12,7 @@ import { useTheme } from '@/theme';
 import { fontSize, fontWeight, spacing, borderRadius } from '@/theme/tokens';
 import { api } from '@/api/client';
 import { getNavigationLayout } from '@/navigation/navigationConfig';
+import { useCustomNavStore } from '@/store/navigationStore';
 
 /**
  * Routes hidden from navigation until their full screen implementation lands.
@@ -39,9 +40,11 @@ export default function MoreScreen() {
   const layout = useMemo(() => {
     const settings = settingsQuery.data;
     const defaultSidebarOrder = settings?.default_sidebar_order ?? null;
+    const customItems = useCustomNavStore.getState().items;
     return getNavigationLayout({
       defaultSidebarOrder,
       externalLinks: externalLinksQuery.data ?? [],
+      customNavItems: customItems,
     });
   }, [settingsQuery.data, externalLinksQuery.data]);
 
@@ -155,11 +158,26 @@ export default function MoreScreen() {
         </View>
       )}
 
-      {externalLinksVisible && layout.externalLinks.length > 0 && (
+      {externalLinksVisible && (layout.externalLinks.length > 0 || layout.customNavItems.length > 0) && (
         <View style={styles.group}>
           <SectionHeader title="Links" />
           <View>
             {layout.externalLinks.map(link => (
+              <MenuItem
+                key={link.id}
+                icon={link.icon || 'external-link'}
+                label={link.name}
+                subtitle={link.url}
+                onPress={() =>
+                  void openExternalLink({
+                    url: link.url,
+                    name: link.name,
+                    openInNewTab: link.open_in_new_tab,
+                  })
+                }
+              />
+            ))}
+            {layout.customNavItems.map(link => (
               <MenuItem
                 key={link.id}
                 icon={link.icon || 'external-link'}

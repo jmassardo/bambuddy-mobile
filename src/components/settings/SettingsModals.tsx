@@ -22,6 +22,9 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
     externalLinkModalVisible,
     externalLinkForm,
     editingExternalLink,
+    customNavModalVisible,
+    editingCustomNav,
+    customNavForm,
     externalCameraModalVisible,
     editingExternalCamera,
     externalCameraForm,
@@ -118,6 +121,24 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
               onPress={actions.handleSaveExternalLink}
               loading={mutations.createExternalLinkMutation.isPending || mutations.updateExternalLinkMutation.isPending}
               disabled={mutations.createExternalLinkMutation.isPending || mutations.updateExternalLinkMutation.isPending}
+            />
+          </View>
+        </ScrollView>
+      </SimpleModal>
+
+      <SimpleModal visible={customNavModalVisible} title={editingCustomNav ? 'Edit custom link' : 'Add custom link'} subtitle="Create a navigation link that appears in your custom navigation menu." onClose={actions.closeCustomNavModal}>
+        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+          <TextField label="Name" value={customNavForm.name} onChangeText={value => actions.setCustomNavForm(current => ({ ...current, name: value }))} />
+          <TextField label="URL" value={customNavForm.url} onChangeText={value => actions.setCustomNavForm(current => ({ ...current, url: value }))} autoCapitalize="none" placeholder="https://example.com" />
+          <TextField label="Icon" value={customNavForm.icon} onChangeText={value => actions.setCustomNavForm(current => ({ ...current, icon: value }))} autoCapitalize="none" placeholder="link" />
+          <SwitchRow label="Open in new tab" value={customNavForm.open_in_new_tab} onValueChange={value => actions.setCustomNavForm(current => ({ ...current, open_in_new_tab: value }))} />
+          <View style={settingsStyles.modalFooter}>
+            <PrimaryButton label="Cancel" variant="secondary" onPress={actions.closeCustomNavModal} />
+            <PrimaryButton
+              label={mutations.saveCustomNavMutation.isPending ? 'Saving…' : 'Save link'}
+              onPress={actions.handleSaveCustomNav}
+              loading={mutations.saveCustomNavMutation.isPending}
+              disabled={mutations.saveCustomNavMutation.isPending}
             />
           </View>
         </ScrollView>

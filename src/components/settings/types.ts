@@ -9,6 +9,7 @@ export type SectionKey =
   | 'network'
   | 'mqtt'
   | 'navigation'
+  | 'custom-navigation'
   | 'apikeys'
   | 'external-cameras'
   | 'virtual-printer'
@@ -63,6 +64,14 @@ export type CameraTokenFormState = {
 };
 
 export type ExternalLinkFormState = {
+  name: string;
+  url: string;
+  icon: string;
+  open_in_new_tab: boolean;
+  sort_order: string;
+};
+
+export type CustomNavItemFormState = {
   name: string;
   url: string;
   icon: string;
