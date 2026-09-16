@@ -22,7 +22,9 @@ import {
   StatCard,
 } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
-import { QueueItemCard } from '@/components/queue/QueueItemCard';
+import { DraggableQueueItem } from '@/components/queue/DraggableQueueItem';
+import { GanttTimeline } from '@/components/queue/GanttTimeline';
+import { QueueItemCardContent } from '@/components/queue/QueueItemCard';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -41,19 +43,6 @@ type QueueStatusFilter =
   | 'skipped'
   | 'cancelled';
 type QueueSort = 'position' | 'name' | 'printer' | 'time';
-
-type TimelineEventKind = 'queued' | 'started' | 'completed';
-
-interface TimelineEntry {
-  id: string;
-  itemId: number;
-  title: string;
-  printer: string;
-  status: string;
-  eventLabel: string;
-  occurredAt: string;
-  kind: TimelineEventKind;
-}
 
 function toQueueItems(value: unknown): PrintQueueItem[] {
   return Array.isArray(value) ? (value as PrintQueueItem[]) : [];
@@ -109,59 +98,6 @@ function itemStatus(
 
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function buildTimelineItems(items: PrintQueueItem[]): TimelineEntry[] {
-  const events: TimelineEntry[] = [];
-
-  items.forEach(item => {
-    const title = queueItemTitle(item);
-    const printer = queuePrinterLabel(item);
-
-    if (item.created_at) {
-      events.push({
-        id: `${item.id}-queued`,
-        itemId: item.id,
-        title,
-        printer,
-        status: item.status,
-        eventLabel: 'Queued',
-        occurredAt: item.created_at,
-        kind: 'queued',
-      });
-    }
-
-    if (item.started_at) {
-      events.push({
-        id: `${item.id}-started`,
-        itemId: item.id,
-        title,
-        printer,
-        status: item.status,
-        eventLabel: 'Started',
-        occurredAt: item.started_at,
-        kind: 'started',
-      });
-    }
-
-    if (item.completed_at) {
-      const label = item.status === 'completed' ? 'Completed' : capitalize(item.status);
-      events.push({
-        id: `${item.id}-completed`,
-        itemId: item.id,
-        title,
-        printer,
-        status: item.status,
-        eventLabel: label,
-        occurredAt: item.completed_at,
-        kind: 'completed',
-      });
-    }
-  });
-
-  return events.sort(
-    (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
-  );
 }
 
 function batchItemCount(batch: PrintBatch) {
@@ -295,35 +231,6 @@ function QueueBulkEditModal({
   );
 }
 
-function TimelineCard({ item }: { item: TimelineEntry }) {
-  const { colors } = useTheme();
-  const accent =
-    item.kind === 'completed'
-      ? item.status === 'completed'
-        ? colors.success
-        : item.status === 'failed'
-          ? colors.error
-          : colors.warning
-      : item.kind === 'started'
-        ? colors.info
-        : colors.accent;
-
-  return (
-    <View style={[styles.timelineCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}> 
-      <View style={styles.timelineHeader}>
-        <Text style={[styles.timelineTitle, { color: colors.text }]}>{item.title}</Text>
-        <View style={[styles.timelineBadge, { backgroundColor: `${accent}18`, borderColor: `${accent}55` }]}> 
-          <Text style={[styles.timelineBadgeText, { color: accent }]}>{item.eventLabel}</Text>
-        </View>
-      </View>
-      <Text style={[styles.timelineMeta, { color: colors.textSecondary }]}>{item.printer}</Text>
-      <Text style={[styles.timelineMeta, { color: colors.textTertiary }]}> 
-        {formatDateTime(item.occurredAt)}
-      </Text>
-    </View>
-  );
-}
-
 function BatchCard({ batch, onPress }: { batch: PrintBatch; onPress: () => void }) {
   const { colors } = useTheme();
   const total = Math.max(batch.quantity, batchItemCount(batch));
@@ -432,7 +339,7 @@ function BatchItemsModal({
             </View>
 
             {items.length > 0 ? (
-              items.map(item => <QueueItemCard key={`batch-${batch.id}-${item.id}`} item={item} />)
+              items.map(item => <QueueItemCardContent key={`batch-${batch.id}-${item.id}`} item={item} />)
             ) : (
               <EmptyState icon="📦" title="No batch items" message="This batch has no remaining queue members." />
             )}
@@ -610,7 +517,6 @@ export default function QueueScreen() {
         ),
     [queueItems],
   );
-  const timelineItems = useMemo(() => buildTimelineItems(queueItems), [queueItems]);
 
   const queueStats = useMemo(() => {
     const totalTime = pendingItems.reduce((sum, item) => sum + (item.print_time_seconds ?? 0), 0);
@@ -678,13 +584,6 @@ export default function QueueScreen() {
       return true;
     });
   }, [finishedItems, normalizedSearch, printerFilter, printerStateMap, statusFilter]);
-
-  const filteredTimelineItems = useMemo(() => {
-    return timelineItems.filter(item => {
-      const haystack = `${item.title} ${item.printer} ${item.eventLabel}`.toLowerCase();
-      return !normalizedSearch || haystack.includes(normalizedSearch);
-    });
-  }, [normalizedSearch, timelineItems]);
 
   const filteredBatches = useMemo(() => {
     return batches.filter(batch => {
@@ -780,7 +679,7 @@ export default function QueueScreen() {
           tabs={[
             { key: 'queue', label: `Queue (${queueStats.pending + queueStats.active})` },
             { key: 'history', label: `History (${queueStats.history})` },
-            { key: 'timeline', label: `Timeline (${timelineItems.length})` },
+            { key: 'timeline', label: `Timeline (${queueItems.length})` },
             { key: 'batches', label: `Batches (${queueStats.batches})` },
           ]}
           onChange={value => {
@@ -921,7 +820,7 @@ export default function QueueScreen() {
             >
               {filteredActiveItems.length > 0 ? (
                 filteredActiveItems.map(item => (
-                  <QueueItemCard
+                  <QueueItemCardContent
                     key={`active-${item.id}`}
                     item={item}
                     printerState={printerStateMap[item.printer_id ?? 0]}
@@ -938,18 +837,15 @@ export default function QueueScreen() {
 
             <SectionCard
               title="Queued items"
-              subtitle="Use move buttons to reorder on mobile. Long press any item to enter multi-select mode."
-              right={
-                <Text style={[styles.sectionHelper, { color: colors.textTertiary }]}>No drag library installed, so reorder uses move controls.</Text>
-              }
+              subtitle="Drag items to reorder the queue. Long press any item to enter multi-select mode."
             >
               {filteredPendingItems.length > 0 ? (
                 filteredPendingItems.map(item => (
-                  <QueueItemCard
+                  <DraggableQueueItem
                     key={`pending-${item.id}`}
                     item={item}
                     selected={selectedIds.includes(item.id)}
-                    showSelection={selectionMode}
+                    selectionMode={selectionMode}
                     onPress={selectionMode ? () => toggleSelection(item.id) : undefined}
                     onLongPress={() => {
                       if (selectionMode) {
@@ -970,8 +866,7 @@ export default function QueueScreen() {
                       setBulkEditIds([item.id]);
                       setBulkEditCurrentValue(item.printer_id ?? null);
                     }}
-                    onMoveUp={() => reorderItem(item.id, -1)}
-                    onMoveDown={() => reorderItem(item.id, 1)}
+                    onReorder={(direction) => reorderItem(item.id, direction === 'up' ? -1 : 1)}
                   />
                 ))
               ) : (
@@ -985,7 +880,7 @@ export default function QueueScreen() {
           <SectionCard title="Queue history" subtitle="Completed, failed, skipped, and cancelled jobs with retry and delete controls.">
             {filteredHistoryItems.length > 0 ? (
               filteredHistoryItems.map(item => (
-                <QueueItemCard
+                <QueueItemCardContent
                   key={`history-${item.id}`}
                   item={item}
                   onRetry={() => {
@@ -1001,12 +896,8 @@ export default function QueueScreen() {
         ) : null}
 
         {activeTab === 'timeline' ? (
-          <SectionCard title="Timeline" subtitle="Recent queue activity built from queue item lifecycle timestamps.">
-            {filteredTimelineItems.length > 0 ? (
-              filteredTimelineItems.map(item => <TimelineCard key={item.id} item={item} />)
-            ) : (
-              <EmptyState icon="🗓️" title="No timeline events" message="Queue timeline events will appear here once printers and queue items have activity." />
-            )}
+          <SectionCard title="Timeline" subtitle="Gantt-style view of current prints with progress and queued items with estimated times.">
+            <GanttTimeline items={queueItems} />
           </SectionCard>
         ) : null}
 

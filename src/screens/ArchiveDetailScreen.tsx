@@ -236,6 +236,16 @@ export default function ArchiveDetailScreen() {
       showToast('Unable to add this archive to the queue.', 'error'),
   });
 
+  const sliceMutation = useMutation({
+    mutationFn: () => api.sliceArchive(archiveId),
+    onSuccess: async () => {
+      await invalidateArchiveQueries();
+      showToast('Archive slicing started. It may take a few minutes to complete.', 'success');
+    },
+    onError: () =>
+      showToast('Unable to slice this archive.', 'error'),
+  });
+
   const restoreMutation = useMutation({
     mutationFn: () => api.restoreArchive(archiveId),
     onSuccess: async () => {
@@ -462,7 +472,7 @@ export default function ArchiveDetailScreen() {
             <PrimaryButton
               label="Print log"
               variant="secondary"
-              onPress={() => setShowPrintLog(true)}
+              onPress={() => rootNavigation.navigate('PrintLog', { archiveId })}
             />
           </View>
           <View style={styles.actionCell}>
@@ -507,6 +517,14 @@ export default function ArchiveDetailScreen() {
               />
             </View>
           ) : null}
+          <View style={styles.actionCell}>
+            <PrimaryButton
+              label="Slice"
+              variant="secondary"
+              onPress={() => void sliceMutation.mutateAsync()}
+              loading={sliceMutation.isPending}
+            />
+          </View>
           {isSoftDeleted ? (
             <View style={styles.actionCell}>
               <PrimaryButton
@@ -567,6 +585,11 @@ export default function ArchiveDetailScreen() {
               ) : null}
             </View>
             <View style={styles.inlineActions}>
+              <PrimaryButton
+                label="Edit timelapse"
+                variant="secondary"
+                onPress={() => navigation.navigate('TimelapseEditor', { archiveId })}
+              />
               <PrimaryButton
                 label="Fullscreen"
                 variant="secondary"

@@ -34,6 +34,11 @@ import EnergyScreen from '@/screens/EnergyScreen';
 import VirtualPrintersScreen from '@/screens/VirtualPrintersScreen';
 import SpoolBuddyScreen from '@/screens/SpoolBuddyScreen';
 import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
+import FailureAnalysisScreen from '@/screens/FailureAnalysisScreen';
+import WebSocketStatusScreen from '@/screens/WebSocketStatusScreen';
+import TimelapseEditorScreen from '@/screens/TimelapseEditorScreen';
+import PrintLogScreen from '@/screens/PrintLogScreen';
+import SpoolAssignmentHistoryScreen from '@/screens/SpoolAssignmentHistoryScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -204,6 +209,31 @@ export default function RootNavigator() {
         name="Model3DPreview"
         component={Model3DPreviewScreen}
         options={{ title: '3D Preview' }}
+      />
+      <Stack.Screen
+        name="FailureAnalysis"
+        component={FailureAnalysisScreen}
+        options={{ title: 'Failure Analysis' }}
+      />
+      <Stack.Screen
+        name="WebSocketStatus"
+        component={WebSocketStatusScreen}
+        options={{ title: 'WebSocket Status' }}
+      />
+      <Stack.Screen
+        name="TimelapseEditor"
+        component={TimelapseEditorScreen}
+        options={{ title: 'Edit Timelapse' }}
+      />
+      <Stack.Screen
+        name="PrintLog"
+        component={PrintLogScreen}
+        options={{ title: 'Print Log' }}
+      />
+      <Stack.Screen
+        name="SpoolAssignmentHistory"
+        component={SpoolAssignmentHistoryScreen}
+        options={{ title: 'Assignment History' }}
       />
     </Stack.Navigator>
   );

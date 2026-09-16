@@ -52,7 +52,7 @@ jest.mock('react-native-device-info', () => ({
   getVersion: () => '1.0.0',
 }));
 
-jest.mock('@/components/common/UIComponents', () => {
+jest.mock('@/components/common/AppUI', () => {
   const ReactModule = require('react');
   const { Text, View } = require('react-native');
 

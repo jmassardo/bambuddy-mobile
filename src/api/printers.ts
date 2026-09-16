@@ -10,6 +10,7 @@ import type {
   PrinterDiagnosticResult,
   PrinterSensorHistoryResponse,
   PrinterStatus,
+  PrinterUpdate,
   SlotPresetMapping,
   SubnetScanStatus,
   VirtualPrinterConfig,
@@ -27,7 +28,7 @@ export const printersApi = {
       body: JSON.stringify(data),
     }),
 
-  updatePrinter: async (id: number, data: Record<string, unknown>) =>
+  updatePrinter: async (id: number, data: PrinterUpdate) =>
     request<Record<string, unknown>>(`/printers/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -504,6 +505,11 @@ export const printersApi = {
         options: { method: 'PUT', body: JSON.stringify({ enabled: false }) },
       },
     ),
+
+  testVirtualPrinterConnection: async (id: number) =>
+    request<Record<string, unknown>>(`/virtual-printers/${id}/test`, {
+      method: 'POST',
+    }),
 
   discoverPrinters: async (duration: number = 10) =>
     request<DiscoveryStatus>(`/discovery/start?duration=${duration}`, {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-shadow -- Test file with React/Text imports shadowing globals */
 import React from 'react';
 import { Text, TextInput } from 'react-native';
 import ReactTestRenderer, { act, type ReactTestInstance } from 'react-test-renderer';

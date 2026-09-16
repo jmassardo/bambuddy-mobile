@@ -856,8 +856,11 @@ export const ERROR_DESCRIPTIONS: Record<string, string> = {
   '18FF_C00A': 'Please observe the nozzle of the right extruder. If the filament has been extruded, select \'Continue\'; if not, please push the filament forward slightly and then select \'Retry\'.',
 };
 
+ 
 function getShortCode(attr: number, code: number): string {
+  // eslint-disable-next-line no-bitwise -- Bitwise operations for parsing HMS error codes
   const module = ((attr >> 16) & 0xFFFF) || ((((attr >> 8) & 0xFF) << 8) | (attr & 0xFF));
+  // eslint-disable-next-line no-bitwise -- Bitwise operations for parsing HMS error codes
   const codeNum = code & 0xFFFF;
   return `${module.toString(16).padStart(4, '0').toUpperCase()}_${codeNum.toString(16).padStart(4, '0').toUpperCase()}`;
 }

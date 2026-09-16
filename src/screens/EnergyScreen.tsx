@@ -18,7 +18,7 @@ import {
   pickString,
   type ApiRecord,
 } from '@/utils/data';
-import { SimpleBarChart } from '@/components/common/Charts';
+import { SimpleDonutChart, MultiSeriesLineChart } from '@/components/common/Charts';
 
 type RangeKey = '7d' | '30d' | '90d' | 'all';
 
@@ -34,6 +34,26 @@ type PrinterEnergyRow = {
   energyKwh: number;
   energyCost: number;
 };
+
+type FilamentEnergyRow = {
+  filamentType: string;
+  energyKwh: number;
+  energyCost: number;
+  printCount: number;
+};
+
+const filamentColors = [
+  '#3b82f6',
+  '#10b981',
+  '#f59e0b',
+  '#ef4444',
+  '#8b5cf6',
+  '#ec4899',
+  '#06b6d4',
+  '#f97316',
+  '#6366f1',
+  '#14b8a6',
+];
 
 export function getEnergyRangeParams(range: RangeKey): { dateFrom?: string; dateTo?: string } {
   const now = new Date();
@@ -108,6 +128,35 @@ function getSeriesPoints(stats: unknown): SeriesPoint[] {
     .slice(-14);
 }
 
+function getFilamentRows(archives: ApiRecord[] | undefined, energyStats: ApiRecord | undefined): FilamentEnergyRow[] {
+  if (!archives || archives.length === 0) return [];
+
+  const totalEnergyKwh = pickNumber(energyStats, ['total_energy_kwh', 'total_kwh'], 0);
+  const totalCost = pickNumber(energyStats, ['total_energy_cost', 'total_cost'], 0);
+  const totalPrints = archives.length;
+  const avgEnergyKwh = totalPrints > 0 ? totalEnergyKwh / totalPrints : 0;
+  const avgCost = totalPrints > 0 ? totalCost / totalPrints : 0;
+
+  const rows = new Map<string, { energyKwh: number; energyCost: number; printCount: number }>();
+  archives.forEach(item => {
+    const filament = pickString(item, ['filament_type', 'filament'], 'Unknown');
+    const energyKwh = pickNumber(item, ['energy_kwh'], avgEnergyKwh);
+    const energyCost = pickNumber(item, ['energy_cost'], avgCost);
+    const existing = rows.get(filament) ?? { energyKwh: 0, energyCost: 0, printCount: 0 };
+    existing.energyKwh += energyKwh;
+    existing.energyCost += energyCost;
+    existing.printCount += 1;
+    rows.set(filament, existing);
+  });
+
+  return Array.from(rows.entries())
+    .map(([filamentType, data]) => ({
+      filamentType,
+      ...data,
+    }))
+    .sort((a, b) => b.energyKwh - a.energyKwh);
+}
+
 function getPrinterRows(stats: unknown): PrinterEnergyRow[] {
   const candidate = getValue(stats, 'per_printer')
     ?? getValue(stats, 'printer_breakdown')
@@ -175,8 +224,19 @@ export default function EnergyScreen() {
     queryFn: api.getSettings,
   });
 
+  const statsQuery = useQuery({
+    queryKey: ['archiveStats', params],
+    queryFn: () => api.getArchiveStats(params),
+  });
+
+  const archivesQuery = useQuery({
+    queryKey: ['archives', 'energy', params],
+    queryFn: () => api.getArchives({ ...params, limit: 1000 }),
+    enabled: range !== 'all' || true,
+  });
+
   const refreshAll = async () => {
-    await Promise.all([energyQuery.refetch(), settingsQuery.refetch()]);
+    await Promise.all([energyQuery.refetch(), settingsQuery.refetch(), statsQuery.refetch(), archivesQuery.refetch()]);
   };
 
   const energyStats = energyQuery.data as ApiRecord | undefined;
@@ -184,12 +244,21 @@ export default function EnergyScreen() {
   const totalCost = pickNumber(energyStats, ['total_energy_cost', 'total_cost'], 0);
   const warmingUp = pickBoolean(energyStats, ['energy_data_warming_up'], false);
 
+  const stats = statsQuery.data as ApiRecord | undefined;
+  const totalPrints = pickNumber(stats, ['total_prints', 'prints_count'], 0);
+  const avgEnergyKwh = totalPrints > 0 ? totalKwh / totalPrints : 0;
+
   const settings = settingsQuery.data as ApiRecord | undefined;
   const currency = pickString(settings, ['currency'], 'USD');
   const energyRate = pickNumber(settings, ['energy_cost_per_kwh'], 0);
 
   const series = useMemo(() => getSeriesPoints(energyStats), [energyStats]);
   const printerRows = useMemo(() => getPrinterRows(energyStats), [energyStats]);
+  const archives = useMemo(
+    () => ((archivesQuery.data ?? []) as ApiRecord[]).filter(Boolean),
+    [archivesQuery.data],
+  );
+  const filamentRows = useMemo(() => getFilamentRows(archives, energyStats), [archives, energyStats]);
 
   const filteredRow = selectedPrinterId !== null
     ? printerRows.find(r => r.printerId === selectedPrinterId) ?? null
@@ -202,7 +271,7 @@ export default function EnergyScreen() {
     return <LoadingScreen message="Loading energy dashboard…" />;
   }
 
-  if (energyQuery.isError) {
+  if (energyQuery.isError || statsQuery.isError || archivesQuery.isError) {
     return <ErrorState message="Unable to load energy dashboard." onRetry={() => void refreshAll()} />;
   }
 
@@ -212,7 +281,12 @@ export default function EnergyScreen() {
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
-          refreshing={energyQuery.isRefetching || settingsQuery.isRefetching}
+          refreshing={
+            energyQuery.isRefetching ||
+            settingsQuery.isRefetching ||
+            statsQuery.isRefetching ||
+            archivesQuery.isRefetching
+          }
           onRefresh={() => void refreshAll()}
           tintColor={colors.accent}
         />
@@ -221,7 +295,7 @@ export default function EnergyScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Energy dashboard</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Consumption, cost, and printer-level energy usage over time.
+          Consumption, cost, filament breakdown, and printer-level energy usage over time.
         </Text>
       </View>
 
@@ -247,7 +321,7 @@ export default function EnergyScreen() {
                 { backgroundColor: selectedPrinterId === null ? colors.accent : colors.surfaceElevated },
               ]}
             >
-              <Text style={[styles.filterChipText, { color: selectedPrinterId === null ? '#fff' : colors.text }]}>
+              <Text style={[styles.filterChipText, { color: selectedPrinterId === null ? colors.textInverse : colors.text }]}>
                 All printers
               </Text>
             </Pressable>
@@ -264,7 +338,7 @@ export default function EnergyScreen() {
                 <Text
                   style={[
                     styles.filterChipText,
-                    { color: selectedPrinterId === row.printerId ? '#fff' : colors.text },
+                    { color: selectedPrinterId === row.printerId ? colors.textInverse : colors.text },
                   ]}
                 >
                   {row.printerName}
@@ -275,7 +349,7 @@ export default function EnergyScreen() {
         </View>
       )}
 
-      <SectionCard title="Overview" subtitle="Total usage and cost for the selected range.">
+      <SectionCard title="Overview" subtitle="Total usage, cost, and print statistics for the selected range.">
         <View style={styles.statsRow}>
           <StatCard label="Energy" value={formatKwh(displayKwh)} />
           <StatCard label="Cost" value={formatCurrencyWithCode(displayCost, currency)} />
@@ -283,6 +357,11 @@ export default function EnergyScreen() {
             label="Rate"
             value={energyRate > 0 ? `${formatCurrencyWithCode(energyRate, currency)}/kWh` : '—'}
           />
+        </View>
+        <View style={styles.statsRow}>
+          <StatCard label="Prints" value={String(totalPrints)} />
+          <StatCard label="Avg/print" value={formatKwh(avgEnergyKwh)} />
+          <StatCard label="Avg cost" value={totalPrints > 0 ? formatCurrencyWithCode(displayCost / Math.max(totalPrints, 1), currency) : '—'} />
         </View>
         {warmingUp ? (
           <View style={[styles.warningBox, { backgroundColor: `${colors.warning}18`, borderColor: `${colors.warning}55` }]}>
@@ -293,11 +372,16 @@ export default function EnergyScreen() {
         ) : null}
       </SectionCard>
 
-      <SectionCard title="Energy trend" subtitle="Daily kWh usage (most recent 14 data points).">
+      <SectionCard title="Energy trend" subtitle="Daily kWh usage over time (line chart).">
         {series.length > 0 ? (
-          <SimpleBarChart
-            data={series.map(point => ({ label: point.label, value: point.energyKwh }))}
-            formatValue={value => `${value.toFixed(1)}kWh`}
+          <MultiSeriesLineChart
+            points={series.map(point => ({
+              label: point.label,
+              values: { energy: point.energyKwh },
+            }))}
+            series={[{ key: 'energy', label: 'Energy (kWh)', color: colors.accent }]}
+            height={200}
+            formatYAxis={value => `${value.toFixed(1)} kWh`}
           />
         ) : (
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -330,6 +414,42 @@ export default function EnergyScreen() {
           </Text>
         )}
       </SectionCard>
+
+      {filamentRows.length > 0 && (
+        <SectionCard title="Energy by filament" subtitle="Consumption grouped by filament type.">
+          <View style={styles.filamentGrid}>
+            {filamentRows.map((row, index) => (
+              <View
+                key={row.filamentType}
+                style={[styles.filamentCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              >
+                <View style={styles.filamentHeader}>
+                  <View style={[styles.filamentDot, { backgroundColor: filamentColors[index % filamentColors.length] }]} />
+                  <Text style={[styles.filamentName, { color: colors.text }]} numberOfLines={1}>
+                    {row.filamentType}
+                  </Text>
+                </View>
+                <Text style={[styles.filamentValue, { color: colors.text }]}>
+                  {formatKwh(row.energyKwh)}
+                </Text>
+                <Text style={[styles.filamentMeta, { color: colors.textSecondary }]}>
+                  {formatCurrencyWithCode(row.energyCost, currency)} • {row.printCount} prints
+                </Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.filamentChartWrap}>
+            <SimpleDonutChart
+              data={filamentRows.map((row, i) => ({
+                label: row.filamentType,
+                value: row.energyKwh,
+                color: filamentColors[i % filamentColors.length],
+              }))}
+              size={140}
+            />
+          </View>
+        </SectionCard>
+      )}
 
       <Text style={[styles.footerText, { color: colors.textTertiary }]}>
         Cost values are sourced from server-calculated energy totals.
@@ -412,5 +532,43 @@ const styles = StyleSheet.create({
   footerText: {
     textAlign: 'center',
     fontSize: fontSize.xs,
+  },
+  filamentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  filamentCard: {
+    flexBasis: '48%',
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  filamentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  filamentDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  filamentName: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    flexShrink: 1,
+  },
+  filamentValue: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
+  },
+  filamentMeta: {
+    fontSize: fontSize.xs,
+  },
+  filamentChartWrap: {
+    alignItems: 'center',
+    marginTop: spacing.md,
   },
 });

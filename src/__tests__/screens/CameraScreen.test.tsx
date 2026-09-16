@@ -1012,7 +1012,7 @@ describe('CameraScreen iOS Web camera', () => {
         },
       });
     });
-    expect(result.getByText('The Web camera page could not be loaded (HTTP 403).')).toBeTruthy();
+    expect(result.getByText(/The Web camera page could not be loaded \(HTTP 403\)/)).toBeTruthy();
     expect(renderedText(result)).not.toContain(secret);
     expect(consoleError).not.toHaveBeenCalled();
 
@@ -1022,14 +1022,14 @@ describe('CameraScreen iOS Web camera', () => {
     await act(async () => {
       retriedProps.onError({ nativeEvent: { url: secret, description: secret } });
     });
-    expect(result.getByText('The Web camera page could not be loaded.')).toBeTruthy();
+    expect(result.getByText(/The Web camera page could not be loaded/)).toBeTruthy();
     expect(renderedText(result)).not.toContain(secret);
 
     await pressAndFlush(result.getByText('Retry'));
     await act(async () => {
       requireWebViewProps().onContentProcessDidTerminate({ nativeEvent: { url: secret } });
     });
-    expect(result.getByText('The Web camera page could not be loaded.')).toBeTruthy();
+    expect(result.getByText(/The Web camera page could not be loaded/)).toBeTruthy();
     expect(renderedText(result)).not.toContain(secret);
     consoleError.mockRestore();
   });

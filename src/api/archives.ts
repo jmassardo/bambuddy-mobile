@@ -1,4 +1,4 @@
-import type { ApiEntity, Archive, ArchiveComparison, EnergyStats, PrintLogResponse } from '@/types/api';
+import type { ApiEntity, Archive, EnergyStats, FailureAnalysis, PrintLogResponse } from '@/types/api';
 import { buildMediaUrl, ApiError, request, requestBlob, uploadFile, type UploadableFile } from './http';
 
 export const archivesApi = {
@@ -66,11 +66,6 @@ export const archivesApi = {
       method: 'DELETE',
     }),
 
-  toggleFavorite: async (id: number) =>
-    request<Record<string, unknown>>(`/archives/${id}/favorite`, {
-      method: 'POST',
-    }),
-
   uploadArchive: async (file: UploadableFile, printerId?: number) =>
     uploadFile<Record<string, unknown>>(
       `/archives/upload${printerId !== undefined ? `?printer_id=${printerId}` : ''}`,
@@ -106,14 +101,6 @@ export const archivesApi = {
   },
 
   getTags: async () => request<{ name: string; count: number }[]>('/archives/tags'),
-
-  getArchiveDeleteImpact: async (id: number) =>
-    request<Record<string, unknown>>(`/archives/${id}/delete-impact`),
-
-  getArchiveComparison: async (ids: number[]) =>
-    request<ApiEntity<ArchiveComparison>>(
-      `/archives/compare?archive_ids=${ids.join(',')}`,
-    ),
 
   getArchiveSimilar: async (id: number, limit = 10) =>
     request<Array<ApiEntity<Archive>>>(`/archives/${id}/similar?limit=${limit}`),
@@ -162,9 +149,6 @@ export const archivesApi = {
     return requestBlob(`/archives/stats/export?${searchParams.toString()}`);
   },
 
-  getArchivePlates: async (id: number) =>
-    request<Record<string, unknown>>(`/archives/${id}/plates`),
-
   getArchivePlateThumbnail: (id: number, plateIndex: number): string =>
     buildMediaUrl(`/archives/${id}/plates/${plateIndex}/thumbnail`),
 
@@ -173,6 +157,33 @@ export const archivesApi = {
 
   getArchiveTimelapse: (id: number): string =>
     buildMediaUrl(`/archives/${id}/timelapse`),
+
+  getArchiveTimelapseThumbnail: (id: number): string =>
+    buildMediaUrl(`/archives/${id}/timelapse/thumbnail`),
+
+  updateArchiveTimelapse: async (
+    id: number,
+    data: {
+      start_offset?: number;
+      end_offset?: number;
+      speed?: number;
+    },
+  ) =>
+    request<Record<string, unknown>>(`/archives/${id}/timelapse`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  uploadTimelapseMusic: async (archiveId: number, file: UploadableFile) =>
+    uploadFile<Record<string, unknown>>(
+      `/archives/${archiveId}/timelapse/music`,
+      file,
+    ),
+
+  removeTimelapseMusic: async (archiveId: number) =>
+    request<Record<string, unknown>>(`/archives/${archiveId}/timelapse/music`, {
+      method: 'DELETE',
+    }),
 
   getArchivePhotoUrl: (archiveId: number, filename: string): string =>
     buildMediaUrl(
@@ -199,6 +210,28 @@ export const archivesApi = {
       const items = Array.isArray(response.items) ? response.items : [];
       return items.filter(item => Number(item.archive_id ?? 0) === archiveId);
     }
+  },
+
+  getPrintLogs: async (params?: {
+    printName?: string;
+    printerName?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.printName) searchParams.set('print_name', params.printName);
+    if (params?.printerName) searchParams.set('printer_name', params.printerName);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.dateFrom) searchParams.set('date_from', params.dateFrom);
+    if (params?.dateTo) searchParams.set('date_to', params.dateTo);
+    if (params?.search) searchParams.set('q', params.search);
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.offset) searchParams.set('offset', String(params.offset));
+    return request<ApiEntity<PrintLogResponse>>(`/print-log/?${searchParams}`);
   },
 
   restoreArchive: async (archiveId: number) =>
@@ -236,22 +269,6 @@ export const archivesApi = {
       method: 'POST',
     }),
 
-  getPrintLog: async (params?: {
-    limit?: number;
-    offset?: number;
-    printerId?: number;
-    status?: string;
-  }) => {
-    const searchParams = new URLSearchParams();
-    if (params?.limit) searchParams.set('limit', String(params.limit));
-    if (params?.offset) searchParams.set('offset', String(params.offset));
-    if (params?.printerId) searchParams.set('printer_id', String(params.printerId));
-    if (params?.status) searchParams.set('status', params.status);
-    return request<Record<string, unknown>>(`/print-log/?${searchParams}`);
-  },
-
-  clearPrintLog: async () => request<void>('/print-log/', { method: 'DELETE' }),
-
   getStats: async (params?: {
     dateFrom?: string;
     dateTo?: string;
@@ -264,5 +281,20 @@ export const archivesApi = {
       searchParams.set('created_by_id', String(params.createdById));
     }
     return request<Record<string, unknown>>(`/archives/stats?${searchParams}`);
+  },
+
+  sliceArchive: async (id: number) =>
+    request<Record<string, unknown>>(`/archives/${id}/slice`, {
+      method: 'POST',
+    }),
+
+  getFailureAnalysis: async (params?: {
+    periodDays?: number;
+    printerId?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.periodDays) searchParams.set('period_days', String(params.periodDays));
+    if (params?.printerId) searchParams.set('printer_id', String(params.printerId));
+    return request<FailureAnalysis>(`/archives/failure-analysis?${searchParams}`);
   },
 };

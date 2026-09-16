@@ -22,6 +22,7 @@ import {
   formatDuration,
   formatWeight,
 } from '@/utils/data';
+import { Sparkles } from 'lucide-react-native';
 
 type ArchiveActionIconName = 'printer' | 'video' | 'camera' | 'qr-code' | 'trash';
 
@@ -61,6 +62,12 @@ function statusColor(status: string, colors: ReturnType<typeof useTheme>['colors
     default:
       return colors.info;
   }
+}
+
+function getAiColor(ai: NonNullable<Archive['ai_detection']>): string {
+  if (ai.classification === 'human') return '#22c55e';
+  if (ai.classification === 'ai') return '#dc2626';
+  return '#f97316';
 }
 
 function ArchiveAction({
@@ -232,6 +239,22 @@ export function ArchiveCard({
         </View>
 
         <View style={styles.badgesRow}>
+          {archive.ai_detection ? (
+            <View
+              style={[
+                styles.aiBadge,
+                { backgroundColor: `${getAiColor(archive.ai_detection)}20`, borderColor: `${getAiColor(archive.ai_detection)}60` },
+              ]}
+            >
+              <Sparkles size={12} color={getAiColor(archive.ai_detection)} strokeWidth={2} />
+              <Text style={[styles.aiBadgeText, { color: getAiColor(archive.ai_detection) }]}>
+                {archive.ai_detection.classification === 'human' ? 'Human' : archive.ai_detection.classification === 'ai' ? 'AI' : 'Unknown'}
+              </Text>
+              <Text style={[styles.aiBadgeConfidence, { color: getAiColor(archive.ai_detection) }]}>
+                {Math.round(archive.ai_detection.confidence)}%
+              </Text>
+            </View>
+          ) : null}
           {archive.sliced_for_model ? (
             <View
               style={[
@@ -338,12 +361,10 @@ const styles = StyleSheet.create({
   gridThumbnail: {
     width: '100%',
     aspectRatio: 16 / 10,
-    backgroundColor: '#1f2937',
   },
   listThumbnail: {
     width: '100%',
     height: 180,
-    backgroundColor: '#1f2937',
   },
   selectBadge: {
     position: 'absolute',
@@ -499,5 +520,22 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.semibold,
+  },
+  aiBadge: {
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  aiBadgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+  },
+  aiBadgeConfidence: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
   },
 });

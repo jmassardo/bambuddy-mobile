@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -19,7 +19,7 @@ import {
   Card,
   Input,
   SectionHeader,
-} from '@/components/common/UIComponents';
+} from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import {
   EmptyState,
@@ -28,6 +28,7 @@ import {
 } from '@/components/common/StateScreens';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { usePushNotification } from '@/contexts/PushNotificationContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type {
@@ -888,6 +889,8 @@ export default function NotificationsScreen() {
           </>
         ) : null}
 
+        <PushNotificationToggleCard colors={colors} />
+
         {!preferencesAvailable ? (
           <Card style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
             <SectionHeader title="Email notification preferences" />
@@ -1063,6 +1066,52 @@ export default function NotificationsScreen() {
   );
 }
 
+function PushNotificationToggleCard({ colors }: { colors: ReturnType<typeof useTheme>['colors'] }) {
+  const { state, enablePushNotifications, disablePushNotifications, requestPermission } = usePushNotification();
+  const [pendingAction, setPendingAction] = useState<'enabling' | 'disabling' | null>(null);
+
+  const handleToggle = useCallback(async (value: boolean) => {
+    if (!value) {
+      setPendingAction('disabling');
+      await disablePushNotifications();
+      setPendingAction(null);
+      return;
+    }
+
+    setPendingAction('enabling');
+    const granted = await requestPermission();
+    if (granted) {
+      await enablePushNotifications();
+    }
+    setPendingAction(null);
+  }, [disablePushNotifications, enablePushNotifications, requestPermission]);
+
+  return (
+    <Card style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+      <SectionHeader title="Push notifications" />
+      <View style={styles.pushToggleRow}>
+        <View style={styles.pushToggleText}>
+          <Text style={[styles.preferenceTitle, { color: colors.text }]}>Enable push notifications</Text>
+          <Text style={[styles.preferenceDescription, { color: colors.textSecondary }]}>
+            {state.status === 'enabled'
+              ? 'Receive printer alerts on your device.'
+              : state.status === 'error'
+                ? state.error || 'Tap to enable.'
+                : 'Tap to receive printer status alerts.'}
+          </Text>
+        </View>
+        <Switch
+          value={state.enabled || state.status === 'enabled'}
+          onValueChange={handleToggle}
+          disabled={state.loading || pendingAction !== null}
+          trackColor={{ false: colors.surfaceHover, true: colors.accent }}
+          thumbColor={colors.text}
+        />
+      </View>
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   container: { flex: 1 },
@@ -1154,6 +1203,19 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   switchText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  pushToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  pushToggleText: {
     flex: 1,
     gap: spacing.xs,
   },

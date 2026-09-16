@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Text, Alert } from 'react-native';
 import ReactTestRenderer, { act, type ReactTestInstance } from 'react-test-renderer';
 import { QueryClientProvider } from '@tanstack/react-query';
 import ServerSetupScreen from '@/screens/ServerSetupScreen';
@@ -122,6 +122,8 @@ async function render() {
 }
 
 describe('ServerSetupScreen demo button', () => {
+  let alertCallbacks: Array<{ style: 'default' | 'cancel' | 'destructive'; onPress: () => void }>;
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockServerUrl = null;
@@ -131,6 +133,16 @@ describe('ServerSetupScreen demo button', () => {
     mockSetServerUrl.mockResolvedValue(undefined);
     mockSetDemoMode.mockResolvedValue(undefined);
     mockClearServerUrl.mockResolvedValue(undefined);
+
+    // Capture Alert callbacks so we can trigger the destructive button
+    alertCallbacks = [];
+    jest.spyOn(Alert, 'alert').mockImplementation((_, __, buttons) => {
+      buttons?.forEach(btn => {
+        if (typeof btn.onPress === 'function') {
+          alertCallbacks.push({ style: btn.style ?? 'default', onPress: btn.onPress });
+        }
+      });
+    });
   });
 
   afterEach(clearTestQueryClients);
@@ -152,6 +164,11 @@ describe('ServerSetupScreen demo button', () => {
       findPressableForText(root, 'Try the demo').props.onPress();
     });
 
+    // Confirm the Alert dialog (destructive button = second button)
+    await act(async () => {
+      alertCallbacks.find(c => c.style === 'destructive')?.onPress();
+    });
+
     expect(mockSetServerUrl).toHaveBeenCalledWith('https://demo.test');
     expect(mockGetAuthStatus).toHaveBeenCalled();
     expect(mockLogin).toHaveBeenCalledWith('reviewer', 'secret');
@@ -167,6 +184,11 @@ describe('ServerSetupScreen demo button', () => {
       findPressableForText(root, 'Try the demo').props.onPress();
     });
 
+    // Confirm the Alert dialog
+    await act(async () => {
+      alertCallbacks.find(c => c.style === 'destructive')?.onPress();
+    });
+
     expect(mockClearServerUrl).toHaveBeenCalled();
     expect(mockSetDemoMode).not.toHaveBeenCalled();
     expect(mockSetServerConnected).not.toHaveBeenCalled();
@@ -178,6 +200,11 @@ describe('ServerSetupScreen demo button', () => {
     const root = await render();
     await act(async () => {
       findPressableForText(root, 'Try the demo').props.onPress();
+    });
+
+    // Confirm the Alert dialog
+    await act(async () => {
+      alertCallbacks.find(c => c.style === 'destructive')?.onPress();
     });
 
     expect(mockSetDemoMode).not.toHaveBeenCalled();

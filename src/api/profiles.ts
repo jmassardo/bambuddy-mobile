@@ -1,6 +1,8 @@
 import type {
   ApiEntity,
   CloudAuthStatus,
+  CloudPerProfileSyncResponse,
+  CloudPerProfileSyncState,
   CloudProfileDetail,
   CloudProfileDiffResult,
   CloudProfilesResponse,
@@ -66,6 +68,58 @@ export const profilesApi = {
       },
       {
         endpoint: '/slicer/presets?refresh=true',
+      },
+    ),
+
+  getPerProfileSyncStates: async () =>
+    requestWithFallback<CloudPerProfileSyncResponse>(
+      { endpoint: '/cloud/settings/sync/profiles' },
+      { endpoint: '/settings/cloud-profiles/sync' },
+    ),
+
+  updateCloudProfileSync: async (settingId: string, enabled: boolean) =>
+    requestWithFallback<CloudPerProfileSyncState>(
+      {
+        endpoint: `/cloud/settings/sync/${encodeURIComponent(settingId)}`,
+        options: {
+          method: 'PUT',
+          body: JSON.stringify({ enabled }),
+        },
+      },
+      {
+        endpoint: `/slicer/settings/${encodeURIComponent(settingId)}/sync`,
+        options: {
+          method: 'PUT',
+          body: JSON.stringify({ enabled }),
+        },
+      },
+    ),
+
+  syncSingleCloudProfile: async (settingId: string) =>
+    requestWithFallback<Record<string, unknown>>(
+      {
+        endpoint: `/cloud/settings/sync/${encodeURIComponent(settingId)}`,
+        options: {
+          method: 'POST',
+        },
+      },
+      {
+        endpoint: `/slicer/settings/${encodeURIComponent(settingId)}/sync`,
+        options: {
+          method: 'POST',
+        },
+      },
+    ),
+
+  clearCloudProfileSyncError: async (settingId: string) =>
+    requestWithFallback<CloudPerProfileSyncState>(
+      {
+        endpoint: `/cloud/settings/sync/error/${encodeURIComponent(settingId)}`,
+        options: { method: 'DELETE' },
+      },
+      {
+        endpoint: `/slicer/settings/${encodeURIComponent(settingId)}/sync/error`,
+        options: { method: 'DELETE' },
       },
     ),
 

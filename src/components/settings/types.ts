@@ -1,4 +1,4 @@
-import type { SMTPSettings, SmartPlug } from '@/types/api';
+import type { KProfile, SMTPSettings, SmartPlug } from '@/types/api';
 
 export type SectionKey =
   | 'general'
@@ -6,15 +6,19 @@ export type SectionKey =
   | 'notifications'
   | 'queue'
   | 'filament'
+  | 'kprofiles'
   | 'network'
+  | 'mqtt'
   | 'navigation'
+  | 'custom-navigation'
   | 'apikeys'
   | 'external-cameras'
   | 'virtual-printer'
   | 'spoolbuddy'
   | 'failure-detection'
   | 'users'
-  | 'backup';
+  | 'backup'
+  | 'storage-locations';
 
 export type UserPanelKey = 'auth' | 'email' | 'ldap' | 'oidc' | 'twofa';
 export type ThemeMode = 'dark' | 'light' | 'system';
@@ -62,6 +66,14 @@ export type CameraTokenFormState = {
 };
 
 export type ExternalLinkFormState = {
+  name: string;
+  url: string;
+  icon: string;
+  open_in_new_tab: boolean;
+  sort_order: string;
+};
+
+export type CustomNavItemFormState = {
   name: string;
   url: string;
   icon: string;
@@ -117,4 +129,51 @@ export type SectionItem = {
 export type OptionItem<T extends string = string> = {
   key: T;
   label: string;
+};
+
+export type MqttFormState = {
+  mqtt_broker: string;
+  mqtt_port: number;
+  mqtt_username: string;
+  mqtt_password: string;
+  mqtt_topic_prefix: string;
+  mqtt_use_tls: boolean;
+};
+
+export type NozzleDiameterOption = '0.2' | '0.4' | '0.6' | '0.8';
+
+export type KProfileFormState = {
+  slot_id: string;
+  extruder_id: string;
+  nozzle_id: string;
+  nozzle_diameter: string;
+  filament_id: string;
+  name: string;
+  k_value: string;
+  n_coef: string;
+  ams_id: string;
+  tray_id: string;
+  setting_id: string;
+};
+
+export type KProfileModalState = {
+  visible: boolean;
+  editingKProfile: KProfile | null;
+  form: KProfileFormState;
+};
+
+export type DeleteKProfileTarget = {
+  slot_id: number;
+  extruder_id: number;
+  nozzle_id: string;
+  nozzle_diameter: string;
+  filament_id: string;
+  setting_id: string;
+} | null;
+
+export type StorageLocationFormState = {
+  name: string;
+  identifier: string;
+  address: string;
+  notes: string;
 };

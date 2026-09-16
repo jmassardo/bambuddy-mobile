@@ -259,7 +259,7 @@ export default function UsersScreen() {
         data={users}
         keyExtractor={item => pickString(item, ['id'])}
         contentContainerStyle={styles.content}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+        ItemSeparatorComponent={UsersItemSeparator}
         refreshControl={
           <RefreshControl
             refreshing={usersQuery.isRefetching || groupsQuery.isRefetching}
@@ -318,7 +318,7 @@ export default function UsersScreen() {
                 onPress={() => { setEditGroupId(null); setShowGroupEdit(true); }}
                 style={[styles.groupAddBtn, { backgroundColor: colors.accent }]}
               >
-                <Plus size={14} color="#fff" strokeWidth={2.5} />
+                <Plus size={14} color={colors.textInverse} strokeWidth={2.5} />
               </Pressable>
             </View>
             {groups.length > 0 ? groups.map(group => {
@@ -557,6 +557,10 @@ export default function UsersScreen() {
       />
     </View>
   );
+}
+
+function UsersItemSeparator() {
+  return <View style={{ height: spacing.md }} />;
 }
 
 const styles = StyleSheet.create({
