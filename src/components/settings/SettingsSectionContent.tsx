@@ -7,6 +7,7 @@ import { BackupSettingsSection } from './BackupSettingsSection';
 import { FailureDetectionSettingsSection } from './FailureDetectionSettingsSection';
 import { FilamentSettingsSection } from './FilamentSettingsSection';
 import { GeneralSettingsSection } from './GeneralSettingsSection';
+import { MqttSettingsSection } from './MqttSettingsSection';
 import { NetworkSettingsSection } from './NetworkSettingsSection';
 import { NavigationSettingsSection } from './NavigationSettingsSection';
 import { NotificationsSettingsSection } from './NotificationsSettingsSection';
@@ -34,6 +35,7 @@ export function SettingsSectionContent({ controller }: { controller: SettingsScr
       {section === 'queue' ? <QueueSettingsSection controller={controller} /> : null}
       {section === 'filament' ? <FilamentSettingsSection controller={controller} /> : null}
       {section === 'network' ? <NetworkSettingsSection controller={controller} /> : null}
+      {section === 'mqtt' ? <MqttSettingsSection controller={controller} /> : null}
       {section === 'navigation' ? <NavigationSettingsSection controller={controller} /> : null}
       {section === 'apikeys' ? <ApiKeysSettingsSection controller={controller} /> : null}
       {section === 'external-cameras' ? <ExternalCamerasSettingsSection controller={controller} /> : null}

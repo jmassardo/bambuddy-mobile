@@ -16,6 +16,7 @@ import type {
   ExternalCameraCreate,
   ExternalCameraUpdate,
   LDAPStatus,
+  MQTTStatus,
   OIDCLink,
   OIDCProvider,
   OIDCProviderCreate,
@@ -30,6 +31,7 @@ import { formatDateTime, pickArray, pickBoolean, pickNumber, pickString, type Ap
 import { shareBlob } from '@/utils/share';
 import {
   DEFAULT_LDAP_FORM,
+  DEFAULT_MQTT_FORM,
   DEFAULT_SMTP_SETTINGS,
   EMPTY_CAMERA_TOKEN_FORM,
   EMPTY_EXTERNAL_CAMERA_FORM,
@@ -46,6 +48,7 @@ import type {
   ExternalLinkFormState,
   GitHubBackupFormState,
   LDAPFormState,
+  MqttFormState,
   ProviderFormState,
   SectionKey,
   SmartPlugFormState,
@@ -105,6 +108,7 @@ export function useSettingsScreenController() {
   const [githubBackupForm, setGithubBackupForm] = useState<GitHubBackupFormState>(EMPTY_GITHUB_BACKUP_FORM);
   const [smtpForm, setSmtpForm] = useState<SMTPSettings>(DEFAULT_SMTP_SETTINGS);
   const [smtpTestEmail, setSmtpTestEmail] = useState('');
+  const [mqttForm, setMqttFormState] = useState<MqttFormState>(DEFAULT_MQTT_FORM);
   const [ldapForm, setLdapForm] = useState<LDAPFormState>(DEFAULT_LDAP_FORM);
   const [providerModalVisible, setProviderModalVisible] = useState(false);
   const [editingProvider, setEditingProvider] = useState<OIDCProvider | null>(null);
@@ -205,6 +209,12 @@ export function useSettingsScreenController() {
     enabled: showTOTPSetup,
     staleTime: Infinity,
   });
+  const mqttStatusQuery = useQuery<MQTTStatus>({
+    queryKey: ['mqttStatus'],
+    queryFn: api.getMqttStatus,
+    enabled: section === 'mqtt',
+    refetchInterval: section === 'mqtt' ? 10000 : false,
+  });
 
   useEffect(() => {
     if (settingsQuery.data) {
@@ -233,6 +243,19 @@ export function useSettingsScreenController() {
       setSmtpForm(DEFAULT_SMTP_SETTINGS);
     }
   }, [smtpSettingsQuery.data]);
+
+  useEffect(() => {
+    if (draft) {
+      setMqttFormState({
+        mqtt_broker: pickString(draft, ['mqtt_broker']),
+        mqtt_port: pickNumber(draft, ['mqtt_port'], 1883),
+        mqtt_username: pickString(draft, ['mqtt_username']),
+        mqtt_password: '',
+        mqtt_topic_prefix: pickString(draft, ['mqtt_topic_prefix'], 'bambuddy'),
+        mqtt_use_tls: pickBoolean(draft, ['mqtt_use_tls']),
+      });
+    }
+  }, [draft?.mqtt_broker, draft?.mqtt_port, draft?.mqtt_username, draft?.mqtt_topic_prefix, draft?.mqtt_use_tls]);
 
   useEffect(() => {
     if (user?.email && !smtpTestEmail) {
@@ -291,6 +314,7 @@ export function useSettingsScreenController() {
       oidcProvidersQuery.refetch(),
       twoFAStatusQuery.refetch(),
       oidcLinksQuery.refetch(),
+      mqttStatusQuery.refetch(),
     ]);
   };
 
@@ -576,6 +600,21 @@ export function useSettingsScreenController() {
     onError: (error: Error) => showToast(error.message || 'SMTP test failed.', 'error'),
   });
 
+  const testMqttMutation = useMutation({
+    mutationFn: api.testMqttConnection,
+    onSuccess: data => {
+      const ok = pickBoolean(data, ['ok', 'success']);
+      showToast(
+        ok
+          ? pickString(data, ['message'], 'MQTT connection successful.')
+          : pickString(data, ['error', 'message'], 'MQTT connection failed.'),
+        ok ? 'success' : 'error',
+      );
+      void mqttStatusQuery.refetch();
+    },
+    onError: (error: Error) => showToast(error.message || 'MQTT test failed.', 'error'),
+  });
+
   const toggleAdvancedAuthMutation = useMutation({
     mutationFn: async (enabled: boolean) => (enabled ? api.enableAdvancedAuth() : api.disableAdvancedAuth()),
     onSuccess: async data => {
@@ -830,6 +869,7 @@ export function useSettingsScreenController() {
       obicoStatus: obicoQuery.data,
       advancedAuthStatus: advancedAuthQuery.data,
       githubBackupStatus: githubBackupQuery.data,
+      mqttStatus: mqttStatusQuery.data,
     }),
     [
       advancedAuthQuery.data,
@@ -837,6 +877,7 @@ export function useSettingsScreenController() {
       cameraTokensQuery.data,
       externalCamerasQuery.data,
       githubBackupQuery.data,
+      mqttStatusQuery.data,
       obicoQuery.data,
       providersQuery.data,
       settingsQuery.data,
@@ -851,6 +892,7 @@ export function useSettingsScreenController() {
     section === 'queue' ||
     section === 'filament' ||
     section === 'network' ||
+    section === 'mqtt' ||
     section === 'failure-detection' ||
     section === 'backup' ||
     (section === 'users' && userPanel === 'auth');
@@ -1255,6 +1297,7 @@ export function useSettingsScreenController() {
       githubBackupForm,
       smtpForm,
       smtpTestEmail,
+      mqttForm,
       ldapForm,
       providerModalVisible,
       editingProvider,
@@ -1310,6 +1353,7 @@ export function useSettingsScreenController() {
       twoFAStatusQuery,
       oidcLinksQuery,
       totpSetupQuery,
+      mqttStatusQuery,
     },
     mutations: {
       saveSettingsMutation,
@@ -1335,6 +1379,7 @@ export function useSettingsScreenController() {
       calibrateSpoolbuddyMutation,
       saveSMTPMutation,
       testSMTPMutation,
+      testMqttMutation,
       toggleAdvancedAuthMutation,
       saveLDAPMutation,
       toggleLDAPMutation,
@@ -1370,6 +1415,7 @@ export function useSettingsScreenController() {
       printerLabelById,
       currentUserRow,
       securityRows,
+      mqttStatus: mqttStatusQuery.data,
       smtpPortBySecurity: SMTP_PORT_BY_SECURITY,
     },
     actions: {
@@ -1401,6 +1447,7 @@ export function useSettingsScreenController() {
       setGithubBackupForm,
       setSmtpForm,
       setSmtpTestEmail,
+      setMqttForm: setMqttFormState,
       setLdapForm,
       setProviderModalVisible,
       setEditingProvider,

@@ -1,4 +1,5 @@
 import type {
+  MQTTStatus,
   SMTPSettings,
   SmartPlug,
 } from '@/types/api';
@@ -10,6 +11,7 @@ import type {
   ExternalLinkFormState,
   GitHubBackupFormState,
   LDAPFormState,
+  MqttFormState,
   OptionItem,
   ProviderFormState,
   SectionItem,
@@ -26,7 +28,8 @@ export const SECTION_ITEMS: SectionItem[] = [
   { key: 'notifications', icon: 'bell', title: 'Notifications', description: 'Provider status and shortcuts into user notification settings.' },
   { key: 'queue', icon: 'list-ordered', title: 'Queue', description: 'Default print options, preheat, staggering, and slicer preferences.' },
   { key: 'filament', icon: 'package', title: 'Filament', description: 'Warnings, Spoolman, RFID handling, and forecasting defaults.' },
-  { key: 'network', icon: 'globe', title: 'Network', description: 'External URLs, MQTT, FTP retry, Prometheus, and Home Assistant.' },
+  { key: 'network', icon: 'globe', title: 'Network', description: 'External URLs, FTP retry, Prometheus, and Home Assistant.' },
+  { key: 'mqtt', icon: 'wifi', title: 'MQTT', description: 'Broker configuration, topic prefix, and connection testing.' },
   { key: 'navigation', icon: 'menu', title: 'Navigation', description: 'Choose which pages appear and arrange tabs and the More menu.' },
   { key: 'apikeys', icon: 'key', title: 'API Keys', description: 'Create and revoke API keys for scripts and integrations.' },
   { key: 'external-cameras', icon: 'camera', title: 'External Cameras', description: 'Configure IP camera streams, test connectivity, and map cameras to printers.' },
@@ -190,6 +193,15 @@ export const EMPTY_SMART_PLUG_FORM: SmartPlugFormState = {
   enabled: true,
 };
 
+export const DEFAULT_MQTT_FORM: MqttFormState = {
+  mqtt_broker: '',
+  mqtt_port: 1883,
+  mqtt_username: '',
+  mqtt_password: '',
+  mqtt_topic_prefix: 'bambuddy',
+  mqtt_use_tls: false,
+};
+
 export type SectionSummaryQueries = {
   settings?: ApiRecord;
   smartPlugs?: SmartPlug[];
@@ -202,6 +214,7 @@ export type SectionSummaryQueries = {
   obicoStatus?: unknown;
   advancedAuthStatus?: unknown;
   githubBackupStatus?: unknown;
+  mqttStatus?: MQTTStatus;
 };
 
 export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
@@ -218,7 +231,12 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
     case 'filament':
       return `Low stock ${pickNumber(settings, ['low_stock_threshold'], 20)}%`;
     case 'network':
-      return pickBoolean(settings, ['mqtt_enabled']) ? 'MQTT enabled' : 'MQTT disabled';
+      return `External URL set • Prometheus ${pickBoolean(settings, ['prometheus_enabled']) ? 'enabled' : 'disabled'}`;
+    case 'mqtt': {
+      const mqtt = queries.mqttStatus;
+      if (!mqtt) return 'Checking…';
+      return `${mqtt.enabled ? 'Enabled' : 'Disabled'} • ${mqtt.connected ? 'Connected' : 'Disconnected'} • ${mqtt.broker}:${mqtt.port}`;
+    }
     case 'navigation':
       return pickString(settings, ['default_sidebar_order']) ? 'Customized' : 'Default order';
     case 'apikeys':

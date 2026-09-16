@@ -1,4 +1,4 @@
-import type { SMTPSettings, SmartPlug } from '@/types/api';
+import type { MQTTStatus, SMTPSettings, SmartPlug } from '@/types/api';
 
 export type SectionKey =
   | 'general'
@@ -7,6 +7,7 @@ export type SectionKey =
   | 'queue'
   | 'filament'
   | 'network'
+  | 'mqtt'
   | 'navigation'
   | 'apikeys'
   | 'external-cameras'
@@ -117,4 +118,13 @@ export type SectionItem = {
 export type OptionItem<T extends string = string> = {
   key: T;
   label: string;
+};
+
+export type MqttFormState = {
+  mqtt_broker: string;
+  mqtt_port: number;
+  mqtt_username: string;
+  mqtt_password: string;
+  mqtt_topic_prefix: string;
+  mqtt_use_tls: boolean;
 };
