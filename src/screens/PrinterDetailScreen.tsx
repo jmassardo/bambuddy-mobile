@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,10 +19,13 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Edit2,
   Home,
   MoveVertical,
+  X,
 } from 'lucide-react-native';
-import { ApiError, api } from '@/api/client';
+import { api, ApiError } from '@/api/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import {
@@ -157,7 +161,13 @@ export default function PrinterDetailScreen() {
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const { hasPermission } = useAuth();
+  const hasEditPermission = hasPermission('printers:update');
   const [showDebugModal, setShowDebugModal] = React.useState(false);
+  const [showEditModal, setShowEditModal] = React.useState(false);
+  const [editName, setEditName] = React.useState('');
+  const [editLocation, setEditLocation] = React.useState('');
+  const [editNotes, setEditNotes] = React.useState('');
   const [jogStepSize, setJogStepSize] = React.useState<(typeof JOG_STEP_SIZES)[number]>(
     1,
   );
@@ -225,6 +235,43 @@ export default function PrinterDetailScreen() {
       heaterHistoryQuery.refetch(),
     ]);
   };
+
+  const profileData = React.useMemo(
+    () => printerQuery.data ?? {},
+    [printerQuery.data],
+  );
+
+  const syncEditFields = React.useCallback(() => {
+    if (!printerQuery.data) return;
+    const data = printerQuery.data as ApiRecord;
+    setEditName(String(data.name ?? '') || '');
+    setEditLocation(String(data.location ?? '') || '');
+    setEditNotes(String(data.notes ?? '') || '');
+  }, [printerQuery.data]);
+
+  const showEdit = () => {
+    syncEditFields();
+    setShowEditModal(true);
+  };
+
+  const profileMutation = useMutation({
+    mutationFn: async (data: { name: string; location: string | null; notes: string | null }) =>
+      api.updatePrinter(printerId, {
+        name: data.name.trim(),
+        location: data.location ? data.location.trim() : null,
+        notes: data.notes ? data.notes.trim() : null,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['printers'] }),
+        queryClient.invalidateQueries({ queryKey: ['printer', printerId] }),
+        queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] }),
+      ]);
+      showToast('Printer profile updated.', 'success');
+      setShowEditModal(false);
+    },
+    onError: () => showToast('Failed to update printer profile.', 'error'),
+  });
 
   const invalidatePrinterStatus = React.useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] });
@@ -463,6 +510,66 @@ export default function PrinterDetailScreen() {
         </Text>
         <StatusBadge label={state} color={badgeColor} />
       </View>
+
+      <SectionCard
+        title="Profile"
+        subtitle="Printer name, location, and notes."
+        right={
+          <Pressable
+            onPress={showEdit}
+            disabled={!hasEditPermission || profileMutation.isPending}
+            style={[
+              styles.editButton,
+              {
+                backgroundColor: colors.accentBg,
+                borderColor: colors.accent,
+                opacity: !hasEditPermission || profileMutation.isPending ? 0.5 : 1,
+              },
+            ]}
+          >
+            {profileMutation.isPending ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Edit2 size={16} color={colors.accent} strokeWidth={2} />
+            )}
+          </Pressable>
+        }
+      >
+        <KeyValueRow
+          label="Name"
+          value={pickString(printer, ['name'], '—')}
+        />
+        <KeyValueRow
+          label="Location"
+          value={pickString(printer, ['location'], '—')}
+        />
+        <KeyValueRow
+          label="Model"
+          value={pickString(printer, ['model'], '—')}
+        />
+        <KeyValueRow
+          label="Serial"
+          value={pickString(printer, ['serial_number'], '—')}
+        />
+        <KeyValueRow
+          label="IP Address"
+          value={pickString(printer, ['ip_address'], '—')}
+        />
+        {pickString(printer, ['notes']) ? (
+          <KeyValueRow
+            label="Notes"
+            value={pickString(printer, ['notes'], '—')}
+          />
+        ) : null}
+        <KeyValueRow
+          label="Created"
+          value={formatDateTime(pickString(printer, ['created_at']))}
+        />
+        <KeyValueRow
+          label="Last updated"
+          value={formatDateTime(pickString(printer, ['updated_at']))}
+        />
+      </SectionCard>
 
       <Pressable
         onPress={() => navigation.navigate('Camera', { id: String(printerId) })}
@@ -1114,6 +1221,75 @@ export default function PrinterDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Edit Profile Modal */}
+      <Modal visible={showEditModal} transparent animationType="fade" onRequestClose={() => setShowEditModal(false)}>
+        <View style={[styles.editModalOverlay, { backgroundColor: colors.overlay }]}> 
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowEditModal(false)} />
+          <View style={[styles.editModalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
+            <View style={styles.editModalHeader}>
+              <View style={styles.editModalHeaderText}>
+                <Text style={[styles.editModalTitle, { color: colors.text }]}>Edit printer profile</Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                  Update name, location, and notes.
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setShowEditModal(false)}
+                style={[styles.editModalClose, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              >
+                <X size={18} color={colors.text} strokeWidth={2} />
+              </Pressable>
+            </View>
+
+            <View style={{ gap: spacing.md }}>
+              <View style={styles.editField}>
+                <Text style={[styles.editLabel, { color: colors.textSecondary }]}>Name</Text>
+                <TextInput
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Printer name"
+                  placeholderTextColor={colors.inputPlaceholder}
+                  style={[styles.editInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
+                />
+              </View>
+
+              <View style={styles.editField}>
+                <Text style={[styles.editLabel, { color: colors.textSecondary }]}>Location</Text>
+                <TextInput
+                  value={editLocation}
+                  onChangeText={setEditLocation}
+                  placeholder="Workshop, Office, Rack A…"
+                  placeholderTextColor={colors.inputPlaceholder}
+                  style={[styles.editInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
+                />
+              </View>
+
+              <View style={styles.editField}>
+                <Text style={[styles.editLabel, { color: colors.textSecondary }]}>Notes</Text>
+                <TextInput
+                  value={editNotes}
+                  onChangeText={setEditNotes}
+                  placeholder="Maintenance info, nozzle details, quirks…"
+                  placeholderTextColor={colors.inputPlaceholder}
+                  multiline
+                  style={[styles.editInputMultiline, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
+                />
+              </View>
+            </View>
+
+            <View style={styles.editModalActions}>
+              <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowEditModal(false)} />
+              <PrimaryButton
+                label={profileMutation.isPending ? 'Saving…' : 'Save'}
+                onPress={() => profileMutation.mutate({ name: editName, location: editLocation, notes: editNotes })}
+                disabled={!editName.trim() || profileMutation.isPending}
+                loading={profileMutation.isPending}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -1353,5 +1529,72 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+  },
+  editButton: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  editModalCard: {
+    borderRadius: borderRadius['2xl'],
+    borderWidth: 1,
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  editModalHeaderText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  editModalTitle: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+  },
+  editModalClose: {
+    width: 38,
+    height: 38,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editField: {
+    gap: spacing.xs,
+  },
+  editLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontSize: fontSize.base,
+  },
+  editInputMultiline: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontSize: fontSize.base,
+    minHeight: 108,
+    textAlignVertical: 'top',
+  },
+  editModalActions: {
+    gap: spacing.sm,
   },
 });

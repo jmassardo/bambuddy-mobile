@@ -658,6 +658,28 @@ export interface PrinterStatus {
   supports_chamber_heater?: boolean;
 }
 
+export interface PrinterUpdate {
+  name?: string;
+  serial_number?: string;
+  ip_address?: string;
+  access_code?: string;
+  model?: string;
+  location?: string | null;
+  notes?: string | null;
+  auto_archive?: boolean;
+  // Maintenance Mode flag (#1476). Backend already gates MQTT, queue dispatch,
+  // scheduler, metrics and the print picker on this; toggling via PATCH
+  // /printers/{id} disconnects or reconnects MQTT accordingly.
+  is_active?: boolean;
+  external_camera_url?: string | null;
+  external_camera_type?: string | null;
+  external_camera_enabled?: boolean;
+  external_camera_snapshot_url?: string | null;
+  camera_rotation?: number;
+  plate_detection_enabled?: boolean;
+  plate_detection_roi?: PlateDetectionROI;
+}
+
 export interface PrinterCreate {
   name: string;
   serial_number: string;

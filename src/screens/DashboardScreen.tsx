@@ -55,7 +55,7 @@ const FILTERS = [
 
 type FilterMode = (typeof FILTERS)[number]['key'];
 type PrinterMode = Exclude<FilterMode, 'all'>;
-export type PrinterSortMode = 'name' | 'status';
+export type PrinterSortMode = 'name' | 'status' | 'lastActivity';
 
 const PRINTER_SORT_STORAGE_KEY = 'bambuddy-printer-sort';
 const STATUS_SORT_RANK: Record<PrinterMode, number> = {
@@ -205,7 +205,14 @@ export function comparePrinters(
     first.name.localeCompare(second.name, undefined, { sensitivity: 'base' }) ||
     first.id - second.id;
 
+  const compareLastActivity = () => {
+    const firstUpdated = new Date(first.updated_at ?? first.created_at).getTime();
+    const secondUpdated = new Date(second.updated_at ?? second.created_at).getTime();
+    return secondUpdated - firstUpdated || compareNames();
+  };
+
   if (sortBy === 'name') return compareNames();
+  if (sortBy === 'lastActivity') return compareLastActivity();
 
   const firstMode = classifyPrinter(
     first,
@@ -255,7 +262,7 @@ export default function PrintersDashboardScreen() {
     const loadSortPreference = async () => {
       try {
         const storedSort = await AsyncStorage.getItem(PRINTER_SORT_STORAGE_KEY);
-        if (!cancelled && (storedSort === 'name' || storedSort === 'status')) {
+        if (!cancelled && (storedSort === 'name' || storedSort === 'status' || storedSort === 'lastActivity')) {
           setSortBy(storedSort);
         }
       } catch {
@@ -706,9 +713,9 @@ export default function PrintersDashboardScreen() {
                   { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
                 ]}
               >
-                {(['name', 'status'] as const).map(option => {
+                {(['lastActivity', 'status', 'name'] as const).map(option => {
                   const selected = sortBy === option;
-                  const label = option === 'name' ? 'Name' : 'Status';
+                  const label = option === 'name' ? 'Name' : option === 'status' ? 'Status' : 'Recent';
 
                   return (
                     <Pressable
