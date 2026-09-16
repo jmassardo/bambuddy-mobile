@@ -29,6 +29,7 @@ import {
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { useToast } from '@/contexts/ToastContext';
+import { useArchiveFiltersStore } from '@/store/archiveFiltersStore';
 import { useTheme } from '@/theme';
 import {
   borderRadius,
@@ -45,26 +46,15 @@ import {
 } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
 
-
-type ArchiveStatusFilter =
-  | 'all'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'favorite'
-  | 'duplicate';
-
-type RangeFilter = 'all' | '7d' | '30d' | '90d';
 type ArchiveViewMode = 'list' | 'grid';
-type FilamentTypeFilter = string;
 
 function toArchives(value: unknown): Archive[] {
   if (!Array.isArray(value)) return [];
   return value as unknown as Archive[];
 }
 
-function rangeCutoff(range: RangeFilter) {
-  if (range === 'all') return 0;
+function rangeCutoff(range: string) {
+  if (range === 'all' || range === 'custom') return 0;
   const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
   return Date.now() - days * 24 * 60 * 60 * 1000;
 }
@@ -76,7 +66,7 @@ function tagsForArchive(archive: Archive) {
     .filter(Boolean) ?? [];
 }
 
-function rangeDateFrom(range: RangeFilter) {
+function rangeDateFrom(range: string) {
   const cutoff = rangeCutoff(range);
   return cutoff > 0 ? new Date(cutoff).toISOString() : undefined;
 }
@@ -147,12 +137,7 @@ export default function ArchivesScreen() {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ArchiveStatusFilter>('all');
-  const [rangeFilter, setRangeFilter] = useState<RangeFilter>('all');
-  const [printerFilter, setPrinterFilter] = useState<number | 'all'>('all');
-  const [filamentTypeFilter, setFilamentTypeFilter] = useState<FilamentTypeFilter>('all');
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const { filters, setFilters, loadFilters } = useArchiveFiltersStore();
   const [viewMode, setViewMode] = useState<ArchiveViewMode>('list');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -168,6 +153,17 @@ export default function ArchivesScreen() {
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [purgeDays, setPurgeDays] = useState(90);
   const [purgeStats, setPurgeStats] = useState(false);
+
+  const search = filters.search;
+  const statusFilter = filters.statusFilter;
+  const rangeFilter = filters.rangeFilter;
+  const printerFilter = filters.printerFilter;
+  const filamentTypeFilter = filters.filamentTypeFilter;
+  const tagFilter = filters.tagFilter;
+
+  React.useEffect(() => {
+    void loadFilters();
+  }, [loadFilters]);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
@@ -302,7 +298,9 @@ export default function ArchivesScreen() {
       if (tagFilter && !tagsForArchive(archive).includes(tagFilter)) return false;
       if (statusFilter === 'completed' && archive.status !== 'completed') return false;
       if (statusFilter === 'failed' && archive.status !== 'failed' && archive.status !== 'aborted') return false;
-      if (statusFilter === 'cancelled' && archive.status !== 'cancelled' && archive.status !== 'stopped') return false;
+      if (statusFilter === 'running' && archive.status !== 'printing' && archive.status !== 'in_progress') return false;
+      if (statusFilter === 'paused' && archive.status !== 'paused' && archive.status !== 'pause') return false;
+      if (statusFilter === 'canceled' && archive.status !== 'canceled' && archive.status !== 'cancelled' && archive.status !== 'stopped') return false;
       if (statusFilter === 'favorite' && !archive.is_favorite) return false;
       if (statusFilter === 'duplicate' && archive.duplicate_count === 0) return false;
       if (cutoff > 0) {
@@ -355,7 +353,7 @@ export default function ArchivesScreen() {
             ? 'completed'
             : statusFilter === 'failed'
               ? 'failed'
-              : statusFilter === 'cancelled'
+              : statusFilter === 'canceled'
                 ? 'cancelled'
                 : undefined,
         dateFrom: rangeDateFrom(rangeFilter),
@@ -397,7 +395,9 @@ export default function ArchivesScreen() {
     all: archives.length,
     completed: archives.filter(archive => archive.status === 'completed').length,
     failed: archives.filter(archive => archive.status === 'failed' || archive.status === 'aborted').length,
-    cancelled: archives.filter(archive => archive.status === 'cancelled' || archive.status === 'stopped').length,
+    running: archives.filter(archive => archive.status === 'printing' || archive.status === 'in_progress').length,
+    paused: archives.filter(archive => archive.status === 'paused' || archive.status === 'pause').length,
+    canceled: archives.filter(archive => archive.status === 'canceled' || archive.status === 'cancelled' || archive.status === 'stopped').length,
     favorite: archives.filter(archive => archive.is_favorite).length,
     duplicate: archives.filter(archive => archive.duplicate_count > 0).length,
   };
@@ -495,45 +495,45 @@ export default function ArchivesScreen() {
             </ScrollView>
 
             <SectionCard title="Archive browser" subtitle="Web-style search, filters, compare mode, tags, and actions for reprints, timelapses, photos, QR links, and deletes.">
-              <SearchBar value={search} onChangeText={setSearch} placeholder="Search print name, filename, printer, material, tags, or notes" />
+              <SearchBar value={search} onChangeText={text => setFilters({ search: text })} placeholder="Search print name, filename, printer, material, tags, or notes" />
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                {(['all', 'completed', 'failed', 'cancelled', 'favorite', 'duplicate'] as ArchiveStatusFilter[]).map(status => (
+                {(['all', 'completed', 'failed', 'running', 'paused', 'canceled', 'favorite', 'duplicate'] as const).map(status => (
                   <Chip
                     key={status}
-                    label={`${status[0].toUpperCase()}${status.slice(1)}${statusCounts[status] ? ` (${statusCounts[status as keyof typeof statusCounts]})` : ''}`}
+                    label={`${status[0].toUpperCase()}${status.slice(1)}${statusCounts[status as keyof typeof statusCounts] ? ` (${statusCounts[status as keyof typeof statusCounts]})` : ''}`}
                     selected={statusFilter === status}
-                    onPress={() => setStatusFilter(status)}
+                    onPress={() => setFilters({ statusFilter: status as typeof statusFilter })}
                   />
                 ))}
               </ScrollView>
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                {(['all', '7d', '30d', '90d'] as RangeFilter[]).map(range => (
+                {(['all', '7d', '30d', '90d'] as const).map(range => (
                   <Chip
                     key={range}
                     label={range === 'all' ? 'All dates' : `${range.toUpperCase()} range`}
                     selected={rangeFilter === range}
-                    onPress={() => setRangeFilter(range)}
+                    onPress={() => setFilters({ rangeFilter: range as typeof rangeFilter })}
                   />
                 ))}
               </ScrollView>
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                <Chip label="All printers" selected={printerFilter === 'all'} onPress={() => setPrinterFilter('all')} />
+                <Chip label="All printers" selected={printerFilter === 'all'} onPress={() => setFilters({ printerFilter: 'all' })} />
                 {printers.map(printer => (
                   <Chip
                     key={printer.id}
                     label={printer.name}
                     selected={printerFilter === printer.id}
-                    onPress={() => setPrinterFilter(printer.id)}
+                    onPress={() => setFilters({ printerFilter: printer.id })}
                   />
                 ))}
               </ScrollView>
 
               {filamentTypes.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                  <Chip label="All materials" selected={filamentTypeFilter === 'all'} onPress={() => setFilamentTypeFilter('all')} />
+                  <Chip label="All materials" selected={filamentTypeFilter === 'all'} onPress={() => setFilters({ filamentTypeFilter: 'all' })} />
                   {filamentTypes.map(type => {
                     const count = archives.filter(a => a.filament_type === type).length;
                     return (
@@ -541,7 +541,7 @@ export default function ArchivesScreen() {
                         key={type}
                         label={`${type} (${count})`}
                         selected={filamentTypeFilter === type}
-                        onPress={() => setFilamentTypeFilter(type)}
+                        onPress={() => setFilters({ filamentTypeFilter: type })}
                       />
                     );
                   })}
@@ -550,13 +550,13 @@ export default function ArchivesScreen() {
 
               {tagSummary.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                  <Chip label="All tags" selected={tagFilter === null} onPress={() => setTagFilter(null)} />
+                  <Chip label="All tags" selected={tagFilter === null} onPress={() => setFilters({ tagFilter: null })} />
                   {tagSummary.map(tag => (
                     <Chip
                       key={tag.name}
                       label={`${tag.name} (${tag.count})`}
                       selected={tagFilter === tag.name}
-                      onPress={() => setTagFilter(tag.name)}
+                      onPress={() => setFilters({ tagFilter: tag.name })}
                     />
                   ))}
                 </ScrollView>
@@ -568,11 +568,7 @@ export default function ArchivesScreen() {
                     label="Clear filters"
                     variant="secondary"
                     onPress={() => {
-                      setStatusFilter('all');
-                      setRangeFilter('all');
-                      setPrinterFilter('all');
-                      setFilamentTypeFilter('all');
-                      setTagFilter(null);
+                      setFilters({ statusFilter: 'all', rangeFilter: 'all', printerFilter: 'all', filamentTypeFilter: 'all', tagFilter: null, search: '' });
                     }}
                   />
                 ) : null}
@@ -833,7 +829,7 @@ export default function ArchivesScreen() {
             <Pressable
               key={tag.name}
               onPress={() => {
-                setTagFilter(tag.name);
+                setFilters({ tagFilter: tag.name });
                 setShowTagSummary(false);
               }}
               style={[styles.simpleListItem, { borderColor: colors.borderSubtle }]}
