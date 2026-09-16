@@ -236,7 +236,6 @@ export default function PrinterDetailScreen() {
     ]);
   };
 
-// @ts-expect-error - used for type inference
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _profileData = React.useMemo(
     () => printerQuery.data ?? {},
