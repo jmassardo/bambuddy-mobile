@@ -4,7 +4,7 @@ import { ActivityIndicator, Image, ScrollView, Text, View } from 'react-native';
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
-import { EMPTY_SMART_PLUG_FORM, SMART_PLUG_TYPE_OPTIONS } from './constants';
+import { EMPTY_SMART_PLUG_FORM, EXTERNAL_CAMERA_TYPE_OPTIONS, SMART_PLUG_TYPE_OPTIONS } from './constants';
 import { OptionChipsField, settingsStyles, SimpleModal, SwitchRow } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
 import type { SmartPlugType } from './types';
@@ -22,6 +22,10 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
     externalLinkModalVisible,
     externalLinkForm,
     editingExternalLink,
+    externalCameraModalVisible,
+    editingExternalCamera,
+    externalCameraForm,
+    pendingDeleteExternalCamera,
     virtualPrinterModalVisible,
     editingVirtualPrinter,
     virtualPrinterForm,
@@ -190,6 +194,21 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
       <ConfirmModal visible={pendingDeleteExternalLink !== null} title="Delete external link" message={pendingDeleteExternalLink ? `Delete ${pickString(pendingDeleteExternalLink, ['name'], 'this link')}?` : 'Delete this external link?'} confirmLabel="Delete" onClose={() => actions.setPendingDeleteExternalLink(null)} onConfirm={() => pendingDeleteExternalLink && void mutations.deleteExternalLinkMutation.mutateAsync(pickNumber(pendingDeleteExternalLink, ['id']))} loading={mutations.deleteExternalLinkMutation.isPending} />
 
       <ConfirmModal visible={pendingDeleteVirtualPrinter !== null} title="Delete virtual printer" message={pendingDeleteVirtualPrinter ? `Delete ${pickString(pendingDeleteVirtualPrinter, ['name'], 'this virtual printer')}?` : 'Delete this virtual printer?'} confirmLabel="Delete" onClose={() => actions.setPendingDeleteVirtualPrinter(null)} onConfirm={() => pendingDeleteVirtualPrinter && void mutations.deleteVirtualPrinterMutation.mutateAsync(pickNumber(pendingDeleteVirtualPrinter, ['id']))} loading={mutations.deleteVirtualPrinterMutation.isPending} />
+
+      <SimpleModal visible={externalCameraModalVisible} title={editingExternalCamera ? 'Edit external camera' : 'Add external camera'} subtitle="Camera name, stream URL (RTSP/HTTP), type, and optional printer mapping." onClose={actions.closeExternalCameraModal}>
+        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+          <TextField label="Name" value={externalCameraForm.name} onChangeText={value => actions.setExternalCameraForm(current => ({ ...current, name: value }))} />
+          <TextField label="Stream URL" value={externalCameraForm.stream_url} onChangeText={value => actions.setExternalCameraForm(current => ({ ...current, stream_url: value }))} autoCapitalize="none" placeholder="rtsp:// or http:// or https:// URL" />
+          <OptionChipsField label="Camera type" value={externalCameraForm.camera_type} options={EXTERNAL_CAMERA_TYPE_OPTIONS} onChange={value => actions.setExternalCameraForm(current => ({ ...current, camera_type: value }))} />
+          <OptionChipsField label="Printer" value={externalCameraForm.printer_id} options={controller.derived.printerOptions} onChange={value => actions.setExternalCameraForm(current => ({ ...current, printer_id: value }))} />
+          <View style={settingsStyles.modalFooter}>
+            <PrimaryButton label="Cancel" variant="secondary" onPress={actions.closeExternalCameraModal} />
+            <PrimaryButton label={mutations.createExternalCameraMutation.isPending || mutations.updateExternalCameraMutation.isPending ? 'Saving…' : 'Save camera'} onPress={actions.handleSaveExternalCamera} loading={mutations.createExternalCameraMutation.isPending || mutations.updateExternalCameraMutation.isPending} disabled={mutations.createExternalCameraMutation.isPending || mutations.updateExternalCameraMutation.isPending} />
+          </View>
+        </ScrollView>
+      </SimpleModal>
+
+      <ConfirmModal visible={pendingDeleteExternalCamera !== null} title="Delete external camera" message={pendingDeleteExternalCamera ? `Delete ${pickString(pendingDeleteExternalCamera, ['name'], 'this external camera')}?` : 'Delete this external camera?'} confirmLabel="Delete" onClose={() => actions.setPendingDeleteExternalCamera(null)} onConfirm={() => pendingDeleteExternalCamera && void mutations.deleteExternalCameraMutation.mutateAsync(pickNumber(pendingDeleteExternalCamera, ['id']))} loading={mutations.deleteExternalCameraMutation.isPending} />
     </>
   );
 }
