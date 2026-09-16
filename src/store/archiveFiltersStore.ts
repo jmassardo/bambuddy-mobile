@@ -15,12 +15,15 @@ export type ArchiveStatusFilter =
 
 export type RangeFilter = 'all' | '7d' | '30d' | '90d' | 'custom';
 
+export type AIFilter = 'all' | 'ai' | 'human' | 'any';
+
 export type ArchiveFilters = {
   statusFilter: ArchiveStatusFilter;
   rangeFilter: RangeFilter;
   printerFilter: number | 'all';
   filamentTypeFilter: string;
   tagFilter: string | null;
+  aiFilter: AIFilter;
   search: string;
 };
 
@@ -37,6 +40,7 @@ const DEFAULT_FILTERS: ArchiveFilters = {
   printerFilter: 'all',
   filamentTypeFilter: 'all',
   tagFilter: null,
+  aiFilter: 'all',
   search: '',
 };
 

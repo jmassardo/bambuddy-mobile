@@ -161,6 +161,7 @@ export default function ArchivesScreen() {
   const printerFilter = filters.printerFilter;
   const filamentTypeFilter = filters.filamentTypeFilter;
   const tagFilter = filters.tagFilter;
+  const aiFilter = filters.aiFilter;
 
   React.useEffect(() => {
     void loadFilters();
@@ -304,13 +305,17 @@ export default function ArchivesScreen() {
       if (statusFilter === 'canceled' && archive.status !== 'canceled' && archive.status !== 'cancelled' && archive.status !== 'stopped') return false;
       if (statusFilter === 'favorite' && !archive.is_favorite) return false;
       if (statusFilter === 'duplicate' && archive.duplicate_count === 0) return false;
+      if (aiFilter !== 'all' && archive.ai_detection) {
+        if (aiFilter === 'ai' && archive.ai_detection.classification !== 'ai') return false;
+        if (aiFilter === 'human' && archive.ai_detection.classification !== 'human') return false;
+      }
       if (cutoff > 0) {
         const stamp = new Date(archive.completed_at || archive.created_at).getTime();
         if (!Number.isFinite(stamp) || stamp < cutoff) return false;
       }
       return true;
     });
-  }, [archives, printerFilter, filamentTypeFilter, rangeFilter, search, statusFilter, tagFilter]);
+  }, [archives, printerFilter, filamentTypeFilter, rangeFilter, search, statusFilter, tagFilter, aiFilter]);
 
   const compareArchives = useMemo(
     () =>
@@ -409,6 +414,12 @@ export default function ArchivesScreen() {
     canceled: archives.filter(archive => archive.status === 'canceled' || archive.status === 'cancelled' || archive.status === 'stopped').length,
     favorite: archives.filter(archive => archive.is_favorite).length,
     duplicate: archives.filter(archive => archive.duplicate_count > 0).length,
+  };
+  const aiCounts = {
+    all: archives.length,
+    ai: archives.filter(a => a.ai_detection?.classification === 'ai').length,
+    human: archives.filter(a => a.ai_detection?.classification === 'human').length,
+    any: archives.filter(a => Boolean(a.ai_detection)).length,
   };
 
   const toggleSelected = (id: number) => {
@@ -518,6 +529,17 @@ export default function ArchivesScreen() {
               </ScrollView>
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                {(['all', 'ai', 'human', 'any'] as const).map(mode => (
+                  <Chip
+                    key={mode}
+                    label={`${mode === 'ai' ? '🤖 AI' : mode === 'human' ? '👤 Human' : mode === 'any' ? '📊 Any' : 'All AI'}${aiCounts[mode] ? ` (${aiCounts[mode]})` : ''}`}
+                    selected={aiFilter === mode}
+                    onPress={() => setFilters({ aiFilter: mode })}
+                  />
+                ))}
+              </ScrollView>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
                 {(['all', '7d', '30d', '90d'] as const).map(range => (
                   <Chip
                     key={range}
@@ -572,12 +594,12 @@ export default function ArchivesScreen() {
               ) : null}
 
               <View style={styles.headerActions}>
-                {(statusFilter !== 'all' || rangeFilter !== 'all' || printerFilter !== 'all' || filamentTypeFilter !== 'all' || tagFilter != null) ? (
+                {(statusFilter !== 'all' || rangeFilter !== 'all' || printerFilter !== 'all' || filamentTypeFilter !== 'all' || tagFilter != null || aiFilter !== 'all') ? (
                   <PrimaryButton
                     label="Clear filters"
                     variant="secondary"
                     onPress={() => {
-                      setFilters({ statusFilter: 'all', rangeFilter: 'all', printerFilter: 'all', filamentTypeFilter: 'all', tagFilter: null, search: '' });
+                      setFilters({ statusFilter: 'all', rangeFilter: 'all', printerFilter: 'all', filamentTypeFilter: 'all', tagFilter: null, aiFilter: 'all', search: '' });
                     }}
                   />
                 ) : null}

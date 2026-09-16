@@ -851,6 +851,12 @@ export interface Archive {
   total_filament_actual_grams: number | null;
   successful_run_count: number;
   failed_run_count: number;
+  // AI detection analysis
+  ai_detection: {
+    classification: 'human' | 'ai' | 'unknown';
+    confidence: number;  // 0-100 percentage
+    ai_likelihood: number;  // 0-100 percentage
+  } | null;
 }
 
 export interface ArchiveSlim {
