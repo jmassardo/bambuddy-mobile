@@ -56,6 +56,7 @@ type ArchiveStatusFilter =
 
 type RangeFilter = 'all' | '7d' | '30d' | '90d';
 type ArchiveViewMode = 'list' | 'grid';
+type FilamentTypeFilter = string;
 
 function toArchives(value: unknown): Archive[] {
   if (!Array.isArray(value)) return [];
@@ -150,6 +151,7 @@ export default function ArchivesScreen() {
   const [statusFilter, setStatusFilter] = useState<ArchiveStatusFilter>('all');
   const [rangeFilter, setRangeFilter] = useState<RangeFilter>('all');
   const [printerFilter, setPrinterFilter] = useState<number | 'all'>('all');
+  const [filamentTypeFilter, setFilamentTypeFilter] = useState<FilamentTypeFilter>('all');
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ArchiveViewMode>('list');
   const [selectionMode, setSelectionMode] = useState(false);
@@ -208,6 +210,13 @@ export default function ArchivesScreen() {
     () => (Array.isArray(printersQuery.data) ? (printersQuery.data as unknown as Printer[]) : []),
     [printersQuery.data],
   );
+  const filamentTypes = useMemo(() => {
+    const types = new Set<string>();
+    archives.forEach(archive => {
+      if (archive.filament_type) types.add(archive.filament_type);
+    });
+    return Array.from(types).sort();
+  }, [archives]);
   const tagSummary = useMemo(
     () => (Array.isArray(tagsQuery.data) ? tagsQuery.data : []),
     [tagsQuery.data],
@@ -289,6 +298,7 @@ export default function ArchivesScreen() {
         if (!haystack.includes(term)) return false;
       }
       if (printerFilter !== 'all' && archive.printer_id !== printerFilter) return false;
+      if (filamentTypeFilter !== 'all' && archive.filament_type !== filamentTypeFilter) return false;
       if (tagFilter && !tagsForArchive(archive).includes(tagFilter)) return false;
       if (statusFilter === 'completed' && archive.status !== 'completed') return false;
       if (statusFilter === 'failed' && archive.status !== 'failed' && archive.status !== 'aborted') return false;
@@ -301,7 +311,7 @@ export default function ArchivesScreen() {
       }
       return true;
     });
-  }, [archives, printerFilter, rangeFilter, search, statusFilter, tagFilter]);
+  }, [archives, printerFilter, filamentTypeFilter, rangeFilter, search, statusFilter, tagFilter]);
 
   const compareArchives = useMemo(
     () =>
@@ -521,6 +531,23 @@ export default function ArchivesScreen() {
                 ))}
               </ScrollView>
 
+              {filamentTypes.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                  <Chip label="All materials" selected={filamentTypeFilter === 'all'} onPress={() => setFilamentTypeFilter('all')} />
+                  {filamentTypes.map(type => {
+                    const count = archives.filter(a => a.filament_type === type).length;
+                    return (
+                      <Chip
+                        key={type}
+                        label={`${type} (${count})`}
+                        selected={filamentTypeFilter === type}
+                        onPress={() => setFilamentTypeFilter(type)}
+                      />
+                    );
+                  })}
+                </ScrollView>
+              ) : null}
+
               {tagSummary.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
                   <Chip label="All tags" selected={tagFilter === null} onPress={() => setTagFilter(null)} />
@@ -536,6 +563,19 @@ export default function ArchivesScreen() {
               ) : null}
 
               <View style={styles.headerActions}>
+                {(statusFilter !== 'all' || rangeFilter !== 'all' || printerFilter !== 'all' || filamentTypeFilter !== 'all' || tagFilter != null) ? (
+                  <PrimaryButton
+                    label="Clear filters"
+                    variant="secondary"
+                    onPress={() => {
+                      setStatusFilter('all');
+                      setRangeFilter('all');
+                      setPrinterFilter('all');
+                      setFilamentTypeFilter('all');
+                      setTagFilter(null);
+                    }}
+                  />
+                ) : null}
                 <PrimaryButton
                   label={viewMode === 'grid' ? 'List view' : 'Grid view'}
                   variant="secondary"
