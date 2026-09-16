@@ -497,7 +497,7 @@ describe('useWebSocket', () => {
 
       // Should not create new connections after max attempts
       expect(MockWebSocket.instances.length).toBe(initialCount);
-      expect(hookRef.current && hookRef.current.isReconnecting).toBe(false);
+      expect(localHookRef.current && localHookRef.current.isReconnecting).toBe(false);
 
       await act(async () => {
         renderer.unmount();

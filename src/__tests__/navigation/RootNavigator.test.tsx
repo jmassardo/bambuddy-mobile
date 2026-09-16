@@ -2,6 +2,15 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import RootNavigator from '@/navigation/RootNavigator';
 
+jest.mock('react-native-image-picker', () => ({
+  launchCamera: jest.fn(),
+  launchImageLibrary: jest.fn(),
+}));
+
+jest.mock('react-native-share', () => ({
+  default: jest.fn(),
+}));
+
 const registeredRoutes: string[] = [];
 
 jest.mock('@/navigation/MainNavigator', () => () => null);
