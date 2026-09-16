@@ -1,4 +1,4 @@
-import type { ApiEntity, Archive, ArchiveComparison, EnergyStats, PrintLogResponse } from '@/types/api';
+import type { ApiEntity, Archive, EnergyStats, PrintLogResponse } from '@/types/api';
 import { buildMediaUrl, ApiError, request, requestBlob, uploadFile, type UploadableFile } from './http';
 
 export const archivesApi = {
@@ -66,11 +66,6 @@ export const archivesApi = {
       method: 'DELETE',
     }),
 
-  toggleFavorite: async (id: number) =>
-    request<Record<string, unknown>>(`/archives/${id}/favorite`, {
-      method: 'POST',
-    }),
-
   uploadArchive: async (file: UploadableFile, printerId?: number) =>
     uploadFile<Record<string, unknown>>(
       `/archives/upload${printerId !== undefined ? `?printer_id=${printerId}` : ''}`,
@@ -106,14 +101,6 @@ export const archivesApi = {
   },
 
   getTags: async () => request<{ name: string; count: number }[]>('/archives/tags'),
-
-  getArchiveDeleteImpact: async (id: number) =>
-    request<Record<string, unknown>>(`/archives/${id}/delete-impact`),
-
-  getArchiveComparison: async (ids: number[]) =>
-    request<ApiEntity<ArchiveComparison>>(
-      `/archives/compare?archive_ids=${ids.join(',')}`,
-    ),
 
   getArchiveSimilar: async (id: number, limit = 10) =>
     request<Array<ApiEntity<Archive>>>(`/archives/${id}/similar?limit=${limit}`),
@@ -161,9 +148,6 @@ export const archivesApi = {
     }
     return requestBlob(`/archives/stats/export?${searchParams.toString()}`);
   },
-
-  getArchivePlates: async (id: number) =>
-    request<Record<string, unknown>>(`/archives/${id}/plates`),
 
   getArchivePlateThumbnail: (id: number, plateIndex: number): string =>
     buildMediaUrl(`/archives/${id}/plates/${plateIndex}/thumbnail`),
@@ -235,22 +219,6 @@ export const archivesApi = {
     request<{ message: string }>('/archives/recalculate-costs', {
       method: 'POST',
     }),
-
-  getPrintLog: async (params?: {
-    limit?: number;
-    offset?: number;
-    printerId?: number;
-    status?: string;
-  }) => {
-    const searchParams = new URLSearchParams();
-    if (params?.limit) searchParams.set('limit', String(params.limit));
-    if (params?.offset) searchParams.set('offset', String(params.offset));
-    if (params?.printerId) searchParams.set('printer_id', String(params.printerId));
-    if (params?.status) searchParams.set('status', params.status);
-    return request<Record<string, unknown>>(`/print-log/?${searchParams}`);
-  },
-
-  clearPrintLog: async () => request<void>('/print-log/', { method: 'DELETE' }),
 
   getStats: async (params?: {
     dateFrom?: string;

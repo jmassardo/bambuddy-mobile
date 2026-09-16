@@ -5,7 +5,6 @@ import type {
   LibraryFolderTree,
   LibraryStats,
   LibraryTrashItem,
-  LibraryTrashSettings,
 } from '@/types/api';
 import {
   ApiError,
@@ -83,9 +82,6 @@ export const filesApi = {
       method: 'POST',
       body: JSON.stringify({ file_ids: [id], folder_id: folderId }),
     }),
-
-  deleteLibraryItem: async (id: number) =>
-    request<void>(`/library/files/${id}`, { method: 'DELETE' }),
 
   uploadLibraryFile: async (
     file: UploadableFile,
@@ -273,21 +269,6 @@ export const filesApi = {
     request<void>(`/library/trash/${id}`, { method: 'DELETE' }),
 
   emptyLibraryTrash: async () => request<void>('/library/trash', { method: 'DELETE' }),
-
-  extractZip: async (fileId: number, folderId?: number | null) =>
-    request<void>('/library/files/extract', {
-      method: 'POST',
-      body: JSON.stringify({ file_id: fileId, folder_id: folderId }),
-    }),
-
-  getLibraryTrashSettings: async () =>
-    request<ApiEntity<LibraryTrashSettings>>('/library/trash/settings'),
-
-  updateLibraryTrashSettings: async (data: Record<string, unknown>) =>
-    request<ApiEntity<LibraryTrashSettings>>('/library/trash/settings', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
 
   getPendingUploads: async () =>
     request<Record<string, unknown>[]>('/pending-uploads/'),
