@@ -466,10 +466,10 @@ describe('useWebSocket', () => {
 
     it('stops reconnecting after max attempts', async () => {
       const onReconnect = jest.fn();
-      const localHookRef = { current: null as ReturnType<typeof useWebSocket> | null };
+      const hookRef = { current: null as ReturnType<typeof useWebSocket> | null };
 
       function HookWithMax() {
-        localHookRef.current = useWebSocket({ onReconnect });
+        hookRef.current = useWebSocket({ onReconnect });
         return null;
       }
 
@@ -497,7 +497,7 @@ describe('useWebSocket', () => {
 
       // Should not create new connections after max attempts
       expect(MockWebSocket.instances.length).toBe(initialCount);
-      expect(localHookRef.current && localHookRef.current.isReconnecting).toBe(false);
+      expect(hookRef.current && hookRef.current.isReconnecting).toBe(false);
 
       await act(async () => {
         renderer.unmount();
