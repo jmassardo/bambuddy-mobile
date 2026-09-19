@@ -268,10 +268,10 @@ export default function LoginScreen() {
       setError('');
       try {
         await Linking.openURL(data.auth_url);
-      } catch (error) {
+      } catch (err) {
         pendingOidcState.current = null;
         const message =
-          error instanceof Error ? error.message : 'Unable to start SSO login.';
+          err instanceof Error ? err.message : 'Unable to start SSO login.';
         setError(message);
         showToast(message, 'error');
       }

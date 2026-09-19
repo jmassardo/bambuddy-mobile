@@ -50,6 +50,7 @@ jest.mock('../src/api/server', () => ({
       loading: false,
       loadServerUrl: jest.fn(() => Promise.resolve()),
     }),
+  registerServerUrlChangeHandler: jest.fn(),
 }));
 
 test('renders correctly', async () => {

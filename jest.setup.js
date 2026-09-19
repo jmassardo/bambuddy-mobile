@@ -45,6 +45,17 @@ jest.mock('react-native-nfc-manager', () => ({
   Ndef: { text: { decodePayload: jest.fn() } },
 }));
 
+// Mock react-native-image-picker
+jest.mock('react-native-image-picker', () => ({
+  launchCamera: jest.fn(),
+  launchImageLibrary: jest.fn(),
+}));
+
+// Mock react-native-share
+jest.mock('react-native-share', () => ({
+  default: jest.fn(),
+}));
+
 // Mock lucide-react-native (return simple View components)
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');

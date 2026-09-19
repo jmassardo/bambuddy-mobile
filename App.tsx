@@ -8,6 +8,7 @@ import { MutationCache, QueryClient, QueryClientProvider, QueryErrorResetBoundar
 import { AuthProvider } from '@/contexts/AuthContext';
 import { useOffline } from '@/hooks/useOffline';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { PushNotificationProvider } from '@/contexts/PushNotificationContext';
 import RootNavigator from '@/navigation/RootNavigator';
 import { ThemeProvider, useTheme } from '@/theme';
 import { useServerStore } from '@/api/server';
@@ -105,11 +106,13 @@ export default function App() {
                     </View>
                   )}
                 >
-                  <ToastProvider>
-                    <AuthProvider>
-                      <AppContent />
-                    </AuthProvider>
-                  </ToastProvider>
+                  <PushNotificationProvider>
+                    <ToastProvider>
+                      <AuthProvider>
+                        <AppContent />
+                      </AuthProvider>
+                    </ToastProvider>
+                  </PushNotificationProvider>
                 </ErrorBoundary>
               )}
             </QueryErrorResetBoundary>

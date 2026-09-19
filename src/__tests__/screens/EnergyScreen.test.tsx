@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-shadow -- Test file with React imports shadowing globals */
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import EnergyScreen, { getEnergyRangeParams } from '@/screens/EnergyScreen';
@@ -120,6 +121,8 @@ jest.mock('@/components/common/Charts', () => {
   const { Text } = require('react-native');
   return {
     SimpleBarChart: () => React.createElement(Text, null, 'energy-chart'),
+    MultiSeriesLineChart: ({ points }: { points: unknown[] }) => React.createElement(Text, null, `line-chart:${points?.length ?? 0}`),
+    SimpleDonutChart: () => React.createElement(Text, null, 'donut-chart'),
   };
 });
 

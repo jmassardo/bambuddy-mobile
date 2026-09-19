@@ -399,7 +399,7 @@ export default function ProfilesScreen() {
           `${tab}-${pickString(item, ['setting_id', 'id', 'name'], String(index))}`
         }
         contentContainerStyle={styles.content}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+        ItemSeparatorComponent={ProfilesItemSeparator}
         refreshControl={
           <RefreshControl
             refreshing={
@@ -783,6 +783,10 @@ export default function ProfilesScreen() {
       />
     </View>
   );
+}
+
+function ProfilesItemSeparator() {
+  return <View style={{ height: spacing.md }} />;
 }
 
 const styles = StyleSheet.create({

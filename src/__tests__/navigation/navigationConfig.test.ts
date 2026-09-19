@@ -44,6 +44,8 @@ describe('navigationConfig', () => {
         'system',
         'spoolbuddy',
         'scanner',
+        'failure-analysis',
+        'print-log',
       ]);
     });
 

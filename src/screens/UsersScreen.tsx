@@ -259,7 +259,7 @@ export default function UsersScreen() {
         data={users}
         keyExtractor={item => pickString(item, ['id'])}
         contentContainerStyle={styles.content}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+        ItemSeparatorComponent={UsersItemSeparator}
         refreshControl={
           <RefreshControl
             refreshing={usersQuery.isRefetching || groupsQuery.isRefetching}
@@ -557,6 +557,10 @@ export default function UsersScreen() {
       />
     </View>
   );
+}
+
+function UsersItemSeparator() {
+  return <View style={{ height: spacing.md }} />;
 }
 
 const styles = StyleSheet.create({

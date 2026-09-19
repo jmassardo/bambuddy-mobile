@@ -122,11 +122,16 @@ export function useWebSocket(options?: UseWebSocketOptions) {
           }
           break;
 
-        case 'print_start':
+        case 'print_start': {
           if (message.printer_id !== undefined) {
             queryClient.invalidateQueries({ queryKey: ['printerStatus', message.printer_id] });
           }
+          if (message.printer_name || message.printer_id !== undefined) {
+            const printer = message.printer_name || `Printer ${message.printer_id}`;
+            showToast(`${printer}: Print started`, 'info', 4000);
+          }
           break;
+        }
 
         case 'missing_spool_assignment': {
           const slots = message.missing_slots
@@ -139,10 +144,35 @@ export function useWebSocket(options?: UseWebSocketOptions) {
           break;
         }
 
-        case 'print_complete':
+        case 'print_complete': {
           debouncedInvalidate('archives');
           debouncedInvalidate('archiveStats');
+          if (message.printer_name || message.printer_id !== undefined) {
+            const printer = message.printer_name || `Printer ${message.printer_id}`;
+            showToast(`${printer}: Print completed`, 'success', 5000);
+          }
           break;
+        }
+
+        case 'print_failed': {
+          if (message.printer_id !== undefined) {
+            queryClient.invalidateQueries({ queryKey: ['printerStatus', message.printer_id] });
+          }
+          const printer = message.printer_name || `Printer ${message.printer_id}`;
+          const extra = message.data?.error_message
+            ? ` — ${String(message.data.error_message)}`
+            : message.data?.hms_errors
+              ? ' — HMS errors detected'
+              : '';
+          showToast(`${printer}: Print failed${extra}`, 'error', 5000);
+          break;
+        }
+
+        case 'printer_offline': {
+          const printer = message.printer_name || `Printer ${message.printer_id}`;
+          showToast(`${printer}: Printer offline`, 'warning', 6000);
+          break;
+        }
 
         case 'archive_created':
         case 'archive_updated':

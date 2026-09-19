@@ -205,7 +205,7 @@ describe('VirtualPrintersScreen', () => {
     const { result } = await renderScreen();
 
     expect(await result.findByText('Alpha simulator')).toBeTruthy();
-    expect(result.getByText('X1 Carbon • Pending 2')).toBeTruthy();
+    expect(result.getByText('X1 Carbon • queue • Pending 2')).toBeTruthy();
     expect(result.getByText('stopped')).toBeTruthy();
   });
 

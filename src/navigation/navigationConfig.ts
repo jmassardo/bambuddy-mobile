@@ -1,5 +1,6 @@
 import type { ExternalLink } from '@/types/api';
 import type { MainTabParamList, RootStackParamList } from './types';
+import type { CustomNavItem } from '@/store/navigationStore';
 
 export type BuiltInNavId =
   | 'dashboard'
@@ -20,7 +21,9 @@ export type BuiltInNavId =
   | 'energy'
   | 'system'
   | 'spoolbuddy'
-  | 'scanner';
+  | 'scanner'
+  | 'failure-analysis'
+  | 'print-log';
 
 type NavLocation = 'tab' | 'more';
 
@@ -55,6 +58,8 @@ export const BUILT_IN_NAV_ITEMS: readonly BuiltInNavigationItem[] = [
   { id: 'system', label: 'System', subtitle: 'Health, resources, logs, support tools', icon: 'cpu', location: 'more', stackRoute: 'System' },
   { id: 'spoolbuddy', label: 'SpoolBuddy', subtitle: 'SpoolBuddy devices, status, and configuration', icon: 'nfc', location: 'more', stackRoute: 'SpoolBuddy', lockVisibility: true },
   { id: 'scanner', label: 'Scanner', subtitle: 'Scan QR and NFC related data', icon: 'qr-code', location: 'more', stackRoute: 'Scanner' },
+  { id: 'failure-analysis', label: 'Failure Analysis', subtitle: 'Analyze print failures and identify patterns', icon: 'alert-circle', location: 'more', stackRoute: 'FailureAnalysis' },
+  { id: 'print-log', label: 'Print Log', subtitle: 'Search, filter, and export print history', icon: 'clipboard-list', location: 'more', stackRoute: 'PrintLog' },
 ];
 
 const BUILT_IN_BY_ID = new Map(BUILT_IN_NAV_ITEMS.map(item => [item.id, item]));
@@ -66,6 +71,7 @@ export type NavigationLayout = {
   tabItems: BuiltInNavigationItem[];
   moreItems: BuiltInNavigationItem[];
   externalLinks: ExternalLink[];
+  customNavItems: CustomNavItem[];
 };
 
 export function parseNavigationOrder(raw: string | null | undefined): string[] {
@@ -128,6 +134,7 @@ function sortExternalLinks(links: ExternalLink[]): ExternalLink[] {
 export function getNavigationLayout(input: {
   defaultSidebarOrder?: string | null;
   externalLinks?: ExternalLink[] | null;
+  customNavItems?: CustomNavItem[];
   maxTabs?: number;
 }): NavigationLayout {
   const maxTabs = Math.max(1, input.maxTabs ?? 5);
@@ -174,5 +181,6 @@ export function getNavigationLayout(input: {
     tabItems,
     moreItems,
     externalLinks: sortExternalLinks(input.externalLinks ?? []),
+    customNavItems: input.customNavItems ?? [],
   };
 }

@@ -48,6 +48,11 @@ export type RootStackParamList = {
     fileSize?: number;
     source3mfPath?: string;
   };
+  FailureAnalysis: undefined;
+  WebSocketStatus: undefined;
+  TimelapseEditor: { archiveId: number };
+  PrintLog: { archiveId?: number } | undefined;
+  SpoolAssignmentHistory: undefined;
 };
 
 export type RootNavigationProp<

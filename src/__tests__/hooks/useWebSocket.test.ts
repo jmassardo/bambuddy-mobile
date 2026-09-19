@@ -370,10 +370,11 @@ describe('useWebSocket', () => {
 
     it('triggers onError callback on error', async () => {
       const onError = jest.fn();
-      let hook: ReturnType<typeof useWebSocket> | null = null;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- test helper, not read in test
+      let _hook: ReturnType<typeof useWebSocket> | null = null;
 
       function HookWithCallback() {
-        hook = useWebSocket({ onError });
+        _hook = useWebSocket({ onError });
         return null;
       }
 
@@ -424,10 +425,11 @@ describe('useWebSocket', () => {
   describe('reconnection callbacks', () => {
     it('triggers onReconnect callback with attempt number', async () => {
       const onReconnect = jest.fn();
-      let hook: ReturnType<typeof useWebSocket> | null = null;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- test helper, not read in test
+      let _hook: ReturnType<typeof useWebSocket> | null = null;
 
       function HookWithCallback() {
-        hook = useWebSocket({ onReconnect });
+        _hook = useWebSocket({ onReconnect });
         return null;
       }
 

@@ -7,12 +7,15 @@ import { BackupSettingsSection } from './BackupSettingsSection';
 import { FailureDetectionSettingsSection } from './FailureDetectionSettingsSection';
 import { FilamentSettingsSection } from './FilamentSettingsSection';
 import { GeneralSettingsSection } from './GeneralSettingsSection';
+import { KProfileSettingsSection } from './KProfileSettingsSection';
+import { MqttSettingsSection } from './MqttSettingsSection';
 import { NetworkSettingsSection } from './NetworkSettingsSection';
 import { NavigationSettingsSection } from './NavigationSettingsSection';
 import { NotificationsSettingsSection } from './NotificationsSettingsSection';
 import { QueueSettingsSection } from './QueueSettingsSection';
 import { SmartPlugsSection } from './SmartPlugsSection';
 import { SpoolBuddySettingsSection } from './SpoolBuddySettingsSection';
+import { StorageLocationsSection } from './StorageLocationsSection';
 import { settingsStyles } from './shared';
 import { UsersSecuritySection } from './UsersSecuritySection';
 import { VirtualPrinterSettingsSection } from './VirtualPrinterSettingsSection';
@@ -33,7 +36,9 @@ export function SettingsSectionContent({ controller }: { controller: SettingsScr
       {section === 'notifications' ? <NotificationsSettingsSection controller={controller} /> : null}
       {section === 'queue' ? <QueueSettingsSection controller={controller} /> : null}
       {section === 'filament' ? <FilamentSettingsSection controller={controller} /> : null}
+      {section === 'kprofiles' ? <KProfileSettingsSection controller={controller} /> : null}
       {section === 'network' ? <NetworkSettingsSection controller={controller} /> : null}
+      {section === 'mqtt' ? <MqttSettingsSection controller={controller} /> : null}
       {section === 'navigation' ? <NavigationSettingsSection controller={controller} /> : null}
       {section === 'apikeys' ? <ApiKeysSettingsSection controller={controller} /> : null}
       {section === 'external-cameras' ? <ExternalCamerasSettingsSection controller={controller} /> : null}
@@ -42,6 +47,7 @@ export function SettingsSectionContent({ controller }: { controller: SettingsScr
       {section === 'failure-detection' ? <FailureDetectionSettingsSection controller={controller} /> : null}
       {section === 'users' ? <UsersSecuritySection controller={controller} /> : null}
       {section === 'backup' ? <BackupSettingsSection controller={controller} /> : null}
+      {section === 'storage-locations' ? <StorageLocationsSection controller={controller} /> : null}
       {controller.derived.isDirtySection ? (
         <PrimaryButton
           label={controller.mutations.saveSettingsMutation.isPending ? 'Saving…' : 'Save settings'}

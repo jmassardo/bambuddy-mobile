@@ -38,7 +38,8 @@ export default function SettingsScreen() {
               controller.queries.apiKeysQuery.isRefetching ||
               controller.queries.cameraTokensQuery.isRefetching ||
               controller.queries.externalLinksQuery.isRefetching ||
-              controller.queries.virtualPrinterListQuery.isRefetching
+              controller.queries.virtualPrinterListQuery.isRefetching ||
+              controller.queries.mqttStatusQuery.isRefetching
             }
             onRefresh={() => void controller.actions.refreshAll()}
             tintColor={controller.colors.accent}
