@@ -98,6 +98,13 @@ console.error = (...args: unknown[]) => {
   originalConsoleError(...args);
 };
 
+// Mock NetInfo
+const mockNetInfoState = { isConnected: true, isInternetReachable: true, type: 'wifi' };
+jest.mock('@react-native-community/netinfo', () => ({
+  useNetInfo: jest.fn(() => mockNetInfoState),
+  addEventListener: jest.fn(() => jest.fn()),
+}));
+
 // Mock Linking
 jest.mock('react-native/Libraries/Linking/Linking', () => ({
   openURL: jest.fn(() => Promise.resolve()),

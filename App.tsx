@@ -4,7 +4,8 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { MutationCache, QueryClient, QueryClientProvider, QueryErrorResetBoundary, useQueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryClient, QueryClientProvider, QueryErrorResetBoundary, onlineManager, useQueryClient } from '@tanstack/react-query';
+import NetInfo from '@react-native-community/netinfo';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { useOffline } from '@/hooks/useOffline';
 import { ToastProvider } from '@/contexts/ToastContext';
@@ -12,6 +13,13 @@ import { PushNotificationProvider } from '@/contexts/PushNotificationContext';
 import RootNavigator from '@/navigation/RootNavigator';
 import { ThemeProvider, useTheme } from '@/theme';
 import { useServerStore } from '@/api/server';
+import { OfflineBanner } from '@/components/common/OfflineBanner';
+
+onlineManager.setEventListener((setOnline) => {
+  return NetInfo.addEventListener((state) => {
+    setOnline(Boolean(state.isConnected));
+  });
+});
 
 const mutationCache = new MutationCache({
   onError: (error) => {
@@ -69,6 +77,7 @@ function AppContent() {
         },
       }}
     >
+      <OfflineBanner isOffline={isOffline} />
       <StatusBar
         barStyle="light-content"
         backgroundColor={theme.colors.background}

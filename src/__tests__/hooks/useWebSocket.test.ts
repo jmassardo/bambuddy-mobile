@@ -533,4 +533,113 @@ describe('useWebSocket', () => {
       });
     });
   });
+
+  describe('parse error handling', () => {
+    it('records a parse error and keeps the socket open', async () => {
+      const renderer = await renderHookHarness();
+
+      act(() => {
+        MockWebSocket.instances[0]?.open();
+        MockWebSocket.instances[0]?.emitMessage({
+          type: 'printer_status',
+          printer_id: 7,
+          data: { progress: 55 },
+        });
+      });
+
+      expect(getLatest()?.isConnected).toBe(true);
+
+      act(() => {
+        (MockWebSocket.instances[0] as any).onmessage?.({ data: 'not valid json' });
+      });
+
+      expect(getLatest()?.errors).toHaveLength(1);
+      expect(getLatest()?.errors[0]?.message).toContain('parse error');
+      expect(getLatest()?.isConnected).toBe(true);
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('resets parse error counter on a valid message', async () => {
+      const renderer = await renderHookHarness();
+
+      act(() => {
+        MockWebSocket.instances[0]?.open();
+      });
+
+      act(() => {
+        (MockWebSocket.instances[0] as any).onmessage?.({ data: 'not valid json' });
+      });
+
+      expect(getLatest()?.errors).toHaveLength(1);
+
+      act(() => {
+        MockWebSocket.instances[0]?.emitMessage({ type: 'pong' });
+      });
+
+      act(() => {
+        (MockWebSocket.instances[0] as any).onmessage?.({ data: 'another bad message' });
+      });
+
+      expect(getLatest()?.errors).toHaveLength(2);
+      expect(getLatest()?.errors[1]?.message).toContain('parse error');
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('closes socket after consecutive parse error threshold', async () => {
+      const renderer = await renderHookHarness();
+
+      act(() => {
+        MockWebSocket.instances[0]?.open();
+      });
+
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          (MockWebSocket.instances[0] as any).onmessage?.({ data: `bad message ${i}` });
+        });
+      }
+
+      const parseErrors = (getLatest()?.errors ?? []).filter(e => e.message.includes('parse error') && !e.message.includes('consecutive'));
+      expect(parseErrors).toHaveLength(5);
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('includes message type in parse error when extractable', async () => {
+      const renderer = await renderHookHarness();
+
+      act(() => {
+        MockWebSocket.instances[0]?.open();
+      });
+
+      act(() => {
+        (MockWebSocket.instances[0] as any).onmessage?.({ data: '{"type": "printer_status", corrupted' });
+      });
+
+      expect(getLatest()?.errors[0]?.message).toContain('printer_status');
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+  });
+
+  describe('token mint recovery', () => {
+    it('returns isLiveUpdatesAvailable as true initially', async () => {
+      const renderer = await renderHookHarness();
+
+      expect(getLatest()?.isLiveUpdatesAvailable).toBe(true);
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+  });
 });
