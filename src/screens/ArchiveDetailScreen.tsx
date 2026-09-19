@@ -35,6 +35,7 @@ import { useMediaToken } from '@/hooks/useStreamToken';
 import { EditArchiveModal } from '@/components/archives/EditArchiveModal';
 import { PrintLogModal } from '@/components/archives/PrintLogModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { SliceModal } from '@/components/files/SliceModal';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -100,6 +101,7 @@ export default function ArchiveDetailScreen() {
   const [photoRetrySeeds, setPhotoRetrySeeds] = useState<
     Record<string, number>
   >({});
+  const [showSliceModal, setShowSliceModal] = useState(false);
 
   const archiveQuery = useQuery({
     queryKey: ['archive', archiveId],
@@ -234,16 +236,6 @@ export default function ArchiveDetailScreen() {
     },
     onError: () =>
       showToast('Unable to add this archive to the queue.', 'error'),
-  });
-
-  const sliceMutation = useMutation({
-    mutationFn: () => api.sliceArchive(archiveId),
-    onSuccess: async () => {
-      await invalidateArchiveQueries();
-      showToast('Archive slicing started. It may take a few minutes to complete.', 'success');
-    },
-    onError: () =>
-      showToast('Unable to slice this archive.', 'error'),
   });
 
   const restoreMutation = useMutation({
@@ -521,8 +513,7 @@ export default function ArchiveDetailScreen() {
             <PrimaryButton
               label="Slice"
               variant="secondary"
-              onPress={() => void sliceMutation.mutateAsync()}
-              loading={sliceMutation.isPending}
+              onPress={() => setShowSliceModal(true)}
             />
           </View>
           {isSoftDeleted ? (
@@ -1056,6 +1047,14 @@ export default function ArchiveDetailScreen() {
         message="Remove this archive photo?"
         confirmLabel="Delete"
         loading={deletePhotoMutation.isPending}
+      />
+
+      <SliceModal
+        visible={showSliceModal}
+        onClose={() => setShowSliceModal(false)}
+        sourceType="archive"
+        sourceId={archiveId}
+        sourceName={archive.print_name || archive.filename}
       />
     </>
   );
