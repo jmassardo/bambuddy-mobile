@@ -10,6 +10,8 @@ import { useToast } from '../contexts/ToastContext';
 
 const WS_CLOSE_UNAUTHORIZED = 4401;
 const MAX_RECONNECT_ATTEMPTS = 15;
+const MAX_PARSE_ERRORS = 5;
+const MAX_TOKEN_MINT_RETRIES = 3;
 
 export interface WebSocketError {
   timestamp: number;
@@ -40,11 +42,18 @@ export function useWebSocket(options?: UseWebSocketOptions) {
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [isLiveUpdatesAvailable, setIsLiveUpdatesAvailable] = useState(true);
   const [errors, setErrors] = useState<WebSocketError[]>([]);
   const { showToast } = useToast();
   const serverUrl = useServerStore((s) => s.serverUrl);
   const optionsRef = useRef(options);
   optionsRef.current = options;
+
+  // Parse error tracking — close and reconnect after threshold
+  const parseErrorCountRef = useRef(0);
+  // Token mint failure tracking
+  const tokenMintFailuresRef = useRef(0);
+  const tokenMintShutdownRef = useRef(false);
 
   // Debounced invalidation
   const pendingInvalidations = useRef<Set<string>>(new Set());
@@ -224,16 +233,28 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     let token: string | undefined;
+    let mintSuccess = false;
     try {
       const resp = await api.getWebSocketToken();
       token = resp.token;
+      mintSuccess = true;
     } catch {
-      // Auth-disabled deployments may not support ws-token — connect without
       const authTok = getAuthToken();
-      if (authTok) return; // Auth enabled but token mint failed — don't retry
+      if (authTok) {
+        tokenMintFailuresRef.current += 1;
+        if (tokenMintFailuresRef.current >= MAX_TOKEN_MINT_RETRIES) {
+          tokenMintShutdownRef.current = true;
+          setIsLiveUpdatesAvailable(false);
+          addError('WebSocket: unable to mint auth token — live updates unavailable');
+        }
+        return;
+      }
+      // Auth-disabled deployment — connect without token
+      mintSuccess = true;
     }
 
     if (disposedRef.current) return;
+    if (tokenMintShutdownRef.current && !mintSuccess) return;
 
     const ws = new WebSocket(wsUrl(serverUrl, token));
 
@@ -241,6 +262,10 @@ export function useWebSocket(options?: UseWebSocketOptions) {
       setIsConnected(true);
       setIsReconnecting(false);
       reconnectAttemptRef.current = 0;
+      parseErrorCountRef.current = 0;
+      setIsLiveUpdatesAvailable(true);
+      tokenMintFailuresRef.current = 0;
+      tokenMintShutdownRef.current = false;
       pingIntervalRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ping' }));
@@ -249,11 +274,36 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     };
 
     ws.onmessage = (event) => {
+      let parsed: WebSocketMessage | null = null;
       try {
-        const message: WebSocketMessage = JSON.parse(event.data as string);
-        handleMessageRef.current(message);
-      } catch {
-        // Ignore parse errors
+        parsed = JSON.parse(event.data as string);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown parse error';
+        parseErrorCountRef.current += 1;
+
+        const rawType = (() => {
+          if (event.data != null && typeof event.data === 'string') {
+            const match = event.data.match(/"type"\s*:\s*"([^"]*)"/);
+            return match ? match[1] : (event.data.length > 30 ? `truncated: ${event.data.slice(0, 30)}...` : 'unknown');
+          }
+          return 'unknown';
+        })();
+
+        __DEV__ && console.warn('[WebSocket] Parse error, type:', rawType, 'message:', message);
+
+        addError(`WebSocket message parse error (type: ${rawType}): ${message}`);
+
+        if (parseErrorCountRef.current >= MAX_PARSE_ERRORS) {
+          addError(`WebSocket: ${MAX_PARSE_ERRORS} consecutive parse errors — reconnecting`);
+          wsRef.current?.close();
+        }
+
+        return;
+      }
+
+      if (parsed) {
+        parseErrorCountRef.current = 0;
+        handleMessageRef.current(parsed);
       }
     };
 
@@ -347,5 +397,5 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     setErrors([]);
   }, []);
 
-  return { isConnected, isReconnecting, errors, sendMessage, clearErrors };
+  return { isConnected, isReconnecting, isLiveUpdatesAvailable, errors, sendMessage, clearErrors };
 }
