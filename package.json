@@ -31,7 +31,7 @@
     "react-native-chart-kit": "^7.0.2",
     "react-native-device-info": "^14.0.4",
     "react-native-gesture-handler": "~2.32.0",
-    "react-native-haptic-feedback": "^2.3.3",
+    "react-native-haptic-feedback": "^3.0.0",
     "react-native-image-picker": "^8.2.0",
     "react-native-keychain": "^9.2.2",
     "react-native-nfc-manager": "^3.17.2",
