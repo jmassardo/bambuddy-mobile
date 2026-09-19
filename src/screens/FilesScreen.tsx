@@ -27,6 +27,7 @@ import {
   TextField,
 } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { SliceModal } from '@/components/files/SliceModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { PrintModal } from '@/components/printers/PrintModal';
 import { useToast } from '@/contexts/ToastContext';
@@ -171,6 +172,9 @@ export default function FilesScreen() {
   const [editingTagId, setEditingTagId] = useState<number | null>(null);
   const [pendingTagDelete, setPendingTagDelete] = useState<ApiRecord | null>(null);
   const [readmeExpanded, setReadmeExpanded] = useState(true);
+  const [showSliceModal, setShowSliceModal] = useState(false);
+  const [sliceSourceId, setSliceSourceId] = useState<number | null>(null);
+  const [sliceSourceName, setSliceSourceName] = useState('');
   const currentFolder = folderStack[folderStack.length - 1];
 
   const filesQuery = useQuery({
@@ -620,15 +624,6 @@ export default function FilesScreen() {
     onError: (error: Error) => showToast(error.message || 'Unable to update file tags.', 'error'),
   });
 
-  const sliceMutation = useMutation({
-    mutationFn: (id: number) => api.sliceFile(id),
-    onSuccess: async () => {
-      await invalidateFiles();
-      showToast('File slicing started. It may take a few minutes to complete.', 'success');
-    },
-    onError: (error: Error) => showToast(error.message || 'Unable to slice the file.', 'error'),
-  });
-
   const toggleSelected = (id: number) => {
     setSelectedIds(current =>
       current.includes(id) ? current.filter(value => value !== id) : [...current, id],
@@ -764,7 +759,9 @@ export default function FilesScreen() {
                 }}
                 onPreview={() => setPreviewItem(item)}
                 onSlice={() => {
-                  void sliceMutation.mutateAsync(Number(pickId(item)));
+                  setSliceSourceId(Number(pickId(item)));
+                  setSliceSourceName(pickString(item, ['print_name', 'filename', 'name'], ''));
+                  setShowSliceModal(true);
                 }}
               />
             </View>
@@ -1484,6 +1481,18 @@ export default function FilesScreen() {
         }
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
+      />
+
+      <SliceModal
+        visible={showSliceModal}
+        onClose={() => {
+          setShowSliceModal(false);
+          setSliceSourceId(null);
+          setSliceSourceName('');
+        }}
+        sourceType="file"
+        sourceId={sliceSourceId ?? 0}
+        sourceName={sliceSourceName}
       />
     </View>
   );
