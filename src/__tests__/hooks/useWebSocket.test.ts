@@ -35,6 +35,16 @@ jest.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ showToast: mockShowToast }),
 }));
 
+const mockConnectivityConnected = jest.fn(() => true);
+
+jest.mock('@/hooks/useNetworkStatus', () => ({
+  useNetworkStatus: () => ({
+    isConnected: mockConnectivityConnected(),
+    isInternetReachable: true,
+    type: 'wifi',
+  }),
+}));
+
 class MockWebSocket {
   static CONNECTING = 0;
   static OPEN = 1;
@@ -636,6 +646,56 @@ describe('useWebSocket', () => {
       const renderer = await renderHookHarness();
 
       expect(getLatest()?.isLiveUpdatesAvailable).toBe(true);
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+  });
+
+  describe('offline gating', () => {
+    it('pauses reconnection when device goes offline', async () => {
+      mockConnectivityConnected.mockImplementation(() => true);
+      const renderer = await renderHookHarness();
+
+      // Trigger a disconnect to start reconnection
+      act(() => {
+        MockWebSocket.instances[0]?.emitClose(1006);
+        jest.advanceTimersByTime(3000);
+      });
+
+      await act(async () => { await Promise.resolve(); });
+
+      const reconnectCount = MockWebSocket.instances.length;
+
+      // Now go offline
+      mockConnectivityConnected.mockImplementation(() => false);
+
+      // Advance timer past the reconnection delay - should NOT reconnect
+      act(() => {
+        jest.advanceTimersByTime(10000);
+      });
+
+      await act(async () => { await Promise.resolve(); });
+
+      // Should not have created new connections while offline
+      expect(MockWebSocket.instances.length).toBe(reconnectCount);
+
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('does not connect on initial mount when offline', async () => {
+      mockConnectivityConnected.mockImplementation(() => false);
+      let renderer!: ReactTestRenderer.ReactTestRenderer;
+      await act(async () => {
+        renderer = ReactTestRenderer.create(React.createElement(HookHarness));
+        await Promise.resolve();
+      });
+
+      // Should not have created any WebSocket instances when offline
+      expect(MockWebSocket.instances.length).toBe(0);
 
       await act(async () => {
         renderer.unmount();

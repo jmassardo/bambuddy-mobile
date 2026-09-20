@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api, getAuthToken } from '../api/client';
 import { useServerStore, wsUrl } from '../api/server';
 import { useToast } from '../contexts/ToastContext';
+import { useNetworkStatus } from './useNetworkStatus';
 
 const WS_CLOSE_UNAUTHORIZED = 4401;
 const MAX_RECONNECT_ATTEMPTS = 15;
@@ -46,6 +47,8 @@ export function useWebSocket(options?: UseWebSocketOptions) {
   const [errors, setErrors] = useState<WebSocketError[]>([]);
   const { showToast } = useToast();
   const serverUrl = useServerStore((s) => s.serverUrl);
+  const { isConnected: connectivityConnected } = useNetworkStatus();
+  const isConnectedRef = useRef(true);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -229,7 +232,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
   }, [handleMessage]);
 
   const connect = useCallback(async () => {
-    if (disposedRef.current || !serverUrl) return;
+    if (disposedRef.current || !serverUrl || !isConnectedRef.current) return;
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     let token: string | undefined;
@@ -336,29 +339,40 @@ export function useWebSocket(options?: UseWebSocketOptions) {
         );
       }
 
-      setIsReconnecting(true);
-      const attempt = reconnectAttemptRef.current++;
+      if (isConnectedRef.current) {
+        setIsReconnecting(true);
+        const attempt = reconnectAttemptRef.current++;
 
-      if (attempt >= MAX_RECONNECT_ATTEMPTS) {
-        addError(`Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
-        setIsReconnecting(false);
-        return;
+        if (attempt >= MAX_RECONNECT_ATTEMPTS) {
+          addError(`Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
+          setIsReconnecting(false);
+          return;
+        }
+
+        optionsRef.current?.onReconnect?.(attempt);
+
+        const baseDelay = Math.min(1000 * Math.pow(2, attempt), 30000);
+        const jitter = baseDelay * 0.3 * Math.random();
+        reconnectTimeoutRef.current = setTimeout(() => connect(), baseDelay + jitter);
+      } else {
+        addError('WebSocket: device offline — reconnect paused');
       }
-
-      optionsRef.current?.onReconnect?.(attempt);
-
-      const baseDelay = Math.min(1000 * Math.pow(2, attempt), 30000);
-      const jitter = baseDelay * 0.3 * Math.random();
-      reconnectTimeoutRef.current = setTimeout(() => connect(), baseDelay + jitter);
     };
 
     wsRef.current = ws;
   }, [serverUrl, addError]);
 
-  // App state handling — disconnect when backgrounded, reconnect when foregrounded
+  useEffect(() => {
+    const wasOffline = !isConnectedRef.current;
+    isConnectedRef.current = connectivityConnected;
+    if (wasOffline && connectivityConnected && serverUrl) {
+      reconnectAttemptRef.current = 0;
+      connect();
+    }
+  }, [connectivityConnected, connect, serverUrl]);
   useEffect(() => {
     const handleAppState = (state: AppStateStatus) => {
-      if (state === 'active') {
+      if (state === 'active' && isConnectedRef.current) {
         reconnectAttemptRef.current = 0;
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
           connect();
