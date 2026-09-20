@@ -14,11 +14,8 @@ import type {
   AdvancedAuthStatus,
   BackupCodesResponse,
   ExternalCameraCreate,
-<<<<<<< HEAD
-=======
   ExternalCameraUpdate,
   KProfile,
->>>>>>> origin/develop
   LDAPStatus,
   MQTTStatus,
   OIDCLink,
@@ -39,10 +36,7 @@ import {
   DEFAULT_MQTT_FORM,
   DEFAULT_SMTP_SETTINGS,
   EMPTY_CAMERA_TOKEN_FORM,
-<<<<<<< HEAD
-=======
   EMPTY_CUSTOM_NAV_ITEM_FORM,
->>>>>>> origin/develop
   EMPTY_EXTERNAL_CAMERA_FORM,
   EMPTY_EXTERNAL_LINK_FORM,
   EMPTY_GITHUB_BACKUP_FORM,
@@ -56,10 +50,7 @@ import {
 } from './constants';
 import type {
   CameraTokenFormState,
-<<<<<<< HEAD
-=======
   CustomNavItemFormState,
->>>>>>> origin/develop
   ExternalCameraFormState,
   ExternalLinkFormState,
   GitHubBackupFormState,
@@ -117,12 +108,9 @@ export function useSettingsScreenController() {
   const [externalLinkModalVisible, setExternalLinkModalVisible] = useState(false);
   const [externalLinkForm, setExternalLinkForm] = useState<ExternalLinkFormState>(EMPTY_EXTERNAL_LINK_FORM);
   const [pendingDeleteExternalLink, setPendingDeleteExternalLink] = useState<ApiRecord | null>(null);
-<<<<<<< HEAD
-=======
   const [customNavModalVisible, setCustomNavModalVisible] = useState(false);
   const [editingCustomNav, setEditingCustomNav] = useState<ApiRecord | null>(null);
   const [customNavForm, setCustomNavForm] = useState<CustomNavItemFormState>(EMPTY_CUSTOM_NAV_ITEM_FORM);
->>>>>>> origin/develop
   const [editingExternalCamera, setEditingExternalCamera] = useState<ApiRecord | null>(null);
   const [externalCameraModalVisible, setExternalCameraModalVisible] = useState(false);
   const [externalCameraForm, setExternalCameraForm] = useState<ExternalCameraFormState>(EMPTY_EXTERNAL_CAMERA_FORM);
@@ -182,14 +170,10 @@ export function useSettingsScreenController() {
     queryFn: () => (isAdmin ? api.listAllLongLivedCameraTokens() : api.listMyLongLivedCameraTokens()),
   });
   const externalLinksQuery = useQuery({ queryKey: ['externalLinks'], queryFn: api.getExternalLinks });
-<<<<<<< HEAD
-  const externalCamerasQuery = useQuery({ queryKey: ['externalCameras'], queryFn: api.getExternalCameras });
-=======
   const externalCamerasQuery = useQuery({
     queryKey: ['externalCameras'],
     queryFn: api.getExternalCameras,
   });
->>>>>>> origin/develop
   const printersQuery = useQuery({
     queryKey: ['printers', 'settings'],
     queryFn: api.getPrinters,
@@ -464,6 +448,15 @@ export function useSettingsScreenController() {
     onError: (error: Error) => showToast(error.message || 'Unable to save external link.', 'error'),
   });
 
+  const reorderExternalLinksMutation = useMutation({
+    mutationFn: async (ids: number[]) => api.reorderExternalLinks(ids),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['externalLinks'] });
+      showToast('External links reordered.', 'success');
+    },
+    onError: (error: Error) => showToast(error.message || 'Unable to reorder external links.', 'error'),
+  });
+
   const updateExternalLinkMutation = useMutation({
     mutationFn: async ({ id, payload }: { id: number; payload: ExternalLinkFormState }) => api.updateExternalLink(id, payload),
     onSuccess: async () => {
@@ -487,11 +480,7 @@ export function useSettingsScreenController() {
   });
 
   const createExternalCameraMutation = useMutation({
-<<<<<<< HEAD
-    mutationFn: async (payload: ExternalCameraCreate) => api.createExternalCamera(payload),
-=======
     mutationFn: api.createExternalCamera,
->>>>>>> origin/develop
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
       closeExternalCameraModal();
@@ -501,12 +490,8 @@ export function useSettingsScreenController() {
   });
 
   const updateExternalCameraMutation = useMutation({
-<<<<<<< HEAD
-    mutationFn: async ({ id, payload }: { id: number; payload: Partial<ExternalCameraCreate> }) => api.updateExternalCamera(id, payload),
-=======
     mutationFn: ({ id, payload }: { id: number; payload: ExternalCameraUpdate }) =>
       api.updateExternalCamera(id, payload),
->>>>>>> origin/develop
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
       closeExternalCameraModal();
@@ -516,11 +501,7 @@ export function useSettingsScreenController() {
   });
 
   const deleteExternalCameraMutation = useMutation({
-<<<<<<< HEAD
-    mutationFn: async (id: number) => api.deleteExternalCamera(id),
-=======
     mutationFn: api.deleteExternalCamera,
->>>>>>> origin/develop
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
       setPendingDeleteExternalCamera(null);
@@ -530,27 +511,11 @@ export function useSettingsScreenController() {
   });
 
   const testExternalCameraMutation = useMutation({
-<<<<<<< HEAD
-    mutationFn: async (id: number) => api.testExternalCamera(id),
-=======
     mutationFn: api.testExternalCamera,
->>>>>>> origin/develop
     onSuccess: result => showToast(result.message || 'Camera test completed.', result.success ? 'success' : 'error'),
     onError: (error: Error) => showToast(error.message || 'Unable to test camera connection.', 'error'),
   });
 
-<<<<<<< HEAD
-  const reorderExternalLinksMutation = useMutation({
-    mutationFn: async (ids: number[]) => api.reorderExternalLinks(ids),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['externalLinks'] });
-      showToast('External links reordered.', 'success');
-    },
-    onError: (error: Error) => showToast(error.message || 'Unable to reorder external links.', 'error'),
-  });
-
-=======
->>>>>>> origin/develop
   const backupMutation = useMutation({
     mutationFn: async () => api.triggerLocalBackup(),
     onSuccess: async () => {
@@ -622,18 +587,13 @@ export function useSettingsScreenController() {
 
   const saveVirtualPrinterMutation = useMutation({
     mutationFn: async () => {
-      const model = virtualPrinterForm.model_name.trim() || virtualPrinterForm.model.trim();
-      const accessCode = virtualPrinterForm.serial_number.trim() || virtualPrinterForm.serial.trim();
       const payload: Record<string, unknown> = {
         name: virtualPrinterForm.name.trim() || 'Bambuddy',
-        model: model || undefined,
+        model: virtualPrinterForm.model.trim() || undefined,
         enabled: virtualPrinterForm.enabled,
       };
-      if (virtualPrinterForm.description.trim()) {
-        payload.description = virtualPrinterForm.description.trim();
-      }
-      if (accessCode) {
-        payload.access_code = accessCode;
+      if (virtualPrinterForm.serial.trim()) {
+        payload.access_code = virtualPrinterForm.serial.trim();
       }
       return editingVirtualPrinter
         ? api.updateVirtualPrinter(pickNumber(editingVirtualPrinter, ['id']), payload)
@@ -1062,12 +1022,7 @@ export function useSettingsScreenController() {
     section === 'filament' ||
     section === 'kprofiles' ||
     section === 'network' ||
-<<<<<<< HEAD
-    section === 'navigation' ||
-    section === 'failure-detection' ||
-=======
     section === 'mqtt' ||
->>>>>>> origin/develop
     section === 'backup' ||
     section === 'custom-navigation' ||
     (section === 'users' && userPanel === 'auth');
@@ -1228,10 +1183,9 @@ export function useSettingsScreenController() {
       setVirtualPrinterForm({
         name: pickString(printer, ['name'], 'Bambuddy'),
         model: pickString(printer, ['model'], 'BL-P001'),
-        model_name: pickString(printer, ['model_name', 'model'], 'BL-P001'),
-        description: pickString(printer, ['description'], ''),
-        serial: pickString(printer, ['serial', 'serial_number'], ''),
-        serial_number: pickString(printer, ['serial_number', 'serial'], ''),
+        model_name: pickString(printer, ['model', 'model_name'], 'BL-P001'),
+        serial: pickString(printer, ['serial'], ''),
+        serial_number: pickString(printer, ['serial', 'serial_number'], ''),
         enabled: pickBoolean(printer, ['enabled', 'status.running']),
       });
     } else {
@@ -1241,28 +1195,6 @@ export function useSettingsScreenController() {
     setVirtualPrinterModalVisible(true);
   }
 
-<<<<<<< HEAD
-  function closeExternalCameraModal() {
-    setExternalCameraModalVisible(false);
-    setEditingExternalCamera(null);
-    setExternalCameraForm(EMPTY_EXTERNAL_CAMERA_FORM);
-  }
-
-  function openExternalCameraModal(camera?: ApiRecord) {
-    if (camera) {
-      setEditingExternalCamera(camera);
-      setExternalCameraForm({
-        name: pickString(camera, ['name']),
-        stream_url: pickString(camera, ['stream_url']),
-        camera_type: pickString(camera, ['camera_type'], 'mjpeg') as ExternalCameraFormState['camera_type'],
-        printer_id: pickString(camera, ['printer_id']),
-      });
-    } else {
-      setEditingExternalCamera(null);
-      setExternalCameraForm(EMPTY_EXTERNAL_CAMERA_FORM);
-    }
-    setExternalCameraModalVisible(true);
-=======
   function closeKProfileModal() {
     setKprofileModal({
       visible: false,
@@ -1332,7 +1264,6 @@ export function useSettingsScreenController() {
       return;
     }
     createLocationMutation.mutate();
->>>>>>> origin/develop
   }
 
   const handleProviderSave = () => {
@@ -1455,33 +1386,18 @@ export function useSettingsScreenController() {
   };
 
   const handleSaveExternalLink = () => {
-    const normalizedName = externalLinkForm.name.trim();
-    const normalizedUrl = externalLinkForm.url.trim();
-    if (!normalizedName || !normalizedUrl) {
+    if (!externalLinkForm.name.trim() || !externalLinkForm.url.trim()) {
       showToast('Name and URL are required.', 'error');
       return;
     }
-    if (!/^https?:\/\//i.test(normalizedUrl)) {
-      showToast('URL must start with http:// or https://', 'error');
-      return;
-    }
-
-    const payload: ExternalLinkFormState = {
-      name: normalizedName,
-      url: normalizedUrl,
-      icon: externalLinkForm.icon.trim() || 'link',
-      open_in_new_tab: externalLinkForm.open_in_new_tab,
-      sort_order: String(Math.max(0, Number(externalLinkForm.sort_order) || 0)),
-    };
-
     if (editingExternalLink) {
       updateExternalLinkMutation.mutate({
         id: pickNumber(editingExternalLink, ['id']),
-        payload,
+        payload: externalLinkForm,
       });
       return;
     }
-    createExternalLinkMutation.mutate(payload);
+    createExternalLinkMutation.mutate(externalLinkForm);
   };
 
   const handleSaveExternalCamera = () => {
@@ -1521,35 +1437,6 @@ export function useSettingsScreenController() {
     saveVirtualPrinterMutation.mutate();
   };
 
-<<<<<<< HEAD
-  const handleSaveExternalCamera = () => {
-    const normalizedName = externalCameraForm.name.trim();
-    const normalizedStreamUrl = externalCameraForm.stream_url.trim();
-    if (!normalizedName || !normalizedStreamUrl) {
-      showToast('Name and stream URL are required.', 'error');
-      return;
-    }
-    if (!/^(https?|rtsp):\/\//i.test(normalizedStreamUrl)) {
-      showToast('Stream URL must start with http://, https://, or rtsp://', 'error');
-      return;
-    }
-    const parsedPrinterId = Number(externalCameraForm.printer_id);
-    const payload: ExternalCameraCreate = {
-      name: normalizedName,
-      stream_url: normalizedStreamUrl,
-      camera_type: externalCameraForm.camera_type,
-      printer_id: Number.isFinite(parsedPrinterId) && parsedPrinterId > 0 ? parsedPrinterId : null,
-    };
-
-    if (editingExternalCamera) {
-      updateExternalCameraMutation.mutate({
-        id: pickNumber(editingExternalCamera, ['id']),
-        payload,
-      });
-      return;
-    }
-    createExternalCameraMutation.mutate(payload);
-=======
   const handleSaveKProfile = () => {
     if (!kprofileModal.form.nozzle_id.trim()) {
       showToast('Nozzle ID is required.', 'error');
@@ -1607,7 +1494,6 @@ export function useSettingsScreenController() {
     } else {
       createKProfileMutation.mutate(payload);
     }
->>>>>>> origin/develop
   };
 
   const handleSaveGitHubBackup = () => {
@@ -1706,12 +1592,9 @@ export function useSettingsScreenController() {
       externalLinkModalVisible,
       externalLinkForm,
       pendingDeleteExternalLink,
-<<<<<<< HEAD
-=======
       customNavModalVisible,
       editingCustomNav,
       customNavForm,
->>>>>>> origin/develop
       editingExternalCamera,
       externalCameraModalVisible,
       externalCameraForm,
@@ -1798,12 +1681,9 @@ export function useSettingsScreenController() {
       createCameraTokenMutation,
       revokeCameraTokenMutation,
       createExternalLinkMutation,
+      reorderExternalLinksMutation,
       updateExternalLinkMutation,
       deleteExternalLinkMutation,
-<<<<<<< HEAD
-      reorderExternalLinksMutation,
-=======
->>>>>>> origin/develop
       createExternalCameraMutation,
       updateExternalCameraMutation,
       deleteExternalCameraMutation,
@@ -1880,22 +1760,16 @@ export function useSettingsScreenController() {
       setExternalLinkModalVisible,
       setExternalLinkForm,
       setPendingDeleteExternalLink,
-<<<<<<< HEAD
-=======
       setCustomNavModalVisible,
       setEditingCustomNav,
       setCustomNavForm,
->>>>>>> origin/develop
       setEditingExternalCamera,
       setExternalCameraModalVisible,
       setExternalCameraForm,
       setPendingDeleteExternalCamera,
-<<<<<<< HEAD
-=======
       closeExternalCameraModal,
       openExternalCameraModal,
       handleSaveExternalCamera,
->>>>>>> origin/develop
       setVirtualPrinterModalVisible,
       setEditingVirtualPrinter,
       setVirtualPrinterForm,
@@ -1930,14 +1804,9 @@ export function useSettingsScreenController() {
       openPlugModal,
       closeExternalLinkModal,
       openExternalLinkModal,
-<<<<<<< HEAD
-      closeExternalCameraModal,
-      openExternalCameraModal,
-=======
       closeCustomNavModal,
       openCustomNavModal,
       handleSaveCustomNav,
->>>>>>> origin/develop
       closeVirtualPrinterModal,
       openVirtualPrinterModal,
       handleProviderSave,
@@ -1945,7 +1814,6 @@ export function useSettingsScreenController() {
       handleSaveSMTP,
       handleSaveLDAP,
       handleSaveExternalLink,
-      handleSaveExternalCamera,
       handleSaveVirtualPrinter,
       handleSaveGitHubBackup,
       handleSaveKProfile,

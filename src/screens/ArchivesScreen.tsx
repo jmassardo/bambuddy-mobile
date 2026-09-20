@@ -45,7 +45,6 @@ import {
   pickArray,
   pickNumber,
 } from '@/utils/data';
-import { rowsToCsv } from '@/utils/csv';
 import { shareBlob } from '@/utils/share';
 
 type ArchiveViewMode = 'list' | 'grid';
@@ -68,31 +67,36 @@ function tagsForArchive(archive: Archive) {
     .filter(Boolean) ?? [];
 }
 
-<<<<<<< HEAD
-=======
 function rangeDateFrom(range: string) {
   const cutoff = rangeCutoff(range);
   return cutoff > 0 ? new Date(cutoff).toISOString() : undefined;
 }
 
->>>>>>> origin/develop
 function archiveExportRows(archives: Archive[]) {
   return archives.map(archive => ({
-    print_name: archive.print_name ?? archive.filename ?? '',
-    duration_seconds: archive.actual_time_seconds ?? archive.print_time_seconds ?? '',
-    filament_used_grams: archive.filament_used_grams ?? '',
-    cost: archive.cost ?? '',
-    status: archive.status ?? '',
-    date: archive.completed_at ?? archive.started_at ?? archive.created_at ?? '',
-    printer: archive.printer_name ?? '',
-    user: archive.created_by_username ?? '',
-    archive_id: archive.id,
+    id: archive.id,
+    print_name: archive.print_name ?? '',
     filename: archive.filename ?? '',
+    printer_name: archive.printer_name ?? '',
     project_name: archive.project_name ?? '',
+    status: archive.status ?? '',
+    completed_at: archive.completed_at ?? archive.created_at ?? '',
     filament_type: archive.filament_type ?? '',
     filament_color: archive.filament_color ?? '',
+    filament_used_grams: archive.filament_used_grams ?? '',
+    cost: archive.cost ?? '',
     tags: archive.tags ?? '',
   }));
+}
+
+function toCsv(rows: Array<Record<string, unknown>>) {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  return [
+    headers.join(','),
+    ...rows.map(row => headers.map(header => escape(row[header])).join(',')),
+  ].join('\n');
 }
 
 function SimpleModal({
@@ -325,6 +329,10 @@ export default function ArchivesScreen() {
     [archives, compareIds],
   );
 
+  const hasUnsupportedServerExportFilters = Boolean(
+    tagFilter || statusFilter === 'favorite' || statusFilter === 'duplicate',
+  );
+
   const exportMutation = useMutation({
     mutationFn: async () => {
       const filenameBase = `bambuddy-archives-${new Date().toISOString().slice(0, 10)}`;
@@ -337,15 +345,6 @@ export default function ArchivesScreen() {
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
-<<<<<<< HEAD
-      const csv = rowsToCsv(archiveExportRows(filteredArchives));
-      const csvBlobOptions: BlobOptions = {
-        type: 'text/csv',
-        lastModified: Date.now(),
-      };
-      const blob = new Blob([csv], csvBlobOptions);
-      await shareBlob(blob, `${filenameBase}.csv`);
-=======
       const rowsToExport = exportScope === 'selected'
         ? archives.filter(a => selectedIds.includes(a.id))
         : filteredArchives;
@@ -379,7 +378,6 @@ export default function ArchivesScreen() {
         search: search.trim() || undefined,
       });
       await shareBlob(blob, `${filenameBase}.${exportFormat}`);
->>>>>>> origin/develop
     },
     onSuccess: () => {
       showToast(`${exportFormat.toUpperCase()} export ready to share.`, 'success');
@@ -724,9 +722,6 @@ export default function ArchivesScreen() {
         <Text style={[styles.modalBodyText, { color: colors.textSecondary }]}>
           {exportFormat === 'json'
             ? 'JSON export mirrors the exact filtered results shown on this screen.'
-<<<<<<< HEAD
-            : 'CSV export is generated from the current filtered results shown on this screen.'}
-=======
             : exportScope === 'selected'
               ? 'Exported as CSV to preserve the selected archive set.'
               : hasUnsupportedServerExportFilters
@@ -734,7 +729,6 @@ export default function ArchivesScreen() {
                 : exportFormat === 'xlsx'
                   ? 'Excel export uses the archive export endpoint with your current toolbar filters.'
                   : 'CSV export uses the archive export endpoint with your current toolbar filters.'}
->>>>>>> origin/develop
         </Text>
         <View style={styles.modalFooter}>
           <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowExportModal(false)} />

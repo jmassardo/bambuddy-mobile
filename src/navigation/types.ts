@@ -33,16 +33,9 @@ export type RootStackParamList = {
   MakerWorld: undefined;
   Profiles: undefined;
   Projects: undefined;
-  PrintLog: undefined;
   Stats: undefined;
-  Energy: undefined;
   System: undefined;
-  SpoolBuddy: undefined;
   Users: undefined;
-<<<<<<< HEAD
-  VirtualPrinters: undefined;
-  ExternalLinkBrowser: { url: string; title?: string };
-=======
   Energy: undefined;
   VirtualPrinters: undefined;
   SpoolBuddy: undefined;
@@ -60,7 +53,6 @@ export type RootStackParamList = {
   TimelapseEditor: { archiveId: number };
   PrintLog: { archiveId?: number } | undefined;
   SpoolAssignmentHistory: undefined;
->>>>>>> origin/develop
 };
 
 export type RootNavigationProp<

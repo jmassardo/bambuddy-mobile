@@ -27,16 +27,9 @@ import Model3DPreviewScreen from '@/screens/Model3DPreviewScreen';
 import MakerWorldScreen from '@/screens/MakerWorldScreen';
 import ProfilesScreen from '@/screens/ProfilesScreen';
 import ProjectsScreen from '@/screens/ProjectsScreen';
-import PrintLogScreen from '@/screens/PrintLogScreen';
 import StatsScreen from '@/screens/StatsScreen';
-import EnergyScreen from '@/screens/EnergyScreen';
 import SystemScreen from '@/screens/SystemScreen';
-import SpoolBuddyScreen from '@/screens/SpoolBuddyScreen';
 import UsersScreen from '@/screens/UsersScreen';
-<<<<<<< HEAD
-import VirtualPrintersScreen from '@/screens/VirtualPrintersScreen';
-import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
-=======
 import EnergyScreen from '@/screens/EnergyScreen';
 import VirtualPrintersScreen from '@/screens/VirtualPrintersScreen';
 import SpoolBuddyScreen from '@/screens/SpoolBuddyScreen';
@@ -46,7 +39,6 @@ import WebSocketStatusScreen from '@/screens/WebSocketStatusScreen';
 import TimelapseEditorScreen from '@/screens/TimelapseEditorScreen';
 import PrintLogScreen from '@/screens/PrintLogScreen';
 import SpoolAssignmentHistoryScreen from '@/screens/SpoolAssignmentHistoryScreen';
->>>>>>> origin/develop
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -179,19 +171,9 @@ export default function RootNavigator() {
         options={{ title: 'Projects' }}
       />
       <Stack.Screen
-        name="PrintLog"
-        component={PrintLogScreen}
-        options={{ title: 'Print Log' }}
-      />
-      <Stack.Screen
         name="Stats"
         component={StatsScreen}
         options={{ title: 'Statistics' }}
-      />
-      <Stack.Screen
-        name="Energy"
-        component={EnergyScreen}
-        options={{ title: 'Energy' }}
       />
       <Stack.Screen
         name="System"
@@ -199,43 +181,30 @@ export default function RootNavigator() {
         options={{ title: 'System' }}
       />
       <Stack.Screen
-        name="SpoolBuddy"
-        component={SpoolBuddyScreen}
-        options={{ title: 'SpoolBuddy' }}
-      />
-      <Stack.Screen
         name="Users"
         component={UsersScreen}
         options={{ title: 'Users' }}
       />
       <Stack.Screen
-<<<<<<< HEAD
-=======
         name="Energy"
         component={EnergyScreen}
         options={{ title: 'Energy' }}
       />
       <Stack.Screen
->>>>>>> origin/develop
         name="VirtualPrinters"
         component={VirtualPrintersScreen}
         options={{ title: 'Virtual Printers' }}
       />
       <Stack.Screen
-<<<<<<< HEAD
-=======
         name="SpoolBuddy"
         component={SpoolBuddyScreen}
         options={{ title: 'SpoolBuddy' }}
       />
       <Stack.Screen
->>>>>>> origin/develop
         name="ExternalLinkBrowser"
         component={ExternalLinkBrowserScreen}
         options={{ title: 'External Link' }}
       />
-<<<<<<< HEAD
-=======
       <Stack.Screen
         name="Model3DPreview"
         component={Model3DPreviewScreen}
@@ -266,7 +235,6 @@ export default function RootNavigator() {
         component={SpoolAssignmentHistoryScreen}
         options={{ title: 'Assignment History' }}
       />
->>>>>>> origin/develop
     </Stack.Navigator>
   );
 }

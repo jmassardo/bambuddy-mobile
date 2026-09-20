@@ -1,16 +1,11 @@
 import type {
   ApiEntity,
-<<<<<<< HEAD
-  KProfile,
-  KProfileCreate,
-=======
   CloudAuthStatus,
   CloudPerProfileSyncResponse,
   CloudPerProfileSyncState,
   CloudProfileDetail,
   CloudProfileDiffResult,
   CloudProfilesResponse,
->>>>>>> origin/develop
   KProfilesResponse,
   MakerworldRecentImport,
   MakerworldResolvedModel,
@@ -208,14 +203,14 @@ export const profilesApi = {
     );
   },
 
-  createKProfile: async (data: KProfileCreate) =>
-    request<KProfile>('/kprofiles/', {
+  createKProfile: async (data: Record<string, unknown>) =>
+    request<Record<string, unknown>>('/kprofiles/', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  updateKProfile: async (id: number, data: KProfileCreate) =>
-    request<KProfile>(`/kprofiles/${id}`, {
+  updateKProfile: async (id: number, data: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/kprofiles/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),

@@ -42,24 +42,16 @@ describe('navigationConfig', () => {
         'stats',
         'energy',
         'system',
-<<<<<<< HEAD
-        'scanner',
-=======
         'spoolbuddy',
         'scanner',
         'failure-analysis',
         'print-log',
->>>>>>> origin/develop
       ]);
     });
 
     it('applies explicit visibility/order and keeps locked items visible', () => {
       const layout = getNavigationLayout({ defaultSidebarOrder: 'queue,files' });
-<<<<<<< HEAD
-      expect(layout.orderedBuiltIns.map(item => item.id)).toEqual(['queue', 'files', 'more', 'settings']);
-=======
       expect(layout.orderedBuiltIns.map(item => item.id)).toEqual(['queue', 'files', 'more', 'settings', 'spoolbuddy']);
->>>>>>> origin/develop
       expect(layout.hiddenBuiltIns.map(item => item.id)).toContain('dashboard');
       expect(layout.orderedBuiltIns.map(item => item.id)).toContain('more');
       expect(layout.orderedBuiltIns.map(item => item.id)).toContain('settings');

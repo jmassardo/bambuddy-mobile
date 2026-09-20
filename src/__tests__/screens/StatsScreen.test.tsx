@@ -1,16 +1,7 @@
-<<<<<<< HEAD
-import React from 'react';
-import { render } from '@testing-library/react-native';
-import StatsScreen, {
-  buildStatsExportFilenameBase,
-  buildStatsQueryParams,
-} from '@/screens/StatsScreen';
-=======
 /* eslint-disable @typescript-eslint/no-shadow -- Test file with React imports shadowing globals */
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import StatsScreen from '@/screens/StatsScreen';
->>>>>>> origin/develop
 
 const mockSetOptions = jest.fn();
 const mockShowToast = jest.fn();
@@ -253,55 +244,6 @@ describe('StatsScreen', () => {
     expect(lastArchivesParams?.createdById).toBeUndefined();
   });
 
-<<<<<<< HEAD
-  it('builds query params with selected user only for admins', () => {
-    expect(
-      buildStatsQueryParams({
-        baseParams: { dateFrom: '2026-07-01', dateTo: '2026-07-27' },
-        selectedPrinterId: 11,
-        selectedUserId: 7,
-        isAdmin: true,
-      }),
-    ).toEqual({
-      dateFrom: '2026-07-01',
-      dateTo: '2026-07-27',
-      printerId: 11,
-      createdById: 7,
-    });
-
-    expect(
-      buildStatsQueryParams({
-        baseParams: { dateFrom: '2026-07-01', dateTo: '2026-07-27' },
-        selectedPrinterId: 11,
-        selectedUserId: 7,
-        isAdmin: false,
-      }),
-    ).toEqual({
-      dateFrom: '2026-07-01',
-      dateTo: '2026-07-27',
-      printerId: 11,
-    });
-  });
-
-  it('includes selected user in export filename only for admins', () => {
-    expect(
-      buildStatsExportFilenameBase({
-        range: '30d',
-        selectedPrinterId: 11,
-        selectedUserId: 7,
-        isAdmin: true,
-      }),
-    ).toBe('bambuddy-stats-30d-printer-11-user-7');
-
-    expect(
-      buildStatsExportFilenameBase({
-        range: '30d',
-        selectedPrinterId: 11,
-        selectedUserId: 7,
-        isAdmin: false,
-      }),
-    ).toBe('bambuddy-stats-30d-printer-11');
-=======
   it('passes createdById in query params only for admin users', async () => {
     // Adapted: buildStatsQueryParams was extracted in PR #49 but inlined on current dev.
     // The component builds queryParams inline:
@@ -329,6 +271,5 @@ describe('StatsScreen', () => {
 
     mockIsAdmin = false;
     await render(<StatsScreen />);
->>>>>>> origin/develop
   });
 });

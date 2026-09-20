@@ -9,10 +9,7 @@ import type {
 import { pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import type {
   CameraTokenFormState,
-<<<<<<< HEAD
-=======
   CustomNavItemFormState,
->>>>>>> origin/develop
   ExternalCameraFormState,
   ExternalCameraType,
   ExternalLinkFormState,
@@ -31,7 +28,6 @@ import type {
   StorageLocationFormState,
   VirtualPrinterFormState,
 } from './types';
-import { getNavigationLayout } from '@/navigation/navigationConfig';
 
 export const SECTION_ITEMS: SectionItem[] = [
   { key: 'general', icon: 'settings', title: 'General', description: 'Locale, archive defaults, print defaults, pricing, and update settings.' },
@@ -39,16 +35,11 @@ export const SECTION_ITEMS: SectionItem[] = [
   { key: 'notifications', icon: 'bell', title: 'Notifications', description: 'Provider status and shortcuts into user notification settings.' },
   { key: 'queue', icon: 'list-ordered', title: 'Queue', description: 'Default print options, preheat, staggering, and slicer preferences.' },
   { key: 'filament', icon: 'package', title: 'Filament', description: 'Warnings, Spoolman, RFID handling, and forecasting defaults.' },
-<<<<<<< HEAD
-  { key: 'network', icon: 'globe', title: 'Network', description: 'External URLs, MQTT, FTP retry, Prometheus, and Home Assistant.' },
-  { key: 'navigation', icon: 'menu', title: 'Navigation', description: 'Show or hide pages and control their order across tabs and More.' },
-=======
   { key: 'kprofiles', icon: 'activity', title: 'K-Profile & Pressure Advance', description: 'Pressure advance calibration data (K, N values), nozzle diameter, and filament mapping.' },
   { key: 'network', icon: 'globe', title: 'Network', description: 'External URLs, FTP retry, Prometheus, and Home Assistant.' },
   { key: 'mqtt', icon: 'wifi', title: 'MQTT', description: 'Broker configuration, topic prefix, and connection testing.' },
   { key: 'navigation', icon: 'menu', title: 'Navigation', description: 'Choose which pages appear and arrange tabs and the More menu.' },
   { key: 'custom-navigation', icon: 'link', title: 'Custom Navigation', description: 'Add custom external links that appear in your navigation menu.' },
->>>>>>> origin/develop
   { key: 'apikeys', icon: 'key', title: 'API Keys', description: 'Create and revoke API keys for scripts and integrations.' },
   { key: 'external-cameras', icon: 'camera', title: 'External Cameras', description: 'Configure IP camera streams, test connectivity, and map cameras to printers.' },
   { key: 'virtual-printer', icon: 'printer', title: 'Virtual Printer', description: 'Virtual printer status plus start and stop controls.' },
@@ -165,8 +156,6 @@ export const EMPTY_EXTERNAL_LINK_FORM: ExternalLinkFormState = {
   sort_order: '0',
 };
 
-<<<<<<< HEAD
-=======
 export const EMPTY_CUSTOM_NAV_ITEM_FORM: CustomNavItemFormState = {
   name: '',
   url: '',
@@ -175,7 +164,6 @@ export const EMPTY_CUSTOM_NAV_ITEM_FORM: CustomNavItemFormState = {
   sort_order: '0',
 };
 
->>>>>>> origin/develop
 export const EMPTY_EXTERNAL_CAMERA_FORM: ExternalCameraFormState = {
   name: '',
   stream_url: '',
@@ -187,7 +175,6 @@ export const EMPTY_VIRTUAL_PRINTER_FORM: VirtualPrinterFormState = {
   name: 'Bambuddy',
   model: 'BL-P001',
   model_name: 'BL-P001',
-  description: '',
   serial: '',
   serial_number: '',
   enabled: false,
@@ -295,13 +282,6 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
     case 'kprofiles':
       return `${(queries.kprofiles ?? []).length} profiles`;
     case 'network':
-<<<<<<< HEAD
-      return pickBoolean(settings, ['mqtt_enabled']) ? 'MQTT enabled' : 'MQTT disabled';
-    case 'navigation': {
-      const layout = getNavigationLayout({ defaultSidebarOrder: pickString(settings, ['default_sidebar_order']) });
-      return `${layout.orderedBuiltIns.length} visible • ${layout.hiddenBuiltIns.length} hidden`;
-    }
-=======
       return `External URL set • Prometheus ${pickBoolean(settings, ['prometheus_enabled']) ? 'enabled' : 'disabled'}`;
     case 'mqtt': {
       const mqtt = queries.mqttStatus;
@@ -312,7 +292,6 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
       return pickString(settings, ['default_sidebar_order']) ? 'Customized' : 'Default order';
     case 'custom-navigation':
       return `${(queries.customNavItems ?? []).length} custom links`;
->>>>>>> origin/develop
     case 'apikeys':
       return `${(queries.apiKeys ?? []).length} keys • ${(queries.cameraTokens ?? []).length} camera tokens`;
     case 'external-cameras':
