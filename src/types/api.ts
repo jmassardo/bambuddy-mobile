@@ -1825,7 +1825,17 @@ export type SpoolLabelTemplate =
   | 'box_40x30'
   | 'box_62x29'
   | 'avery_5160'
-  | 'avery_l7160';
+   | 'avery_l7160';
+
+/**
+ * Result of looking up a scanned NFC UID against the spool inventory.
+ * Uses a discriminated union to prevent accidental misuse of partial results.
+ */
+export type InventoryUidLookupResult =
+  | { kind: 'not_found'; uid: string }
+  | { kind: 'found'; spool: InventorySpool }
+  | { kind: 'duplicate_matches'; spools: InventorySpool[] }
+  | { kind: 'lookup_error'; uid: string; message: string };
 
 export interface InventorySpool {
   id: number;
