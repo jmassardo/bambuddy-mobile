@@ -19,6 +19,7 @@ import {
   Shield,
   Trash2,
   Users,
+  WifiOff,
   Wrench,
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
@@ -114,6 +115,33 @@ export function EmptyState({ icon = '📭', title, message }: EmptyStateProps) {
       <Text style={[styles.emptyTitle, { color: colors.text }]}>{title}</Text>
       {message && (
         <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>
+      )}
+    </View>
+  );
+}
+
+interface OfflineStateProps {
+  message?: string;
+  onRetry?: () => void;
+}
+
+export function OfflineState({ message = 'No network connection. Tap to retry.', onRetry }: OfflineStateProps) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={styles.emptyContainer}>
+      <View style={[styles.emptyIconWrap, { backgroundColor: `${colors.warning}18` }]}>
+        <WifiOff size={28} color={colors.warning} strokeWidth={2} />
+      </View>
+      <Text style={[styles.emptyTitle, { color: colors.warning }]}>No Network</Text>
+      <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>
+      {onRetry && (
+        <Text
+          style={[styles.retryButton, { color: colors.accent }]}
+          onPress={onRetry}
+        >
+          Tap to retry
+        </Text>
       )}
     </View>
   );
