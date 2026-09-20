@@ -283,9 +283,9 @@ export default function Model3DPreviewScreen() {
   );
 
   React.useEffect(() => {
-    const bgColor = isDark ? '#1a1a1a' : '#f5f5f5';
-    const gridColor = isDark ? '#333333' : '#cccccc';
-    const modelColor = isDark ? '#66bb6a' : '#4caf50';
+    const bgColor = isDark ? colors.background : colors.surface;
+    const gridColor = isDark ? colors.border : colors.borderSubtle;
+    const modelColor = colors.success;
     const html = buildViewerHtml(bgColor, modelColor, gridColor);
     setHtmlContent(html);
     setIsLoading(false);

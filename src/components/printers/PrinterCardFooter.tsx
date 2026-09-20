@@ -34,6 +34,8 @@ export function PrinterCardFooter({
               borderColor: colors.border,
             },
           ]}
+          accessibilityLabel="More options"
+          accessibilityRole="button"
         >
           <MoreVertical size={18} color={colors.text} strokeWidth={2} />
         </Pressable>
@@ -50,6 +52,8 @@ export function PrinterCardFooter({
             },
             !canCamera && styles.disabledAction,
           ]}
+          accessibilityLabel="Open camera"
+          accessibilityRole="button"
         >
           <Camera size={16} color={colors.text} strokeWidth={2} />
         </Pressable>
@@ -64,6 +68,8 @@ export function PrinterCardFooter({
             },
             !canBrowse && styles.disabledAction,
           ]}
+          accessibilityLabel="Browse files"
+          accessibilityRole="button"
         >
           <FolderOpen size={16} color={colors.text} strokeWidth={2} />
         </Pressable>

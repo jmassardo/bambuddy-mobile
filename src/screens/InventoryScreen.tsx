@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
@@ -27,12 +27,13 @@ import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/State
 import { InlineTabBar, PrimaryButton, ProgressBar, SearchBar, SectionCard, StatusBadge, TextField } from '@/components/common/AppUI';
 import { FloatingActionButton } from '@/components/common/AppUI';
 import { LocationsModal } from '@/components/inventory/LocationsModal';
+import { NfcInventoryScanModal } from '@/components/inventory/NfcInventoryScanModal';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDateTime, formatWeight, pickArray, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
-import type { Printer, SpoolKProfile, SpoolLabelTemplate, SpoolUsageRecord, StorageLocation } from '@/types/api';
+import type { Printer, SpoolKProfile, SpoolLabelTemplate, SpoolUsageRecord, StorageLocation, InventorySpool } from '@/types/api';
 
 type ArchiveFilter = 'active' | 'archived';
 type ViewMode = 'cards' | 'forecast';
@@ -105,6 +106,7 @@ export default function InventoryScreen() {
   const [labelTargetIds, setLabelTargetIds] = useState<number[]>([]);
   const [selectedLabelTemplate, setSelectedLabelTemplate] = useState<SpoolLabelTemplate>('ams_holder_74x33');
   const [pendingDeleteSpool, setPendingDeleteSpool] = useState<ApiRecord | null>(null);
+  const [showScanModal, setShowScanModal] = useState(false);
 
   const spoolsQuery = useQuery({
     queryKey: ['inventorySpools'],
@@ -205,6 +207,34 @@ export default function InventoryScreen() {
     },
     onError: (error: Error) => showToast(error.message || 'Unable to add spool.', 'error'),
   });
+
+  const handleScanAdd = useCallback(
+    (uid: string) => {
+      setShowFormModal(true);
+      setEditingSpool(null);
+      setForm({ ...DEFAULT_FORM, tagUid: uid });
+    },
+    [],
+  );
+
+  const handleScanEdit = useCallback(
+    (spool: InventorySpool) => {
+      setSelectedSpool(spool as unknown as ApiRecord);
+      setShowFormModal(true);
+      setEditingSpool(spool as unknown as ApiRecord);
+    },
+    [],
+  );
+
+  const handleScanAssign = useCallback(
+    (spool: InventorySpool) => {
+      setSelectedSpool(spool as unknown as ApiRecord);
+      setAssignmentPrinterId(printersQuery.data?.[0]?.id ?? null);
+      setAssignmentAmsId('0');
+      setAssignmentTrayId('0');
+    },
+    [printersQuery.data],
+  );
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -787,6 +817,7 @@ export default function InventoryScreen() {
       />
 
       <FloatingActionButton icon="plus" label="Spool" onPress={() => { setEditingSpool(null); setForm(DEFAULT_FORM); setShowFormModal(true); }} />
+      <FloatingActionButton icon="tag" label="Scan RFID" onPress={() => setShowScanModal(true)} />
 
       <Modal visible={selectedSpool !== null} animationType="slide" transparent onRequestClose={() => setSelectedSpool(null)}>
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
@@ -1088,6 +1119,13 @@ export default function InventoryScreen() {
         onAssigned={() => {
           void invalidateInventory();
         }}
+      />
+      <NfcInventoryScanModal
+        visible={showScanModal}
+        onClose={() => setShowScanModal(false)}
+        onAdd={handleScanAdd}
+        onEdit={handleScanEdit}
+        onAssign={handleScanAssign}
       />
       <ConfirmModal
         visible={confirmAction !== null}

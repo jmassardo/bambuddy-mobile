@@ -323,7 +323,7 @@ export const inventoryApi = {
         return result.uid === canonicalUid;
       });
       if (matches.length > 1) {
-        return { kind: 'duplicate_matches', spools: matches };
+        return { kind: 'duplicate_matches', spools: matches, uid: canonicalUid };
       }
       return { kind: 'found', spool: match };
     } catch (error) {

@@ -115,7 +115,7 @@ export function FileUploadModal({
               <Text style={[styles.title, { color: colors.text }]}>Upload file</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Choose a file from your device and upload it to Bambuddy.</Text>
             </View>
-            <Pressable onPress={onClose} style={styles.closeButton}>
+            <Pressable onPress={onClose} style={styles.closeButton} accessibilityLabel="Close" accessibilityRole="button">
               <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>

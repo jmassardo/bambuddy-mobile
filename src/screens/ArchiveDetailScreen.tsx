@@ -187,6 +187,8 @@ export default function ArchiveDetailScreen() {
               onPress={() => setShowEditModal(true)}
               style={styles.headerButton}
               hitSlop={8}
+              accessibilityLabel="Edit archive"
+              accessibilityRole="button"
             >
               <Pencil size={18} color={colors.text} strokeWidth={2} />
             </Pressable>

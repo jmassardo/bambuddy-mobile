@@ -317,6 +317,8 @@ export default function UsersScreen() {
               <Pressable
                 onPress={() => { setEditGroupId(null); setShowGroupEdit(true); }}
                 style={[styles.groupAddBtn, { backgroundColor: colors.accent }]}
+                accessibilityLabel="Create group"
+                accessibilityRole="button"
               >
                 <Plus size={14} color={colors.textInverse} strokeWidth={2.5} />
               </Pressable>
@@ -335,11 +337,11 @@ export default function UsersScreen() {
                     </Text>
                   </View>
                   <View style={styles.groupActions}>
-                    <Pressable onPress={() => { setEditGroupId(gId); setShowGroupEdit(true); }} style={styles.groupActionBtn}>
+                    <Pressable onPress={() => { setEditGroupId(gId); setShowGroupEdit(true); }} style={styles.groupActionBtn} accessibilityLabel="Edit group" accessibilityRole="button">
                       <Edit2 size={14} color={colors.textSecondary} />
                     </Pressable>
                     {!isSystem && (
-                      <Pressable onPress={() => setDeleteGroupId(gId)} style={styles.groupActionBtn}>
+                      <Pressable onPress={() => setDeleteGroupId(gId)} style={styles.groupActionBtn} accessibilityLabel="Delete group" accessibilityRole="button">
                         <Trash2 size={14} color={colors.error} />
                       </Pressable>
                     )}

@@ -123,7 +123,7 @@ export default function RootNavigator() {
         component={CameraScreen}
         options={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#000000' },
+          contentStyle: { backgroundColor: 'rgba(0, 0, 0, 0.8)' },
           ...(Platform.OS === 'ios'
             ? { presentation: 'fullScreenModal' as const }
             : {}),

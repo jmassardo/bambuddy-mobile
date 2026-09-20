@@ -1834,7 +1834,7 @@ export type SpoolLabelTemplate =
 export type InventoryUidLookupResult =
   | { kind: 'not_found'; uid: string }
   | { kind: 'found'; spool: InventorySpool }
-  | { kind: 'duplicate_matches'; spools: InventorySpool[] }
+  | { kind: 'duplicate_matches'; spools: InventorySpool[]; uid: string }
   | { kind: 'lookup_error'; uid: string; message: string };
 
 export interface InventorySpool {

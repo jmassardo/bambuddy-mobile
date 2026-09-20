@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { AlertTriangle, Info, AlertCircle } from 'lucide-react-native';
 import { useTheme } from '@/theme';
+import { fontSize } from '@/theme/tokens';
 
 export interface ConfirmModalProps {
   visible: boolean;
@@ -245,13 +246,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   title: {
-    fontSize: 18,
+    fontSize: fontSize.xl,
     fontWeight: '600',
     marginBottom: 8,
     textAlign: 'center',
   },
   message: {
-    fontSize: 14,
+    fontSize: fontSize.base,
     lineHeight: 20,
     textAlign: 'center',
     marginBottom: 24,
@@ -278,7 +279,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   buttonText: {
-    fontSize: 14,
+    fontSize: fontSize.base,
     fontWeight: '600',
   },
 });

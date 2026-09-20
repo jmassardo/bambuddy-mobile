@@ -66,10 +66,10 @@ function statusColor(status: string, colors: ReturnType<typeof useTheme>['colors
   }
 }
 
-function getAiColor(ai: NonNullable<Archive['ai_detection']>): string {
-  if (ai.classification === 'human') return '#22c55e';
-  if (ai.classification === 'ai') return '#dc2626';
-  return '#f97316';
+function getAiColor(ai: NonNullable<Archive['ai_detection']>, colors: ReturnType<typeof useTheme>['colors']): string {
+  if (ai.classification === 'human') return colors.success;
+  if (ai.classification === 'ai') return colors.error;
+  return colors.warning;
 }
 
 function ArchiveAction({
@@ -136,6 +136,9 @@ export function ArchiveCard({
           opacity: pressed ? 0.96 : 1,
         },
       ]}
+      accessibilityLabel={archive.print_name || archive.filename}
+      accessibilityRole={selectionMode ? 'checkbox' : 'button'}
+      accessibilityState={{ checked: selected, selected: selected }}
     >
       <View style={isGrid ? undefined : styles.listMediaWrap}>
         <Image
@@ -152,6 +155,9 @@ export function ArchiveCard({
                 borderColor: selected ? colors.accent : colors.border,
               },
             ]}
+            accessibilityLabel={selected ? 'Deselect archive' : 'Select archive'}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: selected }}
           >
             {selected ? (
               <CheckCircle size={16} color={colors.textInverse} strokeWidth={2} />
@@ -246,14 +252,14 @@ export function ArchiveCard({
             <View
               style={[
                 styles.aiBadge,
-                { backgroundColor: `${getAiColor(archive.ai_detection)}20`, borderColor: `${getAiColor(archive.ai_detection)}60` },
+                { backgroundColor: `${getAiColor(archive.ai_detection, colors)}20`, borderColor: `${getAiColor(archive.ai_detection, colors)}60` },
               ]}
             >
-              <Sparkles size={12} color={getAiColor(archive.ai_detection)} strokeWidth={2} />
-              <Text style={[styles.aiBadgeText, { color: getAiColor(archive.ai_detection) }]}>
+              <Sparkles size={12} color={getAiColor(archive.ai_detection, colors)} strokeWidth={2} />
+              <Text style={[styles.aiBadgeText, { color: getAiColor(archive.ai_detection, colors) }]}>
                 {archive.ai_detection.classification === 'human' ? 'Human' : archive.ai_detection.classification === 'ai' ? 'AI' : 'Unknown'}
               </Text>
-              <Text style={[styles.aiBadgeConfidence, { color: getAiColor(archive.ai_detection) }]}>
+              <Text style={[styles.aiBadgeConfidence, { color: getAiColor(archive.ai_detection, colors) }]}>
                 {Math.round(archive.ai_detection.confidence)}%
               </Text>
             </View>
