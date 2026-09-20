@@ -2,6 +2,7 @@ import type {
   InventorySpool,
   StorageLocation,
   SpoolAssignment,
+  SpoolAssignmentHistoryRecord,
   SpoolKProfile,
   SpoolLabelTemplate,
   SpoolUsageRecord,
@@ -110,15 +111,34 @@ export const inventoryApi = {
 
   getLocations: async () => request<StorageLocation[]>('/inventory/locations'),
 
+<<<<<<< HEAD
   createLocation: async (data: StorageLocationPayload) =>
     request<StorageLocation>('/inventory/locations', {
+=======
+  createLocation: async (data: {
+    name: string;
+    identifier?: string | null;
+    address?: string | null;
+    notes?: string | null;
+  }) =>
+    request<Record<string, unknown>>('/inventory/locations', {
+>>>>>>> origin/develop
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   updateLocation: async (
     id: number,
+<<<<<<< HEAD
     data: Partial<StorageLocationPayload>,
+=======
+    data: {
+      name?: string;
+      identifier?: string | null;
+      address?: string | null;
+      notes?: string | null;
+    },
+>>>>>>> origin/develop
   ) =>
     request<StorageLocation>(`/inventory/locations/${id}`, {
       method: 'PATCH',
@@ -229,6 +249,30 @@ export const inventoryApi = {
     request<SpoolAssignment[]>(
       `/inventory/assignments${printerId ? `?printer_id=${printerId}` : ''}`,
     ),
+
+  getAssignmentHistory: async (params?: {
+    spool_id?: number;
+    printer_id?: number;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.spool_id !== undefined) query.set('spool_id', String(params.spool_id));
+    if (params?.printer_id !== undefined) query.set('printer_id', String(params.printer_id));
+    if (params?.limit !== undefined) query.set('limit', String(params.limit));
+    if (params?.offset !== undefined) query.set('offset', String(params.offset));
+    return request<SpoolAssignmentHistoryRecord[]>(
+      `/inventory/assignment-history${query.toString() ? `?${query.toString()}` : ''}`,
+    );
+  },
+
+  getAssignmentHistoryStats: async () =>
+    request<{
+      total_assignments: number;
+      active_assignments: number;
+      total_spools_tracked: number;
+      total_prints_tracked: number;
+    }>('/inventory/assignment-history/stats'),
 
   getShoppingList: async () =>
     request<Record<string, unknown>[]>('/inventory/shopping-list'),

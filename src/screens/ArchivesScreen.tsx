@@ -27,8 +27,10 @@ import {
   TextField,
 } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { SliceModal } from '@/components/files/SliceModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { useToast } from '@/contexts/ToastContext';
+import { useArchiveFiltersStore } from '@/store/archiveFiltersStore';
 import { useTheme } from '@/theme';
 import {
   borderRadius,
@@ -46,16 +48,6 @@ import {
 import { rowsToCsv } from '@/utils/csv';
 import { shareBlob } from '@/utils/share';
 
-
-type ArchiveStatusFilter =
-  | 'all'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'favorite'
-  | 'duplicate';
-
-type RangeFilter = 'all' | '7d' | '30d' | '90d';
 type ArchiveViewMode = 'list' | 'grid';
 
 function toArchives(value: unknown): Archive[] {
@@ -63,8 +55,8 @@ function toArchives(value: unknown): Archive[] {
   return value as unknown as Archive[];
 }
 
-function rangeCutoff(range: RangeFilter) {
-  if (range === 'all') return 0;
+function rangeCutoff(range: string) {
+  if (range === 'all' || range === 'custom') return 0;
   const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
   return Date.now() - days * 24 * 60 * 60 * 1000;
 }
@@ -76,6 +68,14 @@ function tagsForArchive(archive: Archive) {
     .filter(Boolean) ?? [];
 }
 
+<<<<<<< HEAD
+=======
+function rangeDateFrom(range: string) {
+  const cutoff = rangeCutoff(range);
+  return cutoff > 0 ? new Date(cutoff).toISOString() : undefined;
+}
+
+>>>>>>> origin/develop
 function archiveExportRows(archives: Archive[]) {
   return archives.map(archive => ({
     print_name: archive.print_name ?? archive.filename ?? '',
@@ -134,11 +134,7 @@ export default function ArchivesScreen() {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ArchiveStatusFilter>('all');
-  const [rangeFilter, setRangeFilter] = useState<RangeFilter>('all');
-  const [printerFilter, setPrinterFilter] = useState<number | 'all'>('all');
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const { filters, setFilters, loadFilters } = useArchiveFiltersStore();
   const [viewMode, setViewMode] = useState<ArchiveViewMode>('list');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -149,14 +145,31 @@ export default function ArchivesScreen() {
   const [tagsDraft, setTagsDraft] = useState('');
   const [showTagSummary, setShowTagSummary] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'csv' | 'json'>('csv');
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx' | 'json'>('csv');
+  const [exportScope, setExportScope] = useState<'all' | 'selected'>('all');
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [purgeDays, setPurgeDays] = useState(90);
   const [purgeStats, setPurgeStats] = useState(false);
+  const [showSliceModal, setShowSliceModal] = useState(false);
+  const [sliceArchiveId, setSliceArchiveId] = useState<number | null>(null);
+  const [sliceArchiveName, setSliceArchiveName] = useState('');
+
+  const search = filters.search;
+  const statusFilter = filters.statusFilter;
+  const rangeFilter = filters.rangeFilter;
+  const printerFilter = filters.printerFilter;
+  const filamentTypeFilter = filters.filamentTypeFilter;
+  const tagFilter = filters.tagFilter;
+  const aiFilter = filters.aiFilter;
+
+  React.useEffect(() => {
+    void loadFilters();
+  }, [loadFilters]);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
+       
       title: 'Archives',
       headerRight: () => (
         <Pressable onPress={() => setShowExportModal(true)} style={styles.headerButton} hitSlop={8}>
@@ -195,6 +208,13 @@ export default function ArchivesScreen() {
     () => (Array.isArray(printersQuery.data) ? (printersQuery.data as unknown as Printer[]) : []),
     [printersQuery.data],
   );
+  const filamentTypes = useMemo(() => {
+    const types = new Set<string>();
+    archives.forEach(archive => {
+      if (archive.filament_type) types.add(archive.filament_type);
+    });
+    return Array.from(types).sort();
+  }, [archives]);
   const tagSummary = useMemo(
     () => (Array.isArray(tagsQuery.data) ? tagsQuery.data : []),
     [tagsQuery.data],
@@ -276,19 +296,26 @@ export default function ArchivesScreen() {
         if (!haystack.includes(term)) return false;
       }
       if (printerFilter !== 'all' && archive.printer_id !== printerFilter) return false;
+      if (filamentTypeFilter !== 'all' && archive.filament_type !== filamentTypeFilter) return false;
       if (tagFilter && !tagsForArchive(archive).includes(tagFilter)) return false;
       if (statusFilter === 'completed' && archive.status !== 'completed') return false;
       if (statusFilter === 'failed' && archive.status !== 'failed' && archive.status !== 'aborted') return false;
-      if (statusFilter === 'cancelled' && archive.status !== 'cancelled' && archive.status !== 'stopped') return false;
+      if (statusFilter === 'running' && archive.status !== 'printing' && archive.status !== 'in_progress') return false;
+      if (statusFilter === 'paused' && archive.status !== 'paused' && archive.status !== 'pause') return false;
+      if (statusFilter === 'canceled' && archive.status !== 'canceled' && archive.status !== 'cancelled' && archive.status !== 'stopped') return false;
       if (statusFilter === 'favorite' && !archive.is_favorite) return false;
       if (statusFilter === 'duplicate' && archive.duplicate_count === 0) return false;
+      if (aiFilter !== 'all' && archive.ai_detection) {
+        if (aiFilter === 'ai' && archive.ai_detection.classification !== 'ai') return false;
+        if (aiFilter === 'human' && archive.ai_detection.classification !== 'human') return false;
+      }
       if (cutoff > 0) {
         const stamp = new Date(archive.completed_at || archive.created_at).getTime();
         if (!Number.isFinite(stamp) || stamp < cutoff) return false;
       }
       return true;
     });
-  }, [archives, printerFilter, rangeFilter, search, statusFilter, tagFilter]);
+  }, [archives, printerFilter, filamentTypeFilter, rangeFilter, search, statusFilter, tagFilter, aiFilter]);
 
   const compareArchives = useMemo(
     () =>
@@ -310,6 +337,7 @@ export default function ArchivesScreen() {
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
+<<<<<<< HEAD
       const csv = rowsToCsv(archiveExportRows(filteredArchives));
       const csvBlobOptions: BlobOptions = {
         type: 'text/csv',
@@ -317,6 +345,41 @@ export default function ArchivesScreen() {
       };
       const blob = new Blob([csv], csvBlobOptions);
       await shareBlob(blob, `${filenameBase}.csv`);
+=======
+      const rowsToExport = exportScope === 'selected'
+        ? archives.filter(a => selectedIds.includes(a.id))
+        : filteredArchives;
+      if (exportScope === 'selected' || hasUnsupportedServerExportFilters) {
+        const csv = toCsv(archiveExportRows(rowsToExport));
+        const csvBlobOptions: BlobOptions = {
+          type: 'text/csv',
+          lastModified: Date.now(),
+        };
+        const blob = new Blob([csv], csvBlobOptions);
+        await shareBlob(blob, `${filenameBase}.csv`);
+        return;
+      }
+      const blob = await api.exportArchives({
+        format: exportFormat === 'xlsx' ? 'xlsx' : 'csv',
+        fields: [
+          'id', 'print_name', 'filename', 'printer_name', 'project_name',
+          'status', 'completed_at', 'filament_type', 'filament_color',
+          'filament_used_grams', 'cost', 'tags',
+        ],
+        printerId: printerFilter === 'all' ? undefined : printerFilter,
+        status:
+          statusFilter === 'completed'
+            ? 'completed'
+            : statusFilter === 'failed'
+              ? 'failed'
+              : statusFilter === 'canceled'
+                ? 'cancelled'
+                : undefined,
+        dateFrom: rangeDateFrom(rangeFilter),
+        search: search.trim() || undefined,
+      });
+      await shareBlob(blob, `${filenameBase}.${exportFormat}`);
+>>>>>>> origin/develop
     },
     onSuccess: () => {
       showToast(`${exportFormat.toUpperCase()} export ready to share.`, 'success');
@@ -352,9 +415,17 @@ export default function ArchivesScreen() {
     all: archives.length,
     completed: archives.filter(archive => archive.status === 'completed').length,
     failed: archives.filter(archive => archive.status === 'failed' || archive.status === 'aborted').length,
-    cancelled: archives.filter(archive => archive.status === 'cancelled' || archive.status === 'stopped').length,
+    running: archives.filter(archive => archive.status === 'printing' || archive.status === 'in_progress').length,
+    paused: archives.filter(archive => archive.status === 'paused' || archive.status === 'pause').length,
+    canceled: archives.filter(archive => archive.status === 'canceled' || archive.status === 'cancelled' || archive.status === 'stopped').length,
     favorite: archives.filter(archive => archive.is_favorite).length,
     duplicate: archives.filter(archive => archive.duplicate_count > 0).length,
+  };
+  const aiCounts = {
+    all: archives.length,
+    ai: archives.filter(a => a.ai_detection?.classification === 'ai').length,
+    human: archives.filter(a => a.ai_detection?.classification === 'human').length,
+    any: archives.filter(a => Boolean(a.ai_detection)).length,
   };
 
   const toggleSelected = (id: number) => {
@@ -425,6 +496,11 @@ export default function ArchivesScreen() {
               onDelete={() => {
                 deleteMutation.mutate(item.id);
               }}
+              onSlice={() => {
+                setSliceArchiveId(item.id);
+                setSliceArchiveName(item.print_name || item.filename);
+                setShowSliceModal(true);
+              }}
             />
           </View>
         )}
@@ -450,57 +526,94 @@ export default function ArchivesScreen() {
             </ScrollView>
 
             <SectionCard title="Archive browser" subtitle="Web-style search, filters, compare mode, tags, and actions for reprints, timelapses, photos, QR links, and deletes.">
-              <SearchBar value={search} onChangeText={setSearch} placeholder="Search print name, filename, printer, material, tags, or notes" />
+              <SearchBar value={search} onChangeText={text => setFilters({ search: text })} placeholder="Search print name, filename, printer, material, tags, or notes" />
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                {(['all', 'completed', 'failed', 'cancelled', 'favorite', 'duplicate'] as ArchiveStatusFilter[]).map(status => (
+                {(['all', 'completed', 'failed', 'running', 'paused', 'canceled', 'favorite', 'duplicate'] as const).map(status => (
                   <Chip
                     key={status}
-                    label={`${status[0].toUpperCase()}${status.slice(1)}${statusCounts[status] ? ` (${statusCounts[status as keyof typeof statusCounts]})` : ''}`}
+                    label={`${status[0].toUpperCase()}${status.slice(1)}${statusCounts[status as keyof typeof statusCounts] ? ` (${statusCounts[status as keyof typeof statusCounts]})` : ''}`}
                     selected={statusFilter === status}
-                    onPress={() => setStatusFilter(status)}
+                    onPress={() => setFilters({ statusFilter: status as typeof statusFilter })}
                   />
                 ))}
               </ScrollView>
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                {(['all', '7d', '30d', '90d'] as RangeFilter[]).map(range => (
+                {(['all', 'ai', 'human', 'any'] as const).map(mode => (
+                  <Chip
+                    key={mode}
+                    label={`${mode === 'ai' ? '🤖 AI' : mode === 'human' ? '👤 Human' : mode === 'any' ? '📊 Any' : 'All AI'}${aiCounts[mode] ? ` (${aiCounts[mode]})` : ''}`}
+                    selected={aiFilter === mode}
+                    onPress={() => setFilters({ aiFilter: mode })}
+                  />
+                ))}
+              </ScrollView>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                {(['all', '7d', '30d', '90d'] as const).map(range => (
                   <Chip
                     key={range}
                     label={range === 'all' ? 'All dates' : `${range.toUpperCase()} range`}
                     selected={rangeFilter === range}
-                    onPress={() => setRangeFilter(range)}
+                    onPress={() => setFilters({ rangeFilter: range as typeof rangeFilter })}
                   />
                 ))}
               </ScrollView>
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                <Chip label="All printers" selected={printerFilter === 'all'} onPress={() => setPrinterFilter('all')} />
+                <Chip label="All printers" selected={printerFilter === 'all'} onPress={() => setFilters({ printerFilter: 'all' })} />
                 {printers.map(printer => (
                   <Chip
                     key={printer.id}
                     label={printer.name}
                     selected={printerFilter === printer.id}
-                    onPress={() => setPrinterFilter(printer.id)}
+                    onPress={() => setFilters({ printerFilter: printer.id })}
                   />
                 ))}
               </ScrollView>
 
+              {filamentTypes.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                  <Chip label="All materials" selected={filamentTypeFilter === 'all'} onPress={() => setFilters({ filamentTypeFilter: 'all' })} />
+                  {filamentTypes.map(type => {
+                    const count = archives.filter(a => a.filament_type === type).length;
+                    return (
+                      <Chip
+                        key={type}
+                        label={`${type} (${count})`}
+                        selected={filamentTypeFilter === type}
+                        onPress={() => setFilters({ filamentTypeFilter: type })}
+                      />
+                    );
+                  })}
+                </ScrollView>
+              ) : null}
+
               {tagSummary.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                  <Chip label="All tags" selected={tagFilter === null} onPress={() => setTagFilter(null)} />
+                  <Chip label="All tags" selected={tagFilter === null} onPress={() => setFilters({ tagFilter: null })} />
                   {tagSummary.map(tag => (
                     <Chip
                       key={tag.name}
                       label={`${tag.name} (${tag.count})`}
                       selected={tagFilter === tag.name}
-                      onPress={() => setTagFilter(tag.name)}
+                      onPress={() => setFilters({ tagFilter: tag.name })}
                     />
                   ))}
                 </ScrollView>
               ) : null}
 
               <View style={styles.headerActions}>
+                {(statusFilter !== 'all' || rangeFilter !== 'all' || printerFilter !== 'all' || filamentTypeFilter !== 'all' || tagFilter != null || aiFilter !== 'all') ? (
+                  <PrimaryButton
+                    label="Clear filters"
+                    variant="secondary"
+                    onPress={() => {
+                      setFilters({ statusFilter: 'all', rangeFilter: 'all', printerFilter: 'all', filamentTypeFilter: 'all', tagFilter: null, aiFilter: 'all', search: '' });
+                    }}
+                  />
+                ) : null}
                 <PrimaryButton
                   label={viewMode === 'grid' ? 'List view' : 'Grid view'}
                   variant="secondary"
@@ -583,23 +696,45 @@ export default function ArchivesScreen() {
       <SimpleModal
         visible={showExportModal}
         title="Export archives"
-        subtitle="Share the current archive list as CSV or JSON."
+        subtitle="Share the current archive list as CSV, Excel, or JSON."
         onClose={() => setShowExportModal(false)}
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          {(['csv', 'json'] as const).map(format => (
+          {(['csv', 'xlsx', 'json'] as const).map(format => (
             <Chip
               key={format}
-              label={format.toUpperCase()}
+              label={format === 'xlsx' ? 'EXCEL' : format.toUpperCase()}
               selected={exportFormat === format}
               onPress={() => setExportFormat(format)}
             />
           ))}
         </ScrollView>
+        {selectedIds.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            {(['all', 'selected'] as const).map(scope => (
+              <Chip
+                key={scope}
+                label={scope === 'selected' ? `Selected only (${selectedIds.length})` : 'All filtered'}
+                selected={exportScope === scope}
+                onPress={() => setExportScope(scope as typeof exportScope)}
+              />
+            ))}
+          </ScrollView>
+        ) : null}
         <Text style={[styles.modalBodyText, { color: colors.textSecondary }]}>
           {exportFormat === 'json'
             ? 'JSON export mirrors the exact filtered results shown on this screen.'
+<<<<<<< HEAD
             : 'CSV export is generated from the current filtered results shown on this screen.'}
+=======
+            : exportScope === 'selected'
+              ? 'Exported as CSV to preserve the selected archive set.'
+              : hasUnsupportedServerExportFilters
+                ? 'CSV export is generated from the currently filtered results to preserve tag, favorite, and duplicate filters.'
+                : exportFormat === 'xlsx'
+                  ? 'Excel export uses the archive export endpoint with your current toolbar filters.'
+                  : 'CSV export uses the archive export endpoint with your current toolbar filters.'}
+>>>>>>> origin/develop
         </Text>
         <View style={styles.modalFooter}>
           <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowExportModal(false)} />
@@ -756,7 +891,7 @@ export default function ArchivesScreen() {
             <Pressable
               key={tag.name}
               onPress={() => {
-                setTagFilter(tag.name);
+                setFilters({ tagFilter: tag.name });
                 setShowTagSummary(false);
               }}
               style={[styles.simpleListItem, { borderColor: colors.borderSubtle }]}
@@ -779,9 +914,23 @@ export default function ArchivesScreen() {
         }}
         title="Purge matching archives?"
         message={`This will remove archives older than ${purgeDays} days${purgeStats ? ' and purge their stats' : ''}.`}
-        confirmLabel="Purge"
-        loading={purgeMutation.isPending}
-      />
+         confirmLabel="Purge"
+         loading={purgeMutation.isPending}
+       />
+
+       {sliceArchiveId != null ? (
+         <SliceModal
+           visible={showSliceModal}
+           onClose={() => {
+             setShowSliceModal(false);
+             setSliceArchiveId(null);
+             setSliceArchiveName('');
+           }}
+           sourceType="archive"
+           sourceId={sliceArchiveId}
+           sourceName={sliceArchiveName}
+         />
+       ) : null}
     </View>
   );
 }

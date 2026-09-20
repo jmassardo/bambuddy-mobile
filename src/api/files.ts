@@ -5,12 +5,12 @@ import type {
   LibraryFolderTree,
   LibraryStats,
   LibraryTrashItem,
-  LibraryTrashSettings,
 } from '@/types/api';
 import {
   ApiError,
   buildMediaUrl,
   request,
+  requestBlob,
   requestTextWithFallback,
   requestWithFallback,
   uploadFile,
@@ -82,9 +82,6 @@ export const filesApi = {
       method: 'POST',
       body: JSON.stringify({ file_ids: [id], folder_id: folderId }),
     }),
-
-  deleteLibraryItem: async (id: number) =>
-    request<void>(`/library/files/${id}`, { method: 'DELETE' }),
 
   uploadLibraryFile: async (
     file: UploadableFile,
@@ -273,21 +270,28 @@ export const filesApi = {
 
   emptyLibraryTrash: async () => request<void>('/library/trash', { method: 'DELETE' }),
 
-  extractZip: async (fileId: number, folderId?: number | null) =>
-    request<void>('/library/files/extract', {
-      method: 'POST',
-      body: JSON.stringify({ file_id: fileId, folder_id: folderId }),
-    }),
-
-  getLibraryTrashSettings: async () =>
-    request<ApiEntity<LibraryTrashSettings>>('/library/trash/settings'),
-
-  updateLibraryTrashSettings: async (data: Record<string, unknown>) =>
-    request<ApiEntity<LibraryTrashSettings>>('/library/trash/settings', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-
   getPendingUploads: async () =>
     request<Record<string, unknown>[]>('/pending-uploads/'),
+
+  downloadFileBlob: async (id: number): Promise<Blob> =>
+    requestBlob(`/library/files/${id}/download`),
+
+  sliceFile: async (
+    id: number,
+    options?: {
+      profile?: string;
+      plate?: string;
+      supports?: boolean;
+      extra?: Record<string, unknown>;
+    },
+  ) =>
+    request<Record<string, unknown>>(`/library/files/${id}/slice`, {
+      method: 'POST',
+      body: JSON.stringify({
+        profile: options?.profile,
+        plate: options?.plate,
+        supports: options?.supports,
+        ...(options?.extra ?? {}),
+      }),
+    }),
 };

@@ -1448,7 +1448,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-document-picker (9.3.1):
+  - react-native-document-picker (12.0.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1471,6 +1471,28 @@ PODS:
     - ReactNativeDependencies
     - Yoga
   - react-native-image-picker (8.2.1):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - react-native-netinfo (12.0.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2408,8 +2430,9 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - React-mutationobservernativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver`)
-  - react-native-document-picker (from `../node_modules/react-native-document-picker`)
+  - "react-native-document-picker (from `../node_modules/@react-native-documents/picker`)"
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
+  - "react-native-netinfo (from `../node_modules/@react-native-community/netinfo`)"
   - react-native-nfc-manager (from `../node_modules/react-native-nfc-manager`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - react-native-splash-screen (from `../node_modules/react-native-splash-screen`)
@@ -2545,9 +2568,11 @@ EXTERNAL SOURCES:
   React-mutationobservernativemodule:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver"
   react-native-document-picker:
-    :path: "../node_modules/react-native-document-picker"
+    :path: "../node_modules/@react-native-documents/picker"
   react-native-image-picker:
     :path: "../node_modules/react-native-image-picker"
+  react-native-netinfo:
+    :path: "../node_modules/@react-native-community/netinfo"
   react-native-nfc-manager:
     :path: "../node_modules/react-native-nfc-manager"
   react-native-safe-area-context:
@@ -2692,8 +2717,9 @@ SPEC CHECKSUMS:
   React-Mapbuffer: ce449ccdf3b80384415b925606be8a4bdcfc65d3
   React-microtasksnativemodule: 2eb3f49d0d8e77b5343455eccd057010b8d38b6b
   React-mutationobservernativemodule: f0a0d5ae9b51caf7becbeabf836d716cfedb6bf2
-  react-native-document-picker: dbb2852adc7e2fcbd522268006aa71ebbe542e24
+  react-native-document-picker: 15cca2d1a6bfb6d0d3ff0283bd9b903e57cb028b
   react-native-image-picker: 23540feacc79c63c60857f318fdfa8477c26e70a
+  react-native-netinfo: 2f906d5d9a639090ed1c079135d6485a95f749f1
   react-native-nfc-manager: c8891e460b4943b695d63f7f4effc6345bbefc83
   react-native-safe-area-context: fb5c8ee9f6dd62ef710611b3d370c501f42a4ac0
   react-native-splash-screen: 95994222cc95c236bd3cdc59fe45ed5f27969594
@@ -2748,4 +2774,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 1b0b8ebd679198f6c635c27825de1b427905d3e8
 
-COCOAPODS: 1.15.2
+COCOAPODS: 1.17.0

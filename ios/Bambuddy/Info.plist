@@ -28,19 +28,24 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Bambuddy may use your location to identify nearby printers on your local network.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Bambuddy connects to your printer and Bambuddy server on your local network to show the live camera feed and control your printer.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+		<string>_https._tcp</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Bambuddy uses the camera to scan QR codes for printer setup and to view your printer's live camera feed.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Bambuddy uses Face ID to quickly and securely unlock the app.</string>
 	<key>NFCReaderUsageDescription</key>
-	<string>Bambuddy uses NFC to read and write spool tags for filament tracking.</string>
+	<string>Bambuddy uses NFC to read spool tag identifiers for filament tracking.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Bambuddy accesses your photo library to attach photos to print archives.</string>
 	<key>CFBundleURLTypes</key>
@@ -65,6 +70,8 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>

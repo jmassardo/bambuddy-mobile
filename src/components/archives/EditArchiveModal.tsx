@@ -757,7 +757,6 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: borderRadius.lg,
-    backgroundColor: '#1f2937',
   },
   photoDelete: {
     position: 'absolute',

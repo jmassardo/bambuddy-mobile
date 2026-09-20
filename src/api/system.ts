@@ -4,9 +4,25 @@ import type {
   InventorySpool,
   LinkedSpoolsMap,
   ObicoStatus,
+<<<<<<< HEAD
   SpoolBuddyDeviceCreateRequest,
   SpoolBuddyDevice,
   SpoolBuddyDeviceUpdateRequest,
+=======
+  SpoolmanConfig,
+  SpoolmanSyncResult,
+  SpoolmanSyncStatus,
+  SpoolBuddyDevice,
+  SpoolBuddyDeviceCreateRequest,
+  SpoolBuddyDeviceUpdateRequest,
+  SpoolBuddySlot,
+  SpoolBuddySlotAssignment,
+  SpoolBuddyUsageRecord,
+  SpoolBuddySlotCreateRequest,
+  SpoolBuddySlotUpdateRequest,
+  SpoolBuddySlotAssignRequest,
+  SpoolBuddyUsageSummary,
+>>>>>>> origin/develop
   SpoolmanStatus,
   StorageUsageResponse,
   SystemHealthResult,
@@ -112,8 +128,36 @@ export const systemApi = {
 
   getSpoolmanStatus: async () => request<SpoolmanStatus>('/spoolman/status'),
 
+  getSpoolmanConfig: async () =>
+    requestWithFallback<SpoolmanConfig>(
+      { endpoint: '/settings/spoolman' },
+      { endpoint: '/system/integrations/spoolman' },
+    ),
+
+  updateSpoolmanConfig: async (data: {
+    enabled?: boolean;
+    url?: string | null;
+    auto_sync?: boolean;
+  }) =>
+    request<SpoolmanConfig>('/settings/spoolman', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
   connectSpoolman: async () =>
     request<Record<string, unknown>>('/spoolman/connect', { method: 'POST' }),
+
+  syncSpoolmanInventory: async () =>
+    requestWithFallback<SpoolmanSyncResult>(
+      { endpoint: '/spoolman/sync', options: { method: 'POST' } },
+      { endpoint: '/inventory/spools/sync-from-spoolman', options: { method: 'POST' } },
+    ),
+
+  getSpoolmanSyncStatus: async () =>
+    requestWithFallback<SpoolmanSyncStatus>(
+      { endpoint: '/spoolman/sync/status' },
+      { endpoint: '/system/integrations/spoolman/sync/status' },
+    ),
 
   disconnectSpoolman: async () =>
     request<Record<string, unknown>>('/spoolman/disconnect', { method: 'POST' }),
@@ -224,6 +268,76 @@ export const systemApi = {
     request<void>(`/spoolbuddy/devices/${deviceId}/calibration/tare`, {
       method: 'POST',
     }),
+
+  getSpoolBuddySlots: async (deviceId: string) =>
+    request<SpoolBuddySlot[]>(`/spoolbuddy/devices/${encodeURIComponent(deviceId)}/slots`),
+
+  createSpoolBuddySlot: async (data: SpoolBuddySlotCreateRequest) =>
+    request<SpoolBuddySlot>('/spoolbuddy/slots', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateSpoolBuddySlot: async (
+    deviceId: string,
+    slotIndex: number,
+    data: SpoolBuddySlotUpdateRequest,
+  ) =>
+    request<SpoolBuddySlot>(
+      `/spoolbuddy/devices/${encodeURIComponent(deviceId)}/slots/${slotIndex}`,
+      { method: 'PATCH', body: JSON.stringify(data) },
+    ),
+
+  deleteSpoolBuddySlot: async (
+    deviceId: string,
+    slotIndex: number,
+  ) =>
+    request<void>(
+      `/spoolbuddy/devices/${encodeURIComponent(deviceId)}/slots/${slotIndex}`,
+      { method: 'DELETE' },
+    ),
+
+  assignSpoolBuddySlot: async (data: SpoolBuddySlotAssignRequest) =>
+    request<SpoolBuddySlotAssignment>('/spoolbuddy/slots/assign', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  unassignSpoolBuddySlot: async (
+    deviceId: string,
+    slotIndex: number,
+  ) =>
+    request<void>(
+      `/spoolbuddy/devices/${encodeURIComponent(deviceId)}/slots/${slotIndex}/unassign`,
+      { method: 'POST' },
+    ),
+
+  getSpoolBuddySlotAssignments: async (deviceId?: string) =>
+    request<SpoolBuddySlotAssignment[]>(
+      deviceId
+        ? `/spoolbuddy/devices/${encodeURIComponent(deviceId)}/slot-assignments`
+        : '/spoolbuddy/slot-assignments',
+    ),
+
+  getSpoolBuddyUsage: async (
+    deviceId: string,
+    limit = 100,
+  ) =>
+    request<SpoolBuddyUsageRecord[]>(
+      `/spoolbuddy/devices/${encodeURIComponent(deviceId)}/usage?limit=${limit}`,
+    ),
+
+  getAllSpoolBuddyUsage: async (limit = 1000) =>
+    request<SpoolBuddyUsageRecord[]>(
+      `/spoolbuddy/usage?limit=${limit}`,
+    ),
+
+  getSpoolBuddyUsageSummary: async (deviceId?: string) =>
+    request<SpoolBuddyUsageSummary[]>(
+      deviceId
+        ? `/spoolbuddy/summary?device_id=${encodeURIComponent(deviceId)}`
+        : '/spoolbuddy/summary',
+    ),
 
   getObicoStatus: async () => request<ObicoStatus>('/obico/status'),
 

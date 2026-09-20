@@ -13,6 +13,7 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { isInsecureUrl, useServerStore } from '@/api/server';
+import { demoConfig, isDemoConfigured } from '@/config/demo';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -35,7 +36,11 @@ export default function ServerConfigScreen() {
     navigation.setOptions({ title: 'Server', headerShown: false });
   }, [navigation]);
   const { colors } = useTheme();
+<<<<<<< HEAD
   const { login, setServerConnected } = useAuth();
+=======
+  const { setServerConnected, login } = useAuth();
+>>>>>>> origin/develop
   const { showToast } = useToast();
   const storedUrl = useServerStore(state => state.serverUrl);
   const [serverUrl, setServerUrl] = useState(storedUrl ?? '');
@@ -84,6 +89,7 @@ export default function ServerConfigScreen() {
     },
   });
 
+<<<<<<< HEAD
   const demoMutation = useMutation({
     mutationFn: async () =>
       connectToServer(DEMO_SERVER_URL, { tryDemoLogin: true }),
@@ -97,6 +103,55 @@ export default function ServerConfigScreen() {
     },
   });
 
+=======
+  /** Connects to the hosted demo instance and signs in automatically. */
+  const demoMutation = useMutation({
+    mutationFn: async () => {
+      setError('');
+      await useServerStore.getState().setServerUrl(demoConfig.url);
+      try {
+        await api.getAuthStatus();
+        const result = await login(demoConfig.username, demoConfig.password);
+        if (result.requires_2fa) {
+          throw new Error(
+            'The demo account requires two-factor authentication.',
+          );
+        }
+        await useServerStore.getState().setDemoMode(true);
+        setServerConnected(true);
+      } catch (mutationError) {
+        await useServerStore.getState().clearServerUrl();
+        throw mutationError;
+      }
+    },
+    onSuccess: () => {
+      showToast('Signed in to the Bambuddy demo.', 'success');
+    },
+    onError: (mutationError: Error) => {
+      setError(mutationError.message || 'Could not start the demo.');
+      showToast('Demo unavailable.', 'error');
+    },
+  });
+
+  const busy = connectMutation.isPending || demoMutation.isPending;
+
+  /** Shows a demo mode confirmation dialog before connecting. */
+  function handleDemo() {
+    Alert.alert(
+      'Demo Mode',
+      'You will connect to a shared demo server with sample data. Demo mode is read-only — you cannot start or manage real prints.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => void demoMutation.mutate(),
+        },
+      ],
+    );
+  }
+
+>>>>>>> origin/develop
   /** Initiates connection, showing a warning if the URL uses plain HTTP */
   function handleConnect() {
     const normalized = normalizeUrl(serverUrl);
@@ -157,9 +212,12 @@ export default function ServerConfigScreen() {
           autoCorrect={false}
           placeholder="https://bambuddy.example.com"
         />
+        {/* ATS posture: NSAllowsLocalNetworking permits cleartext HTTP only to
+           local/private-network addresses. Public servers must use HTTPS. */}
         {isInsecureUrl(serverUrl.trim()) ? (
           <Text style={[styles.warning, { color: colors.warning }]}>
-            ⚠️ This URL uses an unencrypted HTTP connection.
+            ⚠️ Plain HTTP is only supported for servers on your local network.
+            Public servers require HTTPS.
           </Text>
         ) : null}
         {error ? (
@@ -169,6 +227,7 @@ export default function ServerConfigScreen() {
           label="Scan QR Code"
           onPress={() => navigation.navigate('Scanner', { mode: 'server' })}
           variant="secondary"
+<<<<<<< HEAD
           disabled={connecting}
         />
         <PrimaryButton
@@ -177,13 +236,39 @@ export default function ServerConfigScreen() {
           loading={demoMutation.isPending}
           variant="secondary"
           disabled={connecting}
+=======
+          disabled={busy}
+>>>>>>> origin/develop
         />
         <PrimaryButton
           label={connectMutation.isPending ? 'Connecting…' : 'Connect'}
           onPress={handleConnect}
           loading={connectMutation.isPending}
+<<<<<<< HEAD
           disabled={connecting || serverUrl.trim().length === 0}
+=======
+          disabled={serverUrl.trim().length === 0 || demoMutation.isPending}
+>>>>>>> origin/develop
         />
+        {isDemoConfigured() ? (
+          <View style={styles.demoSection}>
+            <View
+              style={[styles.divider, { backgroundColor: colors.cardBorder }]}
+            />
+            <Text style={[styles.demoHint, { color: colors.textSecondary }]}>
+              Don't have a server yet?
+            </Text>
+            <PrimaryButton
+              label={
+                demoMutation.isPending ? 'Starting demo…' : 'Try the demo'
+              }
+              onPress={handleDemo}
+              variant="secondary"
+              loading={demoMutation.isPending}
+              disabled={connectMutation.isPending}
+            />
+          </View>
+        ) : null}
       </View>
     </KeyboardAvoidingView>
   );
@@ -229,6 +314,16 @@ const styles = StyleSheet.create({
   warning: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
+    textAlign: 'center',
+  },
+  demoSection: {
+    gap: spacing.md,
+  },
+  divider: {
+    height: 1,
+  },
+  demoHint: {
+    fontSize: fontSize.sm,
     textAlign: 'center',
   },
 });

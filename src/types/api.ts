@@ -658,6 +658,28 @@ export interface PrinterStatus {
   supports_chamber_heater?: boolean;
 }
 
+export interface PrinterUpdate {
+  name?: string;
+  serial_number?: string;
+  ip_address?: string;
+  access_code?: string;
+  model?: string;
+  location?: string | null;
+  notes?: string | null;
+  auto_archive?: boolean;
+  // Maintenance Mode flag (#1476). Backend already gates MQTT, queue dispatch,
+  // scheduler, metrics and the print picker on this; toggling via PATCH
+  // /printers/{id} disconnects or reconnects MQTT accordingly.
+  is_active?: boolean;
+  external_camera_url?: string | null;
+  external_camera_type?: string | null;
+  external_camera_enabled?: boolean;
+  external_camera_snapshot_url?: string | null;
+  camera_rotation?: number;
+  plate_detection_enabled?: boolean;
+  plate_detection_roi?: PlateDetectionROI;
+}
+
 export interface PrinterCreate {
   name: string;
   serial_number: string;
@@ -829,6 +851,12 @@ export interface Archive {
   total_filament_actual_grams: number | null;
   successful_run_count: number;
   failed_run_count: number;
+  // AI detection analysis
+  ai_detection: {
+    classification: 'human' | 'ai' | 'unknown';
+    confidence: number;  // 0-100 percentage
+    ai_likelihood: number;  // 0-100 percentage
+  } | null;
 }
 
 export interface ArchiveSlim {
@@ -1721,6 +1749,12 @@ export interface SpoolmanStatus {
   url: string | null;
 }
 
+export interface SpoolmanConfig {
+  enabled: boolean;
+  url: string | null;
+  auto_sync: boolean;
+}
+
 export interface SkippedSpool {
   location: string;
   reason: string;
@@ -1732,8 +1766,21 @@ export interface SpoolmanSyncResult {
   success: boolean;
   synced_count: number;
   skipped_count: number;
+  added_count?: number;
+  updated_count?: number;
+  removed_count?: number;
   skipped: SkippedSpool[];
   errors: string[];
+}
+
+export interface SpoolmanSyncStatus {
+  status: string | null;
+  last_sync_at: string | null;
+  last_sync: string | null;
+  in_progress: boolean;
+  auto_sync: boolean | null;
+  auto_sync_enabled: boolean | null;
+  last_result: SpoolmanSyncResult | null;
 }
 
 export interface UnlinkedSpool {
@@ -1927,6 +1974,25 @@ export interface SpoolAssignment {
   pending_config?: boolean;  // Slot was empty at assign time; will configure on insert
   created_at: string;
   ams_label?: string | null;  // User-defined friendly name for the AMS unit
+}
+
+export interface SpoolAssignmentHistoryRecord {
+  id: number;
+  spool_id: number;
+  spool_name: string | null;
+  printer_id: number | null;
+  printer_name: string | null;
+  ams_id: number;
+  tray_id: number;
+  ams_label: string | null;
+  assignment_created_at: string;
+  assignment_updated_at: string | null;
+  assignment_deleted_at: string | null;
+  print_name: string | null;
+  print_id: number | null;
+  status: string | null;
+  filament_used_grams: number | null;
+  created_at: string;
 }
 
 export interface FilamentSkuSettings {
@@ -2776,6 +2842,8 @@ export interface StorageLocation {
   id: number;
   name: string;
   identifier: string | null;
+  address: string | null;
+  notes: string | null;
   spool_count: number;
   created_at: string;
   updated_at: string;
@@ -2819,6 +2887,82 @@ export interface SlicerSettingDetail {
   setting: Record<string, unknown>;
   filament_id?: string | null;
   setting_id?: string | null;
+}
+
+export type CloudProfileSyncState =
+  | 'idle'
+  | 'syncing'
+  | 'ok'
+  | 'failed'
+  | 'not_authenticated'
+  | 'not_available';
+
+export interface CloudProfileSyncStatus {
+  status?: CloudProfileSyncState | string | null;
+  sync_state?: CloudProfileSyncState | string | null;
+  last_sync_at?: string | null;
+  last_synced_at?: string | null;
+  last_successful_sync_at?: string | null;
+  syncing?: boolean | null;
+  in_progress?: boolean | null;
+  error?: string | null;
+  message?: string | null;
+}
+
+export interface CloudProfile extends SlicerSetting {
+  description?: string | null;
+  base_id?: string | null;
+  printer_model?: string | null;
+  material?: string | null;
+}
+
+export interface CloudProfilesResponse extends CloudProfileSyncStatus {
+  profiles: CloudProfile[];
+}
+
+export interface CloudProfileDetail extends SlicerSettingDetail {
+  profile_type?: string | null;
+  compatible_printers?: string[] | null;
+  inherits_from?: string | null;
+}
+
+export interface CloudPerProfileSyncState {
+  setting_id: string;
+  name?: string | null;
+  enabled: boolean;
+  last_sync_at?: string | null;
+  last_synced_at?: string | null;
+  error?: string | null;
+  sync_state?: CloudProfileSyncState | string | null;
+  syncing?: boolean | null;
+  last_sync_result?: 'success' | 'failed' | 'skipped' | string | null;
+}
+
+export interface CloudPerProfileSyncResponse {
+  profiles: CloudPerProfileSyncState[];
+  auto_sync?: boolean | null;
+}
+
+export interface CloudProfileDiffField {
+  path: string;
+  left_value: unknown;
+  right_value: unknown;
+  category?: string | null;
+  severity?: 'info' | 'warning' | 'critical' | string | null;
+}
+
+export interface CloudProfileDiffResult {
+  left_profile_id: string;
+  right_profile_id: string;
+  left_profile_name?: string | null;
+  right_profile_name?: string | null;
+  fields: CloudProfileDiffField[];
+  summary?: {
+    total_fields?: number;
+    changed_fields?: number;
+    added_fields?: number;
+    removed_fields?: number;
+  } | null;
 }
 
 export interface SlicerSettingCreate {
@@ -3987,6 +4131,83 @@ export interface SpoolBuddyDeviceUpdateRequest {
   tare_offset?: number;
 }
 
+<<<<<<< HEAD
+=======
+export interface SpoolBuddySlot {
+  id: number;
+  device_id: string;
+  slot_index: number;
+  spool_id: number | null;
+  spool_brand: string | null;
+  spool_material: string | null;
+  spool_color_name: string | null;
+  spool_tag_uid: string | null;
+  spool_tray_uuid: string | null;
+  weight_g: number;
+  calibrated_weight_g: number;
+  nfc_read_count: number;
+  last_read_at: string | null;
+  scale_ok: boolean;
+  nfc_ok: boolean;
+  empty: boolean;
+}
+
+export interface SpoolBuddySlotAssignment {
+  id: number;
+  device_id: string;
+  slot_index: number;
+  spool_id: number;
+  spool_brand: string | null;
+  spool_material: string | null;
+  spool_color_name: string | null;
+  assigned_at: string;
+  assigned_by?: string | null;
+}
+
+export interface SpoolBuddyUsageRecord {
+  id: number;
+  device_id: string;
+  slot_index: number;
+  spool_id: number | null;
+  spool_brand: string | null;
+  spool_material: string | null;
+  weight_g: number;
+  weight_used_g: number;
+  calibrated_weight_g: number;
+  recorded_at: string;
+}
+
+export interface SpoolBuddySlotCreateRequest {
+  device_id: string;
+  slot_index: number;
+  spool_id?: number;
+}
+
+export interface SpoolBuddySlotUpdateRequest {
+  spool_id?: number | null;
+  tare_offset?: number;
+  calibration_factor?: number;
+}
+
+export interface SpoolBuddySlotAssignRequest {
+  device_id: string;
+  slot_index: number;
+  spool_id: number;
+}
+
+export interface SpoolBuddyUsageSummary {
+  device_id: string;
+  total_weight_used_g: number;
+  total_weight_remaining_g: number;
+  spool_consumptions: Array<{
+    spool_id: number;
+    spool_label: string;
+    total_used_g: number;
+    print_count: number;
+  }>;
+}
+
+>>>>>>> origin/develop
 export interface DaemonUpdateCheck {
   current_version: string;
   latest_version: string | null;

@@ -1,4 +1,4 @@
-import { ApiError, api, setAuthToken } from '@/api/client';
+import { ApiError, api, setAuthToken, request, DEFAULT_TIMEOUT_MS } from '@/api/client';
 import { useServerStore } from '@/api/server';
 import * as Keychain from 'react-native-keychain';
 
@@ -15,6 +15,7 @@ const mockFetch = jest.fn();
 
 function createResponse(data: unknown, options: MockResponseOptions = {}) {
   const { ok = true, status = 200, contentLength = data === undefined ? '0' : '1' } = options;
+  const jsonStr = data !== undefined ? JSON.stringify(data) : '';
 
   return {
     ok,
@@ -23,6 +24,7 @@ function createResponse(data: unknown, options: MockResponseOptions = {}) {
       get: (name: string) => (name.toLowerCase() === 'content-length' ? contentLength : null),
     },
     json: jest.fn().mockResolvedValue(data),
+    text: jest.fn().mockResolvedValue(jsonStr),
   } as unknown as Response;
 }
 
@@ -246,6 +248,38 @@ describe('api client', () => {
     expectLastRequest(endpoint, method, body);
   });
 
+  describe('getArchiveRuns', () => {
+    const runs = [
+      { id: 1, status: 'completed' },
+      { id: 2, status: 'completed' },
+    ];
+
+    it('returns a bare-array response', async () => {
+      mockFetch.mockResolvedValue(createResponse(runs));
+
+      await expect(api.getArchiveRuns(4)).resolves.toEqual(runs);
+      expectLastRequest('/archives/4/runs');
+    });
+
+    it('unwraps runs from a paginated response', async () => {
+      mockFetch.mockResolvedValue(createResponse({ items: runs, total: 2 }));
+
+      await expect(api.getArchiveRuns(4)).resolves.toEqual(runs);
+      expectLastRequest('/archives/4/runs');
+    });
+
+    it.each([
+      ['an empty object', {}],
+      ['a null response', null],
+      ['non-array items', { items: { id: 1 } }],
+    ])('returns an empty array for %s', async (_name, response) => {
+      mockFetch.mockResolvedValue(createResponse(response));
+
+      await expect(api.getArchiveRuns(4)).resolves.toEqual([]);
+      expectLastRequest('/archives/4/runs');
+    });
+  });
+
   it.each([
     {
       name: 'getSpools',
@@ -284,6 +318,48 @@ describe('api client', () => {
       body: { theme: 'light', telemetry: true },
       response: { theme: 'light', telemetry: true },
     },
+    {
+      name: 'getSpoolmanConfig',
+      call: () => api.getSpoolmanConfig(),
+      endpoint: '/settings/spoolman',
+      method: 'GET',
+      response: { enabled: true, url: 'https://spoolman.local', auto_sync: false },
+    },
+    {
+      name: 'updateSpoolmanConfig',
+      call: () =>
+        api.updateSpoolmanConfig({
+          enabled: true,
+          url: 'https://spoolman.local',
+          auto_sync: true,
+        }),
+      endpoint: '/settings/spoolman',
+      method: 'PUT',
+      body: { enabled: true, url: 'https://spoolman.local', auto_sync: true },
+      response: { enabled: true, url: 'https://spoolman.local', auto_sync: true },
+    },
+    {
+      name: 'syncSpoolmanInventory',
+      call: () => api.syncSpoolmanInventory(),
+      endpoint: '/spoolman/sync',
+      method: 'POST',
+      response: { success: true, synced_count: 3, skipped_count: 0, skipped: [], errors: [] },
+    },
+    {
+      name: 'getSpoolmanSyncStatus',
+      call: () => api.getSpoolmanSyncStatus(),
+      endpoint: '/spoolman/sync/status',
+      method: 'GET',
+      response: {
+        status: 'idle',
+        last_sync_at: null,
+        last_sync: null,
+        in_progress: false,
+        auto_sync: true,
+        auto_sync_enabled: true,
+        last_result: null,
+      },
+    },
   ])('sends the correct inventory and settings request for $name', async ({ call, endpoint, method, body, response }) => {
     mockFetch.mockResolvedValue(createResponse(response));
 
@@ -311,6 +387,18 @@ describe('api client', () => {
     await expect(api.updateSettings({ theme: 'broken' })).rejects.toBeInstanceOf(ApiError);
   });
 
+  it('falls back to legacy spoolman config endpoint when /settings/spoolman is missing', async () => {
+    mockFetch
+      .mockResolvedValueOnce(createResponse({ detail: 'not found' }, { ok: false, status: 404 }))
+      .mockResolvedValueOnce(createResponse({ enabled: true, connected: true, url: 'https://spoolman.local', auto_sync: true }));
+
+    const response = await api.getSpoolmanConfig();
+
+    expect(response).toEqual(expect.objectContaining({ enabled: true, url: 'https://spoolman.local' }));
+    expect(mockFetch.mock.calls[0]?.[0]).toBe('https://bambuddy.test/api/v1/settings/spoolman');
+    expect(mockFetch.mock.calls[1]?.[0]).toBe('https://bambuddy.test/api/v1/system/integrations/spoolman');
+  });
+
   it('scopes keychain storage to the current server origin', async () => {
     const keychain = Keychain as jest.Mocked<typeof Keychain>;
 
@@ -321,5 +409,115 @@ describe('api client', () => {
       'server-token',
       { service: 'bambuddy-auth-token:https://bambuddy.test' },
     );
+  });
+});
+
+describe('request timeouts and JSON guard', () => {
+  beforeEach(async () => {
+    jest.useFakeTimers();
+    mockFetch.mockReset();
+    useServerStore.setState({ serverUrl: 'https://bambuddy.test', loading: false });
+    // Set auth token without fake timer interference
+    jest.useRealTimers();
+    mockFetch.mockResolvedValue(createResponse({ token: 'media-token' }));
+    await setAuthToken('secret-token');
+    mockFetch.mockReset();
+    jest.useFakeTimers();
+  });
+
+  afterEach(async () => {
+    jest.useRealTimers();
+    await setAuthToken(null);
+  });
+
+  it('rejects with a timeout ApiError when server does not respond within DEFAULT_TIMEOUT_MS', async () => {
+    mockFetch.mockImplementation(
+      (_url: string, options?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          if (options?.signal) {
+            options.signal.addEventListener('abort', () => {
+              const err = new Error('The operation was aborted.');
+              err.name = 'AbortError';
+              reject(err);
+            });
+          }
+        }),
+    );
+
+    const promise = request('/test');
+    jest.advanceTimersByTime(DEFAULT_TIMEOUT_MS);
+
+    await expect(promise).rejects.toThrow(ApiError);
+    await expect(promise).rejects.toMatchObject({
+      code: 'timeout',
+      status: 0,
+    });
+  });
+
+  it('succeeds when server responds before the timeout', async () => {
+    mockFetch.mockImplementation(
+      (_url: string, _options?: RequestInit) =>
+        new Promise<Response>(resolve => {
+          setTimeout(() => resolve(createResponse({ ok: true })), 29_000);
+        }),
+    );
+
+    const promise = request<{ ok: boolean }>('/test');
+    jest.advanceTimersByTime(29_000);
+
+    const result = await promise;
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('throws ApiError with code invalid_response for non-JSON body (not SyntaxError)', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === 'content-length'
+            ? '100'
+            : name.toLowerCase() === 'content-type'
+              ? 'text/html'
+              : null,
+      },
+      text: jest.fn().mockResolvedValue('<html><body>Captive Portal</body></html>'),
+    });
+
+    let caught: unknown;
+    try {
+      await request('/test');
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(ApiError);
+    expect((caught as ApiError).code).toBe('invalid_response');
+    expect((caught as ApiError).message).toContain('text/html');
+  });
+
+  it('resolves to undefined for an empty response body', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === 'content-length' ? '5' : null,
+      },
+      text: jest.fn().mockResolvedValue(''),
+    });
+
+    const result = await request('/test');
+    expect(result).toBeUndefined();
+  });
+
+  it('clears the timeout timer on successful response (no leaked handles)', async () => {
+    jest.useRealTimers();
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    mockFetch.mockResolvedValue(createResponse({ data: 1 }));
+
+    await request('/test');
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
   });
 });

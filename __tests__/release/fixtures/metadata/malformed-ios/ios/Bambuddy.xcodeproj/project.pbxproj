@@ -1,0 +1,5 @@
+{
+	A00000000000000000000001 = {isa = PBXNativeTarget; buildConfigurationList = A00000000000000000000002; name = Bambuddy;};
+	A00000000000000000000002 = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000003);};
+	A00000000000000000000003 = {isa = XCBuildConfiguration; buildSettings = {CURRENT_PROJECT_VERSION = 12; MARKETING_VERSION = 1.2.3;}; name = Debug;};
+}

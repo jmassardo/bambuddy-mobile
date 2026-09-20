@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import type { MainTabNavigationProp } from '@/navigation/types';
+import type { MainTabNavigationProp, AppNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Linking,
@@ -27,6 +27,7 @@ import {
   TextField,
 } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { SliceModal } from '@/components/files/SliceModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { PrintModal } from '@/components/printers/PrintModal';
 import { useToast } from '@/contexts/ToastContext';
@@ -52,6 +53,8 @@ import { formatFileSize } from '@/utils/formatters';
 
 type FileViewMode = 'list' | 'grid';
 type FileSort = 'name' | 'date' | 'size' | 'type' | 'prints';
+type DateRangeFilter = 'all' | 'today' | 'week' | 'month';
+type SizeRangeFilter = 'all' | 'small' | 'medium' | 'large';
 
 interface FolderNode {
   id: number | null;
@@ -125,6 +128,7 @@ function sortEntries(entries: ApiRecord[], sort: FileSort) {
 
 export default function FilesScreen() {
   const navigation = useNavigation<MainTabNavigationProp<'Files'>>();
+  const rootNavigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Files' });
   }, [navigation]);
@@ -137,6 +141,9 @@ export default function FilesScreen() {
   const [viewMode, setViewMode] = useState<FileViewMode>('list');
   const [sortBy, setSortBy] = useState<FileSort>('name');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>('all');
+  const [sizeRangeFilter, setSizeRangeFilter] = useState<SizeRangeFilter>('all');
+  const [selectedFileTypes, setSelectedFileTypes] = useState<string[]>([]);
   const [trashMode, setTrashMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [newFolderName, setNewFolderName] = useState('');
@@ -148,6 +155,7 @@ export default function FilesScreen() {
   const [deleteIds, setDeleteIds] = useState<number[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [printFileId, setPrintFileId] = useState<number | null>(null);
+  const [preview3dFileId, setPreview3dFileId] = useState<number | null>(null);
   const [showExternalFolderModal, setShowExternalFolderModal] = useState(false);
   const [externalFolderName, setExternalFolderName] = useState('');
   const [externalFolderPath, setExternalFolderPath] = useState('');
@@ -164,6 +172,9 @@ export default function FilesScreen() {
   const [editingTagId, setEditingTagId] = useState<number | null>(null);
   const [pendingTagDelete, setPendingTagDelete] = useState<ApiRecord | null>(null);
   const [readmeExpanded, setReadmeExpanded] = useState(true);
+  const [showSliceModal, setShowSliceModal] = useState(false);
+  const [sliceSourceId, setSliceSourceId] = useState<number | null>(null);
+  const [sliceSourceName, setSliceSourceName] = useState('');
   const currentFolder = folderStack[folderStack.length - 1];
 
   const filesQuery = useQuery({
@@ -260,6 +271,41 @@ export default function FilesScreen() {
     return Array.from(values).sort();
   }, [entries]);
 
+  const sizeBuckets = useMemo(() => {
+    const sizes = entries
+      .filter(item => !isFolderEntry(item))
+      .map(item => pickNumber(item, ['file_size', 'size', 'size_bytes'], 0))
+      .filter(n => n > 0)
+      .sort((a, b) => a - b);
+    if (sizes.length === 0) return { small: 0, medium: 0 };
+    const min = sizes[0];
+    const max = sizes[sizes.length - 1];
+    const mid = (min + max) / 2;
+    return { small: mid, medium: (mid + max) / 2 };
+  }, [entries]);
+
+  function matchesDateRange(item: ApiRecord, range: DateRangeFilter) {
+    if (range === 'all') return true;
+    const stamp = new Date(pickString(item, ['updated_at', 'created_at', 'modified_at'])).getTime();
+    if (!Number.isFinite(stamp)) return true;
+    const now = Date.now();
+    if (range === 'today') return now - stamp < 24 * 60 * 60 * 1000;
+    if (range === 'week') return now - stamp < 7 * 24 * 60 * 60 * 1000;
+    if (range === 'month') return now - stamp < 30 * 24 * 60 * 60 * 1000;
+    return true;
+  }
+
+  const matchesSizeRange = React.useCallback((item: ApiRecord, range: SizeRangeFilter) => {
+    if (range === 'all') return true;
+    const size = pickNumber(item, ['file_size', 'size', 'size_bytes'], 0);
+    if (size === 0) return range === 'small';
+    const { small, medium } = sizeBuckets;
+    if (range === 'small') return size <= small;
+    if (range === 'medium') return size > small && size <= medium;
+    if (range === 'large') return size > medium;
+    return true;
+  }, [sizeBuckets]);
+
   const tagCatalog = useMemo(
     () => (Array.isArray(tagsQuery.data) ? tagsQuery.data.filter(isRecord) : []),
     [tagsQuery.data],
@@ -277,11 +323,27 @@ export default function FilesScreen() {
     setReadmeExpanded(true);
   }, [currentFolder.id, readmeFileId]);
 
+  React.useEffect(() => {
+    if (preview3dFileId != null) {
+      const file = entries.find(item => Number(pickId(item)) === preview3dFileId);
+      if (file) {
+        const filename = pickString(file, ['filename', 'name'], 'Model');
+        const url = api.getLibraryFileDownloadUrl(preview3dFileId);
+        rootNavigation.navigate('Model3DPreview', { fileId: preview3dFileId, filename, fileUrl: url });
+      }
+      setPreview3dFileId(null);
+    }
+  }, [preview3dFileId, entries, rootNavigation]);
+
   const filteredEntries = useMemo(() => {
     const term = search.trim().toLowerCase();
     let result = entries.filter(item => {
       if (typeFilter !== 'all' && !isFolderEntry(item)) {
         if (pickString(item, ['file_type', 'type']) !== typeFilter) return false;
+      }
+      if (selectedFileTypes.length > 0 && !isFolderEntry(item)) {
+        const fType = pickString(item, ['file_type', 'type'], 'file');
+        if (!selectedFileTypes.includes(fType)) return false;
       }
       if (selectedTagIds.length > 0) {
         if (isFolderEntry(item)) return false;
@@ -290,6 +352,15 @@ export default function FilesScreen() {
           .map(tag => pickNumber(tag, ['id']))
           .filter(Boolean);
         if (!selectedTagIds.every(tagId => itemTagIds.includes(tagId))) return false;
+      }
+      if (!matchesDateRange(item, dateRangeFilter)) return false;
+      if (sizeRangeFilter !== 'all') {
+        if (sizeBuckets.small === 0 && sizeBuckets.medium === 0 && sizeRangeFilter !== 'small') return false;
+        const size = pickNumber(item, ['file_size', 'size', 'size_bytes'], 0);
+        if (size === 0 && sizeRangeFilter !== 'small') return false;
+        if (sizeRangeFilter === 'small' && size > sizeBuckets.small) return false;
+        if (sizeRangeFilter === 'medium' && (size <= sizeBuckets.small || size > sizeBuckets.medium)) return false;
+        if (sizeRangeFilter === 'large' && size <= sizeBuckets.medium) return false;
       }
       if (!term) return true;
       const haystack = [
@@ -307,7 +378,7 @@ export default function FilesScreen() {
     const folders = sortEntries(result.filter(isFolderEntry), sortBy);
     const files = sortEntries(result.filter(item => !isFolderEntry(item)), sortBy);
     return [...folders, ...files];
-  }, [entries, search, selectedTagIds, sortBy, typeFilter]);
+  }, [entries, search, selectedTagIds, selectedFileTypes, dateRangeFilter, sizeRangeFilter, sortBy, typeFilter, sizeBuckets]);
 
   const visibleFolders = useMemo(
     () => filteredEntries.filter(isFolderEntry),
@@ -687,7 +758,11 @@ export default function FilesScreen() {
                   });
                 }}
                 onPreview={() => setPreviewItem(item)}
-                onSlice={() => showToast('Slicing presets and execution are only available in the web UI for now.', 'warning')}
+                onSlice={() => {
+                  setSliceSourceId(Number(pickId(item)));
+                  setSliceSourceName(pickString(item, ['print_name', 'filename', 'name'], ''));
+                  setShowSliceModal(true);
+                }}
               />
             </View>
           );
@@ -760,15 +835,63 @@ export default function FilesScreen() {
               ) : null}
               {!trashMode ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                  <Chip label="All types" selected={typeFilter === 'all'} onPress={() => setTypeFilter('all')} />
+                  <Chip label="All types" selected={typeFilter === 'all' && selectedFileTypes.length === 0} onPress={() => { setTypeFilter('all'); setSelectedFileTypes([]); }} />
                   {fileTypes.map(type => (
                     <Chip
                       key={type}
                       label={type.toUpperCase()}
-                      selected={typeFilter === type}
-                      onPress={() => setTypeFilter(type)}
+                      selected={selectedFileTypes.length > 0 ? selectedFileTypes.includes(type) : typeFilter === type}
+                      onPress={() => {
+                        if (selectedFileTypes.length === 0) {
+                          setTypeFilter(type);
+                        } else if (selectedFileTypes.includes(type)) {
+                          setSelectedFileTypes(current => current.filter(t => t !== type));
+                        } else {
+                          setSelectedFileTypes(current => [...current, type]);
+                        }
+                      }}
                     />
                   ))}
+                </ScrollView>
+              ) : null}
+              {!trashMode ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                  {(['today', 'week', 'month'] as const).map(range => {
+                    const now = Date.now();
+                    const count = entries.filter(item => {
+                      if (isFolderEntry(item)) return false;
+                      const stamp = new Date(pickString(item, ['updated_at', 'created_at', 'modified_at'])).getTime();
+                      if (range === 'today') return now - stamp < 24 * 60 * 60 * 1000;
+                      if (range === 'week') return now - stamp < 7 * 24 * 60 * 60 * 1000;
+                      if (range === 'month') return now - stamp < 30 * 24 * 60 * 60 * 1000;
+                      return false;
+                    }).length;
+                    return (
+                      <Chip
+                        key={range}
+                        label={`${range[0].toUpperCase()}${range.slice(1)}${count ? ` (${count})` : ''}`}
+                        selected={dateRangeFilter === range}
+                        onPress={() => setDateRangeFilter(range)}
+                      />
+                    );
+                  })}
+                  <Chip label="All dates" selected={dateRangeFilter === 'all'} onPress={() => setDateRangeFilter('all')} />
+                </ScrollView>
+              ) : null}
+              {!trashMode ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                  <Chip label="All sizes" selected={sizeRangeFilter === 'all'} onPress={() => setSizeRangeFilter('all')} />
+                  {(['small', 'medium', 'large'] as const).map(size => {
+                    const count = entries.filter(item => matchesSizeRange(item, size)).length;
+                    return (
+                      <Chip
+                        key={size}
+                        label={`${size[0].toUpperCase()}${size.slice(1)}${count ? ` (${count})` : ''}`}
+                        selected={sizeRangeFilter === size}
+                        onPress={() => setSizeRangeFilter(size)}
+                      />
+                    );
+                  })}
                 </ScrollView>
               ) : null}
               {!trashMode ? (
@@ -784,6 +907,18 @@ export default function FilesScreen() {
                 </ScrollView>
               ) : null}
               <View style={styles.headerActions}>
+                {((typeFilter !== 'all' || selectedFileTypes.length > 0 || dateRangeFilter !== 'all' || sizeRangeFilter !== 'all') && !trashMode) ? (
+                  <PrimaryButton
+                    label="Clear filters"
+                    variant="secondary"
+                    onPress={() => {
+                      setTypeFilter('all');
+                      setSelectedFileTypes([]);
+                      setDateRangeFilter('all');
+                      setSizeRangeFilter('all');
+                    }}
+                  />
+                ) : null}
                 <PrimaryButton
                   label={viewMode === 'grid' ? 'List view' : 'Grid view'}
                   variant="secondary"
@@ -1346,6 +1481,18 @@ export default function FilesScreen() {
         }
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
+      />
+
+      <SliceModal
+        visible={showSliceModal}
+        onClose={() => {
+          setShowSliceModal(false);
+          setSliceSourceId(null);
+          setSliceSourceName('');
+        }}
+        sourceType="file"
+        sourceId={sliceSourceId ?? 0}
+        sourceName={sliceSourceName}
       />
     </View>
   );

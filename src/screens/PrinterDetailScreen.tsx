@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,10 +19,13 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Edit2,
   Home,
   MoveVertical,
+  X,
 } from 'lucide-react-native';
-import { ApiError, api } from '@/api/client';
+import { api, ApiError } from '@/api/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import {
@@ -32,11 +36,13 @@ import {
   type ThemeColors,
 } from '@/theme/tokens';
 import {
+  InlineTabBar,
   KeyValueRow,
   PrimaryButton,
   SectionCard,
   StatusBadge,
 } from '@/components/common/AppUI';
+import { MultiSeriesLineChart } from '@/components/common/Charts';
 import { ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import {
   formatDuration,
@@ -66,6 +72,30 @@ const JOG_SPEED_OPTIONS = [
 ] as const;
 
 type JogSpeed = (typeof JOG_SPEED_OPTIONS)[number]['value'];
+type HeaterRangeKey = '1h' | '6h' | '24h' | '7d';
+type SupportedHeaterKind = 'nozzle' | 'bed' | 'chamber';
+
+const HEATER_RANGE_OPTIONS: Array<{ key: HeaterRangeKey; label: string; hours: number }> = [
+  { key: '1h', label: '1h', hours: 1 },
+  { key: '6h', label: '6h', hours: 6 },
+  { key: '24h', label: '24h', hours: 24 },
+  { key: '7d', label: '7d', hours: 168 },
+];
+
+const HEATER_KINDS: SupportedHeaterKind[] = ['nozzle', 'bed', 'chamber'];
+
+function isSupportedHeaterKind(kind: string): kind is SupportedHeaterKind {
+  return HEATER_KINDS.includes(kind as SupportedHeaterKind);
+}
+
+function formatHeaterPointLabel(recordedAt: string, range: HeaterRangeKey) {
+  const date = new Date(recordedAt);
+  if (Number.isNaN(date.getTime())) return '—';
+  if (range === '7d') {
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+  }
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
 
 function stringifyDebugValue(value: unknown) {
   if (value == null) return '—';
@@ -131,11 +161,18 @@ export default function PrinterDetailScreen() {
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const { hasPermission } = useAuth();
+  const hasEditPermission = hasPermission('printers:update');
   const [showDebugModal, setShowDebugModal] = React.useState(false);
+  const [showEditModal, setShowEditModal] = React.useState(false);
+  const [editName, setEditName] = React.useState('');
+  const [editLocation, setEditLocation] = React.useState('');
+  const [editNotes, setEditNotes] = React.useState('');
   const [jogStepSize, setJogStepSize] = React.useState<(typeof JOG_STEP_SIZES)[number]>(
     1,
   );
   const [jogSpeed, setJogSpeed] = React.useState<JogSpeed>('normal');
+  const [heaterRange, setHeaterRange] = React.useState<HeaterRangeKey>('24h');
 
   const printerQuery = useQuery({
     queryKey: ['printer', printerId],
@@ -170,6 +207,17 @@ export default function PrinterDetailScreen() {
     retry: false,
   });
 
+  const selectedHeaterRange =
+    HEATER_RANGE_OPTIONS.find(option => option.key === heaterRange) ?? HEATER_RANGE_OPTIONS[2];
+
+  const heaterHistoryQuery = useQuery({
+    queryKey: ['heaterHistory', printerId, selectedHeaterRange.hours],
+    queryFn: () =>
+      api.getPrinterSensorHistory(printerId, selectedHeaterRange.hours, HEATER_KINDS),
+    enabled: Number.isFinite(printerId),
+    refetchInterval: 60_000,
+  });
+
   const printerName = pickString(
     (printerQuery.data ?? {}) as ApiRecord,
     ['name'],
@@ -181,8 +229,50 @@ export default function PrinterDetailScreen() {
   }, [navigation, printerName]);
 
   const refreshAll = async () => {
-    await Promise.all([printerQuery.refetch(), statusQuery.refetch()]);
+    await Promise.all([
+      printerQuery.refetch(),
+      statusQuery.refetch(),
+      heaterHistoryQuery.refetch(),
+    ]);
   };
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _profileData = React.useMemo(
+    () => printerQuery.data ?? {},
+    [printerQuery.data],
+  );
+
+  const syncEditFields = React.useCallback(() => {
+    if (!printerQuery.data) return;
+    const data = printerQuery.data as ApiRecord;
+    setEditName(String(data.name ?? '') || '');
+    setEditLocation(String(data.location ?? '') || '');
+    setEditNotes(String(data.notes ?? '') || '');
+  }, [printerQuery.data]);
+
+  const showEdit = () => {
+    syncEditFields();
+    setShowEditModal(true);
+  };
+
+  const profileMutation = useMutation({
+    mutationFn: async (data: { name: string; location: string | null; notes: string | null }) =>
+      api.updatePrinter(printerId, {
+        name: data.name.trim(),
+        location: data.location ? data.location.trim() : null,
+        notes: data.notes ? data.notes.trim() : null,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['printers'] }),
+        queryClient.invalidateQueries({ queryKey: ['printer', printerId] }),
+        queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] }),
+      ]);
+      showToast('Printer profile updated.', 'success');
+      setShowEditModal(false);
+    },
+    onError: () => showToast('Failed to update printer profile.', 'error'),
+  });
 
   const invalidatePrinterStatus = React.useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] });
@@ -248,6 +338,90 @@ export default function PrinterDetailScreen() {
     onError: error =>
       showToast(getErrorMessage(error, 'Unable to home the printer.'), 'error'),
   });
+
+  const heaterHistory = React.useMemo(() => {
+    const heaterHistorySeries = heaterHistoryQuery.data?.series ?? [];
+    const pointsByKind: Record<
+      SupportedHeaterKind,
+      Map<string, { value: number | null; target: number | null }>
+    > = {
+      nozzle: new Map(),
+      bed: new Map(),
+      chamber: new Map(),
+    };
+    const timestampSet = new Set<string>();
+
+    heaterHistorySeries.forEach(seriesItem => {
+      if (!isSupportedHeaterKind(seriesItem.sensor_kind)) return;
+      const byTimestamp = pointsByKind[seriesItem.sensor_kind];
+      seriesItem.data.forEach(point => {
+        timestampSet.add(point.recorded_at);
+        byTimestamp.set(point.recorded_at, {
+          value: point.value,
+          target: point.target,
+        });
+      });
+    });
+
+    const timestamps = Array.from(timestampSet).sort(
+      (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+    );
+
+    const points = timestamps.map(timestamp => {
+      const nozzlePoint = pointsByKind.nozzle.get(timestamp);
+      const bedPoint = pointsByKind.bed.get(timestamp);
+      const chamberPoint = pointsByKind.chamber.get(timestamp);
+      return {
+        label: formatHeaterPointLabel(timestamp, heaterRange),
+        values: {
+          nozzle_actual: nozzlePoint?.value,
+          nozzle_target: nozzlePoint?.target,
+          bed_actual: bedPoint?.value,
+          bed_target: bedPoint?.target,
+          chamber_actual: chamberPoint?.value,
+          chamber_target: chamberPoint?.target,
+        },
+      };
+    });
+
+    const chamberHasData = points.some(
+      point =>
+        typeof point.values.chamber_actual === 'number' ||
+        typeof point.values.chamber_target === 'number',
+    );
+
+    return {
+      points,
+      chamberHasData,
+    };
+  }, [heaterHistoryQuery.data?.series, heaterRange]);
+
+  const heaterChartSeries = React.useMemo(
+    () => [
+      { key: 'nozzle_actual', label: 'Nozzle actual', color: colors.warning },
+      {
+        key: 'nozzle_target',
+        label: 'Nozzle target',
+        color: `${colors.warning}99`,
+        dashed: true,
+      },
+      { key: 'bed_actual', label: 'Bed actual', color: colors.accent },
+      {
+        key: 'bed_target',
+        label: 'Bed target',
+        color: `${colors.accent}99`,
+        dashed: true,
+      },
+      { key: 'chamber_actual', label: 'Chamber actual', color: colors.info },
+      {
+        key: 'chamber_target',
+        label: 'Chamber target',
+        color: `${colors.info}99`,
+        dashed: true,
+      },
+    ],
+    [colors],
+  );
 
   if (printerQuery.isLoading || statusQuery.isLoading) {
     return <LoadingScreen message="Loading printer details…" />;
@@ -338,12 +512,72 @@ export default function PrinterDetailScreen() {
         <StatusBadge label={state} color={badgeColor} />
       </View>
 
+      <SectionCard
+        title="Profile"
+        subtitle="Printer name, location, and notes."
+        right={
+          <Pressable
+            onPress={showEdit}
+            disabled={!hasEditPermission || profileMutation.isPending}
+            style={[
+              styles.editButton,
+              {
+                backgroundColor: colors.accentBg,
+                borderColor: colors.accent,
+                opacity: !hasEditPermission || profileMutation.isPending ? 0.5 : 1,
+              },
+            ]}
+          >
+            {profileMutation.isPending ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Edit2 size={16} color={colors.accent} strokeWidth={2} />
+            )}
+          </Pressable>
+        }
+      >
+        <KeyValueRow
+          label="Name"
+          value={pickString(printer, ['name'], '—')}
+        />
+        <KeyValueRow
+          label="Location"
+          value={pickString(printer, ['location'], '—')}
+        />
+        <KeyValueRow
+          label="Model"
+          value={pickString(printer, ['model'], '—')}
+        />
+        <KeyValueRow
+          label="Serial"
+          value={pickString(printer, ['serial_number'], '—')}
+        />
+        <KeyValueRow
+          label="IP Address"
+          value={pickString(printer, ['ip_address'], '—')}
+        />
+        {pickString(printer, ['notes']) ? (
+          <KeyValueRow
+            label="Notes"
+            value={pickString(printer, ['notes'], '—')}
+          />
+        ) : null}
+        <KeyValueRow
+          label="Created"
+          value={formatDateTime(pickString(printer, ['created_at']))}
+        />
+        <KeyValueRow
+          label="Last updated"
+          value={formatDateTime(pickString(printer, ['updated_at']))}
+        />
+      </SectionCard>
+
       <Pressable
         onPress={() => navigation.navigate('Camera', { id: String(printerId) })}
       >
         <Image
           source={{ uri: api.getCameraSnapshotUrl(printerId) }}
-          style={styles.snapshot}
+          style={[styles.snapshot, { backgroundColor: colors.surface }]}
         />
       </Pressable>
 
@@ -672,6 +906,40 @@ export default function PrinterDetailScreen() {
         />
       </SectionCard>
 
+      <SectionCard
+        title="Heater history"
+        subtitle="Historical nozzle, bed, and chamber temperatures."
+      >
+        <InlineTabBar
+          value={heaterRange}
+          tabs={HEATER_RANGE_OPTIONS.map(option => ({
+            key: option.key,
+            label: option.label,
+          }))}
+          onChange={value => setHeaterRange(value as HeaterRangeKey)}
+        />
+        {heaterHistoryQuery.isLoading ? (
+          <ActivityIndicator color={colors.accent} />
+        ) : heaterHistoryQuery.isError ? (
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            Unable to load heater history.
+          </Text>
+        ) : heaterHistory.points.length === 0 ? (
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            No heater history samples are available for this time range.
+          </Text>
+        ) : (
+          <>
+            <MultiSeriesLineChart points={heaterHistory.points} series={heaterChartSeries} />
+            {!heaterHistory.chamberHasData ? (
+              <Text style={[styles.heaterHistoryNote, { color: colors.textTertiary }]}>
+                Chamber history is unavailable for this printer in the selected range.
+              </Text>
+            ) : null}
+          </>
+        )}
+      </SectionCard>
+
       <SectionCard title="Fan Speeds">
         <KeyValueRow
           label="Part cooling"
@@ -954,6 +1222,75 @@ export default function PrinterDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Edit Profile Modal */}
+      <Modal visible={showEditModal} transparent animationType="fade" onRequestClose={() => setShowEditModal(false)}>
+        <View style={[styles.editModalOverlay, { backgroundColor: colors.overlay }]}> 
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowEditModal(false)} />
+          <View style={[styles.editModalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
+            <View style={styles.editModalHeader}>
+              <View style={styles.editModalHeaderText}>
+                <Text style={[styles.editModalTitle, { color: colors.text }]}>Edit printer profile</Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                  Update name, location, and notes.
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setShowEditModal(false)}
+                style={[styles.editModalClose, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              >
+                <X size={18} color={colors.text} strokeWidth={2} />
+              </Pressable>
+            </View>
+
+            <View style={{ gap: spacing.md }}>
+              <View style={styles.editField}>
+                <Text style={[styles.editLabel, { color: colors.textSecondary }]}>Name</Text>
+                <TextInput
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Printer name"
+                  placeholderTextColor={colors.inputPlaceholder}
+                  style={[styles.editInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
+                />
+              </View>
+
+              <View style={styles.editField}>
+                <Text style={[styles.editLabel, { color: colors.textSecondary }]}>Location</Text>
+                <TextInput
+                  value={editLocation}
+                  onChangeText={setEditLocation}
+                  placeholder="Workshop, Office, Rack A…"
+                  placeholderTextColor={colors.inputPlaceholder}
+                  style={[styles.editInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
+                />
+              </View>
+
+              <View style={styles.editField}>
+                <Text style={[styles.editLabel, { color: colors.textSecondary }]}>Notes</Text>
+                <TextInput
+                  value={editNotes}
+                  onChangeText={setEditNotes}
+                  placeholder="Maintenance info, nozzle details, quirks…"
+                  placeholderTextColor={colors.inputPlaceholder}
+                  multiline
+                  style={[styles.editInputMultiline, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
+                />
+              </View>
+            </View>
+
+            <View style={styles.editModalActions}>
+              <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowEditModal(false)} />
+              <PrimaryButton
+                label={profileMutation.isPending ? 'Saving…' : 'Save'}
+                onPress={() => profileMutation.mutate({ name: editName, location: editLocation, notes: editNotes })}
+                disabled={!editName.trim() || profileMutation.isPending}
+                loading={profileMutation.isPending}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -978,7 +1315,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     borderRadius: borderRadius.xl,
-    backgroundColor: '#111827',
   },
   progressTrack: {
     height: 10,
@@ -1145,6 +1481,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
   },
+  heaterHistoryNote: {
+    fontSize: fontSize.xs,
+  },
   disabledButton: {
     opacity: 0.5,
   },
@@ -1191,5 +1530,72 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+  },
+  editButton: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  editModalCard: {
+    borderRadius: borderRadius['2xl'],
+    borderWidth: 1,
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  editModalHeaderText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  editModalTitle: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+  },
+  editModalClose: {
+    width: 38,
+    height: 38,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editField: {
+    gap: spacing.xs,
+  },
+  editLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontSize: fontSize.base,
+  },
+  editInputMultiline: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontSize: fontSize.base,
+    minHeight: 108,
+    textAlignVertical: 'top',
+  },
+  editModalActions: {
+    gap: spacing.sm,
   },
 });

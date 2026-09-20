@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+<<<<<<< HEAD
 import { api } from '@/api/client';
 import { Chip, InlineTabBar, PrimaryButton, SectionCard, StatusBadge, TextField } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
@@ -20,6 +21,35 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { KProfile, KProfileCreate } from '@/types/api';
 import { formatDateTime, pickArray, pickBoolean, pickString, statusColor, type ApiRecord } from '@/utils/data';
+=======
+import { api, ApiError } from '@/api/client';
+import {
+  InlineTabBar,
+  PrimaryButton,
+  SectionCard,
+  StatusBadge,
+  TextField,
+} from '@/components/common/AppUI';
+import { CloudProfileDetailModal } from '@/components/profiles/CloudProfileDetailModal';
+import { CloudProfileDiffModal } from '@/components/profiles/CloudProfileDiffModal';
+import {
+  EmptyState,
+  ErrorState,
+  LoadingScreen,
+} from '@/components/common/StateScreens';
+import { useToast } from '@/contexts/ToastContext';
+import { useTheme } from '@/theme';
+import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
+import type { CloudProfileDiffField } from '@/types/api';
+import {
+  formatDateTime,
+  pickArray,
+  pickBoolean,
+  pickString,
+  statusColor,
+  type ApiRecord,
+} from '@/utils/data';
+>>>>>>> origin/develop
 
 type ProfileTab = 'cloud' | 'orca' | 'local' | 'kprofiles';
 type CloudStep = 'login' | 'code' | 'token';
@@ -60,6 +90,7 @@ function normalizeProfiles(source: unknown): ApiRecord[] {
       (item): item is ApiRecord => typeof item === 'object' && item !== null,
     );
   }
+<<<<<<< HEAD
   const records = pickArray(source, ['profiles', 'items', 'results']);
   return records.filter(
     (item): item is ApiRecord => typeof item === 'object' && item !== null,
@@ -138,6 +169,81 @@ function buildKProfilePayload(form: KProfileForm): { payload?: KProfileCreate; e
   if (settingId) payload.setting_id = settingId;
 
   return { payload };
+=======
+
+  if (typeof source === 'object' && source !== null) {
+    const record = source as ApiRecord;
+    const profiles = pickArray(record, ['profiles', 'items', 'results']);
+    return profiles.filter(
+      (item): item is ApiRecord => typeof item === 'object' && item !== null,
+    );
+  }
+
+  return [];
+}
+
+function normalizeDiffFields(source: unknown): CloudProfileDiffField[] {
+  const asRecord =
+    typeof source === 'object' && source !== null ? (source as ApiRecord) : null;
+
+  const items = asRecord
+    ? pickArray(asRecord, ['fields', 'differences', 'changed_fields'])
+    : [];
+
+  return items
+    .filter((item): item is ApiRecord => typeof item === 'object' && item !== null)
+    .map(item => ({
+      path: pickString(item, ['path', 'field', 'key'], 'unknown'),
+      left_value: item.left_value ?? item.left ?? item.current,
+      right_value: item.right_value ?? item.right ?? item.template,
+      category: pickString(item, ['category']) || null,
+      severity: pickString(item, ['severity']) || null,
+    }));
+}
+
+function toRecord(value: unknown): ApiRecord | null {
+  return typeof value === 'object' && value !== null ? (value as ApiRecord) : null;
+}
+
+function formatProfileValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return '';
+}
+
+export function formatKProfileDetail(item: ApiRecord): {
+  subtitle: string;
+  detail: string;
+} {
+  const kValue = formatProfileValue(item.k_value);
+  const nCoef = formatProfileValue(item.n_coef);
+  const nozzleDiameter = formatProfileValue(item.nozzle_diameter);
+  const filamentId = formatProfileValue(item.filament_id);
+  const amsId = formatProfileValue(item.ams_id);
+  const trayId = formatProfileValue(item.tray_id);
+
+  const subtitle = [
+    nozzleDiameter ? `${nozzleDiameter} mm nozzle` : '',
+    filamentId ? `Filament ${filamentId}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const calibration = [kValue ? `K ${kValue}` : '', nCoef ? `N ${nCoef}` : '']
+    .filter(Boolean)
+    .join(' · ');
+  const placement = [amsId ? `AMS ${amsId}` : '', trayId ? `Tray ${trayId}` : '']
+    .filter(Boolean)
+    .join(' · ');
+
+  return {
+    subtitle: subtitle || 'K-Profile',
+    detail: [calibration, placement].filter(Boolean).join('\n'),
+  };
+>>>>>>> origin/develop
 }
 
 export default function ProfilesScreen() {
@@ -160,6 +266,7 @@ export default function ProfilesScreen() {
   const [verificationType, setVerificationType] = useState('email');
   const [orcaEmail, setOrcaEmail] = useState('');
   const [orcaPassword, setOrcaPassword] = useState('');
+<<<<<<< HEAD
   const [selectedKPrinterId, setSelectedKPrinterId] = useState<number | null>(null);
   const [selectedNozzleDiameter, setSelectedNozzleDiameter] = useState<string>('0.4');
   const [kProfileModalVisible, setKProfileModalVisible] = useState(false);
@@ -167,10 +274,21 @@ export default function ProfilesScreen() {
   const [kProfileForm, setKProfileForm] = useState<KProfileForm>(EMPTY_KPROFILE_FORM);
   const [editingKProfile, setEditingKProfile] = useState<KProfile | null>(null);
   const [pendingDeleteKProfile, setPendingDeleteKProfile] = useState<KProfile | null>(null);
+=======
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [selectedCloudProfile, setSelectedCloudProfile] = useState<ApiRecord | null>(null);
+  const [compareVisible, setCompareVisible] = useState(false);
+  const [compareSelection, setCompareSelection] = useState<string[]>([]);
+>>>>>>> origin/develop
 
   const cloudStatusQuery = useQuery({
     queryKey: ['cloudStatus'],
     queryFn: () => api.getCloudStatus(),
+  });
+  const cloudSyncStatusQuery = useQuery({
+    queryKey: ['cloudProfileSyncStatus'],
+    queryFn: () => api.getCloudProfileSyncStatus(),
+    enabled: tab === 'cloud',
   });
   const orcaStatusQuery = useQuery({
     queryKey: ['orcaCloudStatus'],
@@ -197,6 +315,7 @@ export default function ProfilesScreen() {
     enabled: tab === 'kprofiles',
   });
 
+<<<<<<< HEAD
   const printers = useMemo(
     () =>
       (printersQuery.data ?? []).filter(
@@ -229,10 +348,34 @@ export default function ProfilesScreen() {
   const invalidateKProfiles = React.useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['kprofiles'] });
   }, [queryClient]);
+=======
+  const selectedCloudSettingId =
+    pickString(selectedCloudProfile, ['setting_id', 'id']) || null;
+
+  const cloudProfileDetailQuery = useQuery({
+    queryKey: ['cloudProfileDetail', selectedCloudSettingId],
+    queryFn: () => {
+      if (!selectedCloudSettingId) {
+        throw new Error('Cloud profile setting ID is required.');
+      }
+      return api.getCloudProfileDetail(selectedCloudSettingId);
+    },
+    enabled: detailVisible && tab === 'cloud' && Boolean(selectedCloudSettingId),
+    retry: false,
+  });
+
+  const cloudDiffQuery = useQuery({
+    queryKey: ['cloudProfileDiff', compareSelection[0], compareSelection[1]],
+    queryFn: () => api.compareCloudProfiles(compareSelection[0], compareSelection[1]),
+    enabled: compareVisible && tab === 'cloud' && compareSelection.length === 2,
+    retry: false,
+  });
+>>>>>>> origin/develop
 
   const refreshAll = async () => {
     await Promise.all([
       cloudStatusQuery.refetch(),
+      cloudSyncStatusQuery.refetch(),
       orcaStatusQuery.refetch(),
       cloudProfilesQuery.refetch(),
       orcaProfilesQuery.refetch(),
@@ -294,9 +437,38 @@ export default function ProfilesScreen() {
   const cloudLogoutMutation = useMutation({
     mutationFn: () => api.cloudLogout(),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['cloudStatus'] });
-      await queryClient.invalidateQueries({ queryKey: ['cloudProfiles'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['cloudStatus'] }),
+        queryClient.invalidateQueries({ queryKey: ['cloudProfileSyncStatus'] }),
+        queryClient.invalidateQueries({ queryKey: ['cloudProfiles'] }),
+      ]);
+      setCompareSelection([]);
+      setCompareVisible(false);
+      setDetailVisible(false);
+      setSelectedCloudProfile(null);
       showToast('Bambu Cloud disconnected.', 'success');
+    },
+  });
+
+  const cloudSyncMutation = useMutation({
+    mutationFn: () => api.syncCloudProfiles(),
+    onSuccess: async data => {
+      const message = pickString(data, ['message'], 'Cloud profile sync started.');
+      showToast(message, 'success');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['cloudProfileSyncStatus'] }),
+        queryClient.invalidateQueries({ queryKey: ['cloudProfiles'] }),
+      ]);
+    },
+    onError: error => {
+      if (error instanceof ApiError && error.status === 404) {
+        showToast('Cloud profile sync endpoint is not available on this server.', 'error');
+        return;
+      }
+      showToast(
+        error instanceof Error ? error.message : 'Unable to trigger cloud sync.',
+        'error',
+      );
     },
   });
 
@@ -379,6 +551,7 @@ export default function ProfilesScreen() {
   const selectedPrinterName =
     printers.find(printer => printer.id === selectedKPrinterId)?.name ?? 'printer';
 
+<<<<<<< HEAD
   const openCreateKProfileModal = React.useCallback(() => {
     setEditingKProfile(null);
     setKProfileModalError('');
@@ -477,26 +650,102 @@ export default function ProfilesScreen() {
     && tab !== 'orca'
     && tab !== 'kprofiles'
   ) {
+=======
+  const cloudProfileById = useMemo(() => {
+    const map = new Map<string, ApiRecord>();
+    profiles.forEach(profile => {
+      const settingId = pickString(profile, ['setting_id', 'id']);
+      if (settingId) {
+        map.set(settingId, profile);
+      }
+    });
+    return map;
+  }, [profiles]);
+
+  const syncStatusSource = useMemo(() => {
+    const syncRecord = toRecord(cloudSyncStatusQuery.data);
+    if (syncRecord) return syncRecord;
+    const profileRecord = toRecord(cloudProfilesQuery.data);
+    return profileRecord;
+  }, [cloudProfilesQuery.data, cloudSyncStatusQuery.data]);
+
+  const syncStatusLabel =
+    pickString(syncStatusSource, ['status', 'sync_state']) || 'Not available';
+  const syncLastTimeRaw = pickString(syncStatusSource, [
+    'last_sync_at',
+    'last_synced_at',
+    'last_successful_sync_at',
+  ]);
+  const syncLastTime = syncLastTimeRaw
+    ? formatDateTime(syncLastTimeRaw)
+    : 'Not available';
+
+  const diffFields = useMemo(
+    () => normalizeDiffFields(cloudDiffQuery.data),
+    [cloudDiffQuery.data],
+  );
+
+  const detailProfileName = pickString(selectedCloudProfile, ['name', 'profile_name'], 'Profile');
+  const compareLeftName =
+    pickString(cloudProfileById.get(compareSelection[0]), ['name', 'profile_name']) ||
+    compareSelection[0] ||
+    'Left profile';
+  const compareRightName =
+    pickString(cloudProfileById.get(compareSelection[1]), ['name', 'profile_name']) ||
+    compareSelection[1] ||
+    'Right profile';
+
+  const isCloudAuthenticated = pickBoolean(cloudStatusQuery.data, ['is_authenticated']);
+  const canCompare = compareSelection.length === 2;
+
+  const toggleCompareSelection = (settingId: string) => {
+    setCompareSelection(current => {
+      if (current.includes(settingId)) {
+        return current.filter(id => id !== settingId);
+      }
+      if (current.length >= 2) {
+        return [current[1], settingId];
+      }
+      return [...current, settingId];
+    });
+  };
+
+  if (activeQuery.isLoading && tab !== 'cloud' && tab !== 'orca') {
+>>>>>>> origin/develop
     return <LoadingScreen message="Loading profiles…" />;
   }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+<<<<<<< HEAD
       <FlatList<unknown>
         data={tab === 'kprofiles' ? kProfiles : genericProfiles}
         keyExtractor={(item, index) =>
           tab === 'kprofiles'
             ? `kprofile-${(item as KProfile).slot_id}-${(item as KProfile).setting_id || index}`
             : `${tab}-${pickString(item, ['setting_id', 'id', 'name'], String(index))}`
+=======
+      <FlatList
+        data={profiles}
+        keyExtractor={(item, index) =>
+          `${tab}-${pickString(item, ['setting_id', 'id', 'name'], String(index))}`
+>>>>>>> origin/develop
         }
         contentContainerStyle={styles.content}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+        ItemSeparatorComponent={ProfilesItemSeparator}
         refreshControl={
           <RefreshControl
             refreshing={
+<<<<<<< HEAD
               activeQuery.isRefetching
               || cloudStatusQuery.isRefetching
               || orcaStatusQuery.isRefetching
+=======
+              activeQuery.isRefetching ||
+              cloudStatusQuery.isRefetching ||
+              cloudSyncStatusQuery.isRefetching ||
+              orcaStatusQuery.isRefetching
+>>>>>>> origin/develop
             }
             onRefresh={() => void refreshAll()}
             tintColor={colors.accent}
@@ -518,6 +767,7 @@ export default function ProfilesScreen() {
             {tab === 'cloud' ? (
               <SectionCard
                 title="Bambu Cloud"
+<<<<<<< HEAD
                 subtitle={
                   pickBoolean(cloudStatusQuery.data, ['is_authenticated'])
                     ? `Signed in as ${pickString(cloudStatusQuery.data, ['email'], 'Unknown user')}`
@@ -534,11 +784,22 @@ export default function ProfilesScreen() {
                       pickBoolean(cloudStatusQuery.data, ['is_authenticated'])
                         ? 'success'
                         : 'offline',
+=======
+                subtitle={isCloudAuthenticated
+                  ? `Signed in as ${pickString(cloudStatusQuery.data, ['email'], 'Unknown user')}`
+                  : 'Sign in to sync Bambu Cloud slicer profiles.'}
+                right={
+                  <StatusBadge
+                    label={isCloudAuthenticated ? 'connected' : 'disconnected'}
+                    color={statusColor(
+                      isCloudAuthenticated ? 'success' : 'offline',
+>>>>>>> origin/develop
                       colors,
                     )}
                   />
                 }
               >
+<<<<<<< HEAD
                 {pickBoolean(cloudStatusQuery.data, ['is_authenticated']) ? (
                   <PrimaryButton
                     label={
@@ -549,6 +810,70 @@ export default function ProfilesScreen() {
                     variant="secondary"
                     onPress={() => void cloudLogoutMutation.mutateAsync()}
                   />
+=======
+                <View
+                  style={[
+                    styles.syncMetaCard,
+                    {
+                      backgroundColor: colors.surfaceElevated,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.syncMetaTitle, { color: colors.text }]}>
+                    Sync status
+                  </Text>
+                  <View style={styles.syncMetaRow}>
+                    <Text
+                      style={[styles.syncMetaLabel, { color: colors.textSecondary }]}
+                    >
+                      Status
+                    </Text>
+                    <Text style={[styles.syncMetaValue, { color: colors.text }]}>
+                      {syncStatusLabel}
+                    </Text>
+                  </View>
+                  <View style={styles.syncMetaRow}>
+                    <Text
+                      style={[styles.syncMetaLabel, { color: colors.textSecondary }]}
+                    >
+                      Last sync
+                    </Text>
+                    <Text style={[styles.syncMetaValue, { color: colors.text }]}>
+                      {syncLastTime}
+                    </Text>
+                  </View>
+                </View>
+
+                {isCloudAuthenticated ? (
+                  <View style={styles.cloudActions}>
+                    <PrimaryButton
+                      label={cloudSyncMutation.isPending ? 'Syncing…' : 'Sync now'}
+                      onPress={() => void cloudSyncMutation.mutateAsync()}
+                      disabled={cloudSyncMutation.isPending}
+                      loading={cloudSyncMutation.isPending}
+                    />
+                    <PrimaryButton
+                      label={
+                        canCompare
+                          ? 'Compare selected templates'
+                          : `Select ${2 - compareSelection.length} more profile(s)`
+                      }
+                      variant="secondary"
+                      onPress={() => setCompareVisible(true)}
+                      disabled={!canCompare}
+                    />
+                    <PrimaryButton
+                      label={
+                        cloudLogoutMutation.isPending
+                          ? 'Disconnecting…'
+                          : 'Disconnect'
+                      }
+                      variant="secondary"
+                      onPress={() => void cloudLogoutMutation.mutateAsync()}
+                    />
+                  </View>
+>>>>>>> origin/develop
                 ) : (
                   <View style={styles.loginWrap}>
                     {cloudStep === 'login' ? (
@@ -575,6 +900,7 @@ export default function ProfilesScreen() {
                         <View style={styles.actions}>
                           <PrimaryButton
                             label={
+<<<<<<< HEAD
                               cloudLoginMutation.isPending
                                 ? 'Signing in…'
                                 : 'Sign in'
@@ -584,6 +910,13 @@ export default function ProfilesScreen() {
                               !email.trim()
                               || !password
                               || cloudLoginMutation.isPending
+=======
+                              cloudLoginMutation.isPending ? 'Signing in…' : 'Sign in'
+                            }
+                            onPress={() => void cloudLoginMutation.mutateAsync()}
+                            disabled={
+                              !email.trim() || !password || cloudLoginMutation.isPending
+>>>>>>> origin/develop
                             }
                             loading={cloudLoginMutation.isPending}
                           />
@@ -597,11 +930,17 @@ export default function ProfilesScreen() {
                     ) : null}
                     {cloudStep === 'code' ? (
                       <>
+<<<<<<< HEAD
                         <Text
                           style={[styles.helper, { color: colors.textSecondary }]}
                         >
                           Enter the {verificationType === 'totp' ? 'TOTP' : 'verification'} code
                           {' '}for {email}.
+=======
+                        <Text style={[styles.helper, { color: colors.textSecondary }]}>
+                          Enter the {verificationType === 'totp' ? 'TOTP' : 'verification'}{' '}
+                          code for {email}.
+>>>>>>> origin/develop
                         </Text>
                         <TextField
                           label="Verification code"
@@ -617,9 +956,13 @@ export default function ProfilesScreen() {
                           />
                           <PrimaryButton
                             label={
+<<<<<<< HEAD
                               cloudVerifyMutation.isPending
                                 ? 'Verifying…'
                                 : 'Verify'
+=======
+                              cloudVerifyMutation.isPending ? 'Verifying…' : 'Verify'
+>>>>>>> origin/develop
                             }
                             onPress={() => void cloudVerifyMutation.mutateAsync()}
                             disabled={
@@ -679,7 +1022,15 @@ export default function ProfilesScreen() {
                 }
                 right={
                   <StatusBadge
+<<<<<<< HEAD
                     label={pickBoolean(orcaStatusQuery.data, ['connected']) ? 'connected' : 'disconnected'}
+=======
+                    label={
+                      pickBoolean(orcaStatusQuery.data, ['connected'])
+                        ? 'connected'
+                        : 'disconnected'
+                    }
+>>>>>>> origin/develop
                     color={statusColor(
                       pickBoolean(orcaStatusQuery.data, ['connected'])
                         ? 'success'
@@ -716,9 +1067,13 @@ export default function ProfilesScreen() {
                       label={orcaLoginMutation.isPending ? 'Signing in…' : 'Sign in'}
                       onPress={() => void orcaLoginMutation.mutateAsync()}
                       disabled={
+<<<<<<< HEAD
                         !orcaEmail.trim()
                         || !orcaPassword
                         || orcaLoginMutation.isPending
+=======
+                        !orcaEmail.trim() || !orcaPassword || orcaLoginMutation.isPending
+>>>>>>> origin/develop
                       }
                       loading={orcaLoginMutation.isPending}
                     />
@@ -791,12 +1146,20 @@ export default function ProfilesScreen() {
           </View>
         }
         renderItem={({ item }) => {
+<<<<<<< HEAD
           if (tab === 'kprofiles') {
             return renderKProfileCard(item as KProfile);
           }
 
           const record = item as unknown as ApiRecord;
           const state = pickString(record, ['status', 'source', 'type'], tab);
+=======
+          const state = pickString(item, ['status', 'source', 'type'], tab);
+          const settingId = pickString(item, ['setting_id', 'id']) || '';
+          const isSelectedForCompare = compareSelection.includes(settingId);
+          const kProfileDetail =
+            tab === 'kprofiles' ? formatKProfileDetail(item) : null;
+>>>>>>> origin/develop
           return (
             <View
               style={[
@@ -807,15 +1170,28 @@ export default function ProfilesScreen() {
               <View style={styles.cardHeader}>
                 <View style={styles.cardText}>
                   <Text style={[styles.cardTitle, { color: colors.text }]}>
+<<<<<<< HEAD
                     {pickString(record, ['name', 'profile_name'], 'Unnamed profile')}
                   </Text>
                   <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
                     {pickString(record, ['type', 'printer_model', 'material'], 'Profile')}
+=======
+                    {pickString(item, ['name', 'profile_name'], 'Unnamed profile')}
+                  </Text>
+                  <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
+                    {kProfileDetail?.subtitle ??
+                      pickString(
+                        item,
+                        ['type', 'printer_model', 'material'],
+                        'Profile',
+                      )}
+>>>>>>> origin/develop
                   </Text>
                 </View>
                 <StatusBadge label={state} color={statusColor(state, colors)} />
               </View>
               <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
+<<<<<<< HEAD
                 {pickString(
                   record,
                   ['description', 'path', 'setting_id', 'source'],
@@ -827,6 +1203,40 @@ export default function ProfilesScreen() {
                   pickString(record, ['updated_time', 'updated_at', 'created_at']),
                 )}
               </Text>
+=======
+                {kProfileDetail?.detail ??
+                  pickString(
+                    item,
+                    ['description', 'path', 'setting_id', 'source'],
+                    'No profile details available.',
+                  )}
+              </Text>
+              <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>
+                {formatDateTime(
+                  pickString(item, ['updated_time', 'updated_at', 'created_at']),
+                )}
+              </Text>
+
+              {tab === 'cloud' ? (
+                <View style={styles.cardActions}>
+                  <PrimaryButton
+                    label="Details"
+                    variant="secondary"
+                    onPress={() => {
+                      setSelectedCloudProfile(item);
+                      setDetailVisible(true);
+                    }}
+                    disabled={!settingId}
+                  />
+                  <PrimaryButton
+                    label={isSelectedForCompare ? 'Selected' : 'Select to compare'}
+                    variant={isSelectedForCompare ? 'primary' : 'secondary'}
+                    onPress={() => toggleCompareSelection(settingId)}
+                    disabled={!settingId}
+                  />
+                </View>
+              ) : null}
+>>>>>>> origin/develop
             </View>
           );
         }}
@@ -869,6 +1279,7 @@ export default function ProfilesScreen() {
         }
       />
 
+<<<<<<< HEAD
       <Modal
         visible={kProfileModalVisible}
         animationType="slide"
@@ -1055,9 +1466,40 @@ export default function ProfilesScreen() {
         }
         confirmLabel="Delete"
         loading={deleteKProfileMutation.isPending}
+=======
+      <CloudProfileDetailModal
+        visible={detailVisible}
+        profileName={detailProfileName}
+        detail={cloudProfileDetailQuery.data ?? null}
+        isLoading={cloudProfileDetailQuery.isLoading || cloudProfileDetailQuery.isFetching}
+        errorMessage={
+          cloudProfileDetailQuery.error instanceof Error
+            ? cloudProfileDetailQuery.error.message
+            : null
+        }
+        onRetry={() => void cloudProfileDetailQuery.refetch()}
+        onClose={() => setDetailVisible(false)}
+      />
+
+      <CloudProfileDiffModal
+        visible={compareVisible}
+        leftLabel={compareLeftName}
+        rightLabel={compareRightName}
+        fields={diffFields}
+        isLoading={cloudDiffQuery.isFetching}
+        errorMessage={
+          cloudDiffQuery.error instanceof Error ? cloudDiffQuery.error.message : null
+        }
+        onRetry={() => void cloudDiffQuery.refetch()}
+        onClose={() => setCompareVisible(false)}
+>>>>>>> origin/develop
       />
     </View>
   );
+}
+
+function ProfilesItemSeparator() {
+  return <View style={{ height: spacing.md }} />;
 }
 
 const styles = StyleSheet.create({
@@ -1086,6 +1528,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
   },
+  cloudActions: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  syncMetaCard: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  syncMetaTitle: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
+  },
+  syncMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  syncMetaLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+  },
+  syncMetaValue: {
+    fontSize: fontSize.sm,
+    flex: 1,
+    textAlign: 'right',
+  },
   card: {
     borderWidth: 1,
     borderRadius: borderRadius.xl,
@@ -1108,6 +1578,7 @@ const styles = StyleSheet.create({
   cardMeta: {
     fontSize: fontSize.sm,
   },
+<<<<<<< HEAD
   filterRow: {
     gap: spacing.sm,
     paddingVertical: spacing.xs,
@@ -1147,5 +1618,11 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
+=======
+  cardActions: {
+    marginTop: spacing.xs,
+    flexDirection: 'row',
+    gap: spacing.sm,
+>>>>>>> origin/develop
   },
 });

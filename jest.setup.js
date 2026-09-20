@@ -45,6 +45,17 @@ jest.mock('react-native-nfc-manager', () => ({
   Ndef: { text: { decodePayload: jest.fn() } },
 }));
 
+// Mock react-native-image-picker
+jest.mock('react-native-image-picker', () => ({
+  launchCamera: jest.fn(),
+  launchImageLibrary: jest.fn(),
+}));
+
+// Mock react-native-share
+jest.mock('react-native-share', () => ({
+  default: jest.fn(),
+}));
+
 // Mock lucide-react-native (return simple View components)
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
@@ -86,6 +97,13 @@ console.error = (...args: unknown[]) => {
   if (typeof args[0] === 'string' && args[0].includes('act(')) return;
   originalConsoleError(...args);
 };
+
+// Mock NetInfo
+const mockNetInfoState = { isConnected: true, isInternetReachable: true, type: 'wifi' };
+jest.mock('@react-native-community/netinfo', () => ({
+  useNetInfo: jest.fn(() => mockNetInfoState),
+  addEventListener: jest.fn(() => jest.fn()),
+}));
 
 // Mock Linking
 jest.mock('react-native/Libraries/Linking/Linking', () => ({

@@ -1,0 +1,7 @@
+diff --git a/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec b/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
+index 58e0039..6900534 100644
+--- a/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
++++ b/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
+@@ -96 +96 @@ Pod::Spec.new do |spec|
+-        'HERMES_CLI_PATH' => "#{hermes_compiler_path}/hermesc/osx-bin/hermesc"
++        'HERMES_CLI_PATH' => '$(SRCROOT)/../node_modules/hermes-compiler/hermesc/osx-bin/hermesc'

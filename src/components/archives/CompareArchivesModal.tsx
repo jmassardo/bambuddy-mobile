@@ -286,7 +286,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 96,
     borderRadius: borderRadius.lg,
-    backgroundColor: '#1f2937',
   },
   archiveTitle: {
     fontSize: fontSize.base,

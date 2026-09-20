@@ -90,6 +90,69 @@ npm run beta:ios
 npm run beta:android
 ```
 
+### Release version checklist
+
+Keep the app version and build number synchronized before cutting a release:
+
+- Update `package.json` `version`.
+- Update both `versionName` and the incremented `versionCode` in `android/app/build.gradle`.
+- Update `MARKETING_VERSION` in `ios/Bambuddy.xcodeproj/project.pbxproj`. This key appears twice, once for each build configuration, and both occurrences must change.
+- Update `CURRENT_PROJECT_VERSION` in `ios/Bambuddy.xcodeproj/project.pbxproj` to match Android's `versionCode`. This key also appears twice, and both occurrences must change.
+
+### Demo mode (optional build-time configuration)
+
+The server setup screen can show a **Try the demo** button that connects to a
+hosted Bambuddy instance and signs in automatically, so evaluators and app
+store reviewers can explore the app without setting up a server.
+
+The demo settings are **not stored in this repository**. They are read from the
+environment and inlined into the bundle at build time by
+`babel-plugin-transform-inline-environment-variables` (see `babel.config.js`):
+
+| Variable | Description |
+| --- | --- |
+| `BAMBUDDY_DEMO_URL` | Base URL of the hosted demo instance |
+| `BAMBUDDY_DEMO_USERNAME` | Demo account username |
+| `BAMBUDDY_DEMO_PASSWORD` | Demo account password |
+
+If any of the three are unset, `isDemoConfigured()` returns `false` and the
+demo button is not rendered, so local and fork builds are unaffected.
+
+In CI these are supplied as repository secrets of the same names. For a local
+release build, export them first:
+
+```sh
+BAMBUDDY_DEMO_URL=https://demo.example.com \
+BAMBUDDY_DEMO_USERNAME=reviewer \
+BAMBUDDY_DEMO_PASSWORD=... \
+npm run build:ios:release
+```
+
+Because the values are compiled into the shipped binary they are extractable by
+anyone who downloads the app. Treat the demo account as public: it should be
+low-privilege, isolated from real data, and safe to reset.
+
+## Network Security
+
+Bambuddy Companion is designed to work with self-hosted servers that may live on
+a local network. To support this while keeping public traffic secure, cleartext
+HTTP is **only** allowed for local/private network addresses:
+
+- **iOS:** The `Info.plist` sets `NSAllowsLocalNetworking = true` inside the
+  `NSAppTransportSecurity` dictionary. This permits cleartext HTTP to link-local
+  and private-range IP addresses while enforcing HTTPS for all other hosts.
+- **Android:** The `network_security_config.xml` allows cleartext traffic only
+  to RFC 1918 / RFC 4193 private IP ranges (`10.0.0.0/8`, `172.16.0.0/12`,
+  `192.168.0.0/16`, and `fc00::/7`). All public hosts require HTTPS.
+
+Public Bambuddy servers **must** use HTTPS. The app displays a warning when a
+user enters a plain HTTP URL and shows a confirmation dialog before connecting.
+
+This is intentional: many users run Bambu Lab printers on an isolated LAN with a
+self-hosted Bambuddy instance that has no TLS certificate. The local-networking
+exception lets those setups work out of the box without compromising security for
+traffic that leaves the local network.
+
 ## Testing
 
 ```sh
@@ -97,6 +160,13 @@ npm test
 npm run lint
 npm run typecheck
 ```
+
+## Changelog
+
+Every user-facing pull request adds one user-focused line under
+[`## [Unreleased]`](CHANGELOG.md#unreleased). At release time, the release agent
+promotes those entries to a versioned section and starts a new empty Unreleased
+section.
 
 ## Links
 

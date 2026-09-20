@@ -257,7 +257,7 @@ export default function ProjectsScreen() {
         data={filteredProjects}
         keyExtractor={item => pickString(item, ['id'])}
         contentContainerStyle={styles.content}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+        ItemSeparatorComponent={ProjectsItemSeparator}
         refreshControl={
           <RefreshControl
             refreshing={projectsQuery.isRefetching}
@@ -513,6 +513,10 @@ function PressableProjectCard({
       </View>
     </View>
   );
+}
+
+function ProjectsItemSeparator() {
+  return <View style={{ height: spacing.md }} />;
 }
 
 const styles = StyleSheet.create({

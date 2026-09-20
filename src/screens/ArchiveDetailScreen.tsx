@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
+import type { RootNavigationProp, RootRouteProp, AppNavigationProp } from '@/navigation/types';
 import {
+  ActivityIndicator,
   Image,
   Linking,
   Modal,
@@ -30,9 +31,11 @@ import { WebView } from 'react-native-webview';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useServerStore } from '@/api/server';
 import { api } from '@/api/client';
+import { useMediaToken } from '@/hooks/useStreamToken';
 import { EditArchiveModal } from '@/components/archives/EditArchiveModal';
 import { PrintLogModal } from '@/components/archives/PrintLogModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { SliceModal } from '@/components/files/SliceModal';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -50,7 +53,15 @@ import {
   formatWeight,
   pickString,
   type ApiRecord,
+  withCacheBuster,
 } from '@/utils/data';
+
+type MediaWebViewProps = React.ComponentProps<typeof WebView> & {
+  onError?: () => void;
+  onHttpError?: () => void;
+};
+
+const MediaWebView = WebView as React.ComponentType<MediaWebViewProps>;
 
 function assetToUpload(asset: Asset) {
   if (!asset.uri) return null;
@@ -63,11 +74,13 @@ function assetToUpload(asset: Asset) {
 
 export default function ArchiveDetailScreen() {
   const navigation = useNavigation<RootNavigationProp<'ArchiveDetail'>>();
+  const rootNavigation = useNavigation<AppNavigationProp>();
   const route = useRoute<RootRouteProp<'ArchiveDetail'>>();
   const { id } = (route.params ?? {}) as { id: string };
   const archiveId = Number(id);
   const { colors } = useTheme();
   const serverUrl = useServerStore(state => state.serverUrl);
+  const { token: mediaToken, isReady: mediaTokenReady } = useMediaToken();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [showEditModal, setShowEditModal] = useState(false);
@@ -79,6 +92,16 @@ export default function ArchiveDetailScreen() {
     null,
   );
   const [showTimelapseFullscreen, setShowTimelapseFullscreen] = useState(false);
+  const [preview3dArchiveId, setPreview3dArchiveId] = useState<number | null>(null);
+  const [timelapseError, setTimelapseError] = useState(false);
+  const [timelapseRetrySeed, setTimelapseRetrySeed] = useState(0);
+  const [thumbnailError, setThumbnailError] = useState(false);
+  const [thumbnailRetrySeed, setThumbnailRetrySeed] = useState(0);
+  const [photoErrors, setPhotoErrors] = useState<Record<string, boolean>>({});
+  const [photoRetrySeeds, setPhotoRetrySeeds] = useState<
+    Record<string, number>
+  >({});
+  const [showSliceModal, setShowSliceModal] = useState(false);
 
   const archiveQuery = useQuery({
     queryKey: ['archive', archiveId],
@@ -97,11 +120,10 @@ export default function ArchiveDetailScreen() {
     [archiveQuery.data],
   );
 
-  const timelapseUrl =
+  const hasTimelapse = Boolean(
     archive?.timelapse_path ||
-    pickString(archive as unknown as ApiRecord, ['timelapse_url'])
-      ? api.getArchiveTimelapse(archiveId)
-      : null;
+      pickString(archive as unknown as ApiRecord, ['timelapse_url']),
+  );
   const isSoftDeleted = Boolean(
     pickString(archive as unknown as ApiRecord, ['deleted_at']) ||
       archive?.status === 'deleted',
@@ -115,6 +137,32 @@ export default function ArchiveDetailScreen() {
       return null;
     }
   }, [serverUrl]);
+  const timelapseUrl = useMemo(() => {
+    if (!hasTimelapse || !mediaTokenReady || !serverOrigin) return null;
+    return withCacheBuster(
+      api.getArchiveTimelapse(archiveId),
+      `${mediaToken ?? 'public'}-${timelapseRetrySeed}`,
+    );
+  }, [
+    archiveId,
+    hasTimelapse,
+    mediaToken,
+    mediaTokenReady,
+    serverOrigin,
+    timelapseRetrySeed,
+  ]);
+  const thumbnailUrl = useMemo(() => {
+    if (!mediaTokenReady) return null;
+    return withCacheBuster(
+      api.getArchiveThumbnail(archiveId),
+      `${mediaToken ?? 'public'}-${thumbnailRetrySeed}`,
+    );
+  }, [
+    archiveId,
+    mediaToken,
+    mediaTokenReady,
+    thumbnailRetrySeed,
+  ]);
   const archiveProjectPageUrl =
     pickString(archive as unknown as ApiRecord, [
       'external_url',
@@ -123,6 +171,12 @@ export default function ArchiveDetailScreen() {
     (archive?.project_id && serverUrl
       ? `${serverUrl}/projects/${archive.project_id}`
       : null);
+
+  React.useEffect(() => {
+    setTimelapseError(false);
+    setThumbnailError(false);
+    setPhotoErrors({});
+  }, [mediaToken, serverUrl]);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
@@ -140,6 +194,20 @@ export default function ArchiveDetailScreen() {
         : undefined,
     });
   }, [archive, colors.text, navigation]);
+
+  React.useEffect(() => {
+    if (preview3dArchiveId != null && archive) {
+      const source3mfPath = pickString(archive as unknown as ApiRecord, ['source_3mf_path']) as string | undefined;
+      if (source3mfPath) {
+        rootNavigation.navigate('Model3DPreview', {
+          archiveId,
+          filename: archive.print_name || archive.filename,
+          source3mfPath,
+        });
+      }
+      setPreview3dArchiveId(null);
+    }
+  }, [preview3dArchiveId, archive, archiveId, rootNavigation]);
 
   const invalidateArchiveQueries = async () => {
     await Promise.all([
@@ -237,6 +305,39 @@ export default function ArchiveDetailScreen() {
     await Promise.all([archiveQuery.refetch(), runsQuery.refetch()]);
   };
 
+  const retryTimelapse = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: ['camera-stream-token'],
+    });
+    setTimelapseError(false);
+    setTimelapseRetrySeed(seed => seed + 1);
+  };
+
+  const retryThumbnail = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: ['camera-stream-token'],
+    });
+    setThumbnailError(false);
+    setThumbnailRetrySeed(seed => seed + 1);
+  };
+
+  const retryPhoto = async (photo: string) => {
+    await queryClient.invalidateQueries({
+      queryKey: ['camera-stream-token'],
+    });
+    setPhotoErrors(errors => ({ ...errors, [photo]: false }));
+    setPhotoRetrySeeds(seeds => ({
+      ...seeds,
+      [photo]: (seeds[photo] ?? 0) + 1,
+    }));
+  };
+
+  const getPhotoUrl = (photo: string) =>
+    withCacheBuster(
+      api.getArchivePhotoUrl(archiveId, photo),
+      `${mediaToken ?? 'public'}-${photoRetrySeeds[photo] ?? 0}`,
+    );
+
   if (archiveQuery.isLoading || runsQuery.isLoading) {
     return <LoadingScreen message="Loading archive details…" />;
   }
@@ -268,10 +369,34 @@ export default function ArchiveDetailScreen() {
           />
         }
       >
-        <Image
-          source={{ uri: api.getArchiveThumbnail(archiveId) }}
-          style={styles.thumbnail}
-        />
+        <View
+          style={[
+            styles.thumbnail,
+            { backgroundColor: colors.surfaceElevated },
+          ]}
+        >
+          {!mediaTokenReady ? (
+            <ActivityIndicator size="large" color={colors.accent} />
+          ) : thumbnailError ? (
+            <View style={styles.mediaError}>
+              <Text style={[styles.mediaErrorText, { color: colors.error }]}>
+                Unable to load archive image.
+              </Text>
+              <PrimaryButton
+                label="Retry image"
+                variant="secondary"
+                onPress={retryThumbnail}
+              />
+            </View>
+          ) : thumbnailUrl ? (
+            <Image
+              testID="archive-thumbnail"
+              source={{ uri: thumbnailUrl }}
+              style={styles.mediaFill}
+              onError={() => setThumbnailError(true)}
+            />
+          ) : null}
+        </View>
 
         <SectionCard
           title={archive.print_name || archive.filename || 'Untitled archive'}
@@ -339,7 +464,7 @@ export default function ArchiveDetailScreen() {
             <PrimaryButton
               label="Print log"
               variant="secondary"
-              onPress={() => setShowPrintLog(true)}
+              onPress={() => rootNavigation.navigate('PrintLog', { archiveId })}
             />
           </View>
           <View style={styles.actionCell}>
@@ -375,6 +500,22 @@ export default function ArchiveDetailScreen() {
               }
             />
           </View>
+          {pickString(archive as unknown as ApiRecord, ['source_3mf_path']) ? (
+            <View style={styles.actionCell}>
+              <PrimaryButton
+                label="3D Preview"
+                variant="secondary"
+                onPress={() => setPreview3dArchiveId(archiveId)}
+              />
+            </View>
+          ) : null}
+          <View style={styles.actionCell}>
+            <PrimaryButton
+              label="Slice"
+              variant="secondary"
+              onPress={() => setShowSliceModal(true)}
+            />
+          </View>
           {isSoftDeleted ? (
             <View style={styles.actionCell}>
               <PrimaryButton
@@ -386,24 +527,60 @@ export default function ArchiveDetailScreen() {
           ) : null}
         </View>
 
-        {timelapseUrl ? (
+        {hasTimelapse ? (
           <SectionCard
             title="Timelapse"
             subtitle="Play the finished print timelapse inline or expand it fullscreen."
           >
             <View style={[styles.webviewFrame, { borderColor: colors.border }]}>
-              <WebView
-                source={{ uri: timelapseUrl }}
-                originWhitelist={serverOrigin ? [serverOrigin] : []}
-                javaScriptEnabled={false}
-                allowFileAccess={false}
-                setSupportMultipleWindows={false}
-                allowsInlineMediaPlayback
-                allowsFullscreenVideo
-                mediaPlaybackRequiresUserAction={false}
-              />
+              {!mediaTokenReady || !serverOrigin ? (
+                <View style={styles.mediaLoading}>
+                  <ActivityIndicator size="large" color={colors.accent} />
+                  <Text
+                    style={[
+                      styles.helperText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Preparing timelapse…
+                  </Text>
+                </View>
+              ) : timelapseError ? (
+                <View style={styles.mediaError}>
+                  <Text
+                    style={[styles.mediaErrorText, { color: colors.error }]}
+                  >
+                    Unable to load this timelapse.
+                  </Text>
+                  <PrimaryButton
+                    label="Retry timelapse"
+                    variant="secondary"
+                    onPress={retryTimelapse}
+                  />
+                </View>
+              ) : timelapseUrl ? (
+                <MediaWebView
+                  key={timelapseUrl}
+                  testID="archive-timelapse-webview"
+                  source={{ uri: timelapseUrl }}
+                  originWhitelist={[serverOrigin]}
+                  javaScriptEnabled={false}
+                  allowFileAccess={false}
+                  setSupportMultipleWindows={false}
+                  allowsInlineMediaPlayback
+                  allowsFullscreenVideo
+                  mediaPlaybackRequiresUserAction={false}
+                  onError={() => setTimelapseError(true)}
+                  onHttpError={() => setTimelapseError(true)}
+                />
+              ) : null}
             </View>
             <View style={styles.inlineActions}>
+              <PrimaryButton
+                label="Edit timelapse"
+                variant="secondary"
+                onPress={() => navigation.navigate('TimelapseEditor', { archiveId })}
+              />
               <PrimaryButton
                 label="Fullscreen"
                 variant="secondary"
@@ -422,14 +599,64 @@ export default function ArchiveDetailScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.photoRail}
           >
+            {photos.length === 0 ? (
+              <Text style={[styles.note, { color: colors.textSecondary }]}>
+                No photos have been added to this archive.
+              </Text>
+            ) : null}
             {photos.map(photo => (
               <View key={photo} style={styles.photoCard}>
-                <Pressable onPress={() => setFullscreenPhoto(photo)}>
-                  <Image
-                    source={{ uri: api.getArchivePhotoUrl(archiveId, photo) }}
-                    style={styles.photo}
-                  />
-                </Pressable>
+                {!mediaTokenReady ? (
+                  <View
+                    style={[
+                      styles.photo,
+                      styles.mediaLoading,
+                      { backgroundColor: colors.surfaceElevated },
+                    ]}
+                  >
+                    <ActivityIndicator size="small" color={colors.accent} />
+                  </View>
+                ) : photoErrors[photo] ? (
+                  <View
+                    style={[
+                      styles.photo,
+                      styles.mediaError,
+                      { backgroundColor: colors.surfaceElevated },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.photoErrorText,
+                        { color: colors.error },
+                      ]}
+                    >
+                      Photo failed to load.
+                    </Text>
+                    <PrimaryButton
+                      label="Retry photo"
+                      variant="secondary"
+                      onPress={() => retryPhoto(photo)}
+                    />
+                  </View>
+                ) : (
+                  <Pressable onPress={() => setFullscreenPhoto(photo)}>
+                    <Image
+                      key={getPhotoUrl(photo)}
+                      testID={`archive-photo-${photo}`}
+                      source={{ uri: getPhotoUrl(photo) }}
+                      style={[
+                        styles.photo,
+                        { backgroundColor: colors.surfaceElevated },
+                      ]}
+                      onError={() =>
+                        setPhotoErrors(errors => ({
+                          ...errors,
+                          [photo]: true,
+                        }))
+                      }
+                    />
+                  </Pressable>
+                )}
                 <Pressable
                   onPress={() => setPendingPhotoDelete(photo)}
                   style={[
@@ -663,14 +890,20 @@ export default function ArchiveDetailScreen() {
                 );
               }
               return (
-                <WebView
-                  source={{ uri: archiveProjectPageUrl }}
-                  originWhitelist={serverOrigin ? [serverOrigin] : []}
-                  javaScriptEnabled={false}
-                  allowFileAccess={false}
-                  setSupportMultipleWindows={false}
-                  allowsInlineMediaPlayback
-                />
+                serverOrigin ? (
+                  <MediaWebView
+                    source={{ uri: archiveProjectPageUrl }}
+                    originWhitelist={[serverOrigin]}
+                    javaScriptEnabled={false}
+                    allowFileAccess={false}
+                    setSupportMultipleWindows={false}
+                    allowsInlineMediaPlayback
+                  />
+                ) : (
+                  <View style={styles.emptyWebView}>
+                    <ActivityIndicator size="large" color={colors.accent} />
+                  </View>
+                )
               );
             })()
           ) : (
@@ -702,13 +935,35 @@ export default function ArchiveDetailScreen() {
             <X size={20} color={colors.textInverse} strokeWidth={2} />
           </Pressable>
           {fullscreenPhoto ? (
-            <Image
-              source={{
-                uri: api.getArchivePhotoUrl(archiveId, fullscreenPhoto),
-              }}
-              style={styles.fullscreenImage}
-              resizeMode="contain"
-            />
+            !mediaTokenReady ? (
+              <View style={styles.mediaLoading}>
+                <ActivityIndicator size="large" color={colors.accent} />
+              </View>
+            ) : photoErrors[fullscreenPhoto] ? (
+              <View style={styles.mediaError}>
+                <Text style={[styles.mediaErrorText, { color: colors.error }]}>
+                  Unable to load this photo.
+                </Text>
+                <PrimaryButton
+                  label="Retry photo"
+                  variant="secondary"
+                  onPress={() => retryPhoto(fullscreenPhoto)}
+                />
+              </View>
+            ) : (
+              <Image
+                key={getPhotoUrl(fullscreenPhoto)}
+                source={{ uri: getPhotoUrl(fullscreenPhoto) }}
+                style={styles.fullscreenImage}
+                resizeMode="contain"
+                onError={() =>
+                  setPhotoErrors(errors => ({
+                    ...errors,
+                    [fullscreenPhoto]: true,
+                  }))
+                }
+              />
+            )
           ) : null}
           {fullscreenPhoto ? (
             <View style={styles.fullscreenActions}>
@@ -748,16 +1003,34 @@ export default function ArchiveDetailScreen() {
               onPress={() => setShowTimelapseFullscreen(false)}
             />
           </View>
-          {timelapseUrl ? (
-            <WebView
+          {!mediaTokenReady || !serverOrigin ? (
+            <View style={styles.mediaLoading}>
+              <ActivityIndicator size="large" color={colors.accent} />
+            </View>
+          ) : timelapseError ? (
+            <View style={styles.mediaError}>
+              <Text style={[styles.mediaErrorText, { color: colors.error }]}>
+                Unable to load this timelapse.
+              </Text>
+              <PrimaryButton
+                label="Retry timelapse"
+                variant="secondary"
+                onPress={retryTimelapse}
+              />
+            </View>
+          ) : timelapseUrl ? (
+            <MediaWebView
+              key={`fullscreen-${timelapseUrl}`}
               source={{ uri: timelapseUrl }}
-              originWhitelist={serverOrigin ? [serverOrigin] : []}
+              originWhitelist={[serverOrigin]}
               javaScriptEnabled={false}
               allowFileAccess={false}
               setSupportMultipleWindows={false}
               allowsInlineMediaPlayback
               allowsFullscreenVideo
               mediaPlaybackRequiresUserAction={false}
+              onError={() => setTimelapseError(true)}
+              onHttpError={() => setTimelapseError(true)}
             />
           ) : null}
         </View>
@@ -774,6 +1047,14 @@ export default function ArchiveDetailScreen() {
         message="Remove this archive photo?"
         confirmLabel="Delete"
         loading={deletePhotoMutation.isPending}
+      />
+
+      <SliceModal
+        visible={showSliceModal}
+        onClose={() => setShowSliceModal(false)}
+        sourceType="archive"
+        sourceId={archiveId}
+        sourceName={archive.print_name || archive.filename}
       />
     </>
   );
@@ -797,7 +1078,13 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 240,
     borderRadius: borderRadius.xl,
-    backgroundColor: '#111827',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediaFill: {
+    width: '100%',
+    height: '100%',
   },
   actionRow: {
     flexDirection: 'row',
@@ -830,7 +1117,29 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: borderRadius.lg,
-    backgroundColor: '#111827',
+  },
+  mediaLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  mediaError: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  mediaErrorText: {
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.medium,
+    textAlign: 'center',
+  },
+  photoErrorText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    textAlign: 'center',
   },
   photoDelete: {
     position: 'absolute',

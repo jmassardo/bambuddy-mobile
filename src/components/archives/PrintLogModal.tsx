@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
 import {
   ActivityIndicator,
   Modal,
@@ -8,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import { ChevronRight, X } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { EmptyState, ErrorState } from '@/components/common/StateScreens';
@@ -82,6 +84,7 @@ export function PrintLogModal({
   archiveName,
   onClose,
 }: PrintLogModalProps) {
+  const navigation = useNavigation<RootNavigationProp<'PrintLog'>>();
   const { colors } = useTheme();
 
   const printLogQuery = useQuery({
@@ -158,6 +161,18 @@ export function PrintLogModal({
           )}
 
           <View style={styles.footer}>
+            <Pressable
+              style={[styles.viewFullLog, { borderColor: colors.border }]}
+              onPress={() => {
+                if (archiveId != null) {
+                  navigation.navigate('PrintLog', { archiveId });
+                }
+                onClose();
+              }}
+            >
+              <Text style={[styles.viewFullLogText, { color: colors.accent }]}>View full log</Text>
+              <ChevronRight size={14} color={colors.accent} />
+            </Pressable>
             <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
           </View>
         </View>
@@ -239,6 +254,17 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  viewFullLog: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  viewFullLogText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
   },
 });

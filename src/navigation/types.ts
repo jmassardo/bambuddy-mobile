@@ -39,8 +39,28 @@ export type RootStackParamList = {
   System: undefined;
   SpoolBuddy: undefined;
   Users: undefined;
+<<<<<<< HEAD
   VirtualPrinters: undefined;
   ExternalLinkBrowser: { url: string; title?: string };
+=======
+  Energy: undefined;
+  VirtualPrinters: undefined;
+  SpoolBuddy: undefined;
+  ExternalLinkBrowser: { url: string; title?: string };
+  Model3DPreview: {
+    fileId?: number;
+    archiveId?: number;
+    filename: string;
+    fileUrl?: string;
+    fileSize?: number;
+    source3mfPath?: string;
+  };
+  FailureAnalysis: undefined;
+  WebSocketStatus: undefined;
+  TimelapseEditor: { archiveId: number };
+  PrintLog: { archiveId?: number } | undefined;
+  SpoolAssignmentHistory: undefined;
+>>>>>>> origin/develop
 };
 
 export type RootNavigationProp<

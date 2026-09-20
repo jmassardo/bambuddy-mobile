@@ -3,3 +3,5 @@ export { TabBarIcon, Icon } from './TabBarIcon';
 export { ActionSheetModal, type ActionSheetAction } from './ActionSheetModal';
 export { FilamentSwatch } from './FilamentSwatch';
 export { LoadingScreen, EmptyState, ErrorState } from './StateScreens';
+export { DemoBadge } from './DemoBadge';
+export { OfflineBanner } from './OfflineBanner';
