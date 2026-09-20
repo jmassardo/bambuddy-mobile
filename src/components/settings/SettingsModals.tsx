@@ -22,9 +22,19 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
     externalLinkModalVisible,
     externalLinkForm,
     editingExternalLink,
+<<<<<<< HEAD
     externalCameraModalVisible,
     externalCameraForm,
     editingExternalCamera,
+=======
+    customNavModalVisible,
+    editingCustomNav,
+    customNavForm,
+    externalCameraModalVisible,
+    editingExternalCamera,
+    externalCameraForm,
+    pendingDeleteExternalCamera,
+>>>>>>> origin/develop
     virtualPrinterModalVisible,
     editingVirtualPrinter,
     virtualPrinterForm,
@@ -41,6 +51,10 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
     pendingDeleteExternalLink,
     pendingDeleteExternalCamera,
     pendingDeleteVirtualPrinter,
+    locationModalVisible,
+    editingLocation,
+    locationForm,
+    pendingDeleteLocation,
   } = controller.state;
 
   const { actions, mutations, queries } = controller;
@@ -123,6 +137,7 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
         </ScrollView>
       </SimpleModal>
 
+<<<<<<< HEAD
       <SimpleModal visible={externalCameraModalVisible} title={editingExternalCamera ? 'Edit external camera' : 'Add external camera'} subtitle="Name, stream URL, type, and optional printer association." onClose={actions.closeExternalCameraModal}>
         <ScrollView contentContainerStyle={settingsStyles.modalBody}>
           <TextField label="Name" value={externalCameraForm.name} onChangeText={value => actions.setExternalCameraForm(current => ({ ...current, name: value }))} />
@@ -154,12 +169,31 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
               onPress={actions.handleSaveExternalCamera}
               loading={mutations.createExternalCameraMutation.isPending || mutations.updateExternalCameraMutation.isPending}
               disabled={mutations.createExternalCameraMutation.isPending || mutations.updateExternalCameraMutation.isPending}
+=======
+      <SimpleModal visible={customNavModalVisible} title={editingCustomNav ? 'Edit custom link' : 'Add custom link'} subtitle="Create a navigation link that appears in your custom navigation menu." onClose={actions.closeCustomNavModal}>
+        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+          <TextField label="Name" value={customNavForm.name} onChangeText={value => actions.setCustomNavForm(current => ({ ...current, name: value }))} />
+          <TextField label="URL" value={customNavForm.url} onChangeText={value => actions.setCustomNavForm(current => ({ ...current, url: value }))} autoCapitalize="none" placeholder="https://example.com" />
+          <TextField label="Icon" value={customNavForm.icon} onChangeText={value => actions.setCustomNavForm(current => ({ ...current, icon: value }))} autoCapitalize="none" placeholder="link" />
+          <SwitchRow label="Open in new tab" value={customNavForm.open_in_new_tab} onValueChange={value => actions.setCustomNavForm(current => ({ ...current, open_in_new_tab: value }))} />
+          <View style={settingsStyles.modalFooter}>
+            <PrimaryButton label="Cancel" variant="secondary" onPress={actions.closeCustomNavModal} />
+            <PrimaryButton
+              label={mutations.saveCustomNavMutation.isPending ? 'Saving…' : 'Save link'}
+              onPress={actions.handleSaveCustomNav}
+              loading={mutations.saveCustomNavMutation.isPending}
+              disabled={mutations.saveCustomNavMutation.isPending}
+>>>>>>> origin/develop
             />
           </View>
         </ScrollView>
       </SimpleModal>
 
+<<<<<<< HEAD
       <SimpleModal visible={virtualPrinterModalVisible} title={editingVirtualPrinter ? 'Edit virtual printer' : 'Create virtual printer'} subtitle="Name, model, description, access code, and enabled state." onClose={actions.closeVirtualPrinterModal}>
+=======
+      <SimpleModal visible={virtualPrinterModalVisible} title={editingVirtualPrinter ? 'Edit virtual printer' : 'Create virtual printer'} subtitle="Name, printer model, serial number, and enabled state." onClose={actions.closeVirtualPrinterModal}>
+>>>>>>> origin/develop
         <ScrollView contentContainerStyle={settingsStyles.modalBody}>
           <TextField label="Name" value={virtualPrinterForm.name} onChangeText={value => actions.setVirtualPrinterForm(current => ({ ...current, name: value }))} />
           <OptionChipsField label="Model" value={virtualPrinterForm.model_name} options={controller.derived.virtualPrinterModels} onChange={value => actions.setVirtualPrinterForm(current => ({ ...current, model: value, model_name: value }))} />
@@ -233,6 +267,41 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
       <ConfirmModal visible={pendingDeleteExternalCamera !== null} title="Delete external camera" message={pendingDeleteExternalCamera ? `Delete ${pickString(pendingDeleteExternalCamera, ['name'], 'this camera')}?` : 'Delete this external camera?'} confirmLabel="Delete" onClose={() => actions.setPendingDeleteExternalCamera(null)} onConfirm={() => pendingDeleteExternalCamera && void mutations.deleteExternalCameraMutation.mutateAsync(pickNumber(pendingDeleteExternalCamera, ['id']))} loading={mutations.deleteExternalCameraMutation.isPending} />
 
       <ConfirmModal visible={pendingDeleteVirtualPrinter !== null} title="Delete virtual printer" message={pendingDeleteVirtualPrinter ? `Delete ${pickString(pendingDeleteVirtualPrinter, ['name'], 'this virtual printer')}?` : 'Delete this virtual printer?'} confirmLabel="Delete" onClose={() => actions.setPendingDeleteVirtualPrinter(null)} onConfirm={() => pendingDeleteVirtualPrinter && void mutations.deleteVirtualPrinterMutation.mutateAsync(pickNumber(pendingDeleteVirtualPrinter, ['id']))} loading={mutations.deleteVirtualPrinterMutation.isPending} />
+
+      <SimpleModal visible={externalCameraModalVisible} title={editingExternalCamera ? 'Edit external camera' : 'Add external camera'} subtitle="Camera name, stream URL (RTSP/HTTP), type, and optional printer mapping." onClose={actions.closeExternalCameraModal}>
+        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+          <TextField label="Name" value={externalCameraForm.name} onChangeText={value => actions.setExternalCameraForm(current => ({ ...current, name: value }))} />
+          <TextField label="Stream URL" value={externalCameraForm.stream_url} onChangeText={value => actions.setExternalCameraForm(current => ({ ...current, stream_url: value }))} autoCapitalize="none" placeholder="rtsp:// or http:// or https:// URL" />
+          <OptionChipsField label="Camera type" value={externalCameraForm.camera_type} options={EXTERNAL_CAMERA_TYPE_OPTIONS} onChange={value => actions.setExternalCameraForm(current => ({ ...current, camera_type: value }))} />
+          <OptionChipsField label="Printer" value={externalCameraForm.printer_id} options={controller.derived.printerOptions} onChange={value => actions.setExternalCameraForm(current => ({ ...current, printer_id: value }))} />
+          <View style={settingsStyles.modalFooter}>
+            <PrimaryButton label="Cancel" variant="secondary" onPress={actions.closeExternalCameraModal} />
+            <PrimaryButton label={mutations.createExternalCameraMutation.isPending || mutations.updateExternalCameraMutation.isPending ? 'Saving…' : 'Save camera'} onPress={actions.handleSaveExternalCamera} loading={mutations.createExternalCameraMutation.isPending || mutations.updateExternalCameraMutation.isPending} disabled={mutations.createExternalCameraMutation.isPending || mutations.updateExternalCameraMutation.isPending} />
+          </View>
+        </ScrollView>
+      </SimpleModal>
+
+      <ConfirmModal visible={pendingDeleteExternalCamera !== null} title="Delete external camera" message={pendingDeleteExternalCamera ? `Delete ${pickString(pendingDeleteExternalCamera, ['name'], 'this external camera')}?` : 'Delete this external camera?'} confirmLabel="Delete" onClose={() => actions.setPendingDeleteExternalCamera(null)} onConfirm={() => pendingDeleteExternalCamera && void mutations.deleteExternalCameraMutation.mutateAsync(pickNumber(pendingDeleteExternalCamera, ['id']))} loading={mutations.deleteExternalCameraMutation.isPending} />
+
+      <SimpleModal visible={locationModalVisible} title={editingLocation ? 'Edit storage location' : 'Add storage location'} subtitle="Location name, optional identifier, address, and notes for organizing filament spools." onClose={actions.closeLocationModal}>
+        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+          <TextField label="Name" value={locationForm.name} onChangeText={value => actions.setLocationForm(current => ({ ...current, name: value }))} placeholder="Shelf A" />
+          <TextField label="Identifier" value={locationForm.identifier} onChangeText={value => actions.setLocationForm(current => ({ ...current, identifier: value }))} placeholder="A-1" />
+          <TextField label="Address / Location details" value={locationForm.address} onChangeText={value => actions.setLocationForm(current => ({ ...current, address: value }))} placeholder="Garage, left wall" />
+          <TextField label="Notes" value={locationForm.notes} onChangeText={value => actions.setLocationForm(current => ({ ...current, notes: value }))} multiline placeholder="Any additional notes about this location" />
+          <View style={settingsStyles.modalFooter}>
+            <PrimaryButton label="Cancel" variant="secondary" onPress={actions.closeLocationModal} />
+            <PrimaryButton
+              label={editingLocation ? (mutations.updateLocationMutation.isPending ? 'Saving…' : 'Save location') : (mutations.createLocationMutation.isPending ? 'Creating…' : 'Create location')}
+              onPress={actions.handleSaveLocation}
+              loading={mutations.createLocationMutation.isPending || mutations.updateLocationMutation.isPending}
+              disabled={mutations.createLocationMutation.isPending || mutations.updateLocationMutation.isPending}
+            />
+          </View>
+        </ScrollView>
+      </SimpleModal>
+
+      <ConfirmModal visible={pendingDeleteLocation !== null} title="Delete storage location" message={pendingDeleteLocation ? `Delete ${pendingDeleteLocation.name}? Locations with assigned spools cannot be removed.` : 'Delete this storage location?'} confirmLabel="Delete" onClose={() => actions.setPendingDeleteLocation(null)} onConfirm={() => pendingDeleteLocation && void mutations.deleteLocationMutation.mutateAsync(pendingDeleteLocation.id)} loading={mutations.deleteLocationMutation.isPending} />
     </>
   );
 }

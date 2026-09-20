@@ -1,0 +1,6 @@
+android {
+    defaultConfig {
+        versionCode computedVersion
+        versionName "1.2.3"
+    }
+}

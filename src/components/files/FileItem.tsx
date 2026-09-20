@@ -17,6 +17,7 @@ import {
   Pencil,
   Trash2,
   Video,
+  Box,
 } from 'lucide-react-native';
 import { api } from '@/api/client';
 import { useTheme } from '@/theme';
@@ -48,7 +49,8 @@ type FileItemIconName =
   | 'trash'
   | 'video'
   | 'file-text'
-  | 'file';
+  | 'file'
+  | 'box';
 
 const FILE_ITEM_ICONS = {
   image: ImageIcon,
@@ -60,6 +62,7 @@ const FILE_ITEM_ICONS = {
   video: Video,
   'file-text': FileText,
   file: File,
+  box: Box,
 } satisfies Record<FileItemIconName, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>>;
 
 interface FileItemProps {
@@ -76,6 +79,7 @@ interface FileItemProps {
   onDownload?: () => void;
   onPreview?: () => void;
   onSlice?: () => void;
+  on3dPreview?: () => void;
 }
 
 function thumbnailUrl(id: number): string | null {
@@ -136,6 +140,7 @@ export function FileItem({
   onDownload: _onDownload,
   onPreview,
   onSlice,
+  on3dPreview,
 }: FileItemProps) {
   const { colors } = useTheme();
   const [thumbError, setThumbError] = useState(false);
@@ -308,6 +313,7 @@ export function FileItem({
 
         <View style={[styles.actionsRow, { borderColor: colors.borderSubtle }]}> 
           <ActionPill label="Preview" icon="image" color={colors.info} onPress={isPreviewable ? onPreview : undefined} />
+          <ActionPill label="3D" icon="box" color={colors.highlight} onPress={/\.(stl|3mf)$/i.test(rawFilename) ? on3dPreview : undefined} />
           <ActionPill label="Slice" icon="layers" color={colors.accent} onPress={isSliceable ? onSlice : undefined} />
           <ActionPill label="Move" icon="folder" color={colors.warning} onPress={onMove} />
           <ActionPill label="Delete" icon="trash" color={colors.error} onPress={onDelete} />

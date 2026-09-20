@@ -17,6 +17,8 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { StorageLocation } from '@/types/api';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { pickNumber, pickString } from '@/utils/data';
 
 interface LocationsModalProps {
   visible: boolean;
@@ -36,7 +38,13 @@ export function LocationsModal({
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<StorageLocation | null>(null);
   const [name, setName] = useState('');
+<<<<<<< HEAD
   const [description, setDescription] = useState('');
+=======
+  const [identifier, setIdentifier] = useState('');
+  const [address, setAddress] = useState('');
+  const [notes, setNotes] = useState('');
+>>>>>>> origin/develop
   const [deleteTarget, setDeleteTarget] = useState<StorageLocation | null>(null);
 
   const locationsQuery = useQuery({
@@ -54,7 +62,13 @@ export function LocationsModal({
     if (!visible) {
       setEditing(null);
       setName('');
+<<<<<<< HEAD
       setDescription('');
+=======
+      setIdentifier('');
+      setAddress('');
+      setNotes('');
+>>>>>>> origin/develop
       setDeleteTarget(null);
     }
   }, [visible]);
@@ -70,7 +84,13 @@ export function LocationsModal({
     mutationFn: () => {
       const payload = {
         name: name.trim(),
+<<<<<<< HEAD
         identifier: description.trim() || null,
+=======
+        identifier: identifier.trim() || null,
+        address: address.trim() || null,
+        notes: notes.trim() || null,
+>>>>>>> origin/develop
       };
       if (editing) return api.updateLocation(editing.id, payload);
       return api.createLocation(payload);
@@ -80,7 +100,13 @@ export function LocationsModal({
       showToast(editing ? 'Location updated.' : 'Location created.', 'success');
       setEditing(null);
       setName('');
+<<<<<<< HEAD
       setDescription('');
+=======
+      setIdentifier('');
+      setAddress('');
+      setNotes('');
+>>>>>>> origin/develop
     },
     onError: (error: Error) => showToast(error.message || 'Unable to save the location.', 'error'),
   });
@@ -110,7 +136,13 @@ export function LocationsModal({
   const startEdit = (location: StorageLocation) => {
     setEditing(location);
     setName(location.name);
+<<<<<<< HEAD
     setDescription(location.identifier ?? '');
+=======
+    setIdentifier(location.identifier ?? '');
+    setAddress(location.address ?? '');
+    setNotes(location.notes ?? '');
+>>>>>>> origin/develop
   };
 
   return (
@@ -130,7 +162,13 @@ export function LocationsModal({
 
             <SectionCard title={editing ? 'Edit location' : 'Add location'}>
               <TextField label="Name" value={name} onChangeText={setName} placeholder="Shelf A" />
+<<<<<<< HEAD
               <TextField label="Description" value={description} onChangeText={setDescription} placeholder="Top shelf near dryer" />
+=======
+              <TextField label="Identifier" value={identifier} onChangeText={setIdentifier} placeholder="A-1" />
+              <TextField label="Address / Location details" value={address} onChangeText={setAddress} placeholder="Garage, left wall" />
+              <TextField label="Notes" value={notes} onChangeText={setNotes} multiline placeholder="Any additional notes about this location" />
+>>>>>>> origin/develop
               <View style={styles.formActions}>
                 {editing ? (
                   <PrimaryButton

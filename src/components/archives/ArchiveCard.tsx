@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Camera, CheckCircle, Printer, QrCode, Star, Trash2, Video } from 'lucide-react-native';
+import { Camera, CheckCircle, Printer, QrCode, Star, Trash2, Video, Scissors } from 'lucide-react-native';
 import { api } from '@/api/client';
 import { StatusBadge } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
@@ -22,8 +22,9 @@ import {
   formatDuration,
   formatWeight,
 } from '@/utils/data';
+import { Sparkles } from 'lucide-react-native';
 
-type ArchiveActionIconName = 'printer' | 'video' | 'camera' | 'qr-code' | 'trash';
+type ArchiveActionIconName = 'printer' | 'video' | 'camera' | 'qr-code' | 'trash' | 'scissors';
 
 const ARCHIVE_ACTION_ICONS = {
   printer: Printer,
@@ -31,6 +32,7 @@ const ARCHIVE_ACTION_ICONS = {
   camera: Camera,
   'qr-code': QrCode,
   trash: Trash2,
+  scissors: Scissors,
 } satisfies Record<ArchiveActionIconName, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>>;
 
 interface ArchiveCardProps {
@@ -46,6 +48,7 @@ interface ArchiveCardProps {
   onPhotos?: () => void;
   onQRCode?: () => void;
   onDelete?: () => void;
+  onSlice?: () => void;
 }
 
 function statusColor(status: string, colors: ReturnType<typeof useTheme>['colors']) {
@@ -61,6 +64,12 @@ function statusColor(status: string, colors: ReturnType<typeof useTheme>['colors
     default:
       return colors.info;
   }
+}
+
+function getAiColor(ai: NonNullable<Archive['ai_detection']>): string {
+  if (ai.classification === 'human') return '#22c55e';
+  if (ai.classification === 'ai') return '#dc2626';
+  return '#f97316';
 }
 
 function ArchiveAction({
@@ -108,6 +117,7 @@ export function ArchiveCard({
   onPhotos,
   onQRCode,
   onDelete,
+  onSlice,
 }: ArchiveCardProps) {
   const { colors } = useTheme();
   const cardStatusColor = statusColor(archive.status, colors);
@@ -232,6 +242,22 @@ export function ArchiveCard({
         </View>
 
         <View style={styles.badgesRow}>
+          {archive.ai_detection ? (
+            <View
+              style={[
+                styles.aiBadge,
+                { backgroundColor: `${getAiColor(archive.ai_detection)}20`, borderColor: `${getAiColor(archive.ai_detection)}60` },
+              ]}
+            >
+              <Sparkles size={12} color={getAiColor(archive.ai_detection)} strokeWidth={2} />
+              <Text style={[styles.aiBadgeText, { color: getAiColor(archive.ai_detection) }]}>
+                {archive.ai_detection.classification === 'human' ? 'Human' : archive.ai_detection.classification === 'ai' ? 'AI' : 'Unknown'}
+              </Text>
+              <Text style={[styles.aiBadgeConfidence, { color: getAiColor(archive.ai_detection) }]}>
+                {Math.round(archive.ai_detection.confidence)}%
+              </Text>
+            </View>
+          ) : null}
           {archive.sliced_for_model ? (
             <View
               style={[
@@ -307,6 +333,7 @@ export function ArchiveCard({
         <View style={[styles.footer, { borderColor: colors.borderSubtle }]}> 
           <View style={styles.actionsRow}>
             <ArchiveAction label="Reprint" icon="printer" color={colors.accent} onPress={onReprint} />
+            <ArchiveAction label="Slice" icon="scissors" color={colors.highlight} onPress={onSlice} />
             <ArchiveAction label="Time" icon="video" color={colors.info} onPress={onTimelapse} />
             <ArchiveAction label="Photos" icon="camera" color={colors.warning} onPress={onPhotos} />
             <ArchiveAction label="QR" icon="qr-code" color={colors.textSecondary} onPress={onQRCode} />
@@ -338,12 +365,10 @@ const styles = StyleSheet.create({
   gridThumbnail: {
     width: '100%',
     aspectRatio: 16 / 10,
-    backgroundColor: '#1f2937',
   },
   listThumbnail: {
     width: '100%',
     height: 180,
-    backgroundColor: '#1f2937',
   },
   selectBadge: {
     position: 'absolute',
@@ -499,5 +524,22 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.semibold,
+  },
+  aiBadge: {
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  aiBadgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+  },
+  aiBadgeConfidence: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
   },
 });

@@ -6,6 +6,7 @@ import type {
   ExternalCameraTestResult,
   ExternalCameraUpdate,
   ExternalLink,
+  MQTTStatus,
   NotificationProvider,
   NotificationTemplate,
   NotificationTestRequest,
@@ -181,6 +182,13 @@ export const settingsApi = {
         options: { method: 'POST' },
       },
     ),
+
+  getMqttStatus: async () => request<MQTTStatus>('/settings/mqtt/status'),
+
+  testMqttConnection: async () =>
+    request<Record<string, unknown>>('/settings/mqtt/test', {
+      method: 'POST',
+    }),
 
   getLabelTemplates: async () =>
     request<Record<string, unknown>[]>('/labels/templates'),

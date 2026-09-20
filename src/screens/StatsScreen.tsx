@@ -152,6 +152,36 @@ function timeBucket(item: ApiRecord) {
   return 'Evening';
 }
 
+<<<<<<< HEAD
+=======
+function getRangeDays(range: RangeKey) {
+  if (range === 'all') return undefined;
+  if (range === 'today') return 1;
+  return Number(range.replace('d', ''));
+}
+
+function buildStatsSummaryCsv(stats: ApiRecord, archives: ApiRecord[], range: RangeKey, printerId: number | null, userId: number | null) {
+  const rows = [
+    { metric: 'Total prints', value: String(pickNumber(stats, ['total_prints', 'prints_count'], archives.length)) },
+    { metric: 'Success rate', value: formatPercent(pickNumber(stats, ['success_rate'], 0), 1) },
+    { metric: 'Total print time', value: formatDuration(Math.round(pickNumber(stats, ['total_print_time_seconds', 'total_print_time'], 0))) },
+    { metric: 'Filament used', value: formatWeight(pickNumber(stats, ['total_filament_grams', 'total_filament_g', 'filament_total_g'], 0)) },
+    { metric: 'Total cost', value: formatCurrency(pickNumber(stats, ['total_cost', 'cost_total'], 0)) },
+    { metric: 'Range', value: range },
+    { metric: 'Printer', value: printerId ? `${printerId}` : 'All' },
+    { metric: 'User', value: userId !== null ? `${userId}` : 'All' },
+  ];
+  return toCsvSummary(rows);
+}
+
+function toCsvSummary(rows: Array<{ metric: string; value: string }>) {
+  return [
+    rows.map(r => `"${r.metric}"`).join(','),
+    ...rows.map(r => `"${r.value}"`).join(','),
+  ].join('\n');
+}
+
+>>>>>>> origin/develop
 function buildFailureRates(items: ApiRecord[], keyFn: (item: ApiRecord) => string) {
   const rows = new Map<string, { label: string; total: number; failures: number; rate: number }>();
   items.forEach(item => {
@@ -165,6 +195,7 @@ function buildFailureRates(items: ApiRecord[], keyFn: (item: ApiRecord) => strin
   return Array.from(rows.values()).sort((a, b) => b.rate - a.rate || b.failures - a.failures).slice(0, 6);
 }
 
+<<<<<<< HEAD
 function statsExportRows(items: ApiRecord[]) {
   return items.map(item => ({
     print_name: pickString(item, ['print_name', 'filename', 'archive_name']),
@@ -177,6 +208,13 @@ function statsExportRows(items: ApiRecord[]) {
     user: pickString(item, ['created_by_username', 'username', 'user_name']),
     archive_id: pickNumber(item, ['id', 'archive_id'], 0),
   }));
+=======
+function isValidUserFilter(userId: number | null, isAdminFilter: boolean, usersLoaded: boolean, users: ApiRecord[]) {
+  if (userId === null) return true;
+  if (!isAdminFilter) return false;
+  if (!usersLoaded) return true;
+  return users.some(user => pickNumber(user, ['id']) === userId);
+>>>>>>> origin/develop
 }
 
 export default function StatsScreen() {
@@ -189,6 +227,7 @@ export default function StatsScreen() {
   const [selectedPrinterId, setSelectedPrinterId] = useState<number | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selector, setSelector] = useState<SelectorKey>(null);
+  const [userFilterValidated, setUserFilterValidated] = useState(true);
 
   const params = getRangeParams(range);
   const queryParams = useMemo(
@@ -220,6 +259,31 @@ export default function StatsScreen() {
     enabled: isAdmin,
   });
 
+  const usersData = useMemo(
+    () => (usersQuery.data ?? []) as ApiRecord[],
+    [usersQuery.data],
+  );
+
+  const isUserFilterValid = useMemo(() => {
+    return isValidUserFilter(selectedUserId, isAdmin, usersQuery.isSuccess, usersData);
+  }, [selectedUserId, isAdmin, usersQuery.isSuccess, usersData]);
+
+  React.useEffect(() => {
+    if (!isUserFilterValid && selectedUserId !== null && isAdmin) {
+      setUserFilterValidated(false);
+      showToast('Selected user is no longer available. Showing all users.', 'warning');
+      setSelectedUserId(null);
+    } else if (userFilterValidated && !isUserFilterValid) {
+      setUserFilterValidated(true);
+    }
+  }, [isUserFilterValid, selectedUserId, isAdmin, userFilterValidated, showToast]);
+
+  React.useEffect(() => {
+    if (usersQuery.isSuccess && usersData.length === 0 && isAdmin) {
+      console.warn('StatsScreen: No users available to filter by.');
+    }
+  }, [usersQuery.isSuccess, usersData.length, isAdmin]);
+
   const refreshAll = async () => {
     await Promise.all([
       statsQuery.refetch(),
@@ -230,6 +294,7 @@ export default function StatsScreen() {
   };
 
   const exportMutation = useMutation({
+<<<<<<< HEAD
     mutationFn: async (format: 'csv' | 'json') => {
       const filenameBase = buildStatsExportFilenameBase({
         range,
@@ -237,6 +302,10 @@ export default function StatsScreen() {
         selectedUserId,
         isAdmin,
       });
+=======
+    mutationFn: async (format: 'csv' | 'xlsx' | 'json') => {
+      const filenameBase = `bambuddy-stats-${range}${selectedPrinterId ? `-printer-${selectedPrinterId}` : ''}${selectedUserId !== null ? `-user-${selectedUserId}` : ''}`;
+>>>>>>> origin/develop
       if (format === 'json') {
         const blobOptions: BlobOptions = {
           type: 'application/json',
@@ -246,6 +315,7 @@ export default function StatsScreen() {
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
+<<<<<<< HEAD
       const csv = rowsToCsv(statsExportRows(archives));
       const blobOptions: BlobOptions = {
         type: 'text/csv',
@@ -253,11 +323,23 @@ export default function StatsScreen() {
       };
       const blob = new Blob([csv], blobOptions);
       await shareBlob(blob, `${filenameBase}.csv`);
+=======
+      const blob = await api.exportArchiveStats({
+        format,
+        days: getRangeDays(range),
+        dateFrom: queryParams.dateFrom,
+        dateTo: queryParams.dateTo,
+        printerId: selectedPrinterId ?? undefined,
+        createdById: isAdmin ? (selectedUserId ?? undefined) : undefined,
+      });
+      await shareBlob(blob, `${filenameBase}.${format}`);
+>>>>>>> origin/develop
     },
     onSuccess: (_data, format) => showToast(`${format.toUpperCase()} export ready to share.`, 'success'),
     onError: (error: Error) => showToast(error.message || 'Unable to export statistics.', 'error'),
   });
 
+<<<<<<< HEAD
   React.useLayoutEffect(() => {
     navigation.setOptions({
       title: 'Statistics',
@@ -273,6 +355,28 @@ export default function StatsScreen() {
       ),
     });
   }, [colors.text, exportMutation, navigation]);
+=======
+  const statsSummaryMutation = useMutation({
+    mutationFn: async () => {
+      const filenameBase = `bambuddy-stats-summary-${range}`;
+      const csv = buildStatsSummaryCsv(
+        statsQuery.data ?? {},
+        archives,
+        range,
+        selectedPrinterId,
+        isAdmin ? selectedUserId : null,
+      );
+      const blobOptions: BlobOptions = {
+        type: 'text/csv',
+        lastModified: Date.now(),
+      };
+      const blob = new Blob([csv], blobOptions);
+      await shareBlob(blob, `${filenameBase}.csv`);
+    },
+    onSuccess: () => showToast('Statistics summary exported.', 'success'),
+    onError: () => showToast('Unable to export statistics summary.', 'error'),
+  });
+>>>>>>> origin/develop
 
   const recalculateCostsMutation = useMutation({
     mutationFn: api.recalculateCosts,
@@ -495,6 +599,35 @@ export default function StatsScreen() {
           onChange={value => setRange(value as RangeKey)}
         />
 
+        {isAdmin && (selectedPrinterId !== null || selectedUserId !== null) && (
+          <View style={styles.activeFilters}>
+            <Text style={[styles.activeFiltersLabel, { color: colors.textSecondary }]}>Active filters:</Text>
+            {selectedPrinterId !== null && (
+              <Pressable
+                style={[styles.filterBadge, { backgroundColor: colors.accentBg, borderColor: `${colors.accent}44` }]}
+                onPress={() => setSelectedPrinterId(null)}
+              >
+                <Text style={[styles.filterBadgeText, { color: colors.accent }]} numberOfLines={1}>
+                  🖨️ {selectedPrinterLabel}
+                </Text>
+              </Pressable>
+            )}
+            {selectedUserId !== null && (
+              <Pressable
+                style={[styles.filterBadge, { backgroundColor: colors.accentBg, borderColor: `${colors.accent}44` }]}
+                onPress={() => setSelectedUserId(null)}
+              >
+                <Text style={[styles.filterBadgeText, { color: colors.accent }]} numberOfLines={1}>
+                  👤 {selectedUserLabel}
+                </Text>
+              </Pressable>
+            )}
+            <Pressable onPress={() => { setSelectedPrinterId(null); setSelectedUserId(null); }} style={styles.clearFiltersBadge}>
+              <Text style={[styles.clearFiltersText, { color: colors.textSecondary }]}>Clear all</Text>
+            </Pressable>
+          </View>
+        )}
+
         <SectionCard title="Filters & export" subtitle="Limit statistics by printer or user, then export the current view.">
           <View style={styles.filterGrid}>
             <Pressable
@@ -525,11 +658,25 @@ export default function StatsScreen() {
               disabled={exportMutation.isPending}
             />
             <PrimaryButton
+              label={exportMutation.isPending ? 'Exporting…' : 'Export Excel'}
+              variant="secondary"
+              onPress={() => void exportMutation.mutateAsync('xlsx')}
+              loading={exportMutation.isPending}
+              disabled={exportMutation.isPending}
+            />
+            <PrimaryButton
               label={exportMutation.isPending ? 'Exporting…' : 'Export JSON'}
               variant="secondary"
               onPress={() => void exportMutation.mutateAsync('json')}
               loading={exportMutation.isPending}
               disabled={exportMutation.isPending}
+            />
+            <PrimaryButton
+              label={statsSummaryMutation.isPending ? 'Exporting…' : 'Export summary'}
+              variant="secondary"
+              onPress={() => void statsSummaryMutation.mutateAsync()}
+              loading={statsSummaryMutation.isPending}
+              disabled={statsSummaryMutation.isPending}
             />
           </View>
           <PrimaryButton
@@ -547,6 +694,59 @@ export default function StatsScreen() {
           <StatCard label="Filament used" value={formatWeight(quickStats.filament)} />
           <StatCard label="Cost" value={formatCurrency(quickStats.cost)} />
         </View>
+
+        {isAdmin && selectedUserId !== null && (
+          <SectionCard
+            title="User details"
+            subtitle={`Per-user breakdown for ${selectedUserLabel}.`}
+          >
+            <View style={[styles.userDetailCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+              <View style={styles.userDetailRow}>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>User ID</Text>
+                <Text style={[styles.userDetailValue, { color: colors.text }]}>{selectedUserId}</Text>
+              </View>
+              <View style={[styles.userDetailDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.userDetailRow}>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>Selected User</Text>
+                <Text style={[styles.userDetailValue, { color: colors.text }]} numberOfLines={2}>{selectedUserLabel}</Text>
+              </View>
+              <View style={[styles.userDetailDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.userDetailRow}>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>Total Prints</Text>
+                <Text style={[styles.userDetailValue, { color: colors.accent }]}>
+                  {String(Math.round(quickStats.totalPrints))}
+                </Text>
+              </View>
+              <View style={[styles.userDetailDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.userDetailRow}>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>Filament Used</Text>
+                <Text style={[styles.userDetailValue, { color: colors.accent }]}>{formatWeight(quickStats.filament)}</Text>
+              </View>
+              <View style={[styles.userDetailDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.userDetailRow}>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>Total Cost</Text>
+                <Text style={[styles.userDetailValue, { color: colors.accent }]}>{formatCurrency(quickStats.cost)}</Text>
+              </View>
+              <View style={[styles.userDetailDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.userDetailRow}>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>Print Time</Text>
+                <Text style={[styles.userDetailValue, { color: colors.accent }]}>{formatDuration(quickStats.printTime)}</Text>
+              </View>
+              <View style={[styles.userDetailDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.userDetailRow}>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>Success Rate</Text>
+                <Text style={[styles.userDetailValue, { color: colors.accent }]}>{formatPercent(quickStats.successRate, 1)}</Text>
+              </View>
+            </View>
+            {usersQuery.isLoading ? (
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Loading user details…</Text>
+            ) : usersQuery.isError ? (
+              <Text style={[styles.emptyText, { color: colors.warning }]}>Unable to load user details.</Text>
+            ) : usersQuery.isSuccess && usersData.length === 0 ? (
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No user data available. Please ensure users exist.</Text>
+            ) : null}
+          </SectionCard>
+        )}
 
         <SectionCard title="Failure Analysis" subtitle="Failure rates by material, printer, time of day, and common reasons.">
           <FailureList title="By material" rows={failureRateByMaterial} colors={colors} formatValue={row => `${formatPercent(row.rate, 0)} • ${row.failures}/${row.total}`} />
@@ -648,7 +848,11 @@ export default function StatsScreen() {
         <SectionCard title="Print habits" subtitle="Which days do you print most?">
           {habitsData.some(d => d.value > 0) ? (
             <SimpleBarChart
+<<<<<<< HEAD
               data={habitsData.map(d => ({ label: d.label, value: d.value, color: colors.accent }))}
+=======
+              data={habitsData.map(d => ({ label: d.label, value: d.value, color: colors.info }))}
+>>>>>>> origin/develop
               height={160}
             />
           ) : (
@@ -818,13 +1022,17 @@ function SelectionModal({
                 </Pressable>
               );
             }}
-            ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+            ItemSeparatorComponent={SelectionItemSeparator}
           />
           <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
         </Pressable>
       </Pressable>
     </Modal>
   );
+}
+
+function SelectionItemSeparator() {
+  return <View style={{ height: spacing.sm }} />;
 }
 
 const styles = StyleSheet.create({
@@ -876,6 +1084,35 @@ const styles = StyleSheet.create({
   filterValue: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
+  },
+  activeFilters: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  activeFiltersLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  filterBadge: {
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  filterBadgeText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  clearFiltersBadge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  clearFiltersText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    textDecorationLine: 'underline',
   },
   grid: {
     flexDirection: 'row',
@@ -982,6 +1219,31 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: fontSize.sm,
     lineHeight: 20,
+  },
+  userDetailCard: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  userDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  userDetailLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  userDetailValue: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    textAlign: 'right',
+  },
+  userDetailDivider: {
+    height: 1,
+    borderRadius: 1,
   },
   modalBackdrop: {
     flex: 1,

@@ -9,6 +9,21 @@ import { useServerStore, wsUrl } from '../api/server';
 import { useToast } from '../contexts/ToastContext';
 
 const WS_CLOSE_UNAUTHORIZED = 4401;
+const MAX_RECONNECT_ATTEMPTS = 15;
+const MAX_PARSE_ERRORS = 5;
+const MAX_TOKEN_MINT_RETRIES = 3;
+
+export interface WebSocketError {
+  timestamp: number;
+  message: string;
+  attempt?: number;
+  code?: number;
+}
+
+export interface UseWebSocketOptions {
+  onReconnect?: (attempt: number) => void;
+  onError?: (error: WebSocketError) => void;
+}
 
 interface WebSocketMessage {
   type: string;
@@ -19,7 +34,7 @@ interface WebSocketMessage {
   run?: { pipeline_id?: number | null };
 }
 
-export function useWebSocket() {
+export function useWebSocket(options?: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
@@ -27,12 +42,23 @@ export function useWebSocket() {
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [isLiveUpdatesAvailable, setIsLiveUpdatesAvailable] = useState(true);
+  const [errors, setErrors] = useState<WebSocketError[]>([]);
   const { showToast } = useToast();
   const serverUrl = useServerStore((s) => s.serverUrl);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
+  // Parse error tracking — close and reconnect after threshold
+  const parseErrorCountRef = useRef(0);
+  // Token mint failure tracking
+  const tokenMintFailuresRef = useRef(0);
+  const tokenMintShutdownRef = useRef(false);
 
   // Debounced invalidation
   const pendingInvalidations = useRef<Set<string>>(new Set());
   const invalidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const debouncedInvalidate = useCallback(
     (queryKey: string) => {
@@ -79,6 +105,23 @@ export function useWebSocket() {
     [queryClient],
   );
 
+  const addError = useCallback(
+    (message: string, attempt?: number, code?: number) => {
+      const error: WebSocketError = {
+        timestamp: Date.now(),
+        message,
+        attempt,
+        code,
+      };
+      setErrors((prev) => {
+        const next = [...prev, error];
+        return next.slice(-50);
+      });
+      optionsRef.current?.onError?.(error);
+    },
+    [],
+  );
+
   const handleMessage = useCallback(
     (message: WebSocketMessage) => {
       switch (message.type) {
@@ -88,11 +131,16 @@ export function useWebSocket() {
           }
           break;
 
-        case 'print_start':
+        case 'print_start': {
           if (message.printer_id !== undefined) {
             queryClient.invalidateQueries({ queryKey: ['printerStatus', message.printer_id] });
           }
+          if (message.printer_name || message.printer_id !== undefined) {
+            const printer = message.printer_name || `Printer ${message.printer_id}`;
+            showToast(`${printer}: Print started`, 'info', 4000);
+          }
           break;
+        }
 
         case 'missing_spool_assignment': {
           const slots = message.missing_slots
@@ -105,10 +153,35 @@ export function useWebSocket() {
           break;
         }
 
-        case 'print_complete':
+        case 'print_complete': {
           debouncedInvalidate('archives');
           debouncedInvalidate('archiveStats');
+          if (message.printer_name || message.printer_id !== undefined) {
+            const printer = message.printer_name || `Printer ${message.printer_id}`;
+            showToast(`${printer}: Print completed`, 'success', 5000);
+          }
           break;
+        }
+
+        case 'print_failed': {
+          if (message.printer_id !== undefined) {
+            queryClient.invalidateQueries({ queryKey: ['printerStatus', message.printer_id] });
+          }
+          const printer = message.printer_name || `Printer ${message.printer_id}`;
+          const extra = message.data?.error_message
+            ? ` — ${String(message.data.error_message)}`
+            : message.data?.hms_errors
+              ? ' — HMS errors detected'
+              : '';
+          showToast(`${printer}: Print failed${extra}`, 'error', 5000);
+          break;
+        }
+
+        case 'printer_offline': {
+          const printer = message.printer_name || `Printer ${message.printer_id}`;
+          showToast(`${printer}: Printer offline`, 'warning', 6000);
+          break;
+        }
 
         case 'archive_created':
         case 'archive_updated':
@@ -160,26 +233,40 @@ export function useWebSocket() {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     let token: string | undefined;
+    let mintSuccess = false;
     try {
       const resp = await api.getWebSocketToken();
       token = resp.token;
+      mintSuccess = true;
     } catch {
-      // Auth-disabled deployments may not support ws-token — connect without
       const authTok = getAuthToken();
-      if (authTok) return; // Auth enabled but token mint failed — don't retry
+      if (authTok) {
+        tokenMintFailuresRef.current += 1;
+        if (tokenMintFailuresRef.current >= MAX_TOKEN_MINT_RETRIES) {
+          tokenMintShutdownRef.current = true;
+          setIsLiveUpdatesAvailable(false);
+          addError('WebSocket: unable to mint auth token — live updates unavailable');
+        }
+        return;
+      }
+      // Auth-disabled deployment — connect without token
+      mintSuccess = true;
     }
 
     if (disposedRef.current) return;
+    if (tokenMintShutdownRef.current && !mintSuccess) return;
 
     const ws = new WebSocket(wsUrl(serverUrl, token));
-
-    let pingInterval: ReturnType<typeof setInterval> | null = null;
 
     ws.onopen = () => {
       setIsConnected(true);
       setIsReconnecting(false);
       reconnectAttemptRef.current = 0;
-      pingInterval = setInterval(() => {
+      parseErrorCountRef.current = 0;
+      setIsLiveUpdatesAvailable(true);
+      tokenMintFailuresRef.current = 0;
+      tokenMintShutdownRef.current = false;
+      pingIntervalRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ping' }));
         }
@@ -187,32 +274,86 @@ export function useWebSocket() {
     };
 
     ws.onmessage = (event) => {
+      let parsed: WebSocketMessage | null = null;
       try {
-        const message: WebSocketMessage = JSON.parse(event.data as string);
-        handleMessageRef.current(message);
-      } catch {
-        // Ignore parse errors
+        parsed = JSON.parse(event.data as string);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown parse error';
+        parseErrorCountRef.current += 1;
+
+        const rawType = (() => {
+          if (event.data != null && typeof event.data === 'string') {
+            const match = event.data.match(/"type"\s*:\s*"([^"]*)"/);
+            return match ? match[1] : (event.data.length > 30 ? `truncated: ${event.data.slice(0, 30)}...` : 'unknown');
+          }
+          return 'unknown';
+        })();
+
+        __DEV__ && console.warn('[WebSocket] Parse error, type:', rawType, 'message:', message);
+
+        addError(`WebSocket message parse error (type: ${rawType}): ${message}`);
+
+        if (parseErrorCountRef.current >= MAX_PARSE_ERRORS) {
+          addError(`WebSocket: ${MAX_PARSE_ERRORS} consecutive parse errors — reconnecting`);
+          wsRef.current?.close();
+        }
+
+        return;
+      }
+
+      if (parsed) {
+        parseErrorCountRef.current = 0;
+        handleMessageRef.current(parsed);
       }
     };
 
+    ws.onerror = () => {
+      const attempt = reconnectAttemptRef.current;
+      addError(`WebSocket error on attempt ${attempt + 1}`, attempt);
+      ws.close();
+    };
+
     ws.onclose = (event) => {
-      if (pingInterval) clearInterval(pingInterval);
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
       setIsConnected(false);
       wsRef.current = null;
 
-      if (disposedRef.current || event.code === WS_CLOSE_UNAUTHORIZED) return;
+      if (disposedRef.current) return;
+
+      if (event.code === WS_CLOSE_UNAUTHORIZED) {
+        addError(`WebSocket closed: unauthorized (code ${event.code})`, undefined, event.code);
+        return;
+      }
+
+      if (event.code !== 1000 && event.code !== 1001) {
+        addError(
+          `WebSocket closed unexpectedly (code ${event.code}, reason: ${event.reason || 'no reason'})`,
+          undefined,
+          event.code,
+        );
+      }
 
       setIsReconnecting(true);
       const attempt = reconnectAttemptRef.current++;
+
+      if (attempt >= MAX_RECONNECT_ATTEMPTS) {
+        addError(`Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
+        setIsReconnecting(false);
+        return;
+      }
+
+      optionsRef.current?.onReconnect?.(attempt);
+
       const baseDelay = Math.min(1000 * Math.pow(2, attempt), 30000);
       const jitter = baseDelay * 0.3 * Math.random();
       reconnectTimeoutRef.current = setTimeout(() => connect(), baseDelay + jitter);
     };
 
-    ws.onerror = () => ws.close();
-
     wsRef.current = ws;
-  }, [serverUrl]);
+  }, [serverUrl, addError]);
 
   // App state handling — disconnect when backgrounded, reconnect when foregrounded
   useEffect(() => {
@@ -241,6 +382,7 @@ export function useWebSocket() {
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (invalidationTimeoutRef.current) clearTimeout(invalidationTimeoutRef.current);
       if (printerStatusTimeoutRef.current) clearTimeout(printerStatusTimeoutRef.current);
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
       wsRef.current?.close();
     };
   }, [connect, serverUrl]);
@@ -251,5 +393,9 @@ export function useWebSocket() {
     }
   }, []);
 
-  return { isConnected, isReconnecting, sendMessage };
+  const clearErrors = useCallback(() => {
+    setErrors([]);
+  }, []);
+
+  return { isConnected, isReconnecting, isLiveUpdatesAvailable, errors, sendMessage, clearErrors };
 }

@@ -2,6 +2,7 @@
 // Pattern: ServerSetup → Login → Main (tabs) + modal screens
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,6 +23,7 @@ import SetupScreen from '@/screens/SetupScreen';
 import NotificationsScreen from '@/screens/NotificationsScreen';
 import InventoryScreen from '@/screens/InventoryScreen';
 import MaintenanceScreen from '@/screens/MaintenanceScreen';
+import Model3DPreviewScreen from '@/screens/Model3DPreviewScreen';
 import MakerWorldScreen from '@/screens/MakerWorldScreen';
 import ProfilesScreen from '@/screens/ProfilesScreen';
 import ProjectsScreen from '@/screens/ProjectsScreen';
@@ -31,8 +33,20 @@ import EnergyScreen from '@/screens/EnergyScreen';
 import SystemScreen from '@/screens/SystemScreen';
 import SpoolBuddyScreen from '@/screens/SpoolBuddyScreen';
 import UsersScreen from '@/screens/UsersScreen';
+<<<<<<< HEAD
 import VirtualPrintersScreen from '@/screens/VirtualPrintersScreen';
 import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
+=======
+import EnergyScreen from '@/screens/EnergyScreen';
+import VirtualPrintersScreen from '@/screens/VirtualPrintersScreen';
+import SpoolBuddyScreen from '@/screens/SpoolBuddyScreen';
+import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
+import FailureAnalysisScreen from '@/screens/FailureAnalysisScreen';
+import WebSocketStatusScreen from '@/screens/WebSocketStatusScreen';
+import TimelapseEditorScreen from '@/screens/TimelapseEditorScreen';
+import PrintLogScreen from '@/screens/PrintLogScreen';
+import SpoolAssignmentHistoryScreen from '@/screens/SpoolAssignmentHistoryScreen';
+>>>>>>> origin/develop
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -41,6 +55,7 @@ export default function RootNavigator() {
   const serverUrl = useServerStore((s) => s.serverUrl);
   const serverLoading = useServerStore((s) => s.loading);
   const theme = useTheme();
+  const locksIPhoneToPortrait = Platform.OS === 'ios' && !Platform.isPad;
 
   // Fetch stream token for thumbnail/camera URLs (must be after auth)
   useStreamToken();
@@ -51,6 +66,7 @@ export default function RootNavigator() {
     headerTitleStyle: { color: theme.colors.text },
     headerBackTitle: 'Back',
     contentStyle: { backgroundColor: theme.colors.background },
+    ...(locksIPhoneToPortrait ? { orientation: 'portrait_up' as const } : {}),
   };
 
   // Still hydrating server URL from storage
@@ -113,7 +129,14 @@ export default function RootNavigator() {
       <Stack.Screen
         name="Camera"
         component={CameraScreen}
-        options={{ title: 'Camera', headerShown: false }}
+        options={{
+          headerShown: false,
+          contentStyle: { backgroundColor: '#000000' },
+          ...(Platform.OS === 'ios'
+            ? { presentation: 'fullScreenModal' as const }
+            : {}),
+          ...(locksIPhoneToPortrait ? { orientation: 'default' as const } : {}),
+        }}
       />
       <Stack.Screen
         name="Scanner"
@@ -186,15 +209,64 @@ export default function RootNavigator() {
         options={{ title: 'Users' }}
       />
       <Stack.Screen
+<<<<<<< HEAD
+=======
+        name="Energy"
+        component={EnergyScreen}
+        options={{ title: 'Energy' }}
+      />
+      <Stack.Screen
+>>>>>>> origin/develop
         name="VirtualPrinters"
         component={VirtualPrintersScreen}
         options={{ title: 'Virtual Printers' }}
       />
       <Stack.Screen
+<<<<<<< HEAD
+=======
+        name="SpoolBuddy"
+        component={SpoolBuddyScreen}
+        options={{ title: 'SpoolBuddy' }}
+      />
+      <Stack.Screen
+>>>>>>> origin/develop
         name="ExternalLinkBrowser"
         component={ExternalLinkBrowserScreen}
         options={{ title: 'External Link' }}
       />
+<<<<<<< HEAD
+=======
+      <Stack.Screen
+        name="Model3DPreview"
+        component={Model3DPreviewScreen}
+        options={{ title: '3D Preview' }}
+      />
+      <Stack.Screen
+        name="FailureAnalysis"
+        component={FailureAnalysisScreen}
+        options={{ title: 'Failure Analysis' }}
+      />
+      <Stack.Screen
+        name="WebSocketStatus"
+        component={WebSocketStatusScreen}
+        options={{ title: 'WebSocket Status' }}
+      />
+      <Stack.Screen
+        name="TimelapseEditor"
+        component={TimelapseEditorScreen}
+        options={{ title: 'Edit Timelapse' }}
+      />
+      <Stack.Screen
+        name="PrintLog"
+        component={PrintLogScreen}
+        options={{ title: 'Print Log' }}
+      />
+      <Stack.Screen
+        name="SpoolAssignmentHistory"
+        component={SpoolAssignmentHistoryScreen}
+        options={{ title: 'Assignment History' }}
+      />
+>>>>>>> origin/develop
     </Stack.Navigator>
   );
 }

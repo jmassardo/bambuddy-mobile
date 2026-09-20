@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 describe('server store', () => {
   beforeEach(() => {
-    useServerStore.setState({ serverUrl: null, loading: true });
+    useServerStore.setState({ serverUrl: null, demoMode: false, loading: true });
     (AsyncStorage.setItem as jest.Mock).mockClear();
     (AsyncStorage.getItem as jest.Mock).mockClear();
     (AsyncStorage.removeItem as jest.Mock).mockClear();
@@ -45,6 +45,28 @@ describe('server store', () => {
       await useServerStore.getState().clearServerUrl();
       expect(useServerStore.getState().serverUrl).toBeNull();
       expect(AsyncStorage.removeItem).toHaveBeenCalledWith('bambuddy-server-url');
+    });
+
+    it('also exits demo mode', async () => {
+      useServerStore.setState({ serverUrl: 'https://bb.example.com', demoMode: true });
+      await useServerStore.getState().clearServerUrl();
+      expect(useServerStore.getState().demoMode).toBe(false);
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('bambuddy-demo-mode');
+    });
+  });
+
+  describe('setDemoMode', () => {
+    it('persists the flag when enabled', async () => {
+      await useServerStore.getState().setDemoMode(true);
+      expect(useServerStore.getState().demoMode).toBe(true);
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith('bambuddy-demo-mode', 'true');
+    });
+
+    it('removes the flag when disabled', async () => {
+      useServerStore.setState({ demoMode: true });
+      await useServerStore.getState().setDemoMode(false);
+      expect(useServerStore.getState().demoMode).toBe(false);
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('bambuddy-demo-mode');
     });
   });
 

@@ -65,6 +65,7 @@ function parseServerUrl(value: string) {
 }
 
 function extractSpoolId(value: string) {
+  // eslint-disable-next-line no-useless-escape -- \/ required to terminate regex literal inside character class
   const spoolMatch = value.match(/spool(?:[_-]?id)?[:=\/]([A-Za-z0-9_-]+)/i);
   return spoolMatch?.[1] ?? null;
 }

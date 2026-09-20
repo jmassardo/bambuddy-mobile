@@ -84,3 +84,7 @@ Gemfile.lock
 # Android release keystore
 android/app/release.keystore
 android/keystore.properties
+
+# Build artifacts
+android/app/src/main/assets/index.android.bundle
+android/app/src/main/res/drawable-*/

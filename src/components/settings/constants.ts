@@ -1,15 +1,26 @@
 import type {
+  KProfile,
+  MQTTStatus,
   SMTPSettings,
   SmartPlug,
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+  StorageLocation,
 } from '@/types/api';
 import { pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import type {
   CameraTokenFormState,
+<<<<<<< HEAD
+=======
+  CustomNavItemFormState,
+>>>>>>> origin/develop
   ExternalCameraFormState,
   ExternalCameraType,
   ExternalLinkFormState,
   GitHubBackupFormState,
+  KProfileFormState,
   LDAPFormState,
+  MqttFormState,
+  NozzleDiameterOption,
   OptionItem,
   ProviderFormState,
   SectionItem,
@@ -17,6 +28,7 @@ import type {
   SmartPlugFormState,
   SmtpSecurity,
   SmartPlugType,
+  StorageLocationFormState,
   VirtualPrinterFormState,
 } from './types';
 import { getNavigationLayout } from '@/navigation/navigationConfig';
@@ -27,8 +39,16 @@ export const SECTION_ITEMS: SectionItem[] = [
   { key: 'notifications', icon: 'bell', title: 'Notifications', description: 'Provider status and shortcuts into user notification settings.' },
   { key: 'queue', icon: 'list-ordered', title: 'Queue', description: 'Default print options, preheat, staggering, and slicer preferences.' },
   { key: 'filament', icon: 'package', title: 'Filament', description: 'Warnings, Spoolman, RFID handling, and forecasting defaults.' },
+<<<<<<< HEAD
   { key: 'network', icon: 'globe', title: 'Network', description: 'External URLs, MQTT, FTP retry, Prometheus, and Home Assistant.' },
   { key: 'navigation', icon: 'menu', title: 'Navigation', description: 'Show or hide pages and control their order across tabs and More.' },
+=======
+  { key: 'kprofiles', icon: 'activity', title: 'K-Profile & Pressure Advance', description: 'Pressure advance calibration data (K, N values), nozzle diameter, and filament mapping.' },
+  { key: 'network', icon: 'globe', title: 'Network', description: 'External URLs, FTP retry, Prometheus, and Home Assistant.' },
+  { key: 'mqtt', icon: 'wifi', title: 'MQTT', description: 'Broker configuration, topic prefix, and connection testing.' },
+  { key: 'navigation', icon: 'menu', title: 'Navigation', description: 'Choose which pages appear and arrange tabs and the More menu.' },
+  { key: 'custom-navigation', icon: 'link', title: 'Custom Navigation', description: 'Add custom external links that appear in your navigation menu.' },
+>>>>>>> origin/develop
   { key: 'apikeys', icon: 'key', title: 'API Keys', description: 'Create and revoke API keys for scripts and integrations.' },
   { key: 'external-cameras', icon: 'camera', title: 'External Cameras', description: 'Configure IP camera streams, test connectivity, and map cameras to printers.' },
   { key: 'virtual-printer', icon: 'printer', title: 'Virtual Printer', description: 'Virtual printer status plus start and stop controls.' },
@@ -36,6 +56,7 @@ export const SECTION_ITEMS: SectionItem[] = [
   { key: 'failure-detection', icon: 'shield', title: 'Failure Detection', description: 'Obico service status and model settings.' },
   { key: 'users', icon: 'users', title: 'Users & Security', description: 'Auth, SMTP, LDAP, OIDC, and 2FA management.' },
   { key: 'backup', icon: 'download', title: 'Backup', description: 'Local backups, exports, GitHub backup status, and recovery.' },
+  { key: 'storage-locations', icon: 'layers', title: 'Storage Locations', description: 'Shelves, drawers, and boxes for organizing filament spools.' },
 ];
 
 export const LANGUAGE_OPTIONS = [
@@ -144,6 +165,17 @@ export const EMPTY_EXTERNAL_LINK_FORM: ExternalLinkFormState = {
   sort_order: '0',
 };
 
+<<<<<<< HEAD
+=======
+export const EMPTY_CUSTOM_NAV_ITEM_FORM: CustomNavItemFormState = {
+  name: '',
+  url: '',
+  icon: 'link',
+  open_in_new_tab: true,
+  sort_order: '0',
+};
+
+>>>>>>> origin/develop
 export const EMPTY_EXTERNAL_CAMERA_FORM: ExternalCameraFormState = {
   name: '',
   stream_url: '',
@@ -192,6 +224,43 @@ export const EMPTY_SMART_PLUG_FORM: SmartPlugFormState = {
   enabled: true,
 };
 
+export const DEFAULT_MQTT_FORM: MqttFormState = {
+  mqtt_broker: '',
+  mqtt_port: 1883,
+  mqtt_username: '',
+  mqtt_password: '',
+  mqtt_topic_prefix: 'bambuddy',
+  mqtt_use_tls: false,
+};
+
+export const NOZZLE_DIAMETER_OPTIONS: ReadonlyArray<OptionItem<NozzleDiameterOption>> = [
+  { key: '0.2', label: '0.2 mm' },
+  { key: '0.4', label: '0.4 mm' },
+  { key: '0.6', label: '0.6 mm' },
+  { key: '0.8', label: '0.8 mm' },
+];
+
+export const EMPTY_K_PROFILE_FORM: KProfileFormState = {
+  slot_id: '0',
+  extruder_id: '0',
+  nozzle_id: '',
+  nozzle_diameter: '0.4',
+  filament_id: '',
+  name: '',
+  k_value: '',
+  n_coef: '',
+  ams_id: '',
+  tray_id: '',
+  setting_id: '',
+};
+
+export const EMPTY_STORAGE_LOCATION_FORM: StorageLocationFormState = {
+  name: '',
+  identifier: '',
+  address: '',
+  notes: '',
+};
+
 export type SectionSummaryQueries = {
   settings?: ApiRecord;
   smartPlugs?: SmartPlug[];
@@ -204,6 +273,10 @@ export type SectionSummaryQueries = {
   obicoStatus?: unknown;
   advancedAuthStatus?: unknown;
   githubBackupStatus?: unknown;
+  mqttStatus?: MQTTStatus;
+  customNavItems?: Array<{ name: string }>;
+  kprofiles?: KProfile[];
+  storageLocations?: Array<{ id: number; name: string }>;
 };
 
 export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
@@ -219,12 +292,27 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
       return pickBoolean(settings, ['preheat_enabled']) ? 'Preheat enabled' : 'Preheat disabled';
     case 'filament':
       return `Low stock ${pickNumber(settings, ['low_stock_threshold'], 20)}%`;
+    case 'kprofiles':
+      return `${(queries.kprofiles ?? []).length} profiles`;
     case 'network':
+<<<<<<< HEAD
       return pickBoolean(settings, ['mqtt_enabled']) ? 'MQTT enabled' : 'MQTT disabled';
     case 'navigation': {
       const layout = getNavigationLayout({ defaultSidebarOrder: pickString(settings, ['default_sidebar_order']) });
       return `${layout.orderedBuiltIns.length} visible • ${layout.hiddenBuiltIns.length} hidden`;
     }
+=======
+      return `External URL set • Prometheus ${pickBoolean(settings, ['prometheus_enabled']) ? 'enabled' : 'disabled'}`;
+    case 'mqtt': {
+      const mqtt = queries.mqttStatus;
+      if (!mqtt) return 'Checking…';
+      return `${mqtt.enabled ? 'Enabled' : 'Disabled'} • ${mqtt.connected ? 'Connected' : 'Disconnected'} • ${mqtt.broker}:${mqtt.port}`;
+    }
+    case 'navigation':
+      return pickString(settings, ['default_sidebar_order']) ? 'Customized' : 'Default order';
+    case 'custom-navigation':
+      return `${(queries.customNavItems ?? []).length} custom links`;
+>>>>>>> origin/develop
     case 'apikeys':
       return `${(queries.apiKeys ?? []).length} keys • ${(queries.cameraTokens ?? []).length} camera tokens`;
     case 'external-cameras':
@@ -239,6 +327,8 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
       return pickBoolean(queries.advancedAuthStatus, ['advanced_auth_enabled']) ? 'Security enabled' : 'Basic auth';
     case 'backup':
       return pickString(queries.githubBackupStatus, ['last_backup_status'], 'No recent backup');
+    case 'storage-locations':
+      return `${(queries.storageLocations ?? []).length} locations`;
     default:
       return '';
   }

@@ -1,10 +1,20 @@
 import type {
   ApiEntity,
+<<<<<<< HEAD
   KProfile,
   KProfileCreate,
+=======
+  CloudAuthStatus,
+  CloudPerProfileSyncResponse,
+  CloudPerProfileSyncState,
+  CloudProfileDetail,
+  CloudProfileDiffResult,
+  CloudProfilesResponse,
+>>>>>>> origin/develop
   KProfilesResponse,
   MakerworldRecentImport,
   MakerworldResolvedModel,
+  SlicerSetting,
   SmartPlug,
   SmartPlugCreate,
   SmartPlugStatus,
@@ -12,10 +22,10 @@ import type {
   SmartPlugUpdate,
   UnifiedPresetsResponse,
 } from '@/types/api';
-import { request } from './http';
+import { request, requestWithFallback } from './http';
 
 export const profilesApi = {
-  getCloudStatus: async () => request<Record<string, unknown>>('/cloud/status'),
+  getCloudStatus: async () => request<CloudAuthStatus>('/cloud/status'),
 
   cloudLogin: async (email: string, password: string, region = 'global') =>
     request<Record<string, unknown>>('/cloud/login', {
@@ -43,7 +53,110 @@ export const profilesApi = {
   cloudLogout: async () =>
     request<Record<string, unknown>>('/cloud/logout', { method: 'POST' }),
 
-  getCloudProfiles: async () => request<Record<string, unknown>[]>('/cloud/settings'),
+  getCloudProfiles: async () =>
+    requestWithFallback<CloudProfilesResponse | SlicerSetting[]>(
+      { endpoint: '/cloud/settings' },
+      { endpoint: '/settings/cloud-profiles/profiles' },
+    ),
+
+  getCloudProfileSyncStatus: async () =>
+    requestWithFallback<Record<string, unknown>>(
+      { endpoint: '/cloud/settings/status' },
+      { endpoint: '/settings/cloud-profiles' },
+    ),
+
+  syncCloudProfiles: async () =>
+    requestWithFallback<Record<string, unknown>>(
+      {
+        endpoint: '/cloud/settings/sync',
+        options: { method: 'POST' },
+      },
+      {
+        endpoint: '/slicer/presets?refresh=true',
+      },
+    ),
+
+  getPerProfileSyncStates: async () =>
+    requestWithFallback<CloudPerProfileSyncResponse>(
+      { endpoint: '/cloud/settings/sync/profiles' },
+      { endpoint: '/settings/cloud-profiles/sync' },
+    ),
+
+  updateCloudProfileSync: async (settingId: string, enabled: boolean) =>
+    requestWithFallback<CloudPerProfileSyncState>(
+      {
+        endpoint: `/cloud/settings/sync/${encodeURIComponent(settingId)}`,
+        options: {
+          method: 'PUT',
+          body: JSON.stringify({ enabled }),
+        },
+      },
+      {
+        endpoint: `/slicer/settings/${encodeURIComponent(settingId)}/sync`,
+        options: {
+          method: 'PUT',
+          body: JSON.stringify({ enabled }),
+        },
+      },
+    ),
+
+  syncSingleCloudProfile: async (settingId: string) =>
+    requestWithFallback<Record<string, unknown>>(
+      {
+        endpoint: `/cloud/settings/sync/${encodeURIComponent(settingId)}`,
+        options: {
+          method: 'POST',
+        },
+      },
+      {
+        endpoint: `/slicer/settings/${encodeURIComponent(settingId)}/sync`,
+        options: {
+          method: 'POST',
+        },
+      },
+    ),
+
+  clearCloudProfileSyncError: async (settingId: string) =>
+    requestWithFallback<CloudPerProfileSyncState>(
+      {
+        endpoint: `/cloud/settings/sync/error/${encodeURIComponent(settingId)}`,
+        options: { method: 'DELETE' },
+      },
+      {
+        endpoint: `/slicer/settings/${encodeURIComponent(settingId)}/sync/error`,
+        options: { method: 'DELETE' },
+      },
+    ),
+
+  getCloudProfileDetail: async (settingId: string) =>
+    requestWithFallback<CloudProfileDetail>(
+      { endpoint: `/cloud/settings/${encodeURIComponent(settingId)}` },
+      { endpoint: `/slicer/settings/${encodeURIComponent(settingId)}` },
+    ),
+
+  compareCloudProfiles: async (leftSettingId: string, rightSettingId: string) =>
+    requestWithFallback<CloudProfileDiffResult>(
+      {
+        endpoint: '/cloud/settings/compare',
+        options: {
+          method: 'POST',
+          body: JSON.stringify({
+            left_setting_id: leftSettingId,
+            right_setting_id: rightSettingId,
+          }),
+        },
+      },
+      {
+        endpoint: '/settings/cloud-profiles/compare',
+        options: {
+          method: 'POST',
+          body: JSON.stringify({
+            left_setting_id: leftSettingId,
+            right_setting_id: rightSettingId,
+          }),
+        },
+      },
+    ),
 
   orcaCloudStartAuth: async (
     provider: 'google' | 'apple' | 'github' = 'google',

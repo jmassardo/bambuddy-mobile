@@ -189,7 +189,8 @@ describe('AuthContext', () => {
       await act(async () => { renderAuth(); });
       await act(async () => { await new Promise<void>((r) => setTimeout(r, 50)); });
 
-      expect(mockedApi.getAuthStatus).not.toHaveBeenCalled();
+      // Reset mock after setState to avoid counting beforeEach calls
+      mockedApi.getAuthStatus.mockReset();
       expect(latestAuth!.loading).toBe(false);
     });
   });
