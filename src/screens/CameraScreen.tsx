@@ -1228,6 +1228,16 @@ export default function CameraScreen() {
   }, [streamError, validPrinterId, cameraUnavailableReason, streamRetry]);
 
   useEffect(() => {
+    if (streamRetry.currentState === 'retrying') {
+      clearStreamTimeout();
+      setStreamError(false);
+      setStreamLoading(true);
+      setStreamSeed(current => Math.max(Date.now(), current + 1));
+      armStreamTimeout();
+    }
+  }, [streamRetry.currentState, clearStreamTimeout, armStreamTimeout]);
+
+  useEffect(() => {
     if (streamRetry.currentState === 'recovered') {
       setStreamError(false);
     }
