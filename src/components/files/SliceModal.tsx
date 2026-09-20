@@ -67,7 +67,7 @@ function ModalShell({
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>{subtitle}</Text>
               </View>
             </View>
-            <Pressable onPress={onClose} style={styles.closeButton}>
+            <Pressable onPress={onClose} style={styles.closeButton} accessibilityLabel="Close" accessibilityRole="button">
               <X size={20} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
@@ -113,8 +113,11 @@ function Switch({ value, onValueChange }: { value: boolean; onValueChange: (v: b
         styles.switchBg,
         { backgroundColor: value ? colors.accent : colors.surfaceElevated, borderWidth: 1, borderColor: value ? colors.accent : colors.border },
       ]}
+      accessibilityLabel={value ? 'Disable' : 'Enable'}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
     >
-      <View style={[styles.switchKnob, { backgroundColor: value ? '#fff' : colors.textSecondary, left: value ? 2 : undefined, right: value ? undefined : 2 }]} />
+      <View style={[styles.switchKnob, { backgroundColor: value ? colors.textInverse : colors.textSecondary, left: value ? 2 : undefined, right: value ? undefined : 2 }]} />
     </Pressable>
   );
 }
@@ -369,7 +372,7 @@ function FilamentSlotPicker({
           <Text style={[styles.filamentSlotName, { color: colors.text }]} numberOfLines={1}>
             {selectedPreset.name}
           </Text>
-          <Pressable onPress={() => onValueChange({ source: 'local', id: '' })} style={styles.filamentSlotRemove}>
+          <Pressable onPress={() => onValueChange({ source: 'local', id: '' })} style={styles.filamentSlotRemove} accessibilityLabel="Remove filament" accessibilityRole="button">
             <X size={14} color={colors.textSecondary} strokeWidth={2} />
           </Pressable>
         </View>

@@ -172,6 +172,8 @@ export default function TimelapseEditorScreen() {
           onPress={() => navigation.goBack()}
           style={styles.headerButton}
           hitSlop={8}
+          accessibilityLabel="Back"
+          accessibilityRole="button"
         >
           <ChevronLeft size={22} color={colors.text} strokeWidth={2.5} />
         </Pressable>

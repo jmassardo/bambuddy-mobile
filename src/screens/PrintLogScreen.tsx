@@ -210,11 +210,11 @@ export default function PrintLogScreen() {
           onChangeText={setSearchQuery}
         />
         {searchQuery ? (
-          <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+          <Pressable onPress={() => setSearchQuery('')} hitSlop={8} accessibilityLabel="Clear search" accessibilityRole="button">
             <X size={16} color={colors.textSecondary} />
           </Pressable>
         ) : null}
-        <Pressable onPress={() => setShowFilters(!showFilters)} hitSlop={8}>
+        <Pressable onPress={() => setShowFilters(!showFilters)} hitSlop={8} accessibilityLabel={showFilters ? 'Hide filters' : 'Show filters'} accessibilityRole="button">
           <Filter size={18} color={showFilters ? colors.accent : colors.textSecondary} />
         </Pressable>
       </View>

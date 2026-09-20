@@ -1,11 +1,13 @@
 import type {
   InventorySpool,
+  InventoryUidLookupResult,
   SpoolAssignment,
   SpoolAssignmentHistoryRecord,
   SpoolKProfile,
   SpoolLabelTemplate,
   SpoolUsageRecord,
 } from '@/types/api';
+import { canonicalizeNfcUid } from '@/utils/nfcUid';
 import { ApiError, request, requestBlob, uploadFile, type UploadableFile } from './http';
 
 interface InventoryLabelTemplateOption {
@@ -285,4 +287,48 @@ export const inventoryApi = {
 
   syncAmsWeights: async (printerId: number) =>
     request<void>(`/inventory/sync-ams/${printerId}`, { method: 'POST' }),
+
+  /**
+   * Match a canonical NFC UID against an inventory spool list.
+   * This is a pure function with no side effects — it does not make API requests.
+   */
+  matchSpoolByUid(
+    spools: InventorySpool[],
+    canonicalUid: string,
+  ): InventorySpool | undefined {
+    return spools.find((spool) => {
+      if (!spool.tag_uid) return false;
+      const result = canonicalizeNfcUid(spool.tag_uid);
+      if (!result.ok) return false;
+      return result.uid === canonicalUid;
+    });
+  },
+
+  /**
+   * Look up a scanned NFC UID against the spool inventory.
+   * Fetches all spools (including archived), matches by tag_uid, and returns
+   * a typed result indicating not_found, found, duplicate_matches, or lookup_error.
+   */
+  lookupSpoolByUid: async (canonicalUid: string): Promise<InventoryUidLookupResult> => {
+    try {
+      const spools = await request<InventorySpool[]>('/inventory/spools?include_archived=true');
+      const match: InventorySpool | undefined = inventoryApi.matchSpoolByUid(spools, canonicalUid);
+      if (!match) {
+        return { kind: 'not_found', uid: canonicalUid };
+      }
+      const matches = spools.filter((spool) => {
+        if (!spool.tag_uid) return false;
+        const result = canonicalizeNfcUid(spool.tag_uid);
+        if (!result.ok) return false;
+        return result.uid === canonicalUid;
+      });
+      if (matches.length > 1) {
+        return { kind: 'duplicate_matches', spools: matches, uid: canonicalUid };
+      }
+      return { kind: 'found', spool: match };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Lookup failed';
+      return { kind: 'lookup_error', uid: canonicalUid, message };
+    }
+  },
 };

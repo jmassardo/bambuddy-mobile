@@ -489,11 +489,11 @@ export default function FailureAnalysisScreen() {
                             </Text>
                             <Text
                               style={[styles.breakdownCount, { color: colors.textSecondary }]}
-                            >
-                              {printer.count} failures
-                            </Text>
-                          </View>
-                          <View style={styles.breakdownBar}>
+                             >
+                               {printer.count} failures
+                             </Text>
+                           </View>
+                           <View style={[styles.breakdownBar, { backgroundColor: colors.surfaceElevated }]}>
                             <View
                               style={[
                                 styles.breakdownBarFill,
@@ -537,11 +537,11 @@ export default function FailureAnalysisScreen() {
                             </Text>
                             <Text
                               style={[styles.breakdownCount, { color: colors.textSecondary }]}
-                            >
-                              {filament.count} failures
-                            </Text>
-                          </View>
-                          <View style={styles.breakdownBar}>
+                             >
+                               {filament.count} failures
+                             </Text>
+                           </View>
+                           <View style={[styles.breakdownBar, { backgroundColor: colors.surfaceElevated }]}>
                             <View
                               style={[
                                 styles.breakdownBarFill,
@@ -745,7 +745,6 @@ const styles = StyleSheet.create({
   breakdownBar: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#2A2D34',
     overflow: 'hidden',
     flex: 1,
   },

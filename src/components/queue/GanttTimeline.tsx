@@ -48,6 +48,7 @@ function getTimeBucket(dateMs: number, bucketMs: number): number {
 function buildTimelineSlots(
   items: PrintQueueItem[],
   now: number,
+  colors: { success: string; error: string; textTertiary: string },
 ): {
   active: TimelineSlot[];
   queued: TimelineSlot[];
@@ -136,7 +137,7 @@ function buildTimelineSlots(
         id: item.id,
         title,
         shortTitle,
-        color: item.status === 'completed' ? '#22c55e' : item.status === 'failed' ? '#ef4444' : '#9ca3af',
+        color: item.status === 'completed' ? colors.success : item.status === 'failed' ? colors.error : colors.textTertiary,
         bgColor: item.status === 'completed' ? 'rgba(34,197,94,0.15)' : item.status === 'failed' ? 'rgba(239,68,68,0.15)' : 'rgba(156,163,175,0.15)',
         progress,
         status: item.status as TimelineSlot['status'],
@@ -386,7 +387,7 @@ export function GanttTimeline({ items }: GanttTimelineProps) {
   const widthRef = useRef(0);
 
   const { active, queued, finished, byPrinter, minTime, maxTime } = useMemo(
-    () => buildTimelineSlots(items, now),
+    () => buildTimelineSlots(items, now, colors),
     [items, now],
   );
 
@@ -407,10 +408,10 @@ export function GanttTimeline({ items }: GanttTimelineProps) {
       {/* Legend */}
       <View style={styles.legendRow}>
         <LegendBar color={colors.statusPrinting} label="Printing" />
-        <LegendBar color="#9ca3af" label="Queued" />
-        <LegendBar color="#22c55e" label="Completed" />
-        <LegendBar color="#ef4444" label="Failed" />
-        <LegendBar color="#9ca3af" label="Cancelled" />
+        <LegendBar color={colors.textTertiary} label="Queued" />
+        <LegendBar color={colors.success} label="Completed" />
+        <LegendBar color={colors.error} label="Failed" />
+        <LegendBar color={colors.textTertiary} label="Cancelled" />
         <View style={[styles.currentTimeBadge, { borderColor: colors.statusPrinting }]}>
           <View style={[styles.currentTimeBadgeDot, { backgroundColor: colors.statusPrinting }]} />
           <Text style={[styles.currentTimeBadgeText, { color: colors.statusPrinting }]}>Now</Text>

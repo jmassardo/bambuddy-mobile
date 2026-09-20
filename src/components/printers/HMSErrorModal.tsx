@@ -126,7 +126,7 @@ export function HMSErrorModal({
                 {printerName}
               </Text>
             </View>
-            <Pressable onPress={onClose} style={styles.closeButton}>
+            <Pressable onPress={onClose} style={styles.closeButton} accessibilityLabel="Close" accessibilityRole="button">
               <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>

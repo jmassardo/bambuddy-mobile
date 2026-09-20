@@ -166,10 +166,10 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
                 <Shield size={14} color={colors.accent} /> Permissions
               </Text>
               <View style={styles.permActions}>
-                <Pressable onPress={selectAll}>
+                <Pressable onPress={selectAll} accessibilityLabel="Select all permissions" accessibilityRole="button">
                   <Text style={[styles.actionLink, { color: colors.accent }]}>All</Text>
                 </Pressable>
-                <Pressable onPress={clearAll}>
+                <Pressable onPress={clearAll} accessibilityLabel="Clear all permissions" accessibilityRole="button">
                   <Text style={[styles.actionLink, { color: colors.textSecondary }]}>None</Text>
                 </Pressable>
               </View>
@@ -187,6 +187,9 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
                   <Pressable
                     onPress={() => toggleCategory(catPermValues, !allSelected)}
                     style={styles.categoryHeader}
+                    accessibilityLabel={`${cat.label}: ${allSelected ? 'All selected' : someSelected ? 'Some selected' : 'None selected'}`}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: allSelected }}
                   >
                     <View style={[
                       styles.checkbox,
@@ -208,6 +211,9 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
                       key={perm.value}
                       onPress={() => togglePermission(perm.value)}
                       style={styles.permRow}
+                      accessibilityRole="switch"
+                      accessibilityLabel={perm.label}
+                      accessibilityState={{ checked: permissions.includes(perm.value) }}
                     >
                       <View style={[
                         styles.checkbox,

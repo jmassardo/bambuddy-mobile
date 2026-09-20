@@ -26,7 +26,12 @@ export function SearchBar({ value, onChangeText, placeholder = 'Search...' }: Se
         returnKeyType="search"
       />
       {value.length > 0 && (
-        <Pressable onPress={() => onChangeText('')} style={styles.clearButton}>
+        <Pressable
+          onPress={() => onChangeText('')}
+          style={styles.clearButton}
+          accessibilityLabel="Clear search"
+          accessibilityRole="button"
+        >
           <X size={14} color={colors.textTertiary} strokeWidth={2} />
         </Pressable>
       )}

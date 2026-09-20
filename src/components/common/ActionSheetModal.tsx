@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useTheme } from '@/theme';
-import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
+import { fontSize, borderRadius, spacing, fontWeight } from '@/theme/tokens';
 
 export interface ActionSheetAction {
   label: string;
@@ -60,6 +60,8 @@ export function ActionSheetModal({
                 styles.closeButton,
                 { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
               ]}
+              accessibilityLabel="Close"
+              accessibilityRole="button"
             >
               <X size={18} color={colors.text} strokeWidth={2} />
             </Pressable>
@@ -79,6 +81,9 @@ export function ActionSheetModal({
                   },
                   (action.disabled || action.loading) && styles.disabledAction,
                 ]}
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
+                accessibilityState={{ disabled: action.disabled || action.loading }}
               >
                 {action.icon ? <View style={styles.rowIcon}>{action.icon}</View> : null}
                 <Text

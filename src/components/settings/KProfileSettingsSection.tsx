@@ -18,11 +18,11 @@ function formatKProfileValue(value: string | number | null | undefined, decimals
   return trimmed || '-';
 }
 
-function formatKProfileRow(label: string, value: string | number | null | undefined): React.ReactNode {
+function formatKProfileRow(label: string, value: string | number | null | undefined, colors: { textSecondary: string; text: string }): React.ReactNode {
   return (
     <View style={settingsStyles.summaryRow}>
-      <Text style={[settingsStyles.summaryLabel, { color: 'rgba(255,255,255,0.55)' }]}>{label}</Text>
-      <Text style={[settingsStyles.summaryValue, { color: '#fff' }]}>{formatKProfileValue(value)}</Text>
+      <Text style={[settingsStyles.summaryLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[settingsStyles.summaryValue, { color: colors.text }]}>{formatKProfileValue(value)}</Text>
     </View>
   );
 }
@@ -100,11 +100,11 @@ export function KProfileSettingsSection({ controller }: { controller: SettingsSc
             </View>
 
             <View style={{ gap: 4, marginTop: 4 }}>
-              {formatKProfileRow('N-coef', profile.n_coef)}
-              {formatKProfileRow('Extruder', profile.extruder_id)}
-              {formatKProfileRow('AMS', profile.ams_id)}
-              {formatKProfileRow('Tray', profile.tray_id)}
-              {profile.setting_id ? formatKProfileRow('Setting', profile.setting_id) : null}
+              {formatKProfileRow('N-coef', profile.n_coef, controller.colors)}
+              {formatKProfileRow('Extruder', profile.extruder_id, controller.colors)}
+              {formatKProfileRow('AMS', profile.ams_id, controller.colors)}
+              {formatKProfileRow('Tray', profile.tray_id, controller.colors)}
+              {profile.setting_id ? formatKProfileRow('Setting', profile.setting_id, controller.colors) : null}
             </View>
 
             <View style={settingsStyles.actions}>
