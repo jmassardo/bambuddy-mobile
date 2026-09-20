@@ -276,8 +276,22 @@ export const filesApi = {
   downloadFileBlob: async (id: number): Promise<Blob> =>
     requestBlob(`/library/files/${id}/download`),
 
-  sliceFile: async (id: number) =>
+  sliceFile: async (
+    id: number,
+    options?: {
+      profile?: string;
+      plate?: string;
+      supports?: boolean;
+      extra?: Record<string, unknown>;
+    },
+  ) =>
     request<Record<string, unknown>>(`/library/files/${id}/slice`, {
       method: 'POST',
+      body: JSON.stringify({
+        profile: options?.profile,
+        plate: options?.plate,
+        supports: options?.supports,
+        ...(options?.extra ?? {}),
+      }),
     }),
 };

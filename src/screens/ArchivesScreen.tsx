@@ -27,6 +27,7 @@ import {
   TextField,
 } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { SliceModal } from '@/components/files/SliceModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { useToast } from '@/contexts/ToastContext';
 import { useArchiveFiltersStore } from '@/store/archiveFiltersStore';
@@ -154,6 +155,9 @@ export default function ArchivesScreen() {
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [purgeDays, setPurgeDays] = useState(90);
   const [purgeStats, setPurgeStats] = useState(false);
+  const [showSliceModal, setShowSliceModal] = useState(false);
+  const [sliceArchiveId, setSliceArchiveId] = useState<number | null>(null);
+  const [sliceArchiveName, setSliceArchiveName] = useState('');
 
   const search = filters.search;
   const statusFilter = filters.statusFilter;
@@ -489,6 +493,11 @@ export default function ArchivesScreen() {
               onQRCode={() => setQrArchive(item)}
               onDelete={() => {
                 deleteMutation.mutate(item.id);
+              }}
+              onSlice={() => {
+                setSliceArchiveId(item.id);
+                setSliceArchiveName(item.print_name || item.filename);
+                setShowSliceModal(true);
               }}
             />
           </View>
@@ -899,9 +908,23 @@ export default function ArchivesScreen() {
         }}
         title="Purge matching archives?"
         message={`This will remove archives older than ${purgeDays} days${purgeStats ? ' and purge their stats' : ''}.`}
-        confirmLabel="Purge"
-        loading={purgeMutation.isPending}
-      />
+         confirmLabel="Purge"
+         loading={purgeMutation.isPending}
+       />
+
+       {sliceArchiveId != null ? (
+         <SliceModal
+           visible={showSliceModal}
+           onClose={() => {
+             setShowSliceModal(false);
+             setSliceArchiveId(null);
+             setSliceArchiveName('');
+           }}
+           sourceType="archive"
+           sourceId={sliceArchiveId}
+           sourceName={sliceArchiveName}
+         />
+       ) : null}
     </View>
   );
 }

@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Camera, CheckCircle, Printer, QrCode, Star, Trash2, Video } from 'lucide-react-native';
+import { Camera, CheckCircle, Printer, QrCode, Star, Trash2, Video, Scissors } from 'lucide-react-native';
 import { api } from '@/api/client';
 import { StatusBadge } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
@@ -24,7 +24,7 @@ import {
 } from '@/utils/data';
 import { Sparkles } from 'lucide-react-native';
 
-type ArchiveActionIconName = 'printer' | 'video' | 'camera' | 'qr-code' | 'trash';
+type ArchiveActionIconName = 'printer' | 'video' | 'camera' | 'qr-code' | 'trash' | 'scissors';
 
 const ARCHIVE_ACTION_ICONS = {
   printer: Printer,
@@ -32,6 +32,7 @@ const ARCHIVE_ACTION_ICONS = {
   camera: Camera,
   'qr-code': QrCode,
   trash: Trash2,
+  scissors: Scissors,
 } satisfies Record<ArchiveActionIconName, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>>;
 
 interface ArchiveCardProps {
@@ -47,6 +48,7 @@ interface ArchiveCardProps {
   onPhotos?: () => void;
   onQRCode?: () => void;
   onDelete?: () => void;
+  onSlice?: () => void;
 }
 
 function statusColor(status: string, colors: ReturnType<typeof useTheme>['colors']) {
@@ -115,6 +117,7 @@ export function ArchiveCard({
   onPhotos,
   onQRCode,
   onDelete,
+  onSlice,
 }: ArchiveCardProps) {
   const { colors } = useTheme();
   const cardStatusColor = statusColor(archive.status, colors);
@@ -330,6 +333,7 @@ export function ArchiveCard({
         <View style={[styles.footer, { borderColor: colors.borderSubtle }]}> 
           <View style={styles.actionsRow}>
             <ArchiveAction label="Reprint" icon="printer" color={colors.accent} onPress={onReprint} />
+            <ArchiveAction label="Slice" icon="scissors" color={colors.highlight} onPress={onSlice} />
             <ArchiveAction label="Time" icon="video" color={colors.info} onPress={onTimelapse} />
             <ArchiveAction label="Photos" icon="camera" color={colors.warning} onPress={onPhotos} />
             <ArchiveAction label="QR" icon="qr-code" color={colors.textSecondary} onPress={onQRCode} />
