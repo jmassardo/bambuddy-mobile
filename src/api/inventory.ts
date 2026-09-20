@@ -1,6 +1,5 @@
 import type {
   InventorySpool,
-  StorageLocation,
   SpoolAssignment,
   SpoolAssignmentHistoryRecord,
   SpoolKProfile,
@@ -15,11 +14,6 @@ interface InventoryLabelTemplateOption {
   label?: string;
   name?: string;
   hint?: string;
-}
-
-interface StorageLocationPayload {
-  name: string;
-  identifier?: string | null;
 }
 
 export const inventoryApi = {
@@ -109,12 +103,8 @@ export const inventoryApi = {
   deleteColorCatalogEntry: async (id: number) =>
     request<void>(`/inventory/colors/${id}`, { method: 'DELETE' }),
 
-  getLocations: async () => request<StorageLocation[]>('/inventory/locations'),
+  getLocations: async () => request<Record<string, unknown>[]>('/inventory/locations'),
 
-<<<<<<< HEAD
-  createLocation: async (data: StorageLocationPayload) =>
-    request<StorageLocation>('/inventory/locations', {
-=======
   createLocation: async (data: {
     name: string;
     identifier?: string | null;
@@ -122,31 +112,26 @@ export const inventoryApi = {
     notes?: string | null;
   }) =>
     request<Record<string, unknown>>('/inventory/locations', {
->>>>>>> origin/develop
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   updateLocation: async (
     id: number,
-<<<<<<< HEAD
-    data: Partial<StorageLocationPayload>,
-=======
     data: {
       name?: string;
       identifier?: string | null;
       address?: string | null;
       notes?: string | null;
     },
->>>>>>> origin/develop
   ) =>
-    request<StorageLocation>(`/inventory/locations/${id}`, {
+    request<Record<string, unknown>>(`/inventory/locations/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
 
   deleteLocation: async (id: number) =>
-    request<void>(`/inventory/locations/${id}`, {
+    request<Record<string, unknown>>(`/inventory/locations/${id}`, {
       method: 'DELETE' },
     ),
 

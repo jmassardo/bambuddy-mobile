@@ -1,13 +1,4 @@
 import React from 'react';
-<<<<<<< HEAD
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
-import { ConfirmModal } from '@/components/common/ConfirmModal';
-import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
-import { PrimaryButton, SectionCard, StatusBadge, TextField } from '@/components/common/AppUI';
-=======
 import {
   Alert,
   Pressable,
@@ -32,15 +23,10 @@ import {
   ErrorState,
   LoadingScreen,
 } from '@/components/common/StateScreens';
->>>>>>> origin/develop
 import { SimpleModal } from '@/components/settings/shared';
 import { useToast } from '@/contexts/ToastContext';
 import type { RootNavigationProp } from '@/navigation/types';
 import { useTheme } from '@/theme';
-<<<<<<< HEAD
-import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
-import { formatDuration, pickBoolean, pickNumber, pickString, statusColor, type ApiRecord } from '@/utils/data';
-=======
 import {
   borderRadius,
   fontSize,
@@ -56,7 +42,6 @@ import {
   type ApiRecord,
 } from '@/utils/data';
 import type { InventorySpool, SpoolBuddySlot, SpoolBuddySlotAssignment, SpoolBuddyUsageRecord, SpoolBuddyUsageSummary } from '@/types/api';
->>>>>>> origin/develop
 
 type CreateDeviceForm = {
   device_id: string;
@@ -75,13 +60,10 @@ type EditDeviceForm = {
   display_blank_timeout: string;
 };
 
-<<<<<<< HEAD
-=======
 type SlotAssignmentForm = {
   spoolId: string;
 };
 
->>>>>>> origin/develop
 const EMPTY_CREATE_FORM: CreateDeviceForm = {
   device_id: '',
   hostname: '',
@@ -99,10 +81,6 @@ const EMPTY_EDIT_FORM: EditDeviceForm = {
   display_blank_timeout: '',
 };
 
-<<<<<<< HEAD
-function describeBattery(device: ApiRecord) {
-  const battery = pickNumber(device, ['battery_percent', 'battery_level', 'system_stats.battery_percent'], -1);
-=======
 const EMPTY_SLOT_FORM: SlotAssignmentForm = {
   spoolId: '',
 };
@@ -115,13 +93,10 @@ function describeBattery(device: ApiRecord) {
     ['battery_percent', 'battery_level', 'system_stats.battery_percent'],
     -1,
   );
->>>>>>> origin/develop
   if (battery < 0) return 'n/a';
   return `${Math.max(0, Math.min(100, Math.round(battery)))}%`;
 }
 
-<<<<<<< HEAD
-=======
 function describeLastSeen(device: ApiRecord) {
   const lastSeen = pickString(device, ['last_seen']);
   if (!lastSeen) return 'never';
@@ -130,7 +105,6 @@ function describeLastSeen(device: ApiRecord) {
   return Number.isNaN(date.getTime()) ? 'never' : date.toLocaleString();
 }
 
->>>>>>> origin/develop
 export default function SpoolBuddyScreen() {
   const navigation = useNavigation<RootNavigationProp<'SpoolBuddy'>>();
   React.useLayoutEffect(() => {
@@ -140,16 +114,6 @@ export default function SpoolBuddyScreen() {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-<<<<<<< HEAD
-  const [createModalVisible, setCreateModalVisible] = React.useState(false);
-  const [editModalVisible, setEditModalVisible] = React.useState(false);
-  const [pendingDeleteDevice, setPendingDeleteDevice] = React.useState<ApiRecord | null>(null);
-  const [editingDevice, setEditingDevice] = React.useState<ApiRecord | null>(null);
-  const [createForm, setCreateForm] = React.useState<CreateDeviceForm>(EMPTY_CREATE_FORM);
-  const [editForm, setEditForm] = React.useState<EditDeviceForm>(EMPTY_EDIT_FORM);
-
-  const spoolbuddyQuery = useQuery({ queryKey: ['spoolbuddyDevices'], queryFn: api.getSpoolBuddyDevices });
-=======
   const [activeTab, setActiveTab] = React.useState<TabKey>('devices');
   const [createModalVisible, setCreateModalVisible] = React.useState(false);
   const [editModalVisible, setEditModalVisible] = React.useState(false);
@@ -208,7 +172,6 @@ export default function SpoolBuddyScreen() {
         : null,
     enabled: selectedDeviceId != null,
   });
->>>>>>> origin/develop
 
   const closeCreateModal = React.useCallback(() => {
     setCreateModalVisible(false);
@@ -221,21 +184,16 @@ export default function SpoolBuddyScreen() {
     setEditForm(EMPTY_EDIT_FORM);
   }, []);
 
-<<<<<<< HEAD
-=======
   const closeAssignModal = React.useCallback(() => {
     setAssignModalVisible(false);
     setSelectedSlot(null);
     setSlotForm(EMPTY_SLOT_FORM);
   }, []);
 
->>>>>>> origin/develop
   const invalidateDevices = React.useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['spoolbuddyDevices'] });
   }, [queryClient]);
 
-<<<<<<< HEAD
-=======
   const invalidateSlots = React.useCallback(async (deviceId?: string) => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['spoolbuddySlots'] }),
@@ -257,7 +215,6 @@ export default function SpoolBuddyScreen() {
     await queryClient.invalidateQueries({ queryKey: ['inventorySpools'] });
   }, [queryClient]);
 
->>>>>>> origin/develop
   const createSpoolBuddyMutation = useMutation({
     mutationFn: () =>
       api.createSpoolBuddyDevice({
@@ -272,15 +229,11 @@ export default function SpoolBuddyScreen() {
       closeCreateModal();
       showToast('SpoolBuddy device added.', 'success');
     },
-<<<<<<< HEAD
-    onError: (error: Error) => showToast(error.message || 'Unable to add SpoolBuddy device.', 'error'),
-=======
     onError: (error: Error) =>
       showToast(
         error.message || 'Unable to add SpoolBuddy device.',
         'error',
       ),
->>>>>>> origin/develop
   });
 
   const updateSpoolBuddyMutation = useMutation({
@@ -293,17 +246,12 @@ export default function SpoolBuddyScreen() {
         ip_address: editForm.ip_address.trim() || null,
         backend_url: editForm.backend_url.trim() || null,
         api_key: editForm.api_key.trim() || null,
-<<<<<<< HEAD
-        display_brightness: Number.isFinite(brightness) ? brightness : undefined,
-        display_blank_timeout: Number.isFinite(blankTimeout) ? blankTimeout : undefined,
-=======
         display_brightness: Number.isFinite(brightness)
           ? brightness
           : undefined,
         display_blank_timeout: Number.isFinite(blankTimeout)
           ? blankTimeout
           : undefined,
->>>>>>> origin/develop
       });
     },
     onSuccess: async () => {
@@ -311,13 +259,6 @@ export default function SpoolBuddyScreen() {
       closeEditModal();
       showToast('SpoolBuddy settings updated.', 'success');
     },
-<<<<<<< HEAD
-    onError: (error: Error) => showToast(error.message || 'Unable to update SpoolBuddy settings.', 'error'),
-  });
-
-  const deleteSpoolBuddyMutation = useMutation({
-    mutationFn: async (deviceId: string) => api.deleteSpoolBuddyDevice(deviceId),
-=======
     onError: (error: Error) =>
       showToast(
         error.message || 'Unable to update SpoolBuddy settings.',
@@ -327,19 +268,11 @@ export default function SpoolBuddyScreen() {
 
   const deleteSpoolBuddyMutation = useMutation({
     mutationFn: (deviceId: string) => api.deleteSpoolBuddyDevice(deviceId),
->>>>>>> origin/develop
     onSuccess: async () => {
       await invalidateDevices();
       setPendingDeleteDevice(null);
       showToast('SpoolBuddy device removed.', 'success');
     },
-<<<<<<< HEAD
-    onError: (error: Error) => showToast(error.message || 'Unable to remove SpoolBuddy device.', 'error'),
-  });
-
-  const calibrateSpoolBuddyMutation = useMutation({
-    mutationFn: async (deviceId: string) => api.calibrateSpoolBuddy(deviceId),
-=======
     onError: (error: Error) =>
       showToast(
         error.message || 'Unable to remove SpoolBuddy device.',
@@ -349,14 +282,10 @@ export default function SpoolBuddyScreen() {
 
   const calibrateSpoolBuddyMutation = useMutation({
     mutationFn: (deviceId: string) => api.calibrateSpoolBuddy(deviceId),
->>>>>>> origin/develop
     onSuccess: async () => {
       await invalidateDevices();
       showToast('Calibration command sent.', 'success');
     },
-<<<<<<< HEAD
-    onError: (error: Error) => showToast(error.message || 'Unable to calibrate SpoolBuddy device.', 'error'),
-=======
     onError: (error: Error) =>
       showToast(
         error.message || 'Unable to calibrate SpoolBuddy device.',
@@ -422,7 +351,6 @@ export default function SpoolBuddyScreen() {
     },
     onError: (error: Error) =>
       showToast(error.message || 'Unable to unassign spool.', 'error'),
->>>>>>> origin/develop
   });
 
   const openEditModal = React.useCallback((device: ApiRecord) => {
@@ -432,17 +360,12 @@ export default function SpoolBuddyScreen() {
       ip_address: pickString(device, ['ip_address']),
       backend_url: pickString(device, ['backend_url']),
       api_key: '',
-<<<<<<< HEAD
-      display_brightness: String(pickNumber(device, ['display_brightness'], 0)),
-      display_blank_timeout: String(pickNumber(device, ['display_blank_timeout'], 0)),
-=======
       display_brightness: String(
         pickNumber(device, ['display_brightness'], 0),
       ),
       display_blank_timeout: String(
         pickNumber(device, ['display_blank_timeout'], 0),
       ),
->>>>>>> origin/develop
     });
     setEditModalVisible(true);
   }, []);
@@ -452,11 +375,7 @@ export default function SpoolBuddyScreen() {
       showToast('Device ID is required.', 'error');
       return;
     }
-<<<<<<< HEAD
-    void createSpoolBuddyMutation.mutateAsync();
-=======
     createSpoolBuddyMutation.mutate();
->>>>>>> origin/develop
   }, [createForm.device_id, createSpoolBuddyMutation, showToast]);
 
   const handleSaveDevice = React.useCallback(() => {
@@ -464,12 +383,6 @@ export default function SpoolBuddyScreen() {
       showToast('No SpoolBuddy device selected.', 'error');
       return;
     }
-<<<<<<< HEAD
-    void updateSpoolBuddyMutation.mutateAsync();
-  }, [editingDevice, showToast, updateSpoolBuddyMutation]);
-
-  const devices = (spoolbuddyQuery.data ?? []) as ApiRecord[];
-=======
     updateSpoolBuddyMutation.mutate();
   }, [editingDevice, showToast, updateSpoolBuddyMutation]);
 
@@ -501,103 +414,22 @@ export default function SpoolBuddyScreen() {
     { key: 'slots', label: 'Slots' },
     { key: 'usage', label: 'Usage' },
   ];
->>>>>>> origin/develop
 
   if (spoolbuddyQuery.isLoading) {
     return <LoadingScreen message="Loading SpoolBuddy devices…" />;
   }
 
   if (spoolbuddyQuery.isError) {
-<<<<<<< HEAD
-    return <ErrorState message="Unable to load SpoolBuddy devices." onRetry={() => void spoolbuddyQuery.refetch()} />;
-=======
     return (
       <ErrorState
         message="Unable to load SpoolBuddy devices."
         onRetry={() => void spoolbuddyQuery.refetch()}
       />
     );
->>>>>>> origin/develop
   }
 
   return (
     <>
-<<<<<<< HEAD
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl
-            refreshing={spoolbuddyQuery.isRefetching}
-            onRefresh={() => void spoolbuddyQuery.refetch()}
-            tintColor={colors.accent}
-          />
-        }
-      >
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>SpoolBuddy</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Manage connected devices, status, and per-device settings.</Text>
-        </View>
-
-        <SectionCard title="Devices" subtitle="Connected state, firmware, battery, sensors, and configuration actions.">
-          <PrimaryButton label="Add device" variant="secondary" onPress={() => setCreateModalVisible(true)} />
-          {devices.length > 0 ? (
-            devices.map(device => {
-              const deviceId = pickString(device, ['device_id', 'id']);
-              const online = pickBoolean(device, ['online']);
-              return (
-                <View key={deviceId} style={[styles.deviceCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-                  <View style={styles.deviceHeader}>
-                    <View style={styles.deviceText}>
-                      <Text style={[styles.deviceTitle, { color: colors.text }]}>{pickString(device, ['hostname', 'device_id'], 'SpoolBuddy')}</Text>
-                      <Text style={[styles.deviceMeta, { color: colors.textSecondary }]}>ID: {deviceId}</Text>
-                    </View>
-                    <StatusBadge
-                      label={online ? 'online' : 'offline'}
-                      color={statusColor(online ? 'success' : 'offline', colors)}
-                    />
-                  </View>
-                  <View style={styles.metricsRow}>
-                    <InfoChip label="Battery" value={describeBattery(device)} colors={colors} />
-                    <InfoChip label="Firmware" value={pickString(device, ['firmware_version'], 'n/a')} colors={colors} />
-                  </View>
-                  <Text style={[styles.deviceMeta, { color: colors.textSecondary }]}>
-                    NFC: {pickBoolean(device, ['has_nfc']) ? 'yes' : 'no'} ({pickBoolean(device, ['nfc_ok']) ? 'ok' : 'error'}) • Scale: {pickBoolean(device, ['has_scale']) ? 'yes' : 'no'} ({pickBoolean(device, ['scale_ok']) ? 'ok' : 'error'})
-                  </Text>
-                  <Text style={[styles.deviceMeta, { color: colors.textSecondary }]}>
-                    Last seen: {pickString(device, ['last_seen'], 'unknown')} • Uptime: {formatDuration(pickNumber(device, ['uptime_s'], 0))}
-                  </Text>
-                  <Text style={[styles.deviceMeta, { color: colors.textSecondary }]}>Server URL: {pickString(device, ['backend_url'], 'Not configured')}</Text>
-
-                  <View style={styles.actionsRow}>
-                    <PrimaryButton
-                      label="Configure"
-                      variant="secondary"
-                      onPress={() => openEditModal(device)}
-                    />
-                    <PrimaryButton
-                      label="Calibrate"
-                      variant="secondary"
-                      onPress={() => void calibrateSpoolBuddyMutation.mutateAsync(deviceId)}
-                      loading={calibrateSpoolBuddyMutation.isPending}
-                      disabled={calibrateSpoolBuddyMutation.isPending}
-                    />
-                    <PrimaryButton
-                      label="Remove"
-                      variant="danger"
-                      onPress={() => setPendingDeleteDevice(device)}
-                    />
-                  </View>
-                </View>
-              );
-            })
-          ) : (
-            <EmptyState icon="📡" title="No SpoolBuddy devices found" message="Register a device to start managing status and settings from mobile." />
-          )}
-        </SectionCard>
-      </ScrollView>
-
-=======
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.tabBar}>
           {tabs.map(tab => (
@@ -728,7 +560,6 @@ export default function SpoolBuddyScreen() {
       </View>
 
       {/* Create device modal */}
->>>>>>> origin/develop
       <SimpleModal
         visible={createModalVisible}
         title="Add SpoolBuddy device"
@@ -736,17 +567,6 @@ export default function SpoolBuddyScreen() {
         onClose={closeCreateModal}
       >
         <ScrollView contentContainerStyle={styles.modalBody}>
-<<<<<<< HEAD
-          <TextField label="Device ID" value={createForm.device_id} onChangeText={value => setCreateForm(current => ({ ...current, device_id: value }))} autoCapitalize="none" />
-          <TextField label="Hostname" value={createForm.hostname} onChangeText={value => setCreateForm(current => ({ ...current, hostname: value }))} />
-          <TextField label="IP address" value={createForm.ip_address} onChangeText={value => setCreateForm(current => ({ ...current, ip_address: value }))} autoCapitalize="none" />
-          <TextField label="Server URL" value={createForm.backend_url} onChangeText={value => setCreateForm(current => ({ ...current, backend_url: value }))} autoCapitalize="none" />
-          <TextField label="API key" value={createForm.api_key} onChangeText={value => setCreateForm(current => ({ ...current, api_key: value }))} autoCapitalize="none" secureTextEntry />
-          <View style={styles.modalFooter}>
-            <PrimaryButton label="Cancel" variant="secondary" onPress={closeCreateModal} />
-            <PrimaryButton
-              label={createSpoolBuddyMutation.isPending ? 'Adding…' : 'Add device'}
-=======
           <TextField
             label="Device ID"
             value={createForm.device_id}
@@ -799,7 +619,6 @@ export default function SpoolBuddyScreen() {
                   ? 'Adding…'
                   : 'Add device'
               }
->>>>>>> origin/develop
               onPress={handleCreateDevice}
               loading={createSpoolBuddyMutation.isPending}
               disabled={createSpoolBuddyMutation.isPending}
@@ -808,10 +627,7 @@ export default function SpoolBuddyScreen() {
         </ScrollView>
       </SimpleModal>
 
-<<<<<<< HEAD
-=======
       {/* Edit device modal */}
->>>>>>> origin/develop
       <SimpleModal
         visible={editModalVisible}
         title="Configure SpoolBuddy"
@@ -819,16 +635,6 @@ export default function SpoolBuddyScreen() {
         onClose={closeEditModal}
       >
         <ScrollView contentContainerStyle={styles.modalBody}>
-<<<<<<< HEAD
-          <TextField label="Hostname" value={editForm.hostname} onChangeText={value => setEditForm(current => ({ ...current, hostname: value }))} />
-          <TextField label="IP address" value={editForm.ip_address} onChangeText={value => setEditForm(current => ({ ...current, ip_address: value }))} autoCapitalize="none" />
-          <TextField label="Server URL" value={editForm.backend_url} onChangeText={value => setEditForm(current => ({ ...current, backend_url: value }))} autoCapitalize="none" />
-          <TextField label="API key (optional)" value={editForm.api_key} onChangeText={value => setEditForm(current => ({ ...current, api_key: value }))} autoCapitalize="none" secureTextEntry />
-          <TextField label="Display brightness" value={editForm.display_brightness} onChangeText={value => setEditForm(current => ({ ...current, display_brightness: value }))} keyboardType="number-pad" />
-          <TextField label="Display blank timeout (s)" value={editForm.display_blank_timeout} onChangeText={value => setEditForm(current => ({ ...current, display_blank_timeout: value }))} keyboardType="number-pad" />
-          <View style={styles.modalFooter}>
-            <PrimaryButton label="Cancel" variant="secondary" onPress={closeEditModal} />
-=======
           <TextField
             label="Hostname"
             value={editForm.hostname}
@@ -889,7 +695,6 @@ export default function SpoolBuddyScreen() {
               variant="secondary"
               onPress={closeEditModal}
             />
->>>>>>> origin/develop
             <PrimaryButton
               label={updateSpoolBuddyMutation.isPending ? 'Saving…' : 'Save'}
               onPress={handleSaveDevice}
@@ -900,15 +705,6 @@ export default function SpoolBuddyScreen() {
         </ScrollView>
       </SimpleModal>
 
-<<<<<<< HEAD
-      <ConfirmModal
-        visible={pendingDeleteDevice !== null}
-        title="Remove SpoolBuddy device"
-        message={pendingDeleteDevice ? `Remove ${pickString(pendingDeleteDevice, ['hostname', 'device_id'], 'this device')}?` : 'Remove this device?'}
-        confirmLabel="Remove"
-        onClose={() => setPendingDeleteDevice(null)}
-        onConfirm={() => pendingDeleteDevice && void deleteSpoolBuddyMutation.mutateAsync(pickString(pendingDeleteDevice, ['device_id', 'id']))}
-=======
       {/* Assign spool to slot modal */}
       <SimpleModal
         visible={assignModalVisible}
@@ -1007,15 +803,12 @@ export default function SpoolBuddyScreen() {
             );
           }
         }}
->>>>>>> origin/develop
         loading={deleteSpoolBuddyMutation.isPending}
       />
     </>
   );
 }
 
-<<<<<<< HEAD
-=======
 function renderDevicesSection({
   devices,
   colors,
@@ -1930,7 +1723,6 @@ function renderUsageSection({
   );
 }
 
->>>>>>> origin/develop
 function InfoChip({
   label,
   value,
@@ -1941,11 +1733,6 @@ function InfoChip({
   colors: ReturnType<typeof useTheme>['colors'];
 }) {
   return (
-<<<<<<< HEAD
-    <View style={[styles.infoChip, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-      <Text style={[styles.infoChipLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.infoChipValue, { color: colors.text }]}>{value}</Text>
-=======
     <View
       style={[
         styles.infoChip,
@@ -1958,15 +1745,12 @@ function InfoChip({
       <Text style={[styles.infoChipValue, { color: colors.text }]}>
         {value}
       </Text>
->>>>>>> origin/develop
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-<<<<<<< HEAD
-=======
   tabBar: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
@@ -1990,7 +1774,6 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
   },
   scrollView: { flex: 1 },
->>>>>>> origin/develop
   content: {
     padding: spacing.lg,
     gap: spacing.lg,
@@ -2030,13 +1813,10 @@ const styles = StyleSheet.create({
   deviceMeta: {
     fontSize: fontSize.sm,
   },
-<<<<<<< HEAD
-=======
   deviceAction: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
   },
->>>>>>> origin/develop
   metricsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -2070,8 +1850,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
-<<<<<<< HEAD
-=======
   slotCard: {
     borderWidth: 1,
     borderRadius: borderRadius.lg,
@@ -2196,5 +1974,4 @@ const styles = StyleSheet.create({
   clickable: {
     flex: 1,
   },
->>>>>>> origin/develop
 });

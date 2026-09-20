@@ -4,11 +4,6 @@ import type {
   InventorySpool,
   LinkedSpoolsMap,
   ObicoStatus,
-<<<<<<< HEAD
-  SpoolBuddyDeviceCreateRequest,
-  SpoolBuddyDevice,
-  SpoolBuddyDeviceUpdateRequest,
-=======
   SpoolmanConfig,
   SpoolmanSyncResult,
   SpoolmanSyncStatus,
@@ -22,7 +17,6 @@ import type {
   SpoolBuddySlotUpdateRequest,
   SpoolBuddySlotAssignRequest,
   SpoolBuddyUsageSummary,
->>>>>>> origin/develop
   SpoolmanStatus,
   StorageUsageResponse,
   SystemHealthResult,

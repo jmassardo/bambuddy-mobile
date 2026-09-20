@@ -11,7 +11,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Download } from 'lucide-react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { SimpleBarChart } from '@/components/common/Charts';
@@ -21,7 +20,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
-import { rowsToCsv } from '@/utils/csv';
 import { shareBlob } from '@/utils/share';
 import {
   formatCurrency,
@@ -42,38 +40,6 @@ type SelectorOption = {
   label: string;
   value: number | null;
 };
-
-export function buildStatsQueryParams({
-  baseParams,
-  selectedPrinterId,
-  selectedUserId,
-  isAdmin,
-}: {
-  baseParams: { dateFrom?: string; dateTo?: string };
-  selectedPrinterId: number | null;
-  selectedUserId: number | null;
-  isAdmin: boolean;
-}) {
-  return {
-    ...baseParams,
-    ...(selectedPrinterId ? { printerId: selectedPrinterId } : {}),
-    ...(isAdmin && selectedUserId !== null ? { createdById: selectedUserId } : {}),
-  };
-}
-
-export function buildStatsExportFilenameBase({
-  range,
-  selectedPrinterId,
-  selectedUserId,
-  isAdmin,
-}: {
-  range: RangeKey;
-  selectedPrinterId: number | null;
-  selectedUserId: number | null;
-  isAdmin: boolean;
-}) {
-  return `bambuddy-stats-${range}${selectedPrinterId ? `-printer-${selectedPrinterId}` : ''}${isAdmin && selectedUserId !== null ? `-user-${selectedUserId}` : ''}`;
-}
 
 function getRangeParams(range: RangeKey) {
   const now = new Date();
@@ -152,8 +118,6 @@ function timeBucket(item: ApiRecord) {
   return 'Evening';
 }
 
-<<<<<<< HEAD
-=======
 function getRangeDays(range: RangeKey) {
   if (range === 'all') return undefined;
   if (range === 'today') return 1;
@@ -181,7 +145,6 @@ function toCsvSummary(rows: Array<{ metric: string; value: string }>) {
   ].join('\n');
 }
 
->>>>>>> origin/develop
 function buildFailureRates(items: ApiRecord[], keyFn: (item: ApiRecord) => string) {
   const rows = new Map<string, { label: string; total: number; failures: number; rate: number }>();
   items.forEach(item => {
@@ -195,30 +158,18 @@ function buildFailureRates(items: ApiRecord[], keyFn: (item: ApiRecord) => strin
   return Array.from(rows.values()).sort((a, b) => b.rate - a.rate || b.failures - a.failures).slice(0, 6);
 }
 
-<<<<<<< HEAD
-function statsExportRows(items: ApiRecord[]) {
-  return items.map(item => ({
-    print_name: pickString(item, ['print_name', 'filename', 'archive_name']),
-    duration_seconds: pickNumber(item, ['actual_time_seconds', 'print_time_seconds', 'duration_seconds'], 0),
-    filament_used_grams: pickNumber(item, ['filament_used_grams', 'filament_used_g'], 0),
-    cost: pickNumber(item, ['cost', 'total_cost'], 0),
-    status: pickString(item, ['status']),
-    date: pickString(item, ['completed_at', 'started_at', 'created_at']),
-    printer: pickString(item, ['printer_name', 'printer']),
-    user: pickString(item, ['created_by_username', 'username', 'user_name']),
-    archive_id: pickNumber(item, ['id', 'archive_id'], 0),
-  }));
-=======
 function isValidUserFilter(userId: number | null, isAdminFilter: boolean, usersLoaded: boolean, users: ApiRecord[]) {
   if (userId === null) return true;
   if (!isAdminFilter) return false;
   if (!usersLoaded) return true;
   return users.some(user => pickNumber(user, ['id']) === userId);
->>>>>>> origin/develop
 }
 
 export default function StatsScreen() {
   const navigation = useNavigation<RootNavigationProp<'Stats'>>();
+  React.useLayoutEffect(() => {
+    navigation.setOptions({ title: 'Statistics' });
+  }, [navigation]);
 
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -230,16 +181,11 @@ export default function StatsScreen() {
   const [userFilterValidated, setUserFilterValidated] = useState(true);
 
   const params = getRangeParams(range);
-  const queryParams = useMemo(
-    () =>
-      buildStatsQueryParams({
-        baseParams: params,
-        selectedPrinterId,
-        selectedUserId,
-        isAdmin,
-      }),
-    [isAdmin, params, selectedPrinterId, selectedUserId],
-  );
+  const queryParams = useMemo(() => ({
+    ...params,
+    ...(selectedPrinterId ? { printerId: selectedPrinterId } : {}),
+    ...(isAdmin && selectedUserId !== null ? { createdById: selectedUserId } : {}),
+  }), [isAdmin, params, selectedPrinterId, selectedUserId]);
 
   const statsQuery = useQuery({
     queryKey: ['archiveStats', queryParams],
@@ -294,18 +240,8 @@ export default function StatsScreen() {
   };
 
   const exportMutation = useMutation({
-<<<<<<< HEAD
-    mutationFn: async (format: 'csv' | 'json') => {
-      const filenameBase = buildStatsExportFilenameBase({
-        range,
-        selectedPrinterId,
-        selectedUserId,
-        isAdmin,
-      });
-=======
     mutationFn: async (format: 'csv' | 'xlsx' | 'json') => {
       const filenameBase = `bambuddy-stats-${range}${selectedPrinterId ? `-printer-${selectedPrinterId}` : ''}${selectedUserId !== null ? `-user-${selectedUserId}` : ''}`;
->>>>>>> origin/develop
       if (format === 'json') {
         const blobOptions: BlobOptions = {
           type: 'application/json',
@@ -315,15 +251,6 @@ export default function StatsScreen() {
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
-<<<<<<< HEAD
-      const csv = rowsToCsv(statsExportRows(archives));
-      const blobOptions: BlobOptions = {
-        type: 'text/csv',
-        lastModified: Date.now(),
-      };
-      const blob = new Blob([csv], blobOptions);
-      await shareBlob(blob, `${filenameBase}.csv`);
-=======
       const blob = await api.exportArchiveStats({
         format,
         days: getRangeDays(range),
@@ -333,29 +260,11 @@ export default function StatsScreen() {
         createdById: isAdmin ? (selectedUserId ?? undefined) : undefined,
       });
       await shareBlob(blob, `${filenameBase}.${format}`);
->>>>>>> origin/develop
     },
     onSuccess: (_data, format) => showToast(`${format.toUpperCase()} export ready to share.`, 'success'),
     onError: (error: Error) => showToast(error.message || 'Unable to export statistics.', 'error'),
   });
 
-<<<<<<< HEAD
-  React.useLayoutEffect(() => {
-    navigation.setOptions({
-      title: 'Statistics',
-      headerRight: () => (
-        <Pressable
-          onPress={() => void exportMutation.mutateAsync('csv')}
-          style={styles.headerButton}
-          hitSlop={8}
-          disabled={exportMutation.isPending}
-        >
-          <Download size={18} color={colors.text} strokeWidth={2} />
-        </Pressable>
-      ),
-    });
-  }, [colors.text, exportMutation, navigation]);
-=======
   const statsSummaryMutation = useMutation({
     mutationFn: async () => {
       const filenameBase = `bambuddy-stats-summary-${range}`;
@@ -376,7 +285,6 @@ export default function StatsScreen() {
     onSuccess: () => showToast('Statistics summary exported.', 'success'),
     onError: () => showToast('Unable to export statistics summary.', 'error'),
   });
->>>>>>> origin/develop
 
   const recalculateCostsMutation = useMutation({
     mutationFn: api.recalculateCosts,
@@ -407,8 +315,7 @@ export default function StatsScreen() {
   const userOptions = useMemo<SelectorOption[]>(() => {
     const options: SelectorOption[] = [{ key: 'all', label: 'All users', value: null }];
     ((usersQuery.data ?? []) as ApiRecord[]).forEach(row => {
-      const id = pickNumber(row, ['id'], Number.NaN);
-      if (!Number.isFinite(id) || id <= 0) return;
+      const id = pickNumber(row, ['id']);
       options.push({
         key: String(id),
         label: pickString(row, ['full_name', 'username', 'email'], `User ${id}`),
@@ -630,20 +537,12 @@ export default function StatsScreen() {
 
         <SectionCard title="Filters & export" subtitle="Limit statistics by printer or user, then export the current view.">
           <View style={styles.filterGrid}>
-            <Pressable
-              testID="stats-printer-filter"
-              style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-              onPress={() => setSelector('printer')}
-            >
+            <Pressable style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setSelector('printer')}>
               <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Printer</Text>
               <Text style={[styles.filterValue, { color: colors.text }]} numberOfLines={1}>{selectedPrinterLabel}</Text>
             </Pressable>
             {isAdmin ? (
-              <Pressable
-                testID="stats-user-filter"
-                style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-                onPress={() => setSelector('user')}
-              >
+              <Pressable style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setSelector('user')}>
                 <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>User</Text>
                 <Text style={[styles.filterValue, { color: colors.text }]} numberOfLines={1}>{selectedUserLabel}</Text>
               </Pressable>
@@ -848,11 +747,7 @@ export default function StatsScreen() {
         <SectionCard title="Print habits" subtitle="Which days do you print most?">
           {habitsData.some(d => d.value > 0) ? (
             <SimpleBarChart
-<<<<<<< HEAD
-              data={habitsData.map(d => ({ label: d.label, value: d.value, color: colors.accent }))}
-=======
               data={habitsData.map(d => ({ label: d.label, value: d.value, color: colors.info }))}
->>>>>>> origin/develop
               height={160}
             />
           ) : (
@@ -876,7 +771,6 @@ export default function StatsScreen() {
         visible={selector === 'printer'}
         title="Select printer"
         options={printerOptions}
-        testIDPrefix="stats-printer"
         selectedValue={selectedPrinterId}
         onClose={() => setSelector(null)}
         onSelect={value => {
@@ -889,7 +783,6 @@ export default function StatsScreen() {
         visible={selector === 'user'}
         title="Select user"
         options={userOptions}
-        testIDPrefix="stats-user"
         selectedValue={selectedUserId}
         onClose={() => setSelector(null)}
         onSelect={value => {
@@ -981,7 +874,6 @@ function SelectionModal({
   visible,
   title,
   options,
-  testIDPrefix,
   selectedValue,
   onClose,
   onSelect,
@@ -989,7 +881,6 @@ function SelectionModal({
   visible: boolean;
   title: string;
   options: SelectorOption[];
-  testIDPrefix?: string;
   selectedValue: number | null;
   onClose: () => void;
   onSelect: (value: number | null) => void;
@@ -1008,7 +899,6 @@ function SelectionModal({
               const selected = item.value === selectedValue;
               return (
                 <Pressable
-                  testID={testIDPrefix ? `${testIDPrefix}-option-${item.key}` : undefined}
                   style={[
                     styles.modalOption,
                     {
@@ -1043,13 +933,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing['3xl'],
   },
   header: { gap: spacing.xs },
-  headerButton: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   title: {
     fontSize: fontSize['2xl'],
     fontWeight: fontWeight.bold,

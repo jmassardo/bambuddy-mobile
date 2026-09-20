@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 /* eslint-disable @typescript-eslint/no-shadow -- Test file with React imports shadowing globals */
->>>>>>> origin/develop
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import EnergyScreen, { getEnergyRangeParams } from '@/screens/EnergyScreen';
@@ -9,8 +6,6 @@ import EnergyScreen, { getEnergyRangeParams } from '@/screens/EnergyScreen';
 const mockSetOptions = jest.fn();
 let lastEnergyParams: Record<string, unknown> | undefined;
 
-<<<<<<< HEAD
-=======
 const populatedEnergyData = {
   total_energy_kwh: 12.5,
   total_energy_cost: 3.75,
@@ -38,7 +33,6 @@ let mockEnergyQueryState: {
   refetch: jest.fn(),
 };
 
->>>>>>> origin/develop
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ setOptions: mockSetOptions }),
 }));
@@ -48,28 +42,7 @@ jest.mock('@tanstack/react-query', () => ({
     const key = String(queryKey[0] ?? '');
     if (key === 'archiveEnergyStats') {
       lastEnergyParams = (queryKey[1] as Record<string, unknown>) ?? {};
-<<<<<<< HEAD
-      return {
-        data: {
-          total_energy_kwh: 12.5,
-          total_energy_cost: 3.75,
-          daily_data: [
-            { date: '2026-07-20', energy_kwh: 2.1, energy_cost: 0.63 },
-            { date: '2026-07-21', energy_kwh: 3.2, energy_cost: 0.96 },
-          ],
-          per_printer: [
-            { printer_id: 11, printer_name: 'Printer A', energy_kwh: 8.2, energy_cost: 2.46 },
-            { printer_id: 12, printer_name: 'Printer B', energy_kwh: 4.3, energy_cost: 1.29 },
-          ],
-        },
-        isLoading: false,
-        isError: false,
-        isRefetching: false,
-        refetch: jest.fn(),
-      };
-=======
       return mockEnergyQueryState;
->>>>>>> origin/develop
     }
     if (key === 'settings') {
       return {
@@ -148,11 +121,8 @@ jest.mock('@/components/common/Charts', () => {
   const { Text } = require('react-native');
   return {
     SimpleBarChart: () => React.createElement(Text, null, 'energy-chart'),
-<<<<<<< HEAD
-=======
     MultiSeriesLineChart: ({ points }: { points: unknown[] }) => React.createElement(Text, null, `line-chart:${points?.length ?? 0}`),
     SimpleDonutChart: () => React.createElement(Text, null, 'donut-chart'),
->>>>>>> origin/develop
   };
 });
 
@@ -185,12 +155,6 @@ describe('EnergyScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     lastEnergyParams = undefined;
-<<<<<<< HEAD
-  });
-
-  it('renders energy sections and printer breakdown', async () => {
-    const { getByText } = await render(<EnergyScreen />);
-=======
     mockEnergyQueryState = {
       data: populatedEnergyData,
       isLoading: false,
@@ -202,20 +166,14 @@ describe('EnergyScreen', () => {
 
   it('renders energy sections and printer breakdown', async () => {
     const { getByText, getAllByText } = await render(<EnergyScreen />);
->>>>>>> origin/develop
 
     expect(getByText('Energy dashboard')).toBeTruthy();
     expect(getByText('Overview')).toBeTruthy();
     expect(getByText('Energy trend')).toBeTruthy();
     expect(getByText('Per-printer breakdown')).toBeTruthy();
-<<<<<<< HEAD
-    expect(getByText('Printer A')).toBeTruthy();
-    expect(getByText('Printer B')).toBeTruthy();
-=======
     // Printer names appear in both filter chips and breakdown
     expect(getAllByText('Printer A').length).toBeGreaterThanOrEqual(1);
     expect(getAllByText('Printer B').length).toBeGreaterThanOrEqual(1);
->>>>>>> origin/develop
   });
 
   it('updates date range query params when selecting a new range', async () => {
@@ -225,8 +183,6 @@ describe('EnergyScreen', () => {
     expect(lastEnergyParams?.dateFrom).toBeTruthy();
     expect(lastEnergyParams?.dateTo).toBeTruthy();
   });
-<<<<<<< HEAD
-=======
 
   it('shows loading screen while energy data is loading', async () => {
     mockEnergyQueryState = {
@@ -290,7 +246,6 @@ describe('EnergyScreen', () => {
     await fireEvent.press(getByTestId('filter-chip-all'));
     expect(getByText('Energy:12.50 kWh')).toBeTruthy();
   });
->>>>>>> origin/develop
 });
 
 describe('getEnergyRangeParams', () => {

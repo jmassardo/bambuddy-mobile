@@ -20,10 +20,6 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
 
-const DEMO_SERVER_URL = 'https://demo.bambubuddy.com';
-const DEMO_USERNAME = 'demo';
-const DEMO_PASSWORD = 'demo';
-
 function normalizeUrl(input: string) {
   const trimmed = input.trim();
   const url = new URL(trimmed);
@@ -36,11 +32,7 @@ export default function ServerConfigScreen() {
     navigation.setOptions({ title: 'Server', headerShown: false });
   }, [navigation]);
   const { colors } = useTheme();
-<<<<<<< HEAD
-  const { login, setServerConnected } = useAuth();
-=======
   const { setServerConnected, login } = useAuth();
->>>>>>> origin/develop
   const { showToast } = useToast();
   const storedUrl = useServerStore(state => state.serverUrl);
   const [serverUrl, setServerUrl] = useState(storedUrl ?? '');
@@ -52,33 +44,20 @@ export default function ServerConfigScreen() {
     }
   }, [storedUrl]);
 
-  async function connectToServer(
-    url: string,
-    options?: { tryDemoLogin?: boolean },
-  ) {
-    setError('');
-    const normalized = normalizeUrl(url);
-    await useServerStore.getState().setServerUrl(normalized);
-    try {
-      const status = await api.getAuthStatus();
-      setServerConnected(true);
-      if (options?.tryDemoLogin && status.auth_enabled) {
-        const loginResult = await login(DEMO_USERNAME, DEMO_PASSWORD);
-        if (loginResult.requires_2fa) {
-          throw new Error(
-            'Demo sign-in requires two-factor authentication and cannot be completed automatically.',
-          );
-        }
-      }
-      return status;
-    } catch (mutationError) {
-      await useServerStore.getState().clearServerUrl();
-      throw mutationError;
-    }
-  }
-
   const connectMutation = useMutation({
-    mutationFn: async () => connectToServer(serverUrl),
+    mutationFn: async () => {
+      setError('');
+      const normalized = normalizeUrl(serverUrl);
+      await useServerStore.getState().setServerUrl(normalized);
+      try {
+        const status = await api.getAuthStatus();
+        setServerConnected(true);
+        return status;
+      } catch (mutationError) {
+        await useServerStore.getState().clearServerUrl();
+        throw mutationError;
+      }
+    },
     onSuccess: () => {
       showToast('Connected to Bambuddy server.', 'success');
       // RootNavigator automatically handles navigation based on auth state
@@ -89,21 +68,6 @@ export default function ServerConfigScreen() {
     },
   });
 
-<<<<<<< HEAD
-  const demoMutation = useMutation({
-    mutationFn: async () =>
-      connectToServer(DEMO_SERVER_URL, { tryDemoLogin: true }),
-    onSuccess: () => {
-      showToast('Connected to Bambuddy demo server.', 'success');
-      // RootNavigator automatically handles navigation based on auth state
-    },
-    onError: (mutationError: Error) => {
-      setError(mutationError.message || 'Could not start demo mode.');
-      showToast('Demo connection failed.', 'error');
-    },
-  });
-
-=======
   /** Connects to the hosted demo instance and signs in automatically. */
   const demoMutation = useMutation({
     mutationFn: async () => {
@@ -151,7 +115,6 @@ export default function ServerConfigScreen() {
     );
   }
 
->>>>>>> origin/develop
   /** Initiates connection, showing a warning if the URL uses plain HTTP */
   function handleConnect() {
     const normalized = normalizeUrl(serverUrl);
@@ -172,13 +135,6 @@ export default function ServerConfigScreen() {
       void connectMutation.mutateAsync();
     }
   }
-
-  function handleDemoConnect() {
-    setServerUrl(DEMO_SERVER_URL);
-    void demoMutation.mutateAsync();
-  }
-
-  const connecting = connectMutation.isPending || demoMutation.isPending;
 
   return (
     <KeyboardAvoidingView
@@ -227,28 +183,13 @@ export default function ServerConfigScreen() {
           label="Scan QR Code"
           onPress={() => navigation.navigate('Scanner', { mode: 'server' })}
           variant="secondary"
-<<<<<<< HEAD
-          disabled={connecting}
-        />
-        <PrimaryButton
-          label={demoMutation.isPending ? 'Starting demo…' : 'Try the Demo'}
-          onPress={handleDemoConnect}
-          loading={demoMutation.isPending}
-          variant="secondary"
-          disabled={connecting}
-=======
           disabled={busy}
->>>>>>> origin/develop
         />
         <PrimaryButton
           label={connectMutation.isPending ? 'Connecting…' : 'Connect'}
           onPress={handleConnect}
           loading={connectMutation.isPending}
-<<<<<<< HEAD
-          disabled={connecting || serverUrl.trim().length === 0}
-=======
           disabled={serverUrl.trim().length === 0 || demoMutation.isPending}
->>>>>>> origin/develop
         />
         {isDemoConfigured() ? (
           <View style={styles.demoSection}>

@@ -4131,8 +4131,6 @@ export interface SpoolBuddyDeviceUpdateRequest {
   tare_offset?: number;
 }
 
-<<<<<<< HEAD
-=======
 export interface SpoolBuddySlot {
   id: number;
   device_id: string;
@@ -4207,7 +4205,6 @@ export interface SpoolBuddyUsageSummary {
   }>;
 }
 
->>>>>>> origin/develop
 export interface DaemonUpdateCheck {
   current_version: string;
   latest_version: string | null;

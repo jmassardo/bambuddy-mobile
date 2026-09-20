@@ -4,7 +4,6 @@ import { PrimaryButton } from '@/components/common/AppUI';
 import { ApiKeysSettingsSection } from './ApiKeysSettingsSection';
 import { ExternalCamerasSettingsSection } from './ExternalCamerasSettingsSection';
 import { BackupSettingsSection } from './BackupSettingsSection';
-import { ExternalCamerasSettingsSection } from './ExternalCamerasSettingsSection';
 import { FailureDetectionSettingsSection } from './FailureDetectionSettingsSection';
 import { FilamentSettingsSection } from './FilamentSettingsSection';
 import { GeneralSettingsSection } from './GeneralSettingsSection';
@@ -39,10 +38,7 @@ export function SettingsSectionContent({ controller }: { controller: SettingsScr
       {section === 'filament' ? <FilamentSettingsSection controller={controller} /> : null}
       {section === 'kprofiles' ? <KProfileSettingsSection controller={controller} /> : null}
       {section === 'network' ? <NetworkSettingsSection controller={controller} /> : null}
-<<<<<<< HEAD
-=======
       {section === 'mqtt' ? <MqttSettingsSection controller={controller} /> : null}
->>>>>>> origin/develop
       {section === 'navigation' ? <NavigationSettingsSection controller={controller} /> : null}
       {section === 'apikeys' ? <ApiKeysSettingsSection controller={controller} /> : null}
       {section === 'external-cameras' ? <ExternalCamerasSettingsSection controller={controller} /> : null}
