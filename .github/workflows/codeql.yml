@@ -106,7 +106,7 @@ jobs:
 
     - name: Build iOS
       working-directory: ios
-      run: xcodebuild -workspace Bambuddy.xcworkspace -scheme Bambuddy -configuration Debug -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 16' build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+      run: xcodebuild -workspace Bambuddy.xcworkspace -scheme Bambuddy -configuration Debug -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17' build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
