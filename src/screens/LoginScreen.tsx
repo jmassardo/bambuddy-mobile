@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
@@ -78,6 +78,15 @@ export default function LoginScreen() {
   const [preAuthToken, setPreAuthToken] = useState<string | null>(null);
   const [availableMethods, setAvailableMethods] = useState<string[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+
+  const serverHostname = useMemo(() => {
+    if (!serverUrl) return undefined;
+    try {
+      return new URL(serverUrl).hostname;
+    } catch {
+      return undefined;
+    }
+  }, [serverUrl]);
   const [error, setError] = useState('');
   const [step, setStep] = useState<'credentials' | '2fa' | 'forgot' | 'reset'>('credentials');
   const [forgotEmail, setForgotEmail] = useState('');
@@ -324,6 +333,8 @@ export default function LoginScreen() {
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
+                autoComplete="username"
+                textContentType="username"
               />
               <TextField
                 label="Password"
@@ -332,6 +343,8 @@ export default function LoginScreen() {
                 secureTextEntry
                 autoCapitalize="none"
                 autoComplete="current-password"
+                textContentType="password"
+                userName={serverHostname}
               />
               <Pressable
                 onPress={() => {
