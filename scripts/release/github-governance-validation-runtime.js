@@ -52,7 +52,7 @@ function invalidArguments() {
 }
 function isCanonicalPath(value) {
   return typeof value === 'string' &&
-    (value === '' || /^(?:\/(?:[^~]|~[01])*)+$/.test(value));
+    (value === '' || /^\/(?:[a-zA-Z0-9._~!$&'()*+,;=:@-]|~[01](?:[a-zA-Z0-9._~!$&'()*+,;=:@-]|~[01]))*$/.test(value));
 }
 function requireState(context, path) {
   const state = privateStates.get(context);

@@ -43,7 +43,7 @@ export default function Model3DPreviewScreen() {
   const buildViewerHtml = useCallback(
     (bgColor: string, modelColor: string, gridColor: string) => {
       const modelUrlStr = params.fileUrl
-        ? `'${params.fileUrl.replace(/'/g, "\\'")}'`
+        ? `'${params.fileUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
         : 'null';
       const closeScript = '<' + '/script>';
       return `<!DOCTYPE html>
@@ -89,7 +89,7 @@ export default function Model3DPreviewScreen() {
 
     const overlay = document.getElementById('overlay');
     const modelUrl = ${modelUrlStr};
-    const source3mf = ${params.source3mfPath ? `'${params.source3mfPath.replace(/'/g, "\\'")}'` : 'null'};
+    const source3mf = ${params.source3mfPath ? `'${params.source3mfPath.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'` : 'null'};
     const archiveId = ${params.archiveId ?? 'null'};
 
     async function loadModel() {
