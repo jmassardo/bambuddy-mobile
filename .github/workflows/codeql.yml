@@ -65,6 +65,8 @@ jobs:
       uses: github/codeql-action/analyze@v4
       with:
         category: "/language:java-kotlin"
+        config-file: .github/codeql-config.yml
+        additional-codeql-args: --path-exclude=node_modules
 
   analyze-swift:
     name: Analyze (swift)
