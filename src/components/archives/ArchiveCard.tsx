@@ -23,8 +23,9 @@ import {
   formatWeight,
 } from '@/utils/data';
 import { Sparkles } from 'lucide-react-native';
+import { useTranslation } from '@/i18n';
 
-type ArchiveActionIconName = 'printer' | 'video' | 'camera' | 'qr-code' | 'trash' | 'scissors';
+type ArchiveActionIconName = 'printer' | 'video' | 'camera' | 'qr-code' | 'trash' | 'scissors' | 'star';
 
 const ARCHIVE_ACTION_ICONS = {
   printer: Printer,
@@ -33,6 +34,7 @@ const ARCHIVE_ACTION_ICONS = {
   'qr-code': QrCode,
   trash: Trash2,
   scissors: Scissors,
+  star: Star,
 } satisfies Record<ArchiveActionIconName, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>>;
 
 interface ArchiveCardProps {
@@ -49,6 +51,8 @@ interface ArchiveCardProps {
   onQRCode?: () => void;
   onDelete?: () => void;
   onSlice?: () => void;
+  onFavorite?: () => void;
+  onOutcome?: () => void;
 }
 
 function statusColor(status: string, colors: ReturnType<typeof useTheme>['colors']) {
@@ -118,8 +122,11 @@ export function ArchiveCard({
   onQRCode,
   onDelete,
   onSlice,
+  onFavorite,
+  onOutcome,
 }: ArchiveCardProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const cardStatusColor = statusColor(archive.status, colors);
   const isGrid = viewMode === 'grid';
 
@@ -248,6 +255,9 @@ export function ArchiveCard({
         </View>
 
         <View style={styles.badgesRow}>
+          {archive.status === 'completed' && (archive.user_verdict || archive.confirm_requested) ? <View style={[styles.badgeChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <Text style={[styles.badgeChipText, { color: archive.user_verdict === 'reject' ? colors.error : archive.user_verdict === 'good' ? colors.success : colors.warning }]}>{archive.user_verdict === 'reject' ? t('archives.rejected', { defaultValue: 'Quality rejected' }) : archive.user_verdict === 'good' ? t('archives.good', { defaultValue: 'Good' }) : t('archives.pendingOutcome', { defaultValue: 'Confirm outcome' })}</Text>
+          </View> : null}
           {archive.ai_detection ? (
             <View
               style={[
@@ -338,6 +348,8 @@ export function ArchiveCard({
 
         <View style={[styles.footer, { borderColor: colors.borderSubtle }]}> 
           <View style={styles.actionsRow}>
+            <ArchiveAction label={t('archives.pendingOutcome', { defaultValue: 'Confirm outcome' })} icon="camera" color={colors.warning} onPress={onOutcome} />
+            <ArchiveAction label={archive.is_favorite ? t('archives.unfavorite', { defaultValue: 'Unfavorite' }) : t('archives.favorite', { defaultValue: 'Favorite' })} icon="star" color={colors.warning} onPress={onFavorite} />
             <ArchiveAction label="Reprint" icon="printer" color={colors.accent} onPress={onReprint} />
             <ArchiveAction label="Slice" icon="scissors" color={colors.highlight} onPress={onSlice} />
             <ArchiveAction label="Time" icon="video" color={colors.info} onPress={onTimelapse} />

@@ -4,6 +4,7 @@ import type { MainTabNavigationProp } from '@/navigation/types';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {
   FlatList,
+  Image,
   Linking,
   Modal,
   Pressable,
@@ -13,7 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Camera, CheckCircle, Download, Pause, X } from 'lucide-react-native';
+import { CheckCircle, Download, Pause, X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { ArchiveCard } from '@/components/archives/ArchiveCard';
@@ -46,6 +47,13 @@ import {
   pickNumber,
 } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
+import { archiveWorkflows } from '@/api/archiveWorkflows';
+import { ArchiveBatchDialog, ArchiveBrowseControls, ArchiveTagCatalog, initialBrowseOptions } from '@/components/archives/ArchiveBrowseControls';
+import { ArchiveDeleteDialog, ArchiveIngestionPanel, ArchivePhotoGallery, ConfirmOutcomeDialog } from '@/components/archives/ArchiveWorkflowUI';
+import { browseArchives } from '@/utils/archiveWorkflows';
+import { useTranslation } from '@/i18n';
+import { useAuth } from '@/contexts/AuthContext';
+import { PrintModal } from '@/components/printers/PrintModal';
 
 type ArchiveViewMode = 'list' | 'grid';
 
@@ -138,6 +146,18 @@ export default function ArchivesScreen() {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  const { user, hasPermission } = useAuth();
+  const [browse, setBrowse] = useState(initialBrowseOptions);
+  const [batchIds, setBatchIds] = useState<number[]>([]);
+  const [deletingIds, setDeletingIds] = useState<number[]>([]);
+  const [launchId, setLaunchId] = useState<number | null>(null);
+  const [outcomeId, setOutcomeId] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
+  const [customPurgeDays, setCustomPurgeDays] = useState('90');
+  const canUpdate = (archive: Archive) => hasPermission('archives:update_all') || (archive.created_by_id === user?.id && hasPermission('archives:update_own'));
+  const canDelete = (archive: Archive) => hasPermission('archives:delete_all') || (archive.created_by_id === user?.id && hasPermission('archives:delete_own'));
   const { filters, setFilters, loadFilters } = useArchiveFiltersStore();
   const [viewMode, setViewMode] = useState<ArchiveViewMode>('list');
   const [selectionMode, setSelectionMode] = useState(false);
@@ -145,8 +165,6 @@ export default function ArchivesScreen() {
   const [compareIds, setCompareIds] = useState<number[]>([]);
   const [photosArchive, setPhotosArchive] = useState<Archive | null>(null);
   const [qrArchive, setQrArchive] = useState<Archive | null>(null);
-  const [tagsArchiveIds, setTagsArchiveIds] = useState<number[]>([]);
-  const [tagsDraft, setTagsDraft] = useState('');
   const [showTagSummary, setShowTagSummary] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx' | 'json'>('csv');
@@ -185,7 +203,7 @@ export default function ArchivesScreen() {
 
   const archivesQuery = useQuery({
     queryKey: ['archives'],
-    queryFn: () => api.getArchives({ limit: 300 }),
+    queryFn: () => archiveWorkflows.allArchives(),
   });
   const printersQuery = useQuery({
     queryKey: ['printers'],
@@ -225,64 +243,28 @@ export default function ArchivesScreen() {
   );
   const stats = (statsQuery.data ?? null) as ArchiveStats | null;
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.deleteArchive(id),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['archives'] }),
-        queryClient.invalidateQueries({ queryKey: ['archiveStats'] }),
-      ]);
-      setSelectedIds([]);
-      showToast('Archive deleted.', 'success');
+  const favoriteMutation = useMutation({
+    mutationFn: (id: number) => archiveWorkflows.favorite(id),
+    onMutate: async id => {
+      await queryClient.cancelQueries({ queryKey: ['archives'] });
+      const previous = queryClient.getQueryData<Archive[]>(['archives']);
+      queryClient.setQueryData<Archive[]>(['archives'], current => current?.map(item => item.id === id ? { ...item, is_favorite: !item.is_favorite } : item));
+      return { previous };
     },
-    onError: () => showToast('Unable to delete the archive.', 'error'),
-  });
-
-  const reprintMutation = useMutation({
-    mutationFn: (id: number) => api.printArchive(id, {}),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['queue'] });
-      showToast('Reprint started.', 'success');
+    onSuccess: updated => {
+      queryClient.setQueryData<Archive[]>(['archives'], current => current?.map(item => item.id === updated.id ? updated : item));
+      showToast(t('archives.favoriteUpdated', { defaultValue: 'Favorite updated.' }), 'success');
     },
-    onError: () => showToast('Unable to start a reprint.', 'error'),
-  });
-
-  const tagMutation = useMutation({
-    mutationFn: async ({ ids, tags }: { ids: number[]; tags: string }) => {
-      for (const id of ids) {
-        await api.updateArchive(id, { tags });
-      }
+    onError: (error: Error, _id, context) => {
+      if (context?.previous) queryClient.setQueryData(['archives'], context.previous);
+      showToast(error.message, 'error');
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['archives'] });
-      setTagsArchiveIds([]);
-      setSelectedIds([]);
-      setSelectionMode(false);
-      showToast('Tags updated.', 'success');
-    },
-    onError: () => showToast('Unable to update tags.', 'error'),
-  });
-
-  const bulkDeleteMutation = useMutation({
-    mutationFn: async (ids: number[]) => {
-      for (const id of ids) await api.deleteArchive(id);
-    },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['archives'] }),
-        queryClient.invalidateQueries({ queryKey: ['archiveStats'] }),
-      ]);
-      setSelectedIds([]);
-      setSelectionMode(false);
-      showToast('Selected archives deleted.', 'success');
-    },
-    onError: () => showToast('Unable to delete selected archives.', 'error'),
   });
 
   const filteredArchives = useMemo(() => {
     const term = search.trim().toLowerCase();
     const cutoff = rangeCutoff(rangeFilter);
-    return archives.filter(archive => {
+    return browseArchives(archives.filter(archive => {
       if (term) {
         const haystack = [
           archive.print_name,
@@ -318,8 +300,10 @@ export default function ArchivesScreen() {
         if (!Number.isFinite(stamp) || stamp < cutoff) return false;
       }
       return true;
-    });
-  }, [archives, printerFilter, filamentTypeFilter, rangeFilter, search, statusFilter, tagFilter, aiFilter]);
+    }), browse);
+  }, [archives, printerFilter, filamentTypeFilter, rangeFilter, search, statusFilter, tagFilter, aiFilter, browse]);
+  React.useEffect(() => { setPage(0); }, [filters, browse, pageSize]);
+  const maxPage = Math.max(0, Math.ceil(filteredArchives.length / pageSize) - 1);
 
   const compareArchives = useMemo(
     () =>
@@ -330,24 +314,26 @@ export default function ArchivesScreen() {
   );
 
   const hasUnsupportedServerExportFilters = Boolean(
-    tagFilter || statusFilter === 'favorite' || statusFilter === 'duplicate',
+    tagFilter || statusFilter === 'favorite' || statusFilter === 'duplicate' ||
+    filamentTypeFilter !== 'all' || aiFilter !== 'all' ||
+    JSON.stringify(browse) !== JSON.stringify(initialBrowseOptions),
   );
 
   const exportMutation = useMutation({
     mutationFn: async () => {
       const filenameBase = `bambuddy-archives-${new Date().toISOString().slice(0, 10)}`;
+      const rowsToExport = exportScope === 'selected'
+        ? archives.filter(a => selectedIds.includes(a.id))
+        : filteredArchives;
       if (exportFormat === 'json') {
         const jsonBlobOptions: BlobOptions = {
           type: 'application/json',
           lastModified: Date.now(),
         };
-        const blob = new Blob([JSON.stringify(filteredArchives, null, 2)], jsonBlobOptions);
+        const blob = new Blob([JSON.stringify(rowsToExport, null, 2)], jsonBlobOptions);
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
-      const rowsToExport = exportScope === 'selected'
-        ? archives.filter(a => selectedIds.includes(a.id))
-        : filteredArchives;
       if (exportScope === 'selected' || hasUnsupportedServerExportFilters) {
         const csv = toCsv(archiveExportRows(rowsToExport));
         const csvBlobOptions: BlobOptions = {
@@ -399,6 +385,12 @@ export default function ArchivesScreen() {
     },
     onError: (error: Error) => showToast(error.message || 'Unable to purge archives.', 'error'),
   });
+  const qrExportMutation = useMutation({
+    mutationFn: async () => {
+      if (qrArchive) await shareBlob(await archiveWorkflows.download(qrArchive.id, 'qrcode'), `archive-${qrArchive.id}-qr.png`);
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
 
   const refreshAll = async () => {
     await Promise.all([
@@ -434,7 +426,7 @@ export default function ArchivesScreen() {
 
   const allSelected = filteredArchives.length > 0 && selectedIds.length === filteredArchives.length;
 
-  if (archivesQuery.isLoading && printersQuery.isLoading) {
+  if (archivesQuery.isLoading || printersQuery.isLoading) {
     return <LoadingScreen message="Loading archives…" />;
   }
 
@@ -453,7 +445,7 @@ export default function ArchivesScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}> 
       <FlatList
         key={viewMode}
-        data={filteredArchives}
+        data={filteredArchives.slice(page * pageSize, (page + 1) * pageSize)}
         keyExtractor={item => String(item.id)}
         numColumns={viewMode === 'grid' ? 2 : 1}
         renderItem={({ item }) => (
@@ -471,9 +463,9 @@ export default function ArchivesScreen() {
                   current.includes(item.id) ? current : [...current, item.id],
                 );
               }}
-              onReprint={() => {
-                reprintMutation.mutate(item.id);
-              }}
+              onReprint={() => setLaunchId(item.id)}
+              onFavorite={canUpdate(item) ? () => favoriteMutation.mutate(item.id) : undefined}
+              onOutcome={canUpdate(item) && item.status === 'completed' && item.confirm_requested && item.user_verdict == null ? () => setOutcomeId(item.id) : undefined}
               onTimelapse={() => {
                 if (!item.timelapse_path) {
                   showToast('No timelapse is attached to this archive.', 'warning');
@@ -491,9 +483,7 @@ export default function ArchivesScreen() {
                 setPhotosArchive(item);
               }}
               onQRCode={() => setQrArchive(item)}
-              onDelete={() => {
-                deleteMutation.mutate(item.id);
-              }}
+              onDelete={canDelete(item) ? () => setDeletingIds([item.id]) : undefined}
               onSlice={() => {
                 setSliceArchiveId(item.id);
                 setSliceArchiveName(item.print_name || item.filename);
@@ -515,6 +505,17 @@ export default function ArchivesScreen() {
         }
         ListHeaderComponent={
           <View style={styles.headerStack}>
+            <ArchiveIngestionPanel />
+            <ArchiveBrowseControls archives={archives} options={browse} onChange={setBrowse} />
+            <SectionCard title={t('archives.pages', { defaultValue: '{{count}} matching archives · page {{page}} / {{pages}}', count: filteredArchives.length, page: page + 1, pages: maxPage + 1 })}>
+              <View style={styles.filterRow}>{[25, 50, 100, 200].map(size => <Chip key={size} label={String(size)} selected={size === pageSize} onPress={() => setPageSize(size)} />)}</View>
+              <View style={styles.filterRow}>
+                <PrimaryButton label={t('common.first', { defaultValue: 'First' })} disabled={page === 0} onPress={() => setPage(0)} />
+                <PrimaryButton label={t('common.previous', { defaultValue: 'Previous' })} disabled={page === 0} onPress={() => setPage(page - 1)} />
+                <PrimaryButton label={t('common.next', { defaultValue: 'Next' })} disabled={page >= maxPage} onPress={() => setPage(page + 1)} />
+                <PrimaryButton label={t('common.last', { defaultValue: 'Last' })} disabled={page >= maxPage} onPress={() => setPage(maxPage)} />
+              </View>
+            </SectionCard>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
               <StatCard label="Filtered" value={String(filteredArchives.length)} helper={`${archives.length} total`} />
               <StatCard label="Successful" value={String(stats?.successful_prints ?? 0)} helper="Archive stats" />
@@ -659,13 +660,11 @@ export default function ArchivesScreen() {
             ) : null}
             {selectedIds.length > 0 ? (
               <PrimaryButton
-                label="Edit tags"
+                label={t('archives.batch', { defaultValue: 'Tags / project / favorites' })}
                 variant="secondary"
+                disabled={archives.some(item => selectedIds.includes(item.id) && !canUpdate(item))}
                 onPress={() => {
-                  setTagsArchiveIds(selectedIds);
-                  const selectedArchives = archives.filter(archive => selectedIds.includes(archive.id));
-                  const shared = selectedArchives[0]?.tags ?? '';
-                  setTagsDraft(shared);
+                  setBatchIds(selectedIds);
                 }}
               />
             ) : null}
@@ -676,8 +675,9 @@ export default function ArchivesScreen() {
               <PrimaryButton
                 label="Delete"
                 variant="danger"
+                disabled={archives.some(item => selectedIds.includes(item.id) && !canDelete(item))}
                 onPress={() => {
-                  bulkDeleteMutation.mutate(selectedIds);
+                  setDeletingIds(selectedIds);
                 }}
               />
             ) : null}
@@ -690,6 +690,10 @@ export default function ArchivesScreen() {
         archives={compareArchives}
         onClose={() => setCompareIds([])}
       />
+      {batchIds.length ? <ArchiveBatchDialog archives={archives.filter(item => batchIds.includes(item.id) && canUpdate(item))} onClose={() => setBatchIds([])} /> : null}
+      {deletingIds.length ? <ArchiveDeleteDialog archives={archives.filter(item => deletingIds.includes(item.id) && canDelete(item))} onClose={() => setDeletingIds([])} onDeleted={() => setSelectedIds([])} /> : null}
+      {launchId !== null ? <PrintModal visible onClose={() => setLaunchId(null)} {...{ initialArchiveId: launchId, initialMode: 'asap' as const }} /> : null}
+      {outcomeId !== null ? <ConfirmOutcomeDialog archiveId={outcomeId} onClose={() => setOutcomeId(null)} onReprint={setLaunchId} /> : null}
 
       <SimpleModal
         visible={showExportModal}
@@ -752,10 +756,15 @@ export default function ArchivesScreen() {
               key={days}
               label={`${days} days`}
               selected={purgeDays === days}
-              onPress={() => setPurgeDays(days)}
+              onPress={() => { setPurgeDays(days); setCustomPurgeDays(String(days)); }}
             />
           ))}
         </ScrollView>
+        <TextField label={t('archives.purgeCustomDays', { defaultValue: 'Custom archive age in days (1–3650)' })} value={customPurgeDays} keyboardType="number-pad" onChangeText={value => {
+          setCustomPurgeDays(value);
+          const parsed = Number(value);
+          if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 3650) setPurgeDays(parsed);
+        }} />
         <Pressable
           onPress={() => setPurgeStats(current => !current)}
           style={[styles.toggleRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
@@ -783,47 +792,29 @@ export default function ArchivesScreen() {
         </View>
         <View style={styles.modalFooter}>
           <PrimaryButton label="Close" variant="secondary" onPress={() => setShowPurgeModal(false)} />
-          <PrimaryButton label="Confirm purge" variant="danger" onPress={() => setShowPurgeConfirm(true)} />
+          <PrimaryButton label="Confirm purge" variant="danger" disabled={!Number.isInteger(Number(customPurgeDays)) || Number(customPurgeDays) < 1 || Number(customPurgeDays) > 3650} onPress={() => setShowPurgeConfirm(true)} />
         </View>
       </SimpleModal>
 
-      <SimpleModal
-        visible={photosArchive !== null}
-        title={photosArchive ? `${photosArchive.print_name || photosArchive.filename} photos` : 'Photos'}
-        subtitle="Photo attachments from the archive card."
-        onClose={() => setPhotosArchive(null)}
-      >
-        <ScrollView style={styles.modalScroll}>
-          {photosArchive?.photos?.map(photo => (
-            <View key={photo} style={[styles.simpleListItem, { borderColor: colors.borderSubtle }]}> 
-              <Camera size={16} color={colors.info} strokeWidth={2} />
-              <Text style={[styles.simpleListText, { color: colors.text }]}>{photo}</Text>
-            </View>
-          ))}
-          {!photosArchive?.photos?.length ? (
-            <Text style={[styles.modalBodyText, { color: colors.textSecondary }]}>No photos are attached to this archive.</Text>
-          ) : null}
-        </ScrollView>
-        <View style={styles.modalFooter}>
-          <PrimaryButton label="Close" variant="secondary" onPress={() => setPhotosArchive(null)} />
-        </View>
-      </SimpleModal>
+      {photosArchive ? <ArchivePhotoGallery archive={photosArchive} onClose={() => setPhotosArchive(null)} /> : null}
 
       <SimpleModal
         visible={qrArchive !== null}
         title={qrArchive ? `${qrArchive.print_name || qrArchive.filename} links` : 'Archive links'}
-        subtitle="The web app shows a QR code here; mobile exposes the same shareable links directly."
+        subtitle={t('archives.qrSubtitle', { defaultValue: 'Scan or save the QR image to download the original printable file.' })}
         onClose={() => setQrArchive(null)}
       >
+        {qrArchive ? <Image source={{ uri: api.getArchiveQRCode(qrArchive.id) }} style={styles.qrImage} /> : null}
+        <PrimaryButton label={t('archives.saveQr', { defaultValue: 'Save / share QR image' })} loading={qrExportMutation.isPending} onPress={() => qrExportMutation.mutate()} />
         <View style={styles.linkSection}>
           <Text style={[styles.linkLabel, { color: colors.textSecondary }]}>Archive download</Text>
-          <Text style={[styles.linkValue, { color: colors.text }]}>{qrArchive ? api.getArchiveThumbnail(qrArchive.id).replace('/thumbnail', '') : ''}</Text>
+          <Text style={[styles.linkValue, { color: colors.text }]}>{qrArchive ? archiveWorkflows.downloadUrl(qrArchive.id) : ''}</Text>
           <PrimaryButton
             label="Copy archive link"
             variant="secondary"
             onPress={() => {
               if (!qrArchive) return;
-              const value = api.getArchiveThumbnail(qrArchive.id).replace('/thumbnail', '');
+              const value = archiveWorkflows.downloadUrl(qrArchive.id);
               Clipboard.setString(value);
               showToast('Archive link copied.', 'success');
             }}
@@ -849,56 +840,7 @@ export default function ArchivesScreen() {
         </View>
       </SimpleModal>
 
-      <SimpleModal
-        visible={tagsArchiveIds.length > 0}
-        title="Edit tags"
-        subtitle="Assign comma-separated tags to the selected archives."
-        onClose={() => setTagsArchiveIds([])}
-      >
-        <TextField
-          label="Tags"
-          multiline
-          value={tagsDraft}
-          onChangeText={setTagsDraft}
-          placeholder="quality-check, customer-a, pla"
-        />
-        <View style={styles.modalFooter}>
-          <PrimaryButton label="Cancel" variant="secondary" onPress={() => setTagsArchiveIds([])} />
-          <PrimaryButton
-            label={tagMutation.isPending ? 'Saving…' : 'Save tags'}
-            onPress={() => {
-              tagMutation.mutate({ ids: tagsArchiveIds, tags: tagsDraft });
-            }}
-            disabled={tagMutation.isPending}
-          />
-        </View>
-      </SimpleModal>
-
-      <SimpleModal
-        visible={showTagSummary}
-        title="Tag management"
-        subtitle="Tap a tag to filter archives, or clear the filter from the chip rail above."
-        onClose={() => setShowTagSummary(false)}
-      >
-        <ScrollView style={styles.modalScroll}>
-          {tagSummary.map(tag => (
-            <Pressable
-              key={tag.name}
-              onPress={() => {
-                setFilters({ tagFilter: tag.name });
-                setShowTagSummary(false);
-              }}
-              style={[styles.simpleListItem, { borderColor: colors.borderSubtle }]}
-            >
-              <Text style={[styles.simpleListText, { color: colors.text }]}>{tag.name}</Text>
-              <Text style={[styles.simpleListMeta, { color: colors.textSecondary }]}>{tag.count}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-        <View style={styles.modalFooter}>
-          <PrimaryButton label="Close" variant="secondary" onPress={() => setShowTagSummary(false)} />
-        </View>
-      </SimpleModal>
+      {showTagSummary ? <ArchiveTagCatalog onClose={() => setShowTagSummary(false)} /> : null}
 
       <ConfirmModal
         visible={showPurgeConfirm}
@@ -930,6 +872,7 @@ export default function ArchivesScreen() {
 }
 
 const styles = StyleSheet.create({
+  qrImage: { width: 200, height: 200, alignSelf: 'center' },
   container: {
     flex: 1,
   },

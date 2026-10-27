@@ -17,7 +17,7 @@ import { EmptyState, ErrorState } from '@/components/common/StateScreens';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
-import { formatDateTime, pickString, type ApiRecord } from '@/utils/data';
+import { formatCurrency, formatDateTime, formatDuration, formatWeight, pickString, type ApiRecord } from '@/utils/data';
 
 interface PrintLogModalProps {
   visible: boolean;
@@ -58,18 +58,16 @@ function normalizeRows(data: unknown): PrintLogRow[] {
     const status = pickString(record, ['status'], 'unknown');
     const failureReason = pickString(record, ['failure_reason']);
 
-    if (startedAt) {
-      rows.push({
-        timestamp: startedAt,
-        event: 'Started',
-        details: `Started on ${printerName}`,
-      });
-    }
-
     rows.push({
-      timestamp: completedAt || createdAt || startedAt,
+      timestamp: startedAt || createdAt || completedAt,
       event: status ? `Status: ${status}` : 'Updated',
-      details: failureReason || `Logged for ${printerName}`,
+      details: [
+        printerName, failureReason, formatDuration(Number(record.duration_seconds ?? 0)),
+        formatWeight(Number(record.filament_used_grams ?? 0)),
+        record.cost == null ? null : formatCurrency(Number(record.cost)),
+        record.energy_kwh == null ? null : `${record.energy_kwh} kWh`,
+        record.energy_cost == null ? null : formatCurrency(Number(record.energy_cost)),
+      ].filter(Boolean).join(' · '),
     });
   });
 

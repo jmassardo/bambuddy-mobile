@@ -20,6 +20,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { Chip, PrimaryButton, SectionCard, StatCard } from '@/components/common/AppUI';
+import { useTranslation } from '@/i18n';
 import { ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { useTheme } from '@/theme';
 import {
@@ -267,6 +268,7 @@ function FailureDetailModal({
 }
 
 export default function FailureAnalysisScreen() {
+  const { t } = useTranslation();
   const { colors } = useTheme();
 
   const [periodDays, setPeriodDays] = React.useState(30);
@@ -320,6 +322,8 @@ export default function FailureAnalysisScreen() {
   const totalPrints = failureData?.total_prints ?? 0;
   const failedPrints = failureData?.failed_prints ?? 0;
   const failureRate = failureData?.failure_rate ?? 0;
+  const rejectedPrints = (failureData as unknown as { rejected_prints?: number } | null)?.rejected_prints ?? 0;
+  const yieldRate = (failureData as unknown as { yield_rate?: number } | null)?.yield_rate;
 
   const refreshAll = async () => {
     await Promise.all([failureQuery.refetch(), printersQuery.refetch()]);
@@ -418,6 +422,10 @@ export default function FailureAnalysisScreen() {
                 subtitle={`Analysis of print failures over the past ${periodDays} days`}
               >
                 <View style={styles.overviewGrid}>
+                  {rejectedPrints > 0 ? <>
+                    <StatCard label={t('archives.rejectedPrints', { defaultValue: 'Quality rejected (machine completed)' })} value={String(rejectedPrints)} />
+                    <StatCard label={t('archives.yieldRate', { defaultValue: 'Yield' })} value={formatPercent(yieldRate ?? 0)} />
+                  </> : null}
                   <StatCard
                     label="Total prints"
                     value={String(totalPrints)}

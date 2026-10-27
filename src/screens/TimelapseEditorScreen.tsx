@@ -1,664 +1,390 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import {
-  ChevronLeft,
-  Music,
-  SkipBack,
-  SkipForward,
-  Trash2,
-} from 'lucide-react-native';
-import {
-  launchImageLibrary,
-} from 'react-native-image-picker';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRoute } from '@react-navigation/native';
+import { WebView } from 'react-native-webview';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
-import { PrimaryButton } from '@/components/common/AppUI';
-import { ConfirmModal } from '@/components/common/ConfirmModal';
-import { useToast } from '@/contexts/ToastContext';
+import { archiveWorkflows } from '@/api/archiveWorkflows';
+import { archivesApi } from '@/api/archives';
+import type { UploadableFile } from '@/api/http';
+import { useMediaToken } from '@/hooks/useStreamToken';
+import { useTranslation } from '@/i18n';
 import { useTheme } from '@/theme';
-import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
-import { withCacheBuster } from '@/utils/data';
-import type { Archive } from '@/types/api';
+import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { spacing } from '@/theme/tokens';
+import {
+  Chip,
+  PrimaryButton,
+  SectionCard,
+  TextField,
+} from '@/components/common/AppUI';
+import { ErrorState, LoadingScreen } from '@/components/common/StateScreens';
+import { pickArchiveDocuments } from '@/components/archives/ArchiveWorkflowUI';
+import { blobToDataUrl } from '@/utils/share';
+import { timelapsePreviewHtml, timelapseRange } from '@/utils/timelapseEditor';
+import type { RootRouteProp } from '@/navigation/types';
 
-type SpeedOption = 0.5 | 1 | 2 | 4;
-const SPEED_OPTIONS: SpeedOption[] = [0.5, 1, 2, 4];
+interface PreviewHandle {
+  injectJavaScript: (script: string) => void;
+}
+const EditorWebView = WebView as React.ComponentType<
+  React.ComponentProps<typeof WebView> & {
+    ref?: React.Ref<PreviewHandle>;
+    onShouldStartLoadWithRequest?: (event: { url: string }) => boolean;
+    onMessage?: (event: { nativeEvent: { data: string } }) => void;
+    onError?: () => void;
+  }
+>;
 
 export default function TimelapseEditorScreen() {
-  const navigation = useNavigation<RootNavigationProp<'TimelapseEditor'>>();
   const route = useRoute<RootRouteProp<'TimelapseEditor'>>();
-  const archiveId = (route.params ?? {})?.archiveId ?? 0;
+  const archiveId = route.params.archiveId;
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
-
-  const [startOffset, setStartOffset] = useState(0);
-  const [endOffset, setEndOffset] = useState(100);
-  const [speed, setSpeed] = useState<SpeedOption>(1);
-  const [musicUri, setMusicUri] = useState<string | null>(null);
-  const [musicName, setMusicName] = useState<string | null>(null);
-  const [showConfirmMusic, setShowConfirmMusic] = useState(false);
-  const [timelapseError, setTimelapseError] = useState(false);
-  const [timelapseRetrySeed, setTimelapseRetrySeed] = useState(0);
-
-  const archiveQuery = useQuery({
-    queryKey: ['archive', archiveId],
-    queryFn: () => api.getArchive(archiveId),
-    enabled: Number.isFinite(archiveId),
+  const { token, isReady } = useMediaToken();
+  const previewRef = useRef<PreviewHandle>(null);
+  const [start, setStart] = useState('0');
+  const [end, setEnd] = useState('');
+  const [speed, setSpeed] = useState(1);
+  const [audio, setAudio] = useState<UploadableFile | null>(null);
+  const [audioPreview, setAudioPreview] = useState<string | null>(null);
+  const [volume, setVolume] = useState(1);
+  const [muted, setMuted] = useState(false);
+  const [playhead, setPlayhead] = useState(0);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const info = useQuery({
+    queryKey: ['timelapseInfo', archiveId, version],
+    queryFn: () => archiveWorkflows.timelapseInfo(archiveId),
   });
-
-  const archive = archiveQuery.data as Archive | null | undefined;
-
-  const hasTimelapse = useMemo(
-    () => Boolean(archive?.timelapse_path),
-    [archive?.timelapse_path],
-  );
-
-  const timelapseUrl = useMemo(() => {
-    if (!hasTimelapse) return null;
-    return withCacheBuster(
-      api.getArchiveTimelapse(archiveId),
-      `timelapse-editor-${timelapseRetrySeed}`,
-    );
-  }, [archiveId, hasTimelapse, timelapseRetrySeed]);
-
-  const updateTimelapseMutation = useMutation({
-    mutationFn: (data: {
-      start_offset?: number;
-      end_offset?: number;
-      speed?: number;
-    }) => api.updateArchiveTimelapse(archiveId, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['archive', archiveId] });
-      showToast('Timelapse updated.', 'success');
-    },
-    onError: (error: Error) =>
-      showToast(error.message || 'Unable to update the timelapse.', 'error'),
+  const frames = useQuery({
+    queryKey: ['timelapseThumbnails', archiveId, version],
+    queryFn: () => archiveWorkflows.timelapseThumbnails(archiveId),
   });
-
-  const uploadMusicMutation = useMutation({
-    mutationFn: (file: { uri: string; name: string; type: string }) =>
-      api.uploadTimelapseMusic(archiveId, file),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['archive', archiveId] });
-      showToast('Music added to timelapse.', 'success');
-      setShowConfirmMusic(false);
-    },
-    onError: (error: Error) =>
-      showToast(error.message || 'Unable to add music.', 'error'),
-  });
-
-  const removeMusicMutation = useMutation({
-    mutationFn: () => api.removeTimelapseMusic(archiveId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['archive', archiveId] });
-      setMusicUri(null);
-      setMusicName(null);
-      showToast('Music removed.', 'success');
-      setShowConfirmMusic(false);
-    },
-    onError: (error: Error) =>
-      showToast(error.message || 'Unable to remove music.', 'error'),
-  });
-
-  const pickMusic = async () => {
-    try {
-      const result = await launchImageLibrary({
-        mediaType: 'video',
-        selectionLimit: 1,
-      });
-      const selectedAsset = result.assets?.[0];
-      if (!selectedAsset) {
-        showToast('No audio file was selected.', 'warning');
-        return;
-      }
-      setMusicUri(selectedAsset.uri ?? null);
-      setMusicName(selectedAsset.fileName ?? 'audio-file');
-      setShowConfirmMusic(true);
-    } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : 'Unable to pick audio.',
-        'error',
-      );
+  useEffect(() => {
+    if (info.data) {
+      setStart('0');
+      setEnd(String(info.data.duration));
+      setSpeed(1);
     }
-  };
-
-  const confirmMusicUpload = async () => {
-    if (!musicUri || !musicName) return;
-    const mimeType =
-      musicName.endsWith('.mp3')
-        ? 'audio/mpeg'
-        : musicName.endsWith('.m4a')
-          ? 'audio/mp4'
-          : musicName.endsWith('.wav')
-            ? 'audio/wav'
-            : 'audio/mpeg';
-    const file = {
-      uri: musicUri,
-      name: musicName,
-      type: mimeType,
-    };
-    await uploadMusicMutation.mutateAsync(file);
-  };
-
-  const resetSettings = useCallback(() => {
-    setStartOffset(0);
-    setEndOffset(100);
-    setSpeed(1);
-  }, []);
-
-  const handleSave = useCallback(() => {
-    updateTimelapseMutation.mutateAsync({
-      start_offset: startOffset,
-      end_offset: endOffset,
+  }, [info.data]);
+  const range = useMemo(() => {
+    try {
+      return {
+        value: timelapseRange(start, end, info.data?.duration ?? 0, speed),
+        error: null,
+      };
+    } catch (error) {
+      return {
+        value: null,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }, [start, end, info.data?.duration, speed]);
+  const preview = useMemo(() => {
+    if (!isReady || !range.value) return null;
+    return timelapsePreviewHtml({
+      video: `${archivesApi.getArchiveTimelapse(archiveId)}${
+        archivesApi.getArchiveTimelapse(archiveId).includes('?') ? '&' : '?'
+      }v=${version}`,
+      audio: audioPreview,
+      start: range.value.trimStart,
+      end: range.value.trimEnd,
       speed,
+      volume,
+      muted,
     });
-  }, [startOffset, endOffset, speed, updateTimelapseMutation]);
-
-  React.useLayoutEffect(() => {
-    navigation.setOptions({
-      title: 'Edit Timelapse',
-      headerLeft: () => (
-        <Pressable
-          onPress={() => navigation.goBack()}
-          style={styles.headerButton}
-          hitSlop={8}
-          accessibilityLabel="Back"
-          accessibilityRole="button"
-        >
-          <ChevronLeft size={22} color={colors.text} strokeWidth={2.5} />
-        </Pressable>
-      ),
-    });
-  }, [navigation, colors.text]);
-
-  const isLoading = archiveQuery.isLoading;
-
-  if (isLoading) {
+    // Token changes require rebuilding the authenticated media URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    archiveId,
+    isReady,
+    token,
+    range.value,
+    speed,
+    audioPreview,
+    volume,
+    muted,
+    version,
+  ]);
+  const chooseAudio = useMutation({
+    mutationFn: async () => {
+      const [file] = await pickArchiveDocuments([
+        '.mp3',
+        '.wav',
+        '.m4a',
+        '.aac',
+        '.ogg',
+      ]);
+      if (!file) return;
+      const response = await fetch(file.uri);
+      const previewData = await blobToDataUrl(await response.blob());
+      setAudio(file);
+      setAudioPreview(previewData);
+      setMuted(false);
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+  const process = useMutation({
+    mutationFn: async () => {
+      if (!range.value) throw new Error(range.error ?? 'Invalid trim range');
+      const response = await archiveWorkflows.processTimelapse(
+        archiveId,
+        range.value,
+        audio ?? undefined,
+      );
+      if (response.status !== 'completed') throw new Error(response.message);
+      return response;
+    },
+    onSuccess: async response => {
+      setAudio(null);
+      setAudioPreview(null);
+      setVersion(previous => previous + 1);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['archive', archiveId] }),
+        queryClient.invalidateQueries({ queryKey: ['archives'] }),
+      ]);
+      showToast(response.message, 'success');
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+  if (info.isLoading)
     return (
-      <View
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <ActivityIndicator size="large" color={colors.accent} />
-      </View>
+      <LoadingScreen
+        message={t('archives.loadingVideo', {
+          defaultValue: 'Loading video information…',
+        })}
+      />
     );
-  }
-
-  if (!archive) {
+  if (info.error)
     return (
-      <View
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <Text style={[styles.note, { color: colors.error }]}>
-          Archive not found.
-        </Text>
-      </View>
+      <ErrorState
+        message={info.error.message}
+        onRetry={() => void info.refetch()}
+      />
     );
-  }
-
   return (
-    <>
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={styles.content}
+    <ScrollView
+      contentContainerStyle={[
+        styles.content,
+        { backgroundColor: colors.background },
+      ]}
+    >
+      <SectionCard
+        title={t('archives.timelapseEditor', {
+          defaultValue: 'Timelapse editor',
+        })}
       >
-        {/* Timelapse Preview */}
-        <View
-          style={[
-            styles.previewCard,
-            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-          ]}
-        >
-          {!hasTimelapse ? (
-            <Text
-              style={[styles.note, { color: colors.textSecondary }]}
-            >
-              No timelapse available for this archive.
-            </Text>
-          ) : (
-            <>
-              {timelapseError ? (
-                <View style={styles.previewError}>
-                  <Text
-                    style={[styles.helperText, { color: colors.textSecondary }]}
-                  >
-                    Unable to load timelapse preview.
-                  </Text>
-                  <PrimaryButton
-                    label="Retry"
-                    variant="secondary"
-                    onPress={() => {
-                      setTimelapseError(false);
-                      setTimelapseRetrySeed(s => s + 1);
-                    }}
-                  />
-                </View>
-              ) : (
-                <View style={styles.webviewContainer}>
-                  {timelapseUrl ? (
-                    <View
-                      style={[
-                        styles.webviewFrame,
-                        { borderColor: colors.border },
-                      ]}
-                    >
-                      <ScrollView
-                        horizontal
-                        contentContainerStyle={styles.webviewScrollContent}
-                      >
-                        <View
-                          style={{
-                            width: 360,
-                            height: 220,
-                            backgroundColor: colors.surface,
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.helperText,
-                              { color: colors.textSecondary },
-                            ]}
-                          >
-                            Timelapse preview will render here
-                          </Text>
-                        </View>
-                      </ScrollView>
-                    </View>
-                  ) : null}
-                </View>
-              )}
-            </>
-          )}
-        </View>
-
-        {/* Trimming */}
-        <View
-          style={[
-            styles.sectionCard,
-            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Trim
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-            Adjust the start and end points of the timelapse.
-          </Text>
-          <View style={styles.trimControls}>
-            <View style={styles.trimInput}>
-              <Text style={[styles.trimLabel, { color: colors.textSecondary }]}>
-                Start (%)
-              </Text>
-              <Pressable
-                onPress={() => setStartOffset(prev => Math.max(0, prev - 10))}
-                style={[styles.trimButton, { borderColor: colors.border }]}
-              >
-                <SkipBack size={18} color={colors.text} strokeWidth={2} />
-              </Pressable>
-              <Text style={[styles.trimValue, { color: colors.text }]}>
-                {startOffset}%
-              </Text>
-              <Pressable
-                onPress={() => setStartOffset(prev => Math.min(endOffset - 1, prev + 10))}
-                style={[styles.trimButton, { borderColor: colors.border }]}
-              >
-                <SkipForward size={18} color={colors.text} strokeWidth={2} />
-              </Pressable>
-            </View>
-            <View style={styles.trimInput}>
-              <Text style={[styles.trimLabel, { color: colors.textSecondary }]}>
-                End (%)
-              </Text>
-              <Pressable
-                onPress={() => setEndOffset(prev => Math.max(startOffset + 1, prev - 10))}
-                style={[styles.trimButton, { borderColor: colors.border }]}
-              >
-                <SkipBack size={18} color={colors.text} strokeWidth={2} />
-              </Pressable>
-              <Text style={[styles.trimValue, { color: colors.text }]}>
-                {endOffset}%
-              </Text>
-              <Pressable
-                onPress={() => setEndOffset(prev => Math.min(100, prev + 10))}
-                style={[styles.trimButton, { borderColor: colors.border }]}
-              >
-                <SkipForward size={18} color={colors.text} strokeWidth={2} />
-              </Pressable>
-            </View>
-          </View>
-        </View>
-
-        {/* Speed */}
-        <View
-          style={[
-            styles.sectionCard,
-            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Playback Speed
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-            Choose the playback speed for the timelapse.
-          </Text>
-          <View style={styles.speedRow}>
-            {SPEED_OPTIONS.map(option => (
-              <Pressable
-                key={option}
-                onPress={() => setSpeed(option)}
-                style={[
-                  styles.speedButton,
-                  {
-                    borderColor:
-                      speed === option ? colors.accent : colors.border,
-                    backgroundColor:
-                      speed === option
-                        ? `${colors.accent}15`
-                        : colors.surface,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.speedLabel,
-                    {
-                      color:
-                        speed === option ? colors.accent : colors.text,
-                      fontWeight:
-                        speed === option ? fontWeight.bold : fontWeight.normal,
-                    },
-                  ]}
-                >
-                  {option}x
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* Music */}
-        <View
-          style={[
-            styles.sectionCard,
-            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Music
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-            Add background music from your device.
-          </Text>
-          {musicUri ? (
-            <View style={styles.musicInfo}>
-              <Music size={16} color={colors.textSecondary} strokeWidth={2} />
-              <Text
-                style={[styles.musicName, { color: colors.text }]}
-                numberOfLines={1}
-              >
-                {musicName}
-              </Text>
-              <Pressable
-                onPress={() => setShowConfirmMusic(true)}
-                style={[styles.musicRemove, { borderColor: colors.error }]}
-              >
-                <Trash2 size={16} color={colors.error} strokeWidth={2} />
-              </Pressable>
-            </View>
-          ) : null}
+        <Text style={{ color: colors.text }}>
+          {info.data?.width} × {info.data?.height} · {info.data?.fps} fps ·{' '}
+          {info.data?.duration.toFixed(3)} s
+        </Text>
+        {preview ? (
+          <EditorWebView
+            ref={previewRef}
+            key={`${version}-${token}`}
+            style={styles.video}
+            source={{ html: preview }}
+            originWhitelist={['about:blank']}
+            onShouldStartLoadWithRequest={event => event.url === 'about:blank'}
+            allowsInlineMediaPlayback
+            mediaPlaybackRequiresUserAction={false}
+            allowFileAccess={false}
+            setSupportMultipleWindows={false}
+            onMessage={event => {
+              try {
+                const data = JSON.parse(event.nativeEvent.data) as {
+                  time?: number;
+                  error?: string;
+                };
+                if (data.time !== undefined) setPlayhead(data.time);
+                if (data.error) setPreviewError(data.error);
+              } catch {}
+            }}
+            onError={() =>
+              setPreviewError(
+                t('archives.videoError', {
+                  defaultValue: 'Video preview could not load.',
+                }),
+              )
+            }
+          />
+        ) : null}
+        {previewError ? (
+          <>
+            <Text style={{ color: colors.error }}>{previewError}</Text>
+            <PrimaryButton
+              label={t('common.retry', { defaultValue: 'Retry preview' })}
+              onPress={() => {
+                setPreviewError(null);
+                setVersion(previous => previous + 1);
+              }}
+            />
+          </>
+        ) : null}
+        <TextField
+          label={t('archives.trimStart', {
+            defaultValue: 'Trim start (seconds, decimals supported)',
+          })}
+          value={start}
+          onChangeText={setStart}
+          keyboardType="decimal-pad"
+        />
+        <TextField
+          label={t('archives.trimEnd', {
+            defaultValue: 'Trim end (seconds, decimals supported)',
+          })}
+          value={end}
+          onChangeText={setEnd}
+          keyboardType="decimal-pad"
+        />
+        <Text style={{ color: colors.text }}>
+          {t('archives.playhead', {
+            defaultValue: 'Playhead: {{time}} s',
+            time: playhead.toFixed(3),
+          })}
+        </Text>
+        <View style={styles.row}>
           <PrimaryButton
-            label={musicUri ? 'Change music' : 'Add music'}
+            label={t('archives.startAtPlayhead', {
+              defaultValue: 'Start at playhead',
+            })}
             variant="secondary"
-            onPress={pickMusic}
+            onPress={() => setStart(playhead.toFixed(3))}
+          />
+          <PrimaryButton
+            label={t('archives.endAtPlayhead', {
+              defaultValue: 'End at playhead',
+            })}
+            variant="secondary"
+            onPress={() => setEnd(playhead.toFixed(3))}
           />
         </View>
-
-        {/* Reset & Save */}
-        <View style={styles.actionRow}>
-          <View style={styles.actionCell}>
-            <PrimaryButton
-              label="Reset"
-              variant="secondary"
-              onPress={resetSettings}
-            />
-          </View>
-          <View style={[styles.actionCell, styles.actionCellFull]}>
-            <PrimaryButton
-              label="Save changes"
-              onPress={handleSave}
-              loading={updateTimelapseMutation.isPending}
-            />
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Confirm music upload */}
-      <Modal
-        visible={showConfirmMusic}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowConfirmMusic(false)}
-      >
-        <View
-          style={[styles.centeredBackdrop, { backgroundColor: colors.overlay }]}
-        >
-          <View
-            style={[
-              styles.modalCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Upload music?
-            </Text>
-            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
-              Add{' '}
-              <Text style={[styles.modalFileName, { color: colors.text }]}>
-                {musicName}
-              </Text>{' '}
-              as background music for this timelapse?
-            </Text>
-            <View style={styles.modalActions}>
-              <PrimaryButton
-                label="Cancel"
-                variant="secondary"
-                onPress={() => setShowConfirmMusic(false)}
+        <ScrollView horizontal>
+          {frames.data?.thumbnails.map((thumbnail, index) => (
+            <View key={index} style={styles.frame}>
+              <Image
+                source={{ uri: `data:image/jpeg;base64,${thumbnail}` }}
+                style={styles.thumbnail}
               />
-              <View style={styles.modalActionSpacing} />
               <PrimaryButton
-                label="Upload"
-                onPress={confirmMusicUpload}
-                loading={uploadMusicMutation.isPending}
+                label={`${frames.data.timestamps[index].toFixed(2)} s`}
+                variant="secondary"
+                onPress={() =>
+                  previewRef.current?.injectJavaScript(
+                    `document.getElementById('v').currentTime=${frames.data.timestamps[index]};true;`,
+                  )
+                }
               />
             </View>
-          </View>
+          ))}
+        </ScrollView>
+        <View style={styles.row}>
+          {[0.25, 0.5, 1, 1.5, 2, 4].map(value => (
+            <Chip
+              key={value}
+              label={`${value}×`}
+              selected={speed === value}
+              onPress={() => setSpeed(value)}
+            />
+          ))}
         </View>
-      </Modal>
-
-      {/* Confirm music removal */}
-      <ConfirmModal
-        visible={removeMusicMutation.isPending ? true : musicUri === null && musicName === null}
-        onClose={() => setShowConfirmMusic(false)}
-        onConfirm={() => {
-          removeMusicMutation.mutateAsync();
-        }}
-        title="Remove music"
-        message={`Remove "${musicName}" from the timelapse?`}
-        confirmLabel="Remove"
-        loading={removeMusicMutation.isPending}
+        <Text style={{ color: range.error ? colors.error : colors.text }}>
+          {range.error ??
+            t('archives.outputDuration', {
+              defaultValue: 'Output duration: {{duration}} s',
+              duration: range.value?.outputDuration.toFixed(3),
+            })}
+        </Text>
+      </SectionCard>
+      <SectionCard
+        title={t('archives.musicOverlay', { defaultValue: 'Music overlay' })}
+      >
+        <PrimaryButton
+          label={
+            audio?.name ??
+            t('archives.pickAudio', {
+              defaultValue: 'Choose MP3, WAV, M4A, AAC or OGG document',
+            })
+          }
+          loading={chooseAudio.isPending}
+          onPress={() => chooseAudio.mutate()}
+        />
+        {audio ? (
+          <>
+            <PrimaryButton
+              label={t('archives.removeAudio', {
+                defaultValue: 'Remove selected music',
+              })}
+              variant="secondary"
+              onPress={() => {
+                setAudio(null);
+                setAudioPreview(null);
+              }}
+            />
+            <Chip
+              label={t('archives.mutePreview', {
+                defaultValue: 'Mute preview music',
+              })}
+              selected={muted}
+              onPress={() => setMuted(!muted)}
+            />
+            <View style={styles.row}>
+              {[0, 0.25, 0.5, 0.75, 1].map(value => (
+                <Chip
+                  key={value}
+                  label={`${value * 100}%`}
+                  selected={volume === value}
+                  onPress={() => setVolume(value)}
+                />
+              ))}
+            </View>
+            <Text style={{ color: colors.textSecondary }}>
+              {t('archives.previewVolumeNote', {
+                defaultValue:
+                  'Preview volume only. Saved overlay uses the selected audio at its original volume.',
+              })}
+            </Text>
+          </>
+        ) : null}
+      </SectionCard>
+      <PrimaryButton
+        label={t('archives.processSave', {
+          defaultValue: 'Process and replace timelapse',
+        })}
+        loading={process.isPending}
+        disabled={
+          !hasPermission('archives:update_all') ||
+          !range.value ||
+          process.isPending
+        }
+        onPress={() =>
+          Alert.alert(
+            t('archives.processSave', {
+              defaultValue: 'Process and replace timelapse?',
+            }),
+            t('archives.processWarning', {
+              defaultValue:
+                'The original is replaced only after processing succeeds. Keep this screen open until processing finishes.',
+            }),
+            [
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('common.save'), onPress: () => process.mutate() },
+            ],
+          )
+        }
       />
-    </>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: {
-    padding: spacing.lg,
-    gap: spacing.lg,
-    paddingBottom: spacing['3xl'],
-  },
-  headerButton: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewCard: {
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    padding: spacing.md,
-    alignItems: 'center',
-  },
-  webviewContainer: {
-    width: '100%',
-  },
-  webviewFrame: {
-    height: 220,
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-  },
-  webviewScrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  previewError: {
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-  },
-  sectionCard: {
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
-  },
-  sectionSubtitle: {
-    fontSize: fontSize.sm,
-  },
-  trimControls: {
-    gap: spacing.md,
-  },
-  trimInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  trimLabel: {
-    fontSize: fontSize.sm,
-    width: 60,
-  },
-  trimButton: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trimValue: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-    minWidth: 50,
-    textAlign: 'center',
-  },
-  speedRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  speedButton: {
-    flex: 1,
-    borderWidth: 2,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  speedLabel: {
-    fontSize: fontSize.base,
-  },
-  musicInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  musicName: {
-    flex: 1,
-    fontSize: fontSize.sm,
-  },
-  musicRemove: {
-    width: 28,
-    height: 28,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionCell: {
-    flex: 1,
-  },
-  actionCellFull: {
-    minWidth: '50%',
-  },
-  centeredBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modalCard: {
-    width: '100%',
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  modalTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
-  },
-  modalMessage: {
-    fontSize: fontSize.base,
-    lineHeight: 22,
-  },
-  modalFileName: {
-    fontWeight: fontWeight.semibold,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  modalActionSpacing: {
-    flex: 1,
-  },
-  note: {
-    fontSize: fontSize.base,
-    lineHeight: 22,
-  },
-  helperText: {
-    fontSize: fontSize.sm,
-  },
+  content: { padding: spacing.md, gap: spacing.md, flexGrow: 1 },
+  video: { width: '100%', height: 260 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  frame: { marginRight: spacing.sm, gap: spacing.xs },
+  thumbnail: { width: 120, height: 70 },
 });

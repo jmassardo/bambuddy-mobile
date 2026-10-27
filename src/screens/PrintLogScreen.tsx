@@ -1,720 +1,795 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   FlatList,
-  Modal,
-  Pressable,
-  RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import {
-  ChevronDown,
-  ChevronUp,
-  Filter,
-  Search,
-  X,
-} from 'lucide-react-native';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { archivesApi } from '@/api/archives';
+import { archiveWorkflows } from '@/api/archiveWorkflows';
 import { api } from '@/api/client';
-import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
-import { PrimaryButton } from '@/components/common/AppUI';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useTranslation } from '@/i18n';
 import { useTheme } from '@/theme';
-import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
+import { spacing } from '@/theme/tokens';
+import {
+  Chip,
+  KeyValueRow,
+  PrimaryButton,
+  SearchBar,
+  SectionCard,
+  TextField,
+} from '@/components/common/AppUI';
+import { ArchiveDialog } from '@/components/archives/ArchiveWorkflowUI';
+import { EmptyState, ErrorState } from '@/components/common/StateScreens';
+import {
+  formatCurrency,
+  formatDateTime,
+  formatDuration,
+  formatWeight,
+} from '@/utils/data';
 import { shareBlob } from '@/utils/share';
-import { formatDateTime, pickNumber, pickString, type ApiRecord } from '@/utils/data';
+import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
+import type { PrintLogEntry } from '@/types/api';
 
-interface PrintLogRow {
-  id: number;
-  print_name: string;
-  printer_name: string;
-  status: string;
-  started_at: string | null;
-  completed_at: string | null;
-  failure_reason: string | null;
-  filament_type: string | null;
-  filament_color: string | null;
-  filament_used_grams: number | null;
-  cost: number | null;
-  duration_seconds: number | null;
-  created_by_username: string | null;
-  created_at: string;
-}
+const FIELD_KEYS = [
+  'date',
+  'print_name',
+  'printer',
+  'user',
+  'status',
+  'duration',
+  'completed_at',
+  'filament',
+  'filament_used',
+  'cost',
+  'energy',
+  'energy_cost',
+] as const;
+type Field = (typeof FIELD_KEYS)[number];
+const FIELD_LABELS: Record<Field, string> = {
+  date: 'Started',
+  print_name: 'Print name',
+  printer: 'Printer',
+  user: 'User',
+  status: 'Status',
+  duration: 'Duration',
+  completed_at: 'Completed',
+  filament: 'Filament',
+  filament_used: 'Filament used (g)',
+  cost: 'Cost',
+  energy: 'Energy (kWh)',
+  energy_cost: 'Energy cost',
+};
+const REASONS = [
+  '',
+  'adhesionFailure',
+  'spaghettiDetached',
+  'layerShift',
+  'cloggedNozzle',
+  'filamentRunout',
+  'warping',
+  'stringing',
+  'underExtrusion',
+  'powerFailure',
+  'userCancelled',
+  'noStatusUpdate',
+  'other',
+];
+const STATUSES = ['completed', 'failed', 'stopped', 'cancelled', 'skipped'];
+const PREFERENCES_KEY = 'print-log-fields-v1';
 
-function normalizePrintLog(data: Record<string, unknown> | Record<string, unknown>[] | null): PrintLogRow[] {
-  if (!data) return [];
-
-  if (Array.isArray(data)) {
-    return data.map(row => normalizeSingleLog(row as ApiRecord));
+function valueFor(entry: PrintLogEntry, field: Field): string {
+  switch (field) {
+    case 'date':
+      return formatDateTime(entry.started_at ?? entry.created_at);
+    case 'completed_at':
+      return entry.completed_at ? formatDateTime(entry.completed_at) : '—';
+    case 'print_name':
+      return entry.print_name ?? '—';
+    case 'printer':
+      return entry.printer_name ?? '—';
+    case 'user':
+      return entry.created_by_username ?? '—';
+    case 'status':
+      return entry.status;
+    case 'duration':
+      return entry.duration_seconds == null
+        ? '—'
+        : formatDuration(entry.duration_seconds);
+    case 'filament':
+      return (
+        [entry.filament_type, entry.filament_color]
+          .filter(Boolean)
+          .join(' · ') || '—'
+      );
+    case 'filament_used':
+      return entry.filament_used_grams == null
+        ? '—'
+        : formatWeight(entry.filament_used_grams);
+    case 'cost':
+      return entry.cost == null ? '—' : formatCurrency(entry.cost);
+    case 'energy':
+      return entry.energy_kwh == null ? '—' : `${entry.energy_kwh} kWh`;
+    case 'energy_cost':
+      return entry.energy_cost == null
+        ? '—'
+        : formatCurrency(entry.energy_cost);
   }
-
-  if ('items' in data) {
-    const items = (data.items as Record<string, unknown>[]) ?? [];
-    return items.map(row => normalizeSingleLog(row as ApiRecord));
-  }
-
-  return [normalizeSingleLog(data as ApiRecord)];
 }
-
-function normalizeSingleLog(record: ApiRecord): PrintLogRow {
-  return {
-    id: pickNumber(record, ['id']),
-    print_name: pickString(record, ['print_name', 'filename'], 'Untitled'),
-    printer_name: pickString(record, ['printer_name', 'printer'], 'Unknown printer'),
-    status: pickString(record, ['status'], 'unknown'),
-    started_at: pickString(record, ['started_at']),
-    completed_at: pickString(record, ['completed_at']),
-    failure_reason: pickString(record, ['failure_reason', 'error_reason', 'cancel_reason']),
-    filament_type: pickString(record, ['filament_type']),
-    filament_color: pickString(record, ['filament_color', 'filament_colour']),
-    filament_used_grams: pickNumber(record, ['filament_used_grams', 'filament_used_g']),
-    cost: pickNumber(record, ['cost', 'estimated_cost']),
-    duration_seconds: pickNumber(record, ['duration_seconds', 'actual_time_seconds', 'print_time_seconds']),
-    created_by_username: pickString(record, ['created_by_username', 'username']),
-    created_at: pickString(record, ['created_at'], ''),
-  };
-}
-
-type RangeKey = 'today' | '7d' | '30d' | '90d' | 'all';
-type FilterKey = 'printer' | 'status' | 'date';
 
 export default function PrintLogScreen() {
+  const { t } = useTranslation();
   const { colors } = useTheme();
+  const { user, hasPermission } = useAuth();
   const { showToast } = useToast();
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterPrinter, setFilterPrinter] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string | null>(null);
-  const [filterDate, setFilterDate] = useState<RangeKey>('30d');
-  const [showFilters, setShowFilters] = useState(false);
-  const [filterModal, setFilterModal] = useState<FilterKey | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const filterOptions = useMemo(() => {
-    const now = new Date();
-    const end = now.toISOString().split('T')[0];
-    if (filterDate === 'all') return {};
-    const days = filterDate === 'today' ? 1 : Number(filterDate.replace('d', ''));
-    const start = new Date(now);
-    start.setDate(start.getDate() - (days - 1));
-    return {
-      dateFrom: start.toISOString().split('T')[0],
-      dateTo: end,
-    };
-  }, [filterDate]);
-
-  const printLogsQuery = useQuery({
-    queryKey: ['printLogs', searchQuery, filterPrinter, filterStatus, filterDate],
-    queryFn: () =>
-      api.getPrintLogs({
-        search: searchQuery || undefined,
-        printerName: filterPrinter || undefined,
-        status: filterStatus || undefined,
-        ...filterOptions,
-        limit: 500,
-      }),
-    select: data => normalizePrintLog(data),
-  });
-
-  const printersQuery = useQuery({
-    queryKey: ['printLogPrinters', searchQuery, filterStatus, filterDate],
+  const route = useRoute<RootRouteProp<'PrintLog'>>();
+  const navigation = useNavigation<RootNavigationProp<'PrintLog'>>();
+  const archiveId = route.params?.archiveId;
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [printerId, setPrinterId] = useState<number | undefined>();
+  const [username, setUsername] = useState('');
+  const [status, setStatus] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [sortBy, setSortBy] = useState<Field>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
+  const [fields, setFields] = useState<Field[]>([...FIELD_KEYS]);
+  const [draftFields, setDraftFields] = useState<Field[]>([...FIELD_KEYS]);
+  const [fieldDialog, setFieldDialog] = useState(false);
+  const [editing, setEditing] = useState<PrintLogEntry | null>(null);
+  const [editStatus, setEditStatus] = useState('completed');
+  const [editReason, setEditReason] = useState('');
+  const dateValid =
+    (!from || Number.isFinite(Date.parse(from))) &&
+    (!to || Number.isFinite(Date.parse(to))) &&
+    (!from || !to || from <= to);
+  const parameters = useMemo(
+    () => ({
+      search: search || undefined,
+      printerId,
+      createdByUsername: username || undefined,
+      status: status || undefined,
+      dateFrom: from ? `${from}T00:00:00` : undefined,
+      dateTo: to ? `${to}T23:59:59.999` : undefined,
+      sortBy,
+      sortDir,
+    }),
+    [search, printerId, username, status, from, to, sortBy, sortDir],
+  );
+  useEffect(() => {
+    setPage(0);
+  }, [parameters, pageSize]);
+  useEffect(() => {
+    void AsyncStorage.getItem(PREFERENCES_KEY)
+      .then(value => {
+        if (!value) return;
+        try {
+          const parsed: unknown = JSON.parse(value);
+          if (Array.isArray(parsed)) {
+            const valid = [
+              ...new Set(
+                parsed.filter((field): field is Field =>
+                  FIELD_KEYS.includes(field as Field),
+                ),
+              ),
+            ];
+            if (valid.length) setFields(valid);
+          }
+        } catch {}
+      })
+      .catch(() => {});
+  }, []);
+  const query = useQuery({
+    queryKey: ['printLogs', archiveId, parameters, page, pageSize],
+    enabled: dateValid,
     queryFn: async () => {
-      const result = await api.getPrintLogs({
-        search: searchQuery || undefined,
-        ...filterOptions,
-        limit: 500,
-      });
-      const logs = normalizePrintLog(result);
-      const printerMap = new Map<string, number>();
-      logs.forEach(log => {
-        printerMap.set(log.printer_name, (printerMap.get(log.printer_name) ?? 0) + 1);
-      });
-      return Array.from(printerMap.entries())
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count);
-    },
-    select: data => data.filter(p => p.name !== 'Unknown printer'),
-  });
-
-  const statusesQuery = useQuery({
-    queryKey: ['printLogStatuses', searchQuery, filterPrinter, filterDate],
-    queryFn: async () => {
-      const result = await api.getPrintLogs({
-        search: searchQuery || undefined,
-        printerName: filterPrinter || undefined,
-        ...filterOptions,
-        limit: 500,
-      });
-      const logs = normalizePrintLog(result);
-      const statusMap = new Map<string, number>();
-      logs.forEach(log => {
-        statusMap.set(log.status, (statusMap.get(log.status) ?? 0) + 1);
-      });
-      return Array.from(statusMap.entries())
-        .map(([label, count]) => ({ label, count }))
-        .sort((a, b) => b.count - a.count);
-    },
-  });
-
-  const exportMutation = useMutation({
-    mutationFn: async (format: 'csv' | 'json') => {
-      const data = printLogsQuery.data ?? [];
-      if (format === 'json') {
-        const blobOptions: BlobOptions = {
-          type: 'application/json',
-          lastModified: Date.now(),
+      if (archiveId != null) {
+        const rows = (await archivesApi.getArchivePrintLog(
+          archiveId,
+        )) as unknown as PrintLogEntry[];
+        const filtered = rows
+          .filter(entry => {
+            if (
+              search &&
+              !entry.print_name?.toLowerCase().includes(search.toLowerCase())
+            )
+              return false;
+            if (printerId !== undefined && entry.printer_id !== printerId)
+              return false;
+            if (username && entry.created_by_username !== username)
+              return false;
+            if (status && entry.status !== status) return false;
+            if (from && entry.created_at < parameters.dateFrom!) return false;
+            if (to && entry.created_at > parameters.dateTo!) return false;
+            return true;
+          })
+          .sort((a, b) => {
+            const keyMap: Partial<Record<Field, keyof PrintLogEntry>> = {
+              date: 'started_at',
+              printer: 'printer_name',
+              user: 'created_by_username',
+              duration: 'duration_seconds',
+              filament: 'filament_type',
+              filament_used: 'filament_used_grams',
+              energy: 'energy_kwh',
+            };
+            const key = keyMap[sortBy] ?? (sortBy as keyof PrintLogEntry);
+            const aValue = a[key] ?? (sortBy === 'date' ? a.created_at : null);
+            const bValue = b[key] ?? (sortBy === 'date' ? b.created_at : null);
+            if (aValue == null) return bValue == null ? b.id - a.id : 1;
+            if (bValue == null) return -1;
+            const order =
+              typeof aValue === 'number' && typeof bValue === 'number'
+                ? aValue - bValue
+                : String(aValue).localeCompare(String(bValue));
+            return (sortDir === 'asc' ? order : -order) || b.id - a.id;
+          });
+        return {
+          items: filtered.slice(page * pageSize, (page + 1) * pageSize),
+          total: filtered.length,
         };
-        const blob = new Blob([JSON.stringify(data, null, 2)], blobOptions);
-        await shareBlob(blob, `bambuddy-print-log-${filterDate}.${format}`);
-        return;
       }
-      const csv = buildPrintLogCsv(data);
-      const blobOptions: BlobOptions = {
-        type: 'text/csv',
-        lastModified: Date.now(),
-      };
-      const blob = new Blob([csv], blobOptions);
-      await shareBlob(blob, `bambuddy-print-log-${filterDate}.csv`);
+      return archivesApi.getPrintLogs({
+        ...parameters,
+        offset: page * pageSize,
+        limit: pageSize,
+      });
     },
-    onSuccess: () => showToast('Print log exported.', 'success'),
-    onError: (error: Error) => showToast(error.message || 'Unable to export print log.', 'error'),
   });
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([
-      printLogsQuery.refetch(),
-      printersQuery.refetch(),
-      statusesQuery.refetch(),
-    ]);
-    setRefreshing(false);
+  const printers = useQuery({
+    queryKey: ['printers'],
+    queryFn: api.getPrinters,
+  });
+  const users = useQuery({
+    queryKey: ['printLogUsers'],
+    queryFn: () => api.getUsers(),
+    enabled: hasPermission('users:read'),
+  });
+  const refresh = async () => {
+    await Promise.all(
+      [
+        'printLogs',
+        'archiveRuns',
+        'archivePrintLog',
+        'archiveStats',
+        'stats',
+        'failureAnalysis',
+      ].map(key => queryClient.invalidateQueries({ queryKey: [key] })),
+    );
   };
-
-  const activeFilters = [
-    filterPrinter ? `Printer: ${filterPrinter}` : null,
-    filterStatus ? `Status: ${filterStatus}` : null,
-    filterDate !== '30d' ? `Date: ${filterDate}` : null,
-  ].filter(Boolean);
-
+  const mutate = useMutation({
+    mutationFn: (
+      operation:
+        | { type: 'edit'; id: number }
+        | { type: 'delete'; id: number }
+        | { type: 'clear' },
+    ) =>
+      operation.type === 'edit'
+        ? archiveWorkflows.updateRun(operation.id, {
+            status: editStatus,
+            failure_reason: editReason || null,
+          })
+        : operation.type === 'delete'
+        ? archiveWorkflows.deleteRun(operation.id)
+        : archiveWorkflows.clearRuns(),
+    onSuccess: async () => {
+      await refresh();
+      setEditing(null);
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+  const exportPage = useMutation({
+    mutationFn: async (format: 'csv' | 'json') => {
+      const entries = query.data?.items ?? [];
+      const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+      const csv = [
+        fields.map(field => escape(FIELD_LABELS[field])).join(','),
+        ...entries.map(entry =>
+          fields.map(field => escape(valueFor(entry, field))).join(','),
+        ),
+      ].join('\n');
+      const blob = new Blob(
+        [format === 'json' ? JSON.stringify(entries, null, 2) : csv],
+        {
+          type: format === 'json' ? 'application/json' : 'text/csv',
+          lastModified: Date.now(),
+        },
+      );
+      await shareBlob(blob, `print-log-page-${page + 1}.${format}`);
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+  const total = query.data?.total ?? 0;
+  const maxPage = Math.max(0, Math.ceil(total / pageSize) - 1);
+  const canEdit = (entry: PrintLogEntry) =>
+    hasPermission('archives:update_all') ||
+    (entry.created_by_id === user?.id && hasPermission('archives:update_own'));
+  const canDelete = (entry: PrintLogEntry) =>
+    hasPermission('archives:delete_all') ||
+    (entry.created_by_id === user?.id && hasPermission('archives:delete_own'));
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.searchBar, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-        <Search size={18} color={colors.textSecondary} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Search by print name, error..."
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery ? (
-          <Pressable onPress={() => setSearchQuery('')} hitSlop={8} accessibilityLabel="Clear search" accessibilityRole="button">
-            <X size={16} color={colors.textSecondary} />
-          </Pressable>
-        ) : null}
-        <Pressable onPress={() => setShowFilters(!showFilters)} hitSlop={8} accessibilityLabel={showFilters ? 'Hide filters' : 'Show filters'} accessibilityRole="button">
-          <Filter size={18} color={showFilters ? colors.accent : colors.textSecondary} />
-        </Pressable>
-      </View>
-
-      {activeFilters.length > 0 && (
-        <View style={styles.filterBar}>
-          {activeFilters.map((filter, i) => (
-            <Pressable
-              key={i}
-              style={[styles.filterChip, { backgroundColor: colors.accentBg, borderColor: colors.accent }]}
-              onPress={() => {
-                if (filter!.startsWith('Printer:')) setFilterPrinter(null);
-                else if (filter!.startsWith('Status:')) setFilterStatus(null);
-                else setFilterDate('30d');
-              }}
+      <FlatList
+        data={query.data?.items ?? []}
+        keyExtractor={item => String(item.id)}
+        contentContainerStyle={styles.content}
+        refreshing={query.isRefetching}
+        onRefresh={() => void query.refetch()}
+        ListHeaderComponent={
+          <View style={styles.stack}>
+            <SectionCard
+              title={
+                archiveId == null
+                  ? t('archives.printLog', { defaultValue: 'Print log' })
+                  : t('archives.archivePrintLog', {
+                      defaultValue: 'Runs for archive #{{id}}',
+                      id: archiveId,
+                    })
+              }
             >
-              <Text style={[styles.filterChipText, { color: colors.accent }]}>{filter!}</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
-
-      {showFilters && (
-        <View style={[styles.filterPanel, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-          <View style={styles.filterPanelRow}>
-            <Text style={[styles.filterPanelLabel, { color: colors.textSecondary }]}>Printer</Text>
-            <Pressable
-              style={[styles.filterButton, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}
-              onPress={() => setFilterModal('printer')}
-            >
-              <Text style={[styles.filterButtonLabel, { color: filterPrinter ? colors.text : colors.textSecondary }]} numberOfLines={1}>
-                {filterPrinter || 'All printers'}
+              <SearchBar
+                value={search}
+                onChangeText={setSearch}
+                placeholder={t('archives.searchPrints', {
+                  defaultValue: 'Search print names',
+                })}
+              />
+              <ScrollView horizontal>
+                <View style={styles.row}>
+                  <Chip
+                    label={t('archives.allPrinters', {
+                      defaultValue: 'All printers',
+                    })}
+                    selected={printerId === undefined}
+                    onPress={() => setPrinterId(undefined)}
+                  />
+                  {printers.data?.map(printer => (
+                    <Chip
+                      key={printer.id}
+                      label={printer.name}
+                      selected={printerId === printer.id}
+                      onPress={() => setPrinterId(printer.id)}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+              <TextField
+                label={t('archives.usernameFilter', {
+                  defaultValue: 'Exact user name (blank = all)',
+                })}
+                value={username}
+                onChangeText={setUsername}
+              />
+              <ScrollView horizontal>
+                <View style={styles.row}>
+                  {users.data?.map(account => (
+                    <Chip
+                      key={account.id}
+                      label={account.username}
+                      selected={username === account.username}
+                      onPress={() =>
+                        setUsername(
+                          username === account.username ? '' : account.username,
+                        )
+                      }
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+              <ScrollView horizontal>
+                <View style={styles.row}>
+                  {['', ...STATUSES].map(value => (
+                    <Chip
+                      key={value}
+                      label={
+                        value ||
+                        t('archives.allStatuses', {
+                          defaultValue: 'All statuses',
+                        })
+                      }
+                      selected={status === value}
+                      onPress={() => setStatus(value)}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+              <TextField
+                label={t('archives.dateFrom', {
+                  defaultValue: 'From date (YYYY-MM-DD, inclusive)',
+                })}
+                value={from}
+                onChangeText={setFrom}
+              />
+              <TextField
+                label={t('archives.dateTo', {
+                  defaultValue: 'To date (YYYY-MM-DD, inclusive)',
+                })}
+                value={to}
+                onChangeText={setTo}
+              />
+              {!dateValid ? (
+                <Text style={{ color: colors.error }}>
+                  {t('archives.invalidDates', {
+                    defaultValue: 'Enter valid dates, with From not after To.',
+                  })}
+                </Text>
+              ) : null}
+              <Text style={{ color: colors.text }}>
+                {t('archives.sortBy', { defaultValue: 'Sort by' })}
               </Text>
-              <ChevronDown size={14} color={colors.textSecondary} />
-            </Pressable>
-          </View>
-          <View style={styles.filterPanelRow}>
-            <Text style={[styles.filterPanelLabel, { color: colors.textSecondary }]}>Status</Text>
-            <Pressable
-              style={[styles.filterButton, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}
-              onPress={() => setFilterModal('status')}
-            >
-              <Text style={[styles.filterButtonLabel, { color: filterStatus ? colors.text : colors.textSecondary }]} numberOfLines={1}>
-                {filterStatus || 'All statuses'}
+              <ScrollView horizontal>
+                <View style={styles.row}>
+                  {FIELD_KEYS.map(field => (
+                    <Chip
+                      key={field}
+                      label={t(`archives.log.${field}`, {
+                        defaultValue: FIELD_LABELS[field],
+                      })}
+                      selected={sortBy === field}
+                      onPress={() => setSortBy(field)}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+              <Chip
+                label={
+                  sortDir === 'asc'
+                    ? t('archives.ascending', { defaultValue: 'Ascending' })
+                    : t('archives.descending', { defaultValue: 'Descending' })
+                }
+                selected={sortDir === 'asc'}
+                onPress={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+              />
+              <PrimaryButton
+                label={t('archives.configureFields', {
+                  defaultValue: 'Configure visible fields / order',
+                })}
+                variant="secondary"
+                onPress={() => {
+                  setDraftFields([...fields]);
+                  setFieldDialog(true);
+                }}
+              />
+              <Text style={{ color: colors.textSecondary }}>
+                {t('archives.pageTotals', {
+                  defaultValue:
+                    '{{count}} matching runs · page {{page}} / {{pages}}. Exports include this page only.',
+                  count: total,
+                  page: page + 1,
+                  pages: maxPage + 1,
+                })}
               </Text>
-              <ChevronDown size={14} color={colors.textSecondary} />
-            </Pressable>
+              <View style={styles.row}>
+                {[25, 50, 100, 250, 500].map(size => (
+                  <Chip
+                    key={size}
+                    label={String(size)}
+                    selected={pageSize === size}
+                    onPress={() => setPageSize(size)}
+                  />
+                ))}
+              </View>
+              <View style={styles.row}>
+                <PrimaryButton
+                  label={t('common.first', { defaultValue: 'First' })}
+                  disabled={page === 0}
+                  onPress={() => setPage(0)}
+                />
+                <PrimaryButton
+                  label={t('common.previous', { defaultValue: 'Previous' })}
+                  disabled={page === 0}
+                  onPress={() => setPage(page - 1)}
+                />
+                <PrimaryButton
+                  label={t('common.next', { defaultValue: 'Next' })}
+                  disabled={page >= maxPage}
+                  onPress={() => setPage(page + 1)}
+                />
+                <PrimaryButton
+                  label={t('common.last', { defaultValue: 'Last' })}
+                  disabled={page >= maxPage}
+                  onPress={() => setPage(maxPage)}
+                />
+              </View>
+              <View style={styles.row}>
+                {(['csv', 'json'] as const).map(format => (
+                  <PrimaryButton
+                    key={format}
+                    label={t('archives.exportPage', {
+                      defaultValue: 'Export page as {{format}}',
+                      format: format.toUpperCase(),
+                    })}
+                    loading={exportPage.isPending}
+                    onPress={() => exportPage.mutate(format)}
+                  />
+                ))}
+              </View>
+              {hasPermission('archives:delete_all') && archiveId == null ? (
+                <PrimaryButton
+                  label={t('archives.clearLog', {
+                    defaultValue: 'Clear entire print log',
+                  })}
+                  variant="danger"
+                  disabled={mutate.isPending}
+                  onPress={() =>
+                    Alert.alert(
+                      t('archives.clearLog', {
+                        defaultValue: 'Clear entire print log?',
+                      }),
+                      t('archives.clearLogWarning', {
+                        defaultValue:
+                          'All run history and its statistical contributions will be removed. Archives and queue items remain.',
+                      }),
+                      [
+                        { text: t('common.cancel'), style: 'cancel' },
+                        {
+                          text: t('common.delete'),
+                          style: 'destructive',
+                          onPress: () => mutate.mutate({ type: 'clear' }),
+                        },
+                      ],
+                    )
+                  }
+                />
+              ) : null}
+            </SectionCard>
+            {query.error ? (
+              <ErrorState
+                message={query.error.message}
+                onRetry={() => void query.refetch()}
+              />
+            ) : null}
+            {query.isLoading ? (
+              <Text style={{ color: colors.text }}>{t('common.loading')}</Text>
+            ) : null}
           </View>
-          <View style={styles.filterPanelRow}>
-            <Text style={[styles.filterPanelLabel, { color: colors.textSecondary }]}>Date range</Text>
-            <InlineTabBar
-              value={filterDate}
-              tabs={[
-                { key: 'today', label: 'Today' },
-                { key: '7d', label: '7d' },
-                { key: '30d', label: '30d' },
-                { key: '90d', label: '90d' },
-                { key: 'all', label: 'All' },
-              ]}
-              onChange={value => setFilterDate(value as RangeKey)}
-              colors={colors}
+        }
+        ListEmptyComponent={
+          !query.isLoading && !query.error ? (
+            <EmptyState
+              icon="🧾"
+              title={t('archives.noRuns', {
+                defaultValue: 'No matching print runs',
+              })}
+              message={t('archives.adjustRunFilters', {
+                defaultValue: 'Adjust filters or dates to browse history.',
+              })}
             />
-          </View>
-        </View>
-      )}
-
-      {printLogsQuery.isLoading ? (
-        <LoadingScreen message="Loading print log..." />
-      ) : printLogsQuery.isError ? (
-        <ErrorState message="Unable to load print log." onRetry={onRefresh} />
-      ) : printLogsQuery.data?.length === 0 ? (
-        <EmptyState icon="🧾" title="No print log entries" message="No matching print logs found." />
-      ) : (
-        <FlatList
-          data={printLogsQuery.data}
-          keyExtractor={item => String(item.id)}
-          contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
-          }
-          renderItem={({ item }) => (
-            <PrintLogRow item={item} colors={colors} />
-          )}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-        />
-      )}
-
-      <View style={[styles.exportBar, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
-        <PrimaryButton
-          label={exportMutation.isPending ? 'Exporting...' : 'Export CSV'}
-          variant="secondary"
-          onPress={() => exportMutation.mutateAsync('csv')}
-          loading={exportMutation.isPending}
-        />
-        <PrimaryButton
-          label={exportMutation.isPending ? 'Exporting...' : 'Export JSON'}
-          variant="secondary"
-          onPress={() => exportMutation.mutateAsync('json')}
-          loading={exportMutation.isPending}
-        />
-      </View>
-
-      <Modal visible={filterModal === 'printer'} transparent animationType="fade" onRequestClose={() => setFilterModal(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setFilterModal(null)}>
-          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={() => {}}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Select printer</Text>
-            {(printersQuery.data ?? []).map(printer => (
-              <Pressable
-                key={printer.name}
-                style={[
-                  styles.modalOption,
-                  {
-                    backgroundColor: filterPrinter === printer.name ? colors.accentBg : colors.surfaceElevated,
-                    borderColor: filterPrinter === printer.name ? colors.accent : colors.border,
-                  },
-                ]}
-                onPress={() => {
-                  setFilterPrinter(filterPrinter === printer.name ? null : printer.name);
-                  setFilterModal(null);
-                }}
-              >
-                <Text style={[styles.modalOptionLabel, { color: colors.text }]}>{printer.name}</Text>
-                <Text style={[styles.modalOptionCount, { color: colors.textSecondary }]}>{printer.count}</Text>
-              </Pressable>
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <SectionCard
+            title={
+              item.print_name ??
+              t('archives.untitled', { defaultValue: 'Untitled print' })
+            }
+          >
+            {fields.map(field => (
+              <KeyValueRow
+                key={field}
+                label={t(`archives.log.${field}`, {
+                  defaultValue: FIELD_LABELS[field],
+                })}
+                value={valueFor(item, field)}
+              />
             ))}
-            {(printersQuery.data?.length ?? 0) === 0 ? (
-              <Text style={[styles.modalEmpty, { color: colors.textSecondary }]}>No printers found</Text>
+            {item.failure_reason ? (
+              <KeyValueRow
+                label={t('archives.failureReason', {
+                  defaultValue: 'Failure / rejection reason',
+                })}
+                value={item.failure_reason}
+              />
             ) : null}
-            <PrimaryButton label="Close" variant="secondary" onPress={() => setFilterModal(null)} />
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal visible={filterModal === 'status'} transparent animationType="fade" onRequestClose={() => setFilterModal(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setFilterModal(null)}>
-          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={() => {}}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Select status</Text>
-            {(statusesQuery.data ?? []).map(status => (
-              <Pressable
-                key={status.label}
-                style={[
-                  styles.modalOption,
-                  {
-                    backgroundColor: filterStatus === status.label ? colors.accentBg : colors.surfaceElevated,
-                    borderColor: filterStatus === status.label ? colors.accent : colors.border,
-                  },
-                ]}
-                onPress={() => {
-                  setFilterStatus(filterStatus === status.label ? null : status.label);
-                  setFilterModal(null);
-                }}
-              >
-                <Text style={[styles.modalOptionLabel, { color: colors.text }]}>{status.label}</Text>
-                <Text style={[styles.modalOptionCount, { color: colors.textSecondary }]}>{status.count}</Text>
-              </Pressable>
-            ))}
-            {(statusesQuery.data?.length ?? 0) === 0 ? (
-              <Text style={[styles.modalEmpty, { color: colors.textSecondary }]}>No statuses found</Text>
+            {(item as unknown as { user_verdict?: string }).user_verdict ? (
+              <KeyValueRow
+                label={t('archives.qualityVerdict', {
+                  defaultValue: 'Quality verdict',
+                })}
+                value={String(
+                  (item as unknown as { user_verdict: string }).user_verdict,
+                )}
+              />
             ) : null}
-            <PrimaryButton label="Close" variant="secondary" onPress={() => setFilterModal(null)} />
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </View>
-  );
-}
-
-function PrintLogRow({
-  item,
-  colors,
-}: {
-  item: PrintLogRow;
-  colors: ReturnType<typeof useTheme>['colors'];
-}) {
-  const [expanded, setExpanded] = useState(false);
-
-  const statusColor = useMemo(() => {
-    const s = item.status.toLowerCase();
-    if (s.includes('success') || s.includes('complete')) return colors.success;
-    if (s.includes('fail') || s.includes('error')) return colors.error;
-    if (s.includes('cancel')) return colors.warning;
-    return colors.accent;
-  }, [item.status, colors]);
-
-  return (
-    <Pressable
-      style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
-      onPress={() => setExpanded(!expanded)}
-    >
-      <View style={styles.rowMain}>
-        <View style={styles.rowHeader}>
-          <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>
-            {item.print_name}
-          </Text>
-          <View style={[styles.statusBadge, { backgroundColor: statusColor + '22' }]}>
-            <Text style={[styles.statusText, { color: statusColor }]}>{item.status}</Text>
-          </View>
-        </View>
-        <View style={styles.rowMeta}>
-          <Text style={[styles.rowMetaText, { color: colors.textSecondary }]}>
-            {item.printer_name}
-          </Text>
-          <Text style={[styles.rowMetaText, { color: colors.textSecondary }]}>
-            {formatDateTime(item.created_at)}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.rowFooter}>
-        <Text style={[styles.rowDuration, { color: colors.textSecondary }]}>
-          {item.duration_seconds ? formatDuration(item.duration_seconds) : ''}
-        </Text>
-        {expanded ? (
-          <ChevronUp size={16} color={colors.textSecondary} />
-        ) : (
-          <ChevronDown size={16} color={colors.textSecondary} />
+            <View style={styles.row}>
+              {item.archive_id ? (
+                <PrimaryButton
+                  label={t('archives.openArchive', {
+                    defaultValue: 'Open archive',
+                  })}
+                  variant="secondary"
+                  onPress={() =>
+                    navigation.navigate('ArchiveDetail', {
+                      id: String(item.archive_id),
+                    })
+                  }
+                />
+              ) : null}
+              {canEdit(item) ? (
+                <PrimaryButton
+                  label={t('archives.correctRun', {
+                    defaultValue: 'Correct this run',
+                  })}
+                  variant="secondary"
+                  onPress={() => {
+                    setEditing(item);
+                    setEditStatus(item.status);
+                    setEditReason(item.failure_reason ?? '');
+                  }}
+                />
+              ) : null}
+              {canDelete(item) ? (
+                <PrimaryButton
+                  label={t('archives.deleteRun', {
+                    defaultValue: 'Delete run',
+                  })}
+                  variant="danger"
+                  disabled={mutate.isPending}
+                  onPress={() =>
+                    Alert.alert(
+                      t('archives.deleteRun', {
+                        defaultValue: 'Delete this run?',
+                      }),
+                      t('archives.deleteRunWarning', {
+                        defaultValue:
+                          'This removes the run and its statistics, not its archive.',
+                      }),
+                      [
+                        { text: t('common.cancel'), style: 'cancel' },
+                        {
+                          text: t('common.delete'),
+                          style: 'destructive',
+                          onPress: () =>
+                            mutate.mutate({ type: 'delete', id: item.id }),
+                        },
+                      ],
+                    )
+                  }
+                />
+              ) : null}
+            </View>
+          </SectionCard>
         )}
-      </View>
-      {expanded ? (
-        <View style={styles.rowDetails}>
-          {item.failure_reason ? (
-            <Text style={[styles.detailLabel, { color: colors.error }]} numberOfLines={3}>
-              Failure: {item.failure_reason}
-            </Text>
-          ) : null}
-          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-            Filament: {item.filament_type || '—'} {item.filament_color ? `• ${item.filament_color}` : ''}
-          </Text>
-          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-            {item.filament_used_grams ? `Filament: ${item.filament_used_grams}g` : ''}
-            {item.cost ? ` • Cost: ${item.cost}` : ''}
-          </Text>
-          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-            {item.started_at ? `Started: ${formatDateTime(item.started_at)}` : ''}
-            {item.completed_at ? ` • Completed: ${formatDateTime(item.completed_at)}` : ''}
-          </Text>
-          {item.created_by_username ? (
-            <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-              By: {item.created_by_username}
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
-    </Pressable>
-  );
-}
-
-function formatDuration(seconds: number): string {
-  if (!seconds) return '';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
-}
-
-function buildPrintLogCsv(rows: PrintLogRow[]): string {
-  const header = 'ID,Print Name,Printer,Status,Started,Completed,Filament Type,Filament Color,Filament (g),Cost (USD),Duration (s),Failure Reason,Created By,Created At';
-  const rowsCsv = rows
-    .map(r => [
-      r.id,
-      `"${r.print_name.replace(/"/g, '""')}"`,
-      `"${r.printer_name.replace(/"/g, '""')}"`,
-      r.status,
-      r.started_at || '',
-      r.completed_at || '',
-      `"${(r.filament_type ?? '').replace(/"/g, '""')}"`,
-      `"${(r.filament_color ?? '').replace(/"/g, '""')}"`,
-      r.filament_used_grams ?? '',
-      r.cost ?? '',
-      r.duration_seconds ?? '',
-      `"${(r.failure_reason ?? '').replace(/"/g, '""')}"`,
-      `"${(r.created_by_username ?? '').replace(/"/g, '""')}"`,
-      r.created_at,
-    ].join(','))
-    .join('\n');
-  return `${header}\n${rowsCsv}`;
-}
-
-function InlineTabBar({
-  value,
-  tabs,
-  onChange,
-  colors,
-}: {
-  value: string;
-  tabs: Array<{ key: string; label: string }>;
-  onChange: (key: string) => void;
-  colors: ReturnType<typeof useTheme>['colors'];
-}) {
-  return (
-    <View style={styles.inlineTabBar}>
-      {tabs.map(tab => (
-        <Pressable
-          key={tab.key}
-          style={[
-            styles.inlineTab,
-            value === tab.key && { backgroundColor: colors.accent, borderColor: colors.accent },
-          ]}
-          onPress={() => onChange(tab.key)}
+      />
+      {editing ? (
+        <ArchiveDialog
+          title={t('archives.correctRun', { defaultValue: 'Correct this run' })}
+          onClose={() => setEditing(null)}
         >
-          <Text style={[styles.inlineTabLabel, { color: value === tab.key ? colors.textInverse : colors.textSecondary }]} numberOfLines={1}>
-            {tab.label}
-          </Text>
-        </Pressable>
-      ))}
+          <View style={styles.row}>
+            {STATUSES.map(value => (
+              <Chip
+                key={value}
+                label={value}
+                selected={editStatus === value}
+                onPress={() => setEditStatus(value)}
+              />
+            ))}
+          </View>
+          <View style={styles.row}>
+            {REASONS.map(reason => (
+              <Chip
+                key={reason}
+                label={
+                  reason ||
+                  t('archives.clearReason', { defaultValue: 'Clear reason' })
+                }
+                selected={editReason === reason}
+                onPress={() => setEditReason(reason)}
+              />
+            ))}
+          </View>
+          <PrimaryButton
+            label={t('common.save')}
+            loading={mutate.isPending}
+            onPress={() => mutate.mutate({ type: 'edit', id: editing.id })}
+          />
+          <PrimaryButton
+            label={t('common.cancel')}
+            variant="secondary"
+            onPress={() => setEditing(null)}
+          />
+        </ArchiveDialog>
+      ) : null}
+      {fieldDialog ? (
+        <ArchiveDialog
+          title={t('archives.configureFields', {
+            defaultValue: 'Visible fields and ordering',
+          })}
+          onClose={() => setFieldDialog(false)}
+        >
+          {FIELD_KEYS.map(field => (
+            <Chip
+              key={field}
+              label={t(`archives.log.${field}`, {
+                defaultValue: FIELD_LABELS[field],
+              })}
+              selected={draftFields.includes(field)}
+              onPress={() =>
+                setDraftFields(current =>
+                  current.includes(field)
+                    ? current.filter(value => value !== field)
+                    : [...current, field],
+                )
+              }
+            />
+          ))}
+          {draftFields.map((field, index) => (
+            <View key={field} style={styles.row}>
+              <Text style={{ color: colors.text }}>
+                {index + 1}.{' '}
+                {t(`archives.log.${field}`, {
+                  defaultValue: FIELD_LABELS[field],
+                })}
+              </Text>
+              {([-1, 1] as const).map(direction => (
+                <PrimaryButton
+                  key={direction}
+                  label={
+                    direction === -1
+                      ? t('common.moveUp', { defaultValue: 'Move up' })
+                      : t('common.moveDown', { defaultValue: 'Move down' })
+                  }
+                  disabled={
+                    index + direction < 0 ||
+                    index + direction >= draftFields.length
+                  }
+                  onPress={() => {
+                    const next = [...draftFields];
+                    [next[index], next[index + direction]] = [
+                      next[index + direction],
+                      next[index],
+                    ];
+                    setDraftFields(next);
+                  }}
+                />
+              ))}
+            </View>
+          ))}
+          <PrimaryButton
+            label={t('common.reset', { defaultValue: 'Reset' })}
+            variant="secondary"
+            onPress={() => setDraftFields([...FIELD_KEYS])}
+          />
+          <PrimaryButton
+            label={t('common.save')}
+            disabled={!draftFields.length}
+            onPress={() => {
+              void AsyncStorage.setItem(
+                PREFERENCES_KEY,
+                JSON.stringify(draftFields),
+              )
+                .then(() => {
+                  setFields([...draftFields]);
+                  setFieldDialog(false);
+                })
+                .catch((error: Error) => showToast(error.message, 'error'));
+            }}
+          />
+        </ArchiveDialog>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    height: 44,
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    gap: spacing.sm,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: fontSize.base,
-  },
-  filterBar: {
+  content: { padding: spacing.md, gap: spacing.md },
+  stack: { gap: spacing.md },
+  row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-  },
-  filterChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-  },
-  filterChipText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-  },
-  filterPanel: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  filterPanelRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  filterPanelLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-    width: 80,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  filterButtonLabel: {
-    fontSize: fontSize.sm,
-    flex: 1,
-  },
-  list: {
-    padding: spacing.lg,
-    gap: spacing.sm,
-    paddingBottom: spacing['3xl'],
-  },
-  separator: { height: spacing.xs },
-  row: {
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  rowMain: { gap: spacing.xs },
-  rowHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  rowTitle: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-    flex: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  statusText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    textTransform: 'uppercase',
-  },
-  rowMeta: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  rowMetaText: {
-    fontSize: fontSize.sm,
-  },
-  rowFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: spacing.xs,
-  },
-  rowDuration: {
-    fontSize: fontSize.sm,
-  },
-  rowDetails: {
-    marginTop: spacing.xs,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(128,128,128,0.2)',
-    gap: spacing.xs,
-  },
-  detailLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-  },
-  detailText: {
-    fontSize: fontSize.sm,
-  },
-  exportBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: spacing.md,
-    borderTopWidth: 1,
-    gap: spacing.md,
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: spacing.lg,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalContent: {
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    padding: spacing.lg,
-    gap: spacing.md,
-    maxHeight: '70%',
-  },
-  modalTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  modalOptionLabel: {
-    fontSize: fontSize.base,
-    flex: 1,
-  },
-  modalOptionCount: {
-    fontSize: fontSize.sm,
-  },
-  modalEmpty: {
-    fontSize: fontSize.sm,
-    textAlign: 'center',
-    paddingVertical: spacing.lg,
-  },
-  inlineTabBar: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderRadius: borderRadius.md,
-    borderColor: 'rgba(128,128,128,0.2)',
-    overflow: 'hidden',
-  },
-  inlineTab: {
-    flex: 1,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(128,128,128,0.1)',
-    alignItems: 'center',
-  },
-  inlineTabLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
   },
 });

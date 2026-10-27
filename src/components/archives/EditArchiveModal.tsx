@@ -21,8 +21,11 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { Archive, Printer, Project } from '@/types/api';
+import { validateArchiveQuantities } from '@/utils/archiveWorkflows';
+import { WorkflowChip as Chip } from './ArchiveWorkflowUI';
+import { useTranslation } from '@/i18n';
 
-const ARCHIVE_STATUSES = ['completed', 'failed', 'aborted', 'printing'] as const;
+const ARCHIVE_STATUSES = ['completed', 'failed', 'aborted', 'printing', 'archived', 'cancelled', 'stopped', 'paused', 'skipped'] as const;
 const FAILURE_REASONS = [
   'adhesionFailure',
   'spaghettiDetached',
@@ -168,6 +171,9 @@ export function EditArchiveModal({
   const [quantity, setQuantity] = useState('1');
   const [photos, setPhotos] = useState<string[]>([]);
   const [externalUrl, setExternalUrl] = useState('');
+  const [filamentGrams, setFilamentGrams] = useState('');
+  const [verdict, setVerdict] = useState<'good' | 'reject' | null>(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!archive || !visible) return;
@@ -180,7 +186,10 @@ export function EditArchiveModal({
       ? archive.status
       : 'completed') as (typeof ARCHIVE_STATUSES)[number]);
     setFailureReason(archive.failure_reason ?? '');
-    setQuantity(String(Math.max(1, archive.quantity ?? 1)));
+    setQuantity(String(archive.quantity ?? 1));
+    setFilamentGrams(archive.filament_used_grams == null ? '' : String(archive.filament_used_grams));
+    const storedVerdict = (archive as unknown as { user_verdict?: 'good' | 'reject' | null }).user_verdict;
+    setVerdict(storedVerdict ?? null);
     setPhotos(archive.photos ?? []);
     setExternalUrl(archive.external_url ?? '');
     setActiveSelector(null);
@@ -254,7 +263,7 @@ export function EditArchiveModal({
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!archive) throw new Error('Archive unavailable');
-      const parsedQuantity = Math.max(1, Number.parseInt(quantity, 10) || 1);
+      const quantities = validateArchiveQuantities(quantity, filamentGrams);
       return api.updateArchive(archive.id, {
         print_name: printName.trim() || null,
         printer_id: printerId,
@@ -262,8 +271,9 @@ export function EditArchiveModal({
         notes: notes.trim() || null,
         tags: tagList.join(', ') || null,
         status,
-        failure_reason: status === 'failed' || status === 'aborted' ? failureReason || null : null,
-        quantity: parsedQuantity,
+        failure_reason: status === 'failed' || status === 'aborted' || verdict === 'reject' ? failureReason || null : null,
+        ...quantities,
+        ...(status === 'completed' && verdict !== (archive.user_verdict ?? null) ? { user_verdict: verdict, user_verdict_source: 'dialog' } : {}),
         external_url: externalUrl.trim() || null,
       });
     },
@@ -535,6 +545,13 @@ export function EditArchiveModal({
                   placeholder="1"
                   keyboardType="number-pad"
                 />
+                <TextField label={t('archives.filamentGrams', { defaultValue: 'Filament used (g); leave empty to clear' })} value={filamentGrams} onChangeText={setFilamentGrams} keyboardType="decimal-pad" />
+                {status === 'completed' ? <View style={styles.fieldGroup}>
+                  <Text style={{ color: colors.text }}>{t('archives.qualityVerdict', { defaultValue: 'Quality verdict (does not change machine status)' })}</Text>
+                  {verdict === (archive.user_verdict ?? null) && archive.user_verdict_source ? <Text style={{ color: colors.textSecondary }}>{t('archives.verdictProvenance', { defaultValue: 'Stored verdict source: {{source}}', source: archive.user_verdict_source })}</Text> : null}
+                  <View style={styles.suggestionsWrap}>{([null, 'good', 'reject'] as const).map(value => <Chip key={String(value)} label={value === null ? t('archives.none', { defaultValue: 'None / clear' }) : value === 'good' ? t('archives.good', { defaultValue: 'Good' }) : t('archives.reject', { defaultValue: 'Reject' })} active={verdict === value} onPress={() => setVerdict(value)} />)}</View>
+                  {verdict === 'reject' ? <TextField label={t('archives.rejectionReason', { defaultValue: 'Rejection reason' })} value={failureReason} onChangeText={setFailureReason} /> : null}
+                </View> : null}
 
                 <View style={styles.fieldGroup}>
                   <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Photos</Text>

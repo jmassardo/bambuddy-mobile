@@ -4,12 +4,10 @@ import type { RootNavigationProp, RootRouteProp, AppNavigationProp } from '@/nav
 import {
   ActivityIndicator,
   Image,
-  Linking,
   Modal,
   Pressable,
   RefreshControl,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -33,6 +31,13 @@ import { useServerStore } from '@/api/server';
 import { api } from '@/api/client';
 import { useMediaToken } from '@/hooks/useStreamToken';
 import { EditArchiveModal } from '@/components/archives/EditArchiveModal';
+import { ArchiveDetailTools, EmbeddedArchiveProjectPage } from '@/components/archives/ArchiveDetailTools';
+import { ConfirmOutcomeDialog, useArchiveAuthorization } from '@/components/archives/ArchiveWorkflowUI';
+import { PrintModal } from '@/components/printers/PrintModal';
+import { requestBlob } from '@/api/http';
+import { archiveWorkflows } from '@/api/archiveWorkflows';
+import { shareBlob } from '@/utils/share';
+import { useTranslation } from '@/i18n';
 import { PrintLogModal } from '@/components/archives/PrintLogModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { SliceModal } from '@/components/files/SliceModal';
@@ -83,6 +88,9 @@ export default function ArchiveDetailScreen() {
   const { token: mediaToken, isReady: mediaTokenReady } = useMediaToken();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  const [outcomeVisible, setOutcomeVisible] = useState(false);
+  const [launchMode, setLaunchMode] = useState<'asap' | 'queue' | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPrintLog, setShowPrintLog] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
@@ -119,6 +127,7 @@ export default function ArchiveDetailScreen() {
     () => (archiveQuery.data as Archive | undefined) ?? null,
     [archiveQuery.data],
   );
+  const authorization = useArchiveAuthorization(archive);
 
   const hasTimelapse = Boolean(
     archive?.timelapse_path ||
@@ -128,7 +137,7 @@ export default function ArchiveDetailScreen() {
     pickString(archive as unknown as ApiRecord, ['deleted_at']) ||
       archive?.status === 'deleted',
   );
-  const archiveUrl = serverUrl ? `${serverUrl}/archives/${archiveId}` : null;
+  const archiveUrl = serverUrl ? `${serverUrl}/api/v1/archives/${archiveId}/download` : null;
   const serverOrigin = useMemo(() => {
     if (!serverUrl) return null;
     try {
@@ -163,15 +172,6 @@ export default function ArchiveDetailScreen() {
     mediaTokenReady,
     thumbnailRetrySeed,
   ]);
-  const archiveProjectPageUrl =
-    pickString(archive as unknown as ApiRecord, [
-      'external_url',
-      'makerworld_url',
-    ]) ||
-    (archive?.project_id && serverUrl
-      ? `${serverUrl}/projects/${archive.project_id}`
-      : null);
-
   React.useEffect(() => {
     setTimelapseError(false);
     setThumbnailError(false);
@@ -185,6 +185,7 @@ export default function ArchiveDetailScreen() {
         ? () => (
             <Pressable
               onPress={() => setShowEditModal(true)}
+              disabled={!authorization.update}
               style={styles.headerButton}
               hitSlop={8}
               accessibilityLabel="Edit archive"
@@ -195,7 +196,7 @@ export default function ArchiveDetailScreen() {
           )
         : undefined,
     });
-  }, [archive, colors.text, navigation]);
+  }, [archive, authorization.update, colors.text, navigation]);
 
   React.useEffect(() => {
     if (preview3dArchiveId != null && archive) {
@@ -203,7 +204,7 @@ export default function ArchiveDetailScreen() {
       if (source3mfPath) {
         rootNavigation.navigate('Model3DPreview', {
           archiveId,
-          filename: archive.print_name || archive.filename,
+          filename: source3mfPath.split('/').pop() || archive.filename,
           source3mfPath,
         });
       }
@@ -220,26 +221,6 @@ export default function ArchiveDetailScreen() {
     ]);
   };
 
-  const reprintMutation = useMutation({
-    mutationFn: () => api.printArchive(archiveId, {}),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['queue'] });
-      showToast('Reprint started.', 'success');
-    },
-    onError: () =>
-      showToast('Unable to start a reprint for this archive.', 'error'),
-  });
-
-  const queueMutation = useMutation({
-    mutationFn: () => api.addToQueue({ archive_id: archiveId }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['queue'] });
-      showToast('Archive added to queue.', 'success');
-    },
-    onError: () =>
-      showToast('Unable to add this archive to the queue.', 'error'),
-  });
-
   const restoreMutation = useMutation({
     mutationFn: () => api.restoreArchive(archiveId),
     onSuccess: async () => {
@@ -248,6 +229,12 @@ export default function ArchiveDetailScreen() {
     },
     onError: (error: Error) =>
       showToast(error.message || 'Unable to restore this archive.', 'error'),
+  });
+  const shareFileMutation = useMutation({
+    mutationFn: async () => {
+      if (archive) await shareBlob(await archiveWorkflows.download(archiveId), archive.filename);
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
   });
 
   const uploadPhotoMutation = useMutation({
@@ -450,16 +437,14 @@ export default function ArchiveDetailScreen() {
           <View style={styles.actionCell}>
             <PrimaryButton
               label="Reprint"
-              onPress={() => void reprintMutation.mutateAsync()}
-              loading={reprintMutation.isPending}
+              onPress={() => setLaunchMode('asap')}
             />
           </View>
           <View style={styles.actionCell}>
             <PrimaryButton
               label="Add to Queue"
               variant="secondary"
-              onPress={() => void queueMutation.mutateAsync()}
-              loading={queueMutation.isPending}
+              onPress={() => setLaunchMode('queue')}
             />
           </View>
           <View style={styles.actionCell}>
@@ -482,24 +467,14 @@ export default function ArchiveDetailScreen() {
               label="Project page"
               variant="secondary"
               onPress={() => setShowProjectPageModal(true)}
-              disabled={!archiveProjectPageUrl}
             />
           </View>
           <View style={styles.actionCell}>
             <PrimaryButton
               label="Share"
               variant="secondary"
-              onPress={() =>
-                void Share.share({
-                  message: `${archive.print_name || archive.filename} • ${
-                    archive.printer_name ||
-                    pickString(archive as unknown as ApiRecord, [
-                      'printer_name',
-                      'printer',
-                    ])
-                  }`,
-                })
-              }
+              onPress={() => shareFileMutation.mutate()}
+              loading={shareFileMutation.isPending}
             />
           </View>
           {pickString(archive as unknown as ApiRecord, ['source_3mf_path']) ? (
@@ -722,6 +697,11 @@ export default function ArchiveDetailScreen() {
           ) : null}
         </SectionCard>
 
+        <ArchiveDetailTools archive={archive} onOutcome={() => setOutcomeVisible(true)} onProjectPage={() => setShowProjectPageModal(true)} onNavigate={(kind, targetId) => {
+          if (kind === 'archive') navigation.push('ArchiveDetail', { id: String(targetId) });
+          else if (kind === 'project') rootNavigation.navigate('ProjectDetail', { id: targetId });
+          else rootNavigation.navigate('Main', { screen: 'Files', params: { folderId: targetId } } as never);
+        }} />
         <SectionCard
           title="Print History"
           subtitle="Previous runs for this archived model."
@@ -753,6 +733,8 @@ export default function ArchiveDetailScreen() {
                     'Unknown printer',
                   )}
                 </Text>
+                <Text style={[styles.runMeta, { color: colors.textSecondary }]}>{String(run.failure_reason ?? '—')} · {formatDuration(Number(run.duration_seconds ?? 0))} · {formatWeight(Number(run.filament_used_grams ?? 0))} · {run.cost == null ? '—' : formatCurrency(Number(run.cost))}</Text>
+                <Text style={[styles.runMeta, { color: colors.textSecondary }]}>{run.energy_kwh == null ? '—' : `${run.energy_kwh} kWh`} · {run.energy_cost == null ? '—' : formatCurrency(Number(run.energy_cost))}</Text>
               </View>
             ))
           ) : (
@@ -843,81 +825,9 @@ export default function ArchiveDetailScreen() {
         </View>
       </Modal>
 
-      <Modal
-        visible={showProjectPageModal}
-        animationType="slide"
-        onRequestClose={() => setShowProjectPageModal(false)}
-      >
-        <View
-          style={[
-            styles.fullscreenContainer,
-            { backgroundColor: colors.background },
-          ]}
-        >
-          <View
-            style={[
-              styles.fullscreenHeader,
-              { borderBottomColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.fullscreenTitle, { color: colors.text }]}>
-              Project page
-            </Text>
-            <PrimaryButton
-              label="Close"
-              variant="secondary"
-              onPress={() => setShowProjectPageModal(false)}
-            />
-          </View>
-          {archiveProjectPageUrl ? (
-            (() => {
-              let isExternal = false;
-              try {
-                isExternal = serverOrigin
-                  ? new URL(archiveProjectPageUrl).origin !== serverOrigin
-                  : false;
-              } catch {}
-              if (isExternal) {
-                return (
-                  <View style={styles.emptyWebView}>
-                    <Text style={[styles.note, { color: colors.textSecondary }]}>
-                      This project links to an external site.
-                    </Text>
-                    <PrimaryButton
-                      label="Open in Browser"
-                      variant="primary"
-                      onPress={() => Linking.openURL(archiveProjectPageUrl)}
-                    />
-                  </View>
-                );
-              }
-              return (
-                serverOrigin ? (
-                  <MediaWebView
-                    source={{ uri: archiveProjectPageUrl }}
-                    originWhitelist={[serverOrigin]}
-                    javaScriptEnabled={false}
-                    allowFileAccess={false}
-                    setSupportMultipleWindows={false}
-                    allowsInlineMediaPlayback
-                  />
-                ) : (
-                  <View style={styles.emptyWebView}>
-                    <ActivityIndicator size="large" color={colors.accent} />
-                  </View>
-                )
-              );
-            })()
-          ) : (
-            <View style={styles.emptyWebView}>
-              <Text style={[styles.note, { color: colors.textSecondary }]}>
-                No project page is available for this archive.
-              </Text>
-            </View>
-          )}
-        </View>
-      </Modal>
-
+      {showProjectPageModal ? <EmbeddedArchiveProjectPage archive={archive} onClose={() => setShowProjectPageModal(false)} /> : null}
+      {outcomeVisible ? <ConfirmOutcomeDialog archiveId={archiveId} onClose={() => setOutcomeVisible(false)} onReprint={() => setLaunchMode('asap')} /> : null}
+      {launchMode ? <PrintModal visible onClose={() => setLaunchMode(null)} {...{ initialArchiveId: archiveId, initialMode: launchMode }} /> : null}
       <Modal
         visible={fullscreenPhoto !== null}
         transparent
@@ -969,9 +879,13 @@ export default function ArchiveDetailScreen() {
           ) : null}
           {fullscreenPhoto ? (
             <View style={styles.fullscreenActions}>
+              <PrimaryButton label={t('common.previous', { defaultValue: 'Previous photo' })} variant="secondary" disabled={(archive.photos?.indexOf(fullscreenPhoto) ?? 0) <= 0} onPress={() => { const index = archive.photos?.indexOf(fullscreenPhoto) ?? 0; setFullscreenPhoto(archive.photos?.[index - 1] ?? fullscreenPhoto); }} />
+              <PrimaryButton label={t('common.next', { defaultValue: 'Next photo' })} variant="secondary" disabled={(archive.photos?.indexOf(fullscreenPhoto) ?? 0) >= (archive.photos?.length ?? 0) - 1} onPress={() => { const index = archive.photos?.indexOf(fullscreenPhoto) ?? 0; setFullscreenPhoto(archive.photos?.[index + 1] ?? fullscreenPhoto); }} />
+              <PrimaryButton label={t('archives.saveShare', { defaultValue: 'Save / share photo' })} variant="secondary" onPress={() => { void requestBlob(`/archives/${archiveId}/photos/${encodeURIComponent(fullscreenPhoto)}`).then(blob => shareBlob(blob, fullscreenPhoto)).catch((error: Error) => showToast(error.message, 'error')); }} />
               <PrimaryButton
                 label="Delete photo"
                 variant="danger"
+                disabled={!authorization.update}
                 onPress={() => setPendingPhotoDelete(fullscreenPhoto)}
               />
             </View>

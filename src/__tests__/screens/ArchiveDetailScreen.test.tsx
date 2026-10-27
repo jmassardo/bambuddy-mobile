@@ -69,6 +69,17 @@ jest.mock('@/contexts/ToastContext', () => ({
     showToast: jest.fn(),
   }),
 }));
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: null, hasPermission: () => true }),
+}));
+jest.mock('@/components/archives/ArchiveDetailTools', () => ({
+  ArchiveDetailTools: () => null,
+  EmbeddedArchiveProjectPage: () => null,
+}));
+jest.mock('@react-native-documents/picker', () => ({
+  pick: jest.fn(), types: { allFiles: '*/*' }, isErrorWithCode: () => false, errorCodes: {},
+}));
+jest.mock('@/components/printers/PrintModal', () => ({ PrintModal: () => null }));
 
 jest.mock('@/theme', () => ({
   useTheme: () => ({

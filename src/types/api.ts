@@ -954,6 +954,10 @@ export interface Archive {
   designer: string | null;
   external_url: string | null;
   is_favorite: boolean;
+  user_verdict?: 'good' | 'reject' | null;
+  user_verdict_source?: string | null;
+  user_verdict_at?: string | null;
+  confirm_requested?: boolean;
   tags: string | null;
   notes: string | null;
   cost: number | null;
@@ -1073,6 +1077,8 @@ export interface TagInfo {
 }
 
 export interface FailureAnalysis {
+  rejected_prints?: number;
+  yield_rate?: number;
   period_days: number;
   total_prints: number;
   failed_prints: number;
@@ -4921,4 +4927,43 @@ export interface MakerworldImportRequest {
   instance_id: number | null;
   profile_id: number | null;
   folder_id: number | null;
+}
+
+// Archives/media parity workflow responses.
+export interface PendingArchiveUpload {
+  id: number;
+  filename: string;
+  print_name?: string | null;
+  display_name?: string;
+  uploaded_at: string;
+  tags?: string | null;
+  notes?: string | null;
+  project_id?: number | null;
+  printer_name?: string | null;
+}
+export interface TimelapseInfo {
+  duration: number;
+  width: number;
+  height: number;
+  fps: number;
+  has_audio: boolean;
+}
+export interface ArchiveProjectPage {
+  title?: string | null;
+  designer?: string | null;
+  license?: string | null;
+  description?: string | null;
+  profile_title?: string | null;
+  profile_description?: string | null;
+  model_pictures?: Array<{ name: string; path: string; url: string }>;
+  profile_pictures?: Array<{ name: string; path: string; url: string }>;
+  thumbnails?: Array<{ name: string; path: string; url: string }>;
+  [key: string]: unknown;
+}
+export interface ArchivePrinterMedia {
+  archive_id: number;
+  printer_id: number | null;
+  local_timelapse: { name: string; size: number } | null;
+  remote_files: Array<{ name: string; path: string; size: number; type?: string }>;
+  warnings: string[];
 }
