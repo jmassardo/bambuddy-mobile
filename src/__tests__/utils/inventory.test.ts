@@ -227,7 +227,10 @@ describe('inventory parity transformations', () => {
 describe('SKU forecasting', () => {
   const now = Date.parse('2026-01-31');
   it('aggregates stock and daily concurrent prints and applies persisted lead, gram safety and snooze', () => {
-    const rows = [spool, { ...spool, id: 4, weight_used: 700 }];
+    const rows = [
+      { ...spool, weight_used_baseline: 0 },
+      { ...spool, id: 4, weight_used: 700, weight_used_baseline: 0 },
+    ];
     const usage = [
       { spool_id: 3, weight_used: 100, created_at: '2026-01-29T10:00:00Z' },
       { spool_id: 3, weight_used: 20, created_at: '2026-01-30T10:00:00Z' },
@@ -269,4 +272,61 @@ describe('SKU forecasting', () => {
     expect(fresh.reorderPoint).toBe(0);
     expect(fresh.stockBreak).toBe(false);
   });
+  it('ignores history without a reset timestamp and uses only consumption since the baseline', () => {
+    const reset = { ...spool, weight_used: 500, weight_used_baseline: 500 };
+    const usage = [
+      { spool_id: 3, weight_used: 100, created_at: '2026-01-29T10:00:00Z' },
+      { spool_id: 3, weight_used: 200, created_at: '2026-01-30T10:00:00Z' },
+    ];
+    const forecast = buildSkuForecasts([reset], usage, [], 14, now)[0];
+    expect(forecast.dailyRate).toBeNull();
+    expect(forecast.reorderPoint).toBe(0);
+    expect(forecast.reorder).toBe(false);
+    const consumed = buildSkuForecasts(
+      [{ ...reset, weight_used: 700 }],
+      usage,
+      [],
+      14,
+      now,
+    )[0];
+    expect(consumed.dailyRate).toBeCloseTo(200 / 30);
+  });
+  it('retains clean-spool history when another spool in the same SKU has been reset', () => {
+    const forecast = buildSkuForecasts(
+      [
+        { ...spool, weight_used: 500, weight_used_baseline: 500 },
+        { ...spool, id: 4, weight_used_baseline: 0 },
+      ],
+      [
+        { spool_id: 3, weight_used: 100, created_at: '2026-01-29T10:00:00Z' },
+        { spool_id: 3, weight_used: 200, created_at: '2026-01-30T10:00:00Z' },
+        { spool_id: 4, weight_used: 10, created_at: '2026-01-29T10:00:00Z' },
+        { spool_id: 4, weight_used: 20, created_at: '2026-01-30T10:00:00Z' },
+      ],
+      [],
+      14,
+      now,
+    )[0];
+    expect(forecast.dailyRate).toBeCloseTo(20);
+  });
+  it.each([
+    [2, 14],
+    [0, 14],
+    [21, 21],
+  ])(
+    'uses the maximum of global and SKU lead time (%s -> %s)',
+    (skuLead, effectiveLead) => {
+      const forecast = buildSkuForecasts(
+        [spool],
+        [],
+        [{ ...spool, lead_time_days: skuLead }],
+        14,
+        now,
+      )[0];
+      expect(forecast.lead).toBe(effectiveLead);
+      expect(forecast.reorderPoint).toBeCloseTo(
+        forecast.dailyRate! * effectiveLead + forecast.safety,
+      );
+    },
+  );
 });

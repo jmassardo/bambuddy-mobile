@@ -563,6 +563,15 @@ it('preserves existing printer/nozzle presets and K associations across an unrel
       .props.onChangeText('changed'),
   );
   await press(renderer, 'Save');
+  const patch = mockRequest.mock.calls.find(
+    ([path, options]) =>
+      path === '/inventory/spools/4' && options?.method === 'PATCH',
+  )!;
+  expect(JSON.parse(String(patch[1]?.body))).toMatchObject({ note: 'changed' });
+  expect(JSON.parse(String(patch[1]?.body))).not.toHaveProperty('weight_used');
+  expect(JSON.parse(String(patch[1]?.body))).not.toHaveProperty(
+    'weight_locked',
+  );
   expect(mockRequest).toHaveBeenCalledWith(
     '/inventory/spools/4/filament-presets',
     expect.objectContaining({ method: 'PUT', body: JSON.stringify(presets) }),
@@ -572,6 +581,111 @@ it('preserves existing printer/nozzle presets and K associations across an unrel
     expect.objectContaining({ method: 'PUT', body: JSON.stringify(k) }),
   );
 });
+it.each([false, true])(
+  'preserves explicit used-weight edits, including zero, for backend %s',
+  async spoolman => {
+    const root = spoolman ? '/spoolman/inventory' : '/inventory';
+    const renderer = await mount(
+      <SpoolEditor
+        spool={{ id: 4, material: 'PLA', weight_used: 40 }}
+        spoolman={spoolman}
+        onClose={jest.fn()}
+        onSaved={jest.fn()}
+      />,
+    );
+    await act(async () =>
+      renderer.root
+        .findAllByType(TextField)
+        .find(node => node.props.label === 'Used weight (g)')!
+        .props.onChangeText('0'),
+    );
+    await press(renderer, 'Save');
+    const patch = mockRequest.mock.calls.find(
+      ([path, options]) =>
+        path === `${root}/spools/4` && options?.method === 'PATCH',
+    )!;
+    expect(JSON.parse(String(patch[1]?.body))).toMatchObject({
+      weight_used: 0,
+    });
+  },
+);
+
+it.each([
+  {
+    name: 'untouched new stock',
+    initial: null,
+    modify: false,
+    replaces: false,
+  },
+  {
+    name: 'copy with explicitly empty suppliers',
+    initial: { material: 'PLA', suppliers: [] },
+    modify: false,
+    replaces: true,
+  },
+  {
+    name: 'new stock with explicitly removed supplier',
+    initial: null,
+    modify: true,
+    replaces: true,
+  },
+  {
+    name: 'edited stock with explicitly removed supplier',
+    initial: { id: 4, material: 'PLA', suppliers: [{ supplier_id: 7 }] },
+    modify: true,
+    replaces: true,
+  },
+])(
+  'preserves supplier intent for $name',
+  async ({ initial, modify, replaces }) => {
+    const fallback = mockRequest.getMockImplementation()!;
+    mockRequest.mockImplementation(async (path, options) => {
+      if (path === '/inventory/suppliers')
+        return [{ id: 7, name: 'Inherited supplier' }];
+      if (path === '/inventory/spools' && options?.method === 'POST')
+        return {
+          id: 30,
+          suppliers: [{ supplier_id: 7, supplier_name: 'Inherited supplier' }],
+        };
+      return fallback(path, options);
+    });
+    const renderer = await mount(
+      <SpoolEditor
+        spool={initial}
+        spoolman={false}
+        onClose={jest.fn()}
+        onSaved={jest.fn()}
+      />,
+    );
+    if (modify) {
+      if (!initial)
+        await act(async () =>
+          renderer.root
+            .findAllByType(ChoiceField)
+            .find(node => node.props.label === 'Link supplier')!
+            .props.onChange('7'),
+        );
+      await press(renderer, 'Unlink supplier');
+    }
+    await press(renderer, 'Save');
+    const replacements = mockRequest.mock.calls.filter(
+      ([path, options]) =>
+        path.endsWith('/suppliers') && options?.method === 'PUT',
+    );
+    expect(replacements).toHaveLength(replaces ? 1 : 0);
+    if (replaces) expect(replacements[0][1]?.body).toBe('[]');
+    if (!initial) {
+      const create = mockRequest.mock.calls.find(
+        ([path, options]) =>
+          path === '/inventory/spools' && options?.method === 'POST',
+      )!;
+      expect(JSON.parse(String(create[1]?.body))).toMatchObject({
+        weight_used: 0,
+      });
+    }
+  },
+);
+
 it('selects the exact hotend K profile and replaces an existing flow-specific association without duplicates', async () => {
   const fallback = mockRequest.getMockImplementation()!;
   mockRequest.mockImplementation(async (path, options) => {

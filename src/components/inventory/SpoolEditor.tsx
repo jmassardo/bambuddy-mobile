@@ -88,9 +88,16 @@ export function SpoolEditor({
     ),
     quantity: '1',
   }));
-  const [supplierLinks, setSupplierLinks] = useState<InventoryRecord[]>(
+  const supplierLinksChanged = useRef(false);
+  const [supplierLinks, setSupplierLinksState] = useState<InventoryRecord[]>(
     records(spool?.suppliers),
   );
+  const setSupplierLinks: React.Dispatch<
+    React.SetStateAction<InventoryRecord[]>
+  > = change => {
+    supplierLinksChanged.current = true;
+    setSupplierLinksState(change);
+  };
   const [presetLinks, setPresetLinks] = useState<InventoryRecord[]>([]);
   const [kLinks, setKLinks] = useState<InventoryRecord[]>([]);
   const [directory, setDirectory] = useState(false);
@@ -220,10 +227,11 @@ export function SpoolEditor({
         throw new Error('Quantity must be a whole number.');
       if (!values.material?.trim() && !values.spoolman_filament_id)
         throw new Error('Material is required.');
-      const fields = [
-        ...commonFields,
-        ...(!spoolman ? internalFields : []),
-      ].map(([key]) => key);
+      const fields = [...commonFields, ...(!spoolman ? internalFields : [])]
+        .map(([key]) => key)
+        .filter(
+          key => key !== 'weight_used' || !id || userFields.current.has(key),
+        );
       const payload: InventoryRecord = Object.fromEntries(
         fields.map(key => [
           key,
@@ -284,23 +292,28 @@ export function SpoolEditor({
       if (id && spoolman && unlinkedTags)
         await backend.update(id, { tag_uid: null, tray_uuid: null });
       for (const savedId of ids) {
-        await backend.saveAssociations(
-          savedId,
-          'suppliers',
-          supplierLinks.map(link => ({
-            supplier_id: number(link, 'supplier_id'),
-            supplier_article_number:
-              text(link, 'supplier_article_number') || null,
-            quoted_price_per_kg:
-              text(link, 'quoted_price_per_kg') === ''
-                ? null
-                : parseNumber(
-                    text(link, 'quoted_price_per_kg'),
-                    'Quoted price',
-                  ),
-            is_purchase_source: !!link.is_purchase_source,
-          })),
-        );
+        if (
+          id ||
+          supplierLinksChanged.current ||
+          spool?.suppliers !== undefined
+        )
+          await backend.saveAssociations(
+            savedId,
+            'suppliers',
+            supplierLinks.map(link => ({
+              supplier_id: number(link, 'supplier_id'),
+              supplier_article_number:
+                text(link, 'supplier_article_number') || null,
+              quoted_price_per_kg:
+                text(link, 'quoted_price_per_kg') === ''
+                  ? null
+                  : parseNumber(
+                      text(link, 'quoted_price_per_kg'),
+                      'Quoted price',
+                    ),
+              is_purchase_source: !!link.is_purchase_source,
+            })),
+          );
         await backend.saveAssociations(
           savedId,
           'filament-presets',

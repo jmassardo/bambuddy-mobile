@@ -26,7 +26,12 @@ export function buildSkuForecasts(
   );
   return [...grouped.entries()].map(([key, rows]) => {
     const config = settings.find(row => skuKey(row) === key);
-    const ids = new Set(rows.map(row => number(row, 'id')));
+    // Reset baselines have no timestamp for safely separating old history.
+    const ids = new Set(
+      rows
+        .filter(row => number(row, 'weight_used_baseline') === 0)
+        .map(row => number(row, 'id')),
+    );
     const byDay = new Map<string, number>();
     usage
       .filter(
@@ -82,7 +87,7 @@ export function buildSkuForecasts(
       if (age >= 1 && consumed > 0) dailyRate = consumed / age;
     }
     const stock = rows.reduce((sum, row) => sum + remaining(row), 0);
-    const lead = number(config, 'lead_time_days') || globalLead;
+    const lead = Math.max(globalLead, number(config, 'lead_time_days'));
     const margin = number(config, 'safety_margin_value', 14);
     const marginGrams =
       config?.safety_margin_unit === 'g'

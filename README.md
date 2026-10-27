@@ -191,6 +191,11 @@ On macOS, `node scripts/verify-asset-viewers.cjs` runs real WebKit render and
 interaction checks using generated fixtures and Xcode's Swift compiler. It needs
 internet access for the same preview engines and cleans up its worktree-local
 `.viewer-validation` artifacts.
+### Inventory behavior
+
+Editing spool metadata preserves live consumption unless used weight is explicitly changed. New matching stock keeps server-inherited suppliers unless supplier choices are explicitly supplied or edited.
+
+Forecasts exclude unanchored history for reset spools and fall back to consumption since their baseline. SKU lead times can extend, but never shorten, the global lead time.
 
 ## Requirements
 
