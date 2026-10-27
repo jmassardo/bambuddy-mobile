@@ -100,6 +100,8 @@ Excel, JSON, and summary exports use the same selected event/date/printer/user
 scope as the dashboard. Purchasing usage/cost follows the dates; remaining stock
 is current, not historical. Internal purchasing reports are hidden in Spoolman
 mode.
+Finance/report dates and times follow the saved display format, and monetary
+values use the server currency without currency conversion.
 
 Finance requires a signed-in account and cost-center permissions; its menu entry
 is shown when server billing is enabled. Reading all wallets, creating centers,

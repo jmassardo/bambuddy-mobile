@@ -9,6 +9,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { reportsApi } from '@/api/reports';
 import { spacing } from '@/theme/tokens';
 import {
+  formatPreferredCurrency as money,
+  formatPreferredDate,
+  formatPreferredDateTime,
+  parseServerDate,
+} from '@/utils/preferences';
+import {
   formatDuration,
   formatWeight,
   isRecord,
@@ -34,16 +40,10 @@ type Props = {
   currency: string;
   scope: ReportScope;
 };
-const money = (value: number, currency: string) => {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency,
-    }).format(value);
-  } catch {
-    return `${currency} ${value.toFixed(2)}`;
-  }
-};
+const temporalLabel = (value: string) =>
+  value.endsWith(' UTC')
+    ? formatPreferredDateTime(value.replace(' ', 'T').replace(' UTC', ':00Z'))
+    : formatPreferredDate(value);
 
 export function AccuracyReport({
   stats,
@@ -137,7 +137,9 @@ export function RecordsReport({
       <Text style={{ color: colors.text }}>
         {label('Busiest day')}:{' '}
         {records.busiest
-          ? `${records.busiest.day} · ${records.busiest.count}`
+          ? `${formatPreferredDate(records.busiest.day)} · ${
+              records.busiest.count
+            }`
           : '—'}
       </Text>
       <Text style={{ color: colors.text }}>
@@ -178,7 +180,7 @@ export function ExplorationReport({
   const dayRows = days.map((day, index) => ({
     label: label(day),
     value: archives
-      .filter(item => new Date(reportTimestamp(item)).getDay() === index)
+      .filter(item => parseServerDate(reportTimestamp(item)).getDay() === index)
       .reduce((sum, item) => sum + metricValue(item, metric), 0),
   }));
   const hours = hourBuckets(archives, metric);
@@ -189,7 +191,7 @@ export function ExplorationReport({
       ? (Date.parse(scope.dateTo) - Date.parse(scope.dateFrom)) / 86400000 + 1
       : Infinity;
   for (const item of archives) {
-    const date = new Date(reportTimestamp(item));
+    const date = parseServerDate(reportTimestamp(item));
     if (!Number.isFinite(date.getTime())) continue;
     const key = date.toISOString().slice(0, 10);
     const hourKey = `${key} ${String(date.getUTCHours()).padStart(
@@ -275,7 +277,7 @@ export function ExplorationReport({
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([hour, count]) => (
               <Text key={hour} style={{ color: colors.text }}>
-                {hour}: {count}
+                {temporalLabel(hour)}: {count}
               </Text>
             ))}
           {!activity.size && (
@@ -300,7 +302,7 @@ export function ExplorationReport({
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([day, value]) => (
           <Text key={day} style={{ color: colors.text }}>
-            {day}:{' '}
+            {temporalLabel(day)}:{' '}
             {trendMetric === 'weight'
               ? formatWeight(value)
               : money(value, currency)}

@@ -4,8 +4,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   AccuracyReport,
   PurchasingReports,
+  RecordsReport,
 } from '@/components/reports/ReportDetails';
 import { reportsApi } from '@/api/reports';
+import {
+  getFormattingPreferences,
+  setFormattingPreferences,
+} from '@/utils/preferences';
 
 jest.mock('@/theme', () => ({
   useTheme: () => ({ colors: require('@/theme/tokens').colors.dark }),
@@ -81,4 +86,38 @@ it('represents missing estimates explicitly instead of a zero-percent score', as
     ),
   ).toBeTruthy();
   expect(view.queryByText(/0\.0%/)).toBeNull();
+});
+
+it('formats record dates and money using saved preferences without currency conversion', async () => {
+  const previous = getFormattingPreferences();
+  setFormattingPreferences({
+    locale: 'en-GB',
+    dateFormat: 'eu',
+    timeFormat: '24h',
+    currency: 'GBP',
+  });
+  try {
+    const created_at = new Date(2026, 2, 1, 12).toISOString();
+    const view = await show(
+      <RecordsReport
+        archives={[
+          {
+            created_at,
+            print_name: 'Paid print',
+            status: 'completed',
+            actual_time_seconds: 3600,
+            cost: 2,
+          },
+          { created_at, print_name: 'Failed print', status: 'failed' },
+        ]}
+        currency="GBP"
+      />,
+    );
+    expect(view.getByText('Busiest day: 01/03/2026 · 2')).toBeTruthy();
+    expect(
+      view.getByText(/Most expensive print.*£2\.00.*Paid print/),
+    ).toBeTruthy();
+  } finally {
+    setFormattingPreferences(previous);
+  }
 });

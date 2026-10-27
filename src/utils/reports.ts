@@ -1,4 +1,5 @@
 import { pickNumber, pickString, type ApiRecord } from '@/utils/data';
+import { formatPreferredTime, parseServerDate } from '@/utils/preferences';
 
 export type ReportRange =
   | 'today'
@@ -103,11 +104,11 @@ export function splitReport(
 
 export function hourBuckets(items: ApiRecord[], metric: ReportMetric) {
   const result = Array.from({ length: 24 }, (_, hour) => ({
-    label: `${String(hour).padStart(2, '0')}:00`,
+    label: formatPreferredTime(new Date(2000, 0, 1, hour)),
     value: 0,
   }));
   for (const item of items) {
-    const date = new Date(reportTimestamp(item));
+    const date = parseServerDate(reportTimestamp(item));
     if (Number.isFinite(date.getTime()))
       result[date.getHours()].value += metricValue(item, metric);
   }
@@ -135,7 +136,7 @@ export function reportRecords(items: ApiRecord[]) {
   );
   const days = new Map<string, number>();
   items.forEach(item => {
-    const date = new Date(reportTimestamp(item));
+    const date = parseServerDate(reportTimestamp(item));
     if (!Number.isFinite(date.getTime())) return;
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
       2,
@@ -151,8 +152,12 @@ export function reportRecords(items: ApiRecord[]) {
     .filter(item => item.status === 'completed' || item.status === 'failed')
     .sort(
       (a, b) =>
-        Date.parse(pickString(b, ['completed_at', 'created_at'])) -
-        Date.parse(pickString(a, ['completed_at', 'created_at'])),
+        parseServerDate(
+          pickString(b, ['completed_at', 'created_at']),
+        ).getTime() -
+        parseServerDate(
+          pickString(a, ['completed_at', 'created_at']),
+        ).getTime(),
     );
   let streak = 0;
   for (const item of sorted) {

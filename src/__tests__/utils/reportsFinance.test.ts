@@ -15,6 +15,10 @@ import {
 } from '@/utils/reports';
 import { reportCsv, reportXlsxBase64 } from '@/utils/reportExport';
 import type { FinanceCenter } from '@/types/api';
+import {
+  getFormattingPreferences,
+  setFormattingPreferences,
+} from '@/utils/preferences';
 
 describe('report date scope and measurements', () => {
   const now = new Date('2026-03-01T22:30:00Z');
@@ -75,6 +79,20 @@ describe('report date scope and measurements', () => {
     expect(hourBuckets(items, 'prints')).toHaveLength(24);
     expect(hourBuckets(items, 'prints')[3].value).toBe(1);
     expect(hourBuckets(items, 'time')[3].value).toBe(0);
+  });
+  it('uses saved hour labels and treats zone-less server timestamps as UTC', () => {
+    const previous = getFormattingPreferences();
+    setFormattingPreferences({ locale: 'en-US', timeFormat: '24h' });
+    try {
+      const items = [{ created_at: '2026-03-01T03:00:00' }];
+      const hour = new Date('2026-03-01T03:00:00Z').getHours();
+      expect(hourBuckets(items, 'prints')[hour].value).toBe(1);
+      expect(hourBuckets(items, 'prints')[3].label).toBe('03:00');
+      setFormattingPreferences({ timeFormat: '12h' });
+      expect(hourBuckets(items, 'prints')[3].label).toBe('03:00 AM');
+    } finally {
+      setFormattingPreferences(previous);
+    }
   });
   it('splits multicolor/material weight and time but counts each participating material', () => {
     const items = [

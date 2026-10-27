@@ -27,6 +27,10 @@ import {
   partialCharge,
 } from '@/utils/finance';
 import { FinancePolicySection } from '@/components/finance/FinancePolicySection';
+import {
+  formatPreferredCurrency,
+  formatPreferredDateTime,
+} from '@/utils/preferences';
 
 type FormKind = 'center' | 'deposit' | 'withdraw' | 'manual' | 'edit';
 type Form = {
@@ -240,15 +244,10 @@ export default function FinanceScreen() {
   }
   const money = (value: number | null | undefined) => {
     if (value == null) return '—';
-    const currency = balance.data?.currency ?? flags.data?.currency ?? 'USD';
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency,
-      }).format(value);
-    } catch {
-      return `${currency} ${value.toFixed(2)}`;
-    }
+    return formatPreferredCurrency(
+      value,
+      balance.data?.currency ?? flags.data?.currency,
+    );
   };
   const userName = (id: number) =>
     users.data?.find(u => u.id === id)?.username ?? `#${id}`;
@@ -569,7 +568,7 @@ export default function FinanceScreen() {
                 <Text style={{ color: colors.text }}>
                   {money(tx.amount)} · {label('Balance after')}:{' '}
                   {money(tx.balance_after)} ·{' '}
-                  {new Date(tx.created_at).toLocaleString()}
+                  {formatPreferredDateTime(tx.created_at)}
                 </Text>
                 {adminView && rights.modify && (
                   <>
