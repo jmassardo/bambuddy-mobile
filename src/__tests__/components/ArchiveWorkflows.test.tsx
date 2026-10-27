@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -24,6 +24,15 @@ import type { Archive } from '@/types/api';
 
 const mockToast = jest.fn();
 const mockPermission = jest.fn(() => true);
+jest.mock('react-native/Libraries/Modal/Modal', () => ({
+  __esModule: true,
+  default: (props: import('react-native').ModalProps) =>
+    require('react').createElement(
+      require('react-native').View,
+      { ...props, testID: 'native-archive-modal' },
+      props.children,
+    ),
+}));
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     user: { id: 1 },
@@ -127,15 +136,17 @@ beforeEach(() => {
 
 it('persists reject reason before opening configurable reprint without changing machine status or plate state', async () => {
   const onReprint = jest.fn();
+  const onClose = jest.fn();
   const result = await wrap(
     <ConfirmOutcomeDialog
       archiveId={9}
       source="printer_card"
-      onClose={jest.fn()}
+      onClose={onClose}
       onReprint={onReprint}
     />,
   );
   await waitFor(() => expect(result.getByText('Job')).toBeTruthy());
+  const modal = result.getByTestId('native-archive-modal');
   await fireEvent.press(result.getByText('Reject'));
   await fireEvent.changeText(
     result.getByLabelText('Rejection reason (optional)'),
@@ -149,7 +160,19 @@ it('persists reject reason before opening configurable reprint without changing 
       failure_reason: 'surface damage',
     }),
   );
-  await waitFor(() => expect(onReprint).toHaveBeenCalledWith(9));
+  await waitFor(() => expect(modal.props.visible).toBe(false));
+  expect(onClose).not.toHaveBeenCalled();
+  expect(onReprint).not.toHaveBeenCalled();
+  await fireEvent(modal, 'dismiss');
+  expect(onClose).toHaveBeenCalledTimes(1);
+  expect(onReprint).toHaveBeenCalledWith(9);
+  expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(
+    onReprint.mock.invocationCallOrder[0],
+  );
+  await fireEvent(modal, 'dismiss');
+  expect(onClose).toHaveBeenCalledTimes(1);
+  expect(onReprint).toHaveBeenCalledTimes(1);
+  expect(api.updateArchive).toHaveBeenCalledTimes(1);
 });
 
 it('leaves stored outcome untouched when the review is closed', async () => {
@@ -163,9 +186,130 @@ it('leaves stored outcome untouched when the review is closed', async () => {
   );
   await waitFor(() => expect(result.getByText('Job')).toBeTruthy());
   await fireEvent.press(result.getByText('Reject'));
+  const modal = result.getByTestId('native-archive-modal');
   await fireEvent.press(result.getByText('Close'));
-  expect(close).toHaveBeenCalled();
+  expect(modal.props.visible).toBe(false);
+  expect(close).not.toHaveBeenCalled();
+  await fireEvent(modal, 'dismiss');
+  expect(close).toHaveBeenCalledTimes(1);
   expect(api.updateArchive).not.toHaveBeenCalled();
+});
+
+it.each(['Good', 'Reject'])(
+  'dismisses saved %s without launching a reprint',
+  async verdict => {
+    const onClose = jest.fn();
+    const onReprint = jest.fn();
+    const result = await wrap(
+      <ConfirmOutcomeDialog
+        archiveId={9}
+        onClose={onClose}
+        onReprint={onReprint}
+      />,
+    );
+    await waitFor(() => expect(result.getByText('Job')).toBeTruthy());
+    await fireEvent.press(result.getByText(verdict));
+    const modal = result.getByTestId('native-archive-modal');
+    await fireEvent.press(result.getByText('Save'));
+    await waitFor(() => expect(modal.props.visible).toBe(false));
+    expect(onClose).not.toHaveBeenCalled();
+    await fireEvent(modal, 'dismiss');
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onReprint).not.toHaveBeenCalled();
+    expect(api.updateArchive).toHaveBeenCalledTimes(1);
+    expect(api.updateArchive).toHaveBeenCalledWith(
+      9,
+      expect.objectContaining({
+        user_verdict: verdict.toLowerCase(),
+        user_verdict_source: 'dialog',
+      }),
+    );
+  },
+);
+
+it('opens Android reprint after the hidden-modal commit without an iOS dismissal event', async () => {
+  const platform = jest.replaceProperty(Platform, 'OS', 'android');
+  try {
+    const onClose = jest.fn();
+    const onReprint = jest.fn();
+    const result = await wrap(
+      <ConfirmOutcomeDialog
+        archiveId={9}
+        onClose={onClose}
+        onReprint={onReprint}
+      />,
+    );
+    await waitFor(() => expect(result.getByText('Job')).toBeTruthy());
+    await fireEvent.press(result.getByText('Reject'));
+    const modal = result.getByTestId('native-archive-modal');
+    await fireEvent.press(result.getByText('Reject and configure reprint'));
+    await waitFor(() => expect(onReprint).toHaveBeenCalledWith(9));
+    expect(modal.props.visible).toBe(false);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(api.updateArchive).toHaveBeenCalledTimes(1);
+    await fireEvent(modal, 'dismiss');
+    expect(onReprint).toHaveBeenCalledTimes(1);
+  } finally {
+    platform.restore();
+  }
+});
+
+it('does not reopen reprint when a saved review is closed before its write finishes', async () => {
+  type SavedArchive = Awaited<ReturnType<typeof api.updateArchive>>;
+  let resolveSave!: (archive: SavedArchive) => void;
+  const saved = new Promise<SavedArchive>(resolve => {
+    resolveSave = resolve;
+  });
+  jest.mocked(api.updateArchive).mockReturnValueOnce(saved);
+  const onClose = jest.fn();
+  const onReprint = jest.fn();
+  const result = await wrap(
+    <ConfirmOutcomeDialog
+      archiveId={9}
+      onClose={onClose}
+      onReprint={onReprint}
+    />,
+  );
+  await waitFor(() => expect(result.getByText('Job')).toBeTruthy());
+  await fireEvent.press(result.getByText('Reject'));
+  await fireEvent.press(result.getByText('Reject and configure reprint'));
+  await waitFor(() => expect(api.updateArchive).toHaveBeenCalledTimes(1));
+  const modal = result.getByTestId('native-archive-modal');
+  await fireEvent.press(result.getByText('Close'));
+  await fireEvent(modal, 'dismiss');
+  resolveSave({ id: 9, user_verdict: 'reject' });
+  await waitFor(() =>
+    expect(
+      result.getByRole('button', { name: 'Save' }).props.accessibilityState
+        .busy,
+    ).toBe(false),
+  );
+  expect(onClose).toHaveBeenCalledTimes(1);
+  expect(onReprint).not.toHaveBeenCalled();
+  expect(api.updateArchive).toHaveBeenCalledTimes(1);
+});
+
+it('keeps the native outcome dialog open when its verdict write fails', async () => {
+  jest.mocked(api.updateArchive).mockRejectedValueOnce(new Error('Offline'));
+  const onClose = jest.fn();
+  const onReprint = jest.fn();
+  const result = await wrap(
+    <ConfirmOutcomeDialog
+      archiveId={9}
+      onClose={onClose}
+      onReprint={onReprint}
+    />,
+  );
+  await waitFor(() => expect(result.getByText('Job')).toBeTruthy());
+  await fireEvent.press(result.getByText('Reject'));
+  await fireEvent.press(result.getByText('Reject and configure reprint'));
+  await waitFor(() =>
+    expect(mockToast).toHaveBeenCalledWith('Offline', 'error'),
+  );
+  expect(result.getByTestId('native-archive-modal').props.visible).toBe(true);
+  expect(onClose).not.toHaveBeenCalled();
+  expect(onReprint).not.toHaveBeenCalled();
+  expect(api.updateArchive).toHaveBeenCalledTimes(1);
 });
 
 it('shows deletion impact, preserves statistics by default and blocks printing archives', async () => {
@@ -384,15 +528,13 @@ it('renames catalog tags globally and reports affected archives', async () => {
 });
 
 it('uploads a real picked source document without replacing the sliced archive', async () => {
-  jest
-    .mocked(pick)
-    .mockResolvedValue([
-      {
-        uri: 'file:///design.3mf',
-        name: 'design.3mf',
-        type: 'application/octet-stream',
-      },
-    ] as unknown as Awaited<ReturnType<typeof pick>>);
+  jest.mocked(pick).mockResolvedValue([
+    {
+      uri: 'file:///design.3mf',
+      name: 'design.3mf',
+      type: 'application/octet-stream',
+    },
+  ] as unknown as Awaited<ReturnType<typeof pick>>);
   const result = await wrap(
     <ArchiveDetailTools
       archive={sample}
@@ -413,14 +555,12 @@ it('uploads a real picked source document without replacing the sliced archive',
 });
 
 it('persists embedded project metadata while retaining rich descriptions and ignoring response-only fields', async () => {
-  jest
-    .mocked(archiveWorkflows.projectPage)
-    .mockResolvedValue({
-      title: 'Embedded',
-      description: '<p><strong>Rich text</strong></p>',
-      profile_description: '<p>Profile</p>',
-      model_pictures: [],
-    });
+  jest.mocked(archiveWorkflows.projectPage).mockResolvedValue({
+    title: 'Embedded',
+    description: '<p><strong>Rich text</strong></p>',
+    profile_description: '<p>Profile</p>',
+    model_pictures: [],
+  });
   const result = await wrap(
     <EmbeddedArchiveProjectPage archive={sample} onClose={jest.fn()} />,
   );

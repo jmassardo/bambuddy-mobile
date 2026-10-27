@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -82,16 +83,25 @@ export async function pickArchiveDocuments(
 export function ArchiveDialog({
   title,
   onClose,
+  visible = true,
+  onDismiss,
   children,
 }: {
   title: string;
   onClose: () => void;
+  visible?: boolean;
+  onDismiss?: () => void;
   children: React.ReactNode;
 }) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   return (
-    <Modal visible animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      onDismiss={onDismiss}
+    >
       <ScrollView
         contentContainerStyle={[
           styles.dialog,
@@ -151,6 +161,26 @@ export function ConfirmOutcomeDialog({
   const auth = useArchiveAuthorization(archive);
   const [verdict, setVerdict] = useState<'good' | 'reject'>('good');
   const [reason, setReason] = useState('');
+  const [visible, setVisible] = useState(true);
+  const dismissal = useRef<'close' | 'reprint' | null>(null);
+  const dismissed = useRef(false);
+  const finishDismissal = useCallback(() => {
+    const intent = dismissal.current;
+    if (!intent || dismissed.current) return;
+    dismissed.current = true;
+    dismissal.current = null;
+    onClose();
+    if (intent === 'reprint') onReprint(archiveId);
+  }, [archiveId, onClose, onReprint]);
+  const dismiss = (reprint = false) => {
+    if (dismissal.current || dismissed.current) return;
+    dismissal.current = reprint ? 'reprint' : 'close';
+    setVisible(false);
+  };
+  useEffect(() => {
+    // Android removes the native modal when visible=false commits; onDismiss is iOS-only.
+    if (!visible && Platform.OS !== 'ios') finishDismissal();
+  }, [visible, finishDismissal]);
   useEffect(() => {
     if (!archive) return;
     setVerdict(archive.user_verdict ?? 'good');
@@ -167,15 +197,16 @@ export function ConfirmOutcomeDialog({
     },
     onSuccess: async reprint => {
       await queryClient.invalidateQueries();
-      onClose();
-      if (reprint) onReprint(archiveId);
+      dismiss(reprint);
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
   return (
     <ArchiveDialog
       title={t('archives.outcome', { defaultValue: 'Confirm print outcome' })}
-      onClose={onClose}
+      visible={visible}
+      onClose={() => dismiss()}
+      onDismiss={finishDismissal}
     >
       <Text style={{ color: colors.text }}>
         {archive?.print_name ?? archive?.filename}
@@ -231,7 +262,10 @@ export function ConfirmOutcomeDialog({
       <PrimaryButton
         label={t('common.save')}
         disabled={
-          !auth.update || archive?.status !== 'completed' || mutation.isPending
+          !auth.update ||
+          archive?.status !== 'completed' ||
+          mutation.isPending ||
+          !visible
         }
         loading={mutation.isPending}
         onPress={() => mutation.mutate(false)}
@@ -244,7 +278,8 @@ export function ConfirmOutcomeDialog({
           disabled={
             !auth.update ||
             archive?.status !== 'completed' ||
-            mutation.isPending
+            mutation.isPending ||
+            !visible
           }
           onPress={() => mutation.mutate(true)}
         />
