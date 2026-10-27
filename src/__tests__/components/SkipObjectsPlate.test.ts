@@ -8,7 +8,7 @@ jest.mock('react-native-webview', () => ({ WebView: () => null }));
 it('uses actual RGB object ids and ignores black background, transparency and off-canvas taps', () => {
   const image = 'data:image/png;base64,AAAA';
   const html = plateDocument(image, image);
-  const script = html.match(/<script>([\s\S]*)<\/script>/)?.[1];
+  const script = html.match(/<script>([\s\S]*)<\/script>/i)?.[1];
   expect(script).toBeTruthy();
   const postMessage = jest.fn();
   const data = new Uint8ClampedArray([0, 0, 0, 255, 2, 1, 0, 255]);

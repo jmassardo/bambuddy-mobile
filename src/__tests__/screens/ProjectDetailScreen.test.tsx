@@ -140,7 +140,7 @@ it('preserves formatted HTML through edit/save, dispatches formatting controls, 
   const screen = await setup();
   const displayed = screen.getByTestId('notes-webview').props.source.html as string;
   expect(displayed).toContain('Assembly');
-  const editorScript = displayed.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  const editorScript = displayed.match(/<script>([\s\S]*?)<\/script>/i)?.[1];
   expect(editorScript).toBeTruthy();
   expect(() => require('@babel/parser').parse(editorScript)).not.toThrow();
   await fireEvent.press(screen.getByText('Edit notes'));
