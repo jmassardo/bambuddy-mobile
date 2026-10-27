@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
-import { Text, TextInput } from 'react-native';
+import {
+  AccessibilityInfo,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PrintDefaultsSettings } from '@/components/settings/PrintDefaultsSettings';
@@ -26,6 +32,7 @@ import { SettingsSectionsList } from '@/components/settings/SettingsSectionsList
 import {
   selectSettingsSearchResult,
   useSettingsSearchTarget,
+  SettingsSearchFocusProvider,
 } from '@/components/settings/SettingsSearchFocus';
 import { searchSettings } from '@/components/settings/settingsSearch';
 import type { WorkflowObicoTestResult } from '@/types/api';
@@ -668,6 +675,50 @@ describe('workflow settings behavior', () => {
       expect.arrayContaining(['mqtt', 'users']),
     );
     await act(async () => renderer.unmount());
+  });
+
+  it('identifies the matched native control without highlighting controls outside the settings host', async () => {
+    const announce = jest
+      .spyOn(AccessibilityInfo, 'announceForAccessibility')
+      .mockImplementation(() => {});
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(
+        <SettingsSearchFocusProvider
+          content={{ current: null }}
+          scroll={{ current: null }}
+        >
+          <TextField label="Bind password" value="" onChangeText={() => {}} />
+        </SettingsSearchFocusProvider>,
+      );
+    });
+    await act(async () =>
+      selectSettingsSearchResult({
+        section: 'users',
+        panel: 'ldap',
+        label: 'Bind password',
+      }),
+    );
+    expect(announce).toHaveBeenCalledWith('Bind password');
+    expect(
+      renderer.root
+        .findAllByType(View)
+        .some(node => StyleSheet.flatten(node.props.style)?.borderWidth === 2),
+    ).toBe(true);
+    await act(async () => renderer.unmount());
+    await act(async () => {
+      renderer = create(
+        <TextField label="Bind password" value="" onChangeText={() => {}} />,
+      );
+    });
+    expect(
+      renderer.root
+        .findAllByType(View)
+        .some(node => StyleSheet.flatten(node.props.style)?.borderWidth === 2),
+    ).toBe(false);
+    expect(announce).toHaveBeenCalledTimes(1);
+    await act(async () => renderer.unmount());
+    announce.mockRestore();
   });
 
   it('browses grouped OpenAPI endpoints and executes/copies a response using explicit test credentials', async () => {

@@ -97,6 +97,7 @@ export function SwitchRow({
         {description ? <Text style={[settingsStyles.switchDescription, { color: colors.textSecondary }]}>{description}</Text> : null}
       </View>
       <Switch
+        accessibilityLabel={label}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: colors.surfaceHover, true: colors.accent }}

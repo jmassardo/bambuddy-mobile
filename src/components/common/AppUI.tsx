@@ -40,6 +40,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
+import { SettingsSearchAnchor } from '@/components/settings/SettingsSearchFocus';
 
 const fontScale = PixelRatio.getFontScale();
 
@@ -135,6 +136,7 @@ export const SectionCard = React.memo(function SectionCardComponent({
   const { colors } = useTheme();
 
   return (
+    <SettingsSearchAnchor label={title ?? ''}>
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
       {(title || subtitle || right) && (
         <View style={styles.cardHeader}>
@@ -147,6 +149,7 @@ export const SectionCard = React.memo(function SectionCardComponent({
       )}
       {children}
     </View>
+    </SettingsSearchAnchor>
   );
 });
 
@@ -248,6 +251,7 @@ export function SettingRow({
   const { colors } = useTheme();
   const IconComponent = APP_UI_ICONS[icon] ?? Circle;
   const content = (
+    <SettingsSearchAnchor label={label}>
     <View style={styles.settingRow}>
       <View style={[styles.settingIcon, { backgroundColor: colors.accentBg }]}>
         <IconComponent size={18} color={colors.accentLight} strokeWidth={2} />
@@ -263,6 +267,7 @@ export function SettingRow({
         </View>
       )}
     </View>
+    </SettingsSearchAnchor>
   );
 
   if (onPress) {
@@ -354,6 +359,7 @@ export function TextField({
   const { colors } = useTheme();
 
   return (
+    <SettingsSearchAnchor label={label}>
     <View style={styles.fieldGroup}>
       <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} accessibilityRole="text">{label}</Text>
       <TextInput
@@ -377,6 +383,7 @@ export function TextField({
       />
       {error ? <Text style={[styles.fieldError, { color: colors.error }]}>{error}</Text> : null}
     </View>
+    </SettingsSearchAnchor>
   );
 }
 

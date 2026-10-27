@@ -83,6 +83,7 @@ export function SettingsSearchAnchor({
   const { colors } = useTheme();
   const { text } = useTranslation();
   const matched =
+    !!context &&
     !!selected &&
     [selected.label, text(selected.label)].some(
       value => value.toLowerCase() === label.toLowerCase(),
