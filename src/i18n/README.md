@@ -75,3 +75,38 @@ shell. The server's `visible` response is authoritative, including for non-admin
 do not replace it with a client permission guess. Unread counts exclude archived
 messages. Read acknowledgements remain unread until the server confirms success.
 External links are HTTPS-only and limited to GitHub/BambuBuddy hosts.
+## Frozen completion resources
+
+The staged completion inventory is **not** a claim that UI localization is done.
+`resources/manifest.json` identifies the immutable English source/digest/chunks.
+`resources/en/0001.json` etc. contain exact English labels/templates under stable
+`native.<digest>` keys; `resources/contexts/0001.json` supplies source locations,
+component/helper names, original expressions and placeholder names for authors.
+Existing fully translated catalog entries are reused and are not reassigned.
+
+Resource authors own only their assigned `resources/<locale>/` directories.
+For every English chunk, author a flat JSON object with the identical base keys,
+nonempty native translations and exactly the same `{{placeholder}}` names.
+Do not translate placeholder contents, IDs, filenames, user input, brand/protocol
+identifiers, URLs or units. Do not copy upstream translation assets or change
+licenses. Translate full grammatical messages, not individual English word order.
+Counted messages may use a count-neutral grammatical formulation, or add CLDR
+`_one`, `_few`, `_many`, `_other` etc. variants; preserve the base key too.
+Legitimate translations identical to English are allowed, but an English fallback
+is not an authored resource entry. No runtime/source/English/context edits belong
+in a resource-author branch.
+
+Validate one chunk or a complete locale without installs:
+
+```sh
+node scripts/validate-native-translations.js --locale de --chunk 0001
+node scripts/validate-native-translations.js --locale de
+node scripts/validate-native-translations.js
+```
+
+The last command intentionally fails until all 15 locales have every resource.
+It checks real entries, key coverage, interpolation and the frozen English digest,
+not whether the runtime can fall back to English. AST/source migration, runtime
+imports/aliases and review of indirect/dynamic UI cases are separate completion
+steps owned by the global lane. Source-coordinate metadata refers to the frozen
+source commit, not later rewritten line numbers.
