@@ -19,6 +19,8 @@ let mockInitialURL: string | null = null;
 const mockRemoveLinkListener = jest.fn();
 const mockLoadServerUrl = jest.fn();
 const mockItems = { items: [...BUILT_IN_NAV_ITEMS], loading: false };
+const mockToastContext = React.createContext(false);
+const mockAuthContext = React.createContext(false);
 
 jest.mock('react-native-get-random-values', () => ({}));
 jest.mock('react-native-gesture-handler', () => ({
@@ -42,20 +44,31 @@ jest.mock('@react-navigation/native', () => ({
   },
 }));
 jest.mock('@/contexts/AuthContext', () => ({
-  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+  AuthProvider: ({ children }: { children: React.ReactNode }) =>
+    require('react').createElement(mockAuthContext.Provider, { value: true }, children),
   useAuth: () => mockAuth,
 }));
 jest.mock('@/contexts/ToastContext', () => ({
-  ToastProvider: ({ children }: { children: React.ReactNode }) => children,
+  ToastProvider: ({ children }: { children: React.ReactNode }) =>
+    require('react').createElement(mockToastContext.Provider, { value: true }, children),
 }));
 jest.mock('@/contexts/PushNotificationContext', () => ({
-  PushNotificationProvider: ({ children }: { children: React.ReactNode }) => children,
+  PushNotificationProvider: ({ children }: { children: React.ReactNode }) => {
+    if (!require('react').useContext(mockToastContext)) throw new Error('Push notifications require ToastProvider');
+    return children;
+  },
 }));
 jest.mock('@/contexts/SliceJobTrackerContext', () => ({
   SliceJobTrackerProvider: ({ children }: { children: React.ReactNode }) => children,
   SliceJobStatusBanner: () => null,
 }));
-jest.mock('@/components/system/BugReportTools', () => ({ BugReportCollectionGuard: () => null }));
+jest.mock('@/components/system/BugReportTools', () => ({
+  BugReportCollectionGuard: () => {
+    require('@tanstack/react-query').useQueryClient();
+    if (!require('react').useContext(mockAuthContext)) throw new Error('Collection guard requires AuthProvider');
+    return null;
+  },
+}));
 jest.mock('@/components/common/AnnouncementBanner', () => ({ AnnouncementBanner: () => null }));
 jest.mock('@/components/common/ServerPreferencesSync', () => ({ ServerPreferencesSync: () => null }));
 jest.mock('@/components/common/OfflineBanner', () => ({ OfflineBanner: () => null }));

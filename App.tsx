@@ -190,17 +190,17 @@ export default function App() {
                   onReset={reset}
                   fallbackRender={({ resetErrorBoundary }) => <AppErrorFallback resetErrorBoundary={resetErrorBoundary} />}
                 >
-                  <PushNotificationProvider>
-                    <ToastProvider>
-                      <AuthProvider>
+                  <ToastProvider>
+                    <AuthProvider>
+                      <PushNotificationProvider>
                         <ServerPreferencesSync />
                         <BugReportCollectionGuard />
                         <SliceJobTrackerProvider>
                           <AppContent />
                         </SliceJobTrackerProvider>
-                      </AuthProvider>
-                    </ToastProvider>
-                  </PushNotificationProvider>
+                      </PushNotificationProvider>
+                    </AuthProvider>
+                  </ToastProvider>
                 </ErrorBoundary>
               )}
             </QueryErrorResetBoundary>
