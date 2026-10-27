@@ -8,10 +8,22 @@ import { SettingsSectionContent } from '@/components/settings/SettingsSectionCon
 import { SettingsSectionsList } from '@/components/settings/SettingsSectionsList';
 import { settingsStyles } from '@/components/settings/shared';
 import { useSettingsScreenController } from '@/components/settings/useSettingsScreenController';
+import { SettingsSearchFocusProvider, SettingsSearchSelection, useSettingsSearchTarget } from '@/components/settings/SettingsSearchFocus';
 
 export default function SettingsScreen() {
   const navigation = useNavigation<RootNavigationProp<'Settings'>>();
   const controller = useSettingsScreenController();
+  const scroll = React.useRef<ScrollView>(null);
+  const content = React.useRef<View>(null);
+  const searchTarget = useSettingsSearchTarget();
+  React.useEffect(() => {
+    if (searchTarget) {
+      controller.actions.setSection(searchTarget.section);
+      if (searchTarget.panel) controller.actions.setUserPanel(searchTarget.panel);
+    }
+    // The selected target is an explicit navigation action, not draft state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTarget]);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Settings' });
@@ -26,10 +38,10 @@ export default function SettingsScreen() {
   }
 
   return (
-    <>
+    <SettingsSearchFocusProvider content={content} scroll={scroll}>
       <ScrollView
+        ref={scroll}
         style={[settingsStyles.container, { backgroundColor: controller.colors.background }]}
-        contentContainerStyle={settingsStyles.content}
         refreshControl={
           <RefreshControl
             refreshing={
@@ -46,15 +58,18 @@ export default function SettingsScreen() {
           />
         }
       >
+        <View ref={content} collapsable={false} style={settingsStyles.content}>
         <View style={settingsStyles.header}>
           <Text style={[settingsStyles.title, { color: controller.colors.text }]}>Settings</Text>
           <Text style={[settingsStyles.subtitle, { color: controller.colors.textSecondary }]}>Mobile settings panels with the same core controls exposed on the web.</Text>
         </View>
 
+        {controller.state.section !== null ? <SettingsSearchSelection /> : null}
         {controller.state.section === null ? <SettingsSectionsList controller={controller} /> : <SettingsSectionContent controller={controller} />}
+        </View>
       </ScrollView>
 
       <SettingsModals controller={controller} />
-    </>
+    </SettingsSearchFocusProvider>
   );
 }

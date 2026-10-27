@@ -1,6 +1,9 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { PrinterCardHeader } from '@/components/printers/PrinterCardHeader';
+import type { PrinterCardHeaderProps } from '@/components/printers/PrinterCard.types';
+import type { WorkflowPrinterAiStatus } from '@/types/api';
+import { selectSettingsSearchResult } from '@/components/settings/SettingsSearchFocus';
 jest.mock('@/components/printers/FirmwareBadge', () => ({ FirmwareBadge: () => null }));
 
 const colors = {
@@ -13,31 +16,33 @@ const colors = {
   textSecondary: '#888888',
   warning: '#ffaa00',
 };
-
-jest.mock('@/theme', () => ({
-  useTheme: () => ({ colors }),
+const mockNavigate = jest.fn();
+const mockRefetch = jest.fn();
+let mockStatus: WorkflowPrinterAiStatus;
+jest.mock('@/theme', () => ({ useTheme: () => ({ colors }) }));
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({ navigate: mockNavigate }),
+}));
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ authEnabled: false, hasPermission: () => true }),
+}));
+jest.mock('@tanstack/react-query', () => ({
+  useQuery: () => ({
+    data: mockStatus,
+    isLoading: false,
+    refetch: mockRefetch,
+  }),
 }));
 
-describe('PrinterCardHeader AI failure detection pill', () => {
-  const printer = {
-    id: 1,
-    name: 'Printer Alpha',
-    model: 'P1S',
-    location: 'Lab',
-    is_active: true,
-  } as any;
-
-  const allDetectorsDisabled = {
-    spaghetti_detector: false,
-    first_layer_inspector: false,
-    printing_monitor: false,
-    nozzle_clumping_detector: false,
-    pileup_detector: false,
-    airprint_detector: false,
-  };
-
+describe('PrinterCardHeader live AI detection badge', () => {
   const baseProps = {
-    printer,
+    printer: {
+      id: 1,
+      name: 'Printer Alpha',
+      model: 'P1S',
+      location: 'Lab',
+      is_active: true,
+    },
     badgeLabel: 'Idle',
     badgeColor: colors.success,
     hmsErrors: [],
@@ -45,110 +50,109 @@ describe('PrinterCardHeader AI failure detection pill', () => {
     maintenanceCount: 0,
     printerImageSource: null,
     onShowHmsModal: jest.fn(),
-  };
-
-  it('shows enabled styling when any supported AI detector is enabled', async () => {
-    const { getByText } = await render(
-      <PrinterCardHeader
-        {...baseProps}
-        status={{
-          connected: true,
-          print_options: {
-            ...allDetectorsDisabled,
-            spaghetti_detector: true,
-          },
-        } as any}
-      />,
-    );
-
-    expect(getByText('AI detection on')).toHaveStyle({ color: colors.success });
+    status: { connected: true, print_options: { spaghetti_detector: true } },
+  } as unknown as PrinterCardHeaderProps;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockStatus = {
+      enabled: true,
+      monitored_printers: null,
+      per_printer: {},
+      last_error: null,
+    };
+    selectSettingsSearchResult(null);
   });
+  afterEach(() => selectSettingsSearchResult(null));
 
-  it('shows disabled styling when all supported AI detectors are disabled', async () => {
-    const { getByText } = await render(
-      <PrinterCardHeader
-        {...baseProps}
-        status={{
-          connected: true,
-          print_options: allDetectorsDisabled,
-        } as any}
-      />,
+  it('does not turn enabled firmware detectors into a measured safe verdict', async () => {
+    const screen = await render(<PrinterCardHeader {...baseProps} />);
+    expect(screen.getByText('AI idle')).toHaveStyle({
+      color: colors.textSecondary,
+    });
+    expect(screen.queryByText('AI safe')).toBeNull();
+    await fireEvent.press(
+      screen.getByRole('button', { name: /Open AI detection details/ }),
     );
-
-    expect(getByText('AI detection off')).toHaveStyle({ color: colors.textSecondary });
-  });
-
-  it('does not show the pill without print options or while offline', async () => {
-    const { queryByText, rerender } = await render(
-      <PrinterCardHeader
-        {...baseProps}
-        status={{ connected: true, print_options: null } as any}
-      />,
-    );
-
-    expect(queryByText(/AI detection/)).toBeNull();
-
-    await rerender(
-      <PrinterCardHeader
-        {...baseProps}
-        status={{
-          connected: false,
-          print_options: {
-            ...allDetectorsDisabled,
-            first_layer_inspector: true,
-          },
-        } as any}
-      />,
-    );
-
-    expect(queryByText(/AI detection/)).toBeNull();
-  });
-
-  it('describes the active detectors in its accessibility label', async () => {
-    const { getByLabelText } = await render(
-      <PrinterCardHeader
-        {...baseProps}
-        status={{
-          connected: true,
-          print_options: {
-            ...allDetectorsDisabled,
-            spaghetti_detector: true,
-            first_layer_inspector: true,
-          },
-        } as any}
-      />,
-    );
-
     expect(
-      getByLabelText(
-        'AI failure detection enabled. Active detectors: spaghetti detection, first layer inspection',
+      screen.getByText(
+        'No inference is available. This is not a measured safe result.',
       ),
     ).toBeTruthy();
+    expect(screen.queryByText(/Score:/)).toBeNull();
   });
 
-  it('keeps the existing health pills in order around the AI status', async () => {
-    const { getAllByText } = await render(
-      <PrinterCardHeader
-        {...baseProps}
-        status={{
-          connected: true,
-          print_options: {
-            ...allDetectorsDisabled,
-            pileup_detector: true,
-          },
-        } as any}
-      />,
+  it('opens measured verdict details and a working detection-settings shortcut', async () => {
+    mockStatus.per_printer['1'] = {
+      class: 'warning',
+      score: 0.235,
+      frame_count: 7,
+    };
+    const screen = await render(<PrinterCardHeader {...baseProps} />);
+    expect(screen.getByText('AI warning')).toHaveStyle({
+      color: colors.warning,
+    });
+    await fireEvent.press(
+      screen.getByRole('button', { name: /Open AI detection details/ }),
     );
-    const healthPills = getAllByText(
-      /^(Online|HMS OK|AI detection on|Maintenance OK)$/,
-    )
-      .map(text => text.props.children)
+    expect(screen.getByText('Score: 0.235 • Frames analyzed: 7')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Open failure detection settings'));
+    expect(mockNavigate).toHaveBeenCalledWith('Settings');
+  });
 
-    expect(healthPills).toEqual([
-      'Online',
-      'HMS OK',
-      'AI detection on',
-      'Maintenance OK',
-    ]);
+  it('shows a printer-specific failure reason instead of an unrelated global error or safe score', async () => {
+    mockStatus.last_error = 'Other printer failed';
+    mockStatus.per_printer['1'] = {
+      class: 'error',
+      score: 0,
+      frame_count: 0,
+      error: 'Snapshot timed out',
+    };
+    const screen = await render(<PrinterCardHeader {...baseProps} />);
+    await fireEvent.press(
+      screen.getByRole('button', { name: /Open AI detection details/ }),
+    );
+    expect(screen.getByText('Snapshot timed out')).toBeTruthy();
+    expect(screen.queryByText(/Score:/)).toBeNull();
+    expect(screen.queryByText('Other printer failed')).toBeNull();
+  });
+
+  it('hides the badge for an excluded printer or disabled service', async () => {
+    mockStatus.monitored_printers = [];
+    const screen = await render(<PrinterCardHeader {...baseProps} />);
+    expect(screen.queryByText(/^AI /)).toBeNull();
+    mockStatus.monitored_printers = null;
+    mockStatus.enabled = false;
+    await screen.rerender(<PrinterCardHeader {...baseProps} />);
+    expect(screen.queryByText(/^AI /)).toBeNull();
+  });
+
+  it('does not classify an unfamiliar backend state as safe', async () => {
+    mockStatus.per_printer['1'] = {
+      class: 'unavailable',
+      score: 0,
+      frame_count: 0,
+    };
+    const screen = await render(<PrinterCardHeader {...baseProps} />);
+    expect(screen.getByText('AI unknown')).toHaveStyle({
+      color: colors.textSecondary,
+    });
+    await fireEvent.press(
+      screen.getByRole('button', { name: /Open AI detection details/ }),
+    );
+    expect(screen.queryByText(/Score:/)).toBeNull();
+  });
+
+  it('retains the health-pill ordering around actual safe inference', async () => {
+    mockStatus.per_printer['1'] = {
+      class: 'safe',
+      score: 0.001,
+      frame_count: 5,
+    };
+    const screen = await render(<PrinterCardHeader {...baseProps} />);
+    expect(
+      screen
+        .getAllByText(/^(Online|HMS OK|AI safe|Maintenance OK)$/)
+        .map(node => node.props.children),
+    ).toEqual(['Online', 'HMS OK', 'AI safe', 'Maintenance OK']);
   });
 });

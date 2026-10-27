@@ -10,6 +10,8 @@ import {
 } from './constants';
 import { OptionChipsField, SwitchRow, settingsStyles, stringifyNumberField } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
+import { GeneralWorkflowSettings } from './GeneralWorkflowSettings';
+import { PrintDefaultsSettings } from './PrintDefaultsSettings';
 
 export function GeneralSettingsSection({ controller }: { controller: SettingsScreenController }) {
   const { draft } = controller.state;
@@ -81,14 +83,8 @@ export function GeneralSettingsSection({ controller }: { controller: SettingsScr
         />
       </SectionCard>
 
-      <SectionCard title="Default print options" subtitle="Applied when starting new prints from the app.">
-        <SwitchRow label="Bed leveling" description="Auto-level bed before starting the print." value={Boolean(draft.default_bed_levelling ?? true)} onValueChange={value => setDraft(current => ({ ...current, default_bed_levelling: value }))} />
-        <SwitchRow label="Flow calibration" description="Run extrusion flow calibration." value={Boolean(draft.default_flow_cali)} onValueChange={value => setDraft(current => ({ ...current, default_flow_cali: value }))} />
-        <SwitchRow label="Vibration calibration" description="Reduce ringing before the print starts." value={Boolean(draft.default_vibration_cali ?? true)} onValueChange={value => setDraft(current => ({ ...current, default_vibration_cali: value }))} />
-        <SwitchRow label="First layer inspection" description="Enable AI first-layer checks by default." value={Boolean(draft.default_layer_inspect)} onValueChange={value => setDraft(current => ({ ...current, default_layer_inspect: value }))} />
-        <SwitchRow label="Timelapse" description="Record timelapse video for new prints by default." value={Boolean(draft.default_timelapse)} onValueChange={value => setDraft(current => ({ ...current, default_timelapse: value }))} />
-        <SwitchRow label="Nozzle offset calibration" description="Useful on dual-nozzle printers." value={Boolean(draft.default_nozzle_offset_cali ?? true)} onValueChange={value => setDraft(current => ({ ...current, default_nozzle_offset_cali: value }))} />
-      </SectionCard>
+      <GeneralWorkflowSettings controller={controller} />
+      <PrintDefaultsSettings controller={controller} />
 
       <SectionCard title="Electricity pricing & updates" subtitle="Cost tracking defaults and version checks.">
         <OptionChipsField

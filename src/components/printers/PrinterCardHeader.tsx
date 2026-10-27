@@ -3,6 +3,7 @@ import { Image, Pressable, Text, View } from 'react-native';
 import { StatusBadge } from '@/components/common/AppUI';
 import { InfoPill } from '@/components/printers/PrinterCardPrimitives';
 import { FirmwareBadge } from '@/components/printers/FirmwareBadge';
+import { PrinterAiDetectionBadge } from '@/components/printers/PrinterAiDetectionBadge';
 import { useTheme } from '@/theme';
 import { styles } from '@/components/printers/PrinterCard.styles';
 import type { PrinterCardHeaderProps } from '@/components/printers/PrinterCard.types';
@@ -14,7 +15,6 @@ import {
 import {
   AlertCircle,
   CheckCircle,
-  Eye,
   Link,
   Layers,
   Printer as PrinterIcon,
@@ -43,18 +43,6 @@ export function PrinterCardHeader({
   const isConnected = status?.connected ?? false;
   const maintenanceTone = maintenance?.dueCount ? colors.error : colors.warning;
   const hmsTone = getSeverityColor(hmsErrors, colors);
-  const activeAiDetectors = status?.print_options
-    ? [
-        status.print_options.spaghetti_detector ? 'spaghetti detection' : null,
-        status.print_options.first_layer_inspector ? 'first layer inspection' : null,
-        status.print_options.printing_monitor ? 'printing monitor' : null,
-        status.print_options.nozzle_clumping_detector ? 'nozzle clumping detection' : null,
-        status.print_options.pileup_detector ? 'pileup detection' : null,
-        status.print_options.airprint_detector ? 'air-print detection' : null,
-      ].filter((detector): detector is string => detector !== null)
-    : [];
-  const aiDetectionEnabled = activeAiDetectors.length > 0;
-  const aiDetectionTone = aiDetectionEnabled ? colors.success : colors.textSecondary;
 
   return (
     <>
@@ -159,23 +147,7 @@ export function PrinterCardHeader({
             icon={<CheckCircle size={12} color={colors.success} strokeWidth={2} />}
           />
         )}
-        {isConnected && status?.print_options ? (
-          <View
-            accessible
-            accessibilityRole="text"
-            accessibilityLabel={
-              aiDetectionEnabled
-                ? `AI failure detection enabled. Active detectors: ${activeAiDetectors.join(', ')}`
-                : 'AI failure detection disabled'
-            }
-          >
-            <InfoPill
-              label={aiDetectionEnabled ? 'AI detection on' : 'AI detection off'}
-              color={aiDetectionTone}
-              icon={<Eye size={12} color={aiDetectionTone} strokeWidth={2} />}
-            />
-          </View>
-        ) : null}
+        <PrinterAiDetectionBadge printerId={printer.id} printerName={printer.name} />
         {queueCount > 0 ? (
           <InfoPill
             label={`${queueCount} queued`}

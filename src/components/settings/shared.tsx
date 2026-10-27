@@ -6,6 +6,7 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { SmartPlug } from '@/types/api';
 import type { OptionItem } from './types';
+import { SettingsSearchAnchor } from './SettingsSearchFocus';
 
 export function SimpleModal({
   visible,
@@ -58,6 +59,7 @@ export function OptionChipsField<T extends string>({
   const { colors } = useTheme();
 
   return (
+    <SettingsSearchAnchor label={label}>
     <View style={settingsStyles.fieldGroup}>
       <Text style={[settingsStyles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
       <View style={settingsStyles.chipWrap}>
@@ -68,6 +70,7 @@ export function OptionChipsField<T extends string>({
         ))}
       </View>
     </View>
+    </SettingsSearchAnchor>
   );
 }
 
@@ -87,6 +90,7 @@ export function SwitchRow({
   const { colors } = useTheme();
 
   return (
+    <SettingsSearchAnchor label={label}>
     <View style={settingsStyles.switchRowCard}>
       <View style={settingsStyles.switchTextWrap}>
         <Text style={[settingsStyles.switchLabel, { color: colors.text }]}>{label}</Text>
@@ -100,6 +104,7 @@ export function SwitchRow({
         disabled={disabled}
       />
     </View>
+    </SettingsSearchAnchor>
   );
 }
 

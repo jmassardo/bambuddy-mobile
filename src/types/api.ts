@@ -2779,6 +2779,93 @@ export interface ObicoDetectionEvent {
   detections: number;
 }
 
+// Settings workflow parity contracts.
+export interface WorkflowOpenApiSchemaNode {
+  type?: string;
+  $ref?: string;
+  properties?: Record<string, WorkflowOpenApiSchemaNode>;
+  items?: WorkflowOpenApiSchemaNode;
+  required?: string[];
+  enum?: unknown[];
+  default?: unknown;
+  example?: unknown;
+  description?: string;
+  allOf?: WorkflowOpenApiSchemaNode[];
+  anyOf?: WorkflowOpenApiSchemaNode[];
+  oneOf?: WorkflowOpenApiSchemaNode[];
+}
+
+export interface WorkflowOpenApiParameter {
+  name: string;
+  in: 'path' | 'query' | 'header';
+  required?: boolean;
+  description?: string;
+  schema?: WorkflowOpenApiSchemaNode;
+}
+
+export interface WorkflowOpenApiOperation {
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  parameters?: WorkflowOpenApiParameter[];
+  requestBody?: { required?: boolean; content?: Record<string, { schema?: WorkflowOpenApiSchemaNode }> };
+  responses?: Record<string, { description?: string }>;
+}
+
+export interface WorkflowOpenApiDocument {
+  paths: Record<string, Record<string, WorkflowOpenApiOperation>>;
+  components?: { schemas?: Record<string, WorkflowOpenApiSchemaNode> };
+}
+
+export interface WorkflowExplorerResponse {
+  status: number;
+  statusText: string;
+  body: string;
+  duration: number;
+  headers: Record<string, string>;
+}
+
+export interface ArchiveRetentionSettings {
+  enabled: boolean;
+  days: number;
+  purge_stats: boolean;
+}
+
+export interface WorkflowAiDetection {
+  class: string;
+  frame_count: number;
+  score: number;
+  error?: string | null;
+}
+
+export interface WorkflowPrinterAiStatus {
+  enabled: boolean;
+  monitored_printers: number[] | null;
+  per_printer: Record<string, WorkflowAiDetection>;
+  last_error: string | null;
+}
+
+export interface WorkflowObicoStatus {
+  is_running: boolean;
+  enabled: boolean;
+  thresholds: { low: number; high: number };
+  per_printer: Record<string, WorkflowAiDetection>;
+  last_error: string | null;
+  history: ObicoDetectionEvent[];
+  sensitivity: string;
+  action: string;
+  poll_interval: number;
+  external_url_configured: boolean;
+}
+
+export interface WorkflowObicoTestResult {
+  ok: boolean;
+  auth_ok: boolean | null;
+  status_code: number | null;
+  body: string | null;
+  error: string | null;
+}
+
 export interface ObicoStatus {
   is_running: boolean;
   last_error: string | null;

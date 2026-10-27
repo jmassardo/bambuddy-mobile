@@ -47,6 +47,8 @@ Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print
   Stream/snapshot tests use unsaved input and report resolution/shared captures.
 - Spool inventory with NFC tag scanning
 - Statistics, analytics, and historical archives with photo galleries
+- Searchable settings, automatic archive retention, print/queue defaults, material drying policies, and per-model G-code snippets
+- Live Obico AI verdicts with printer diagnostics and an explicit-key API explorer
 - Calendar/custom-date reports with saved dashboard layouts, estimate accuracy, records, material/color/habit exploration, and purchasing summaries
 - Permission-aware finance wallets, budgets, cost-center membership, and ledger administration
 - Live measured smart-plug energy overview, separate from archived-print energy reports
@@ -120,6 +122,21 @@ renamed, deleted, or assigned members, but authorized operators can edit their
 budgets. An unlimited budget is distinct from a zero budget, which prevents
 printing. Billing/reset policy requires settings permissions; rebuilding the
 ledger requires finance modification permission and explicit confirmation.
+### Workflow settings
+
+Settings search opens the matching section and security sub-panel and identifies the selected control.
+Workflow edits use **Save settings**; archive retention uses its own **Save archive retention** action.
+Automatic archive purging removes old files permanently. Enable deletion of statistics only if those
+historical contributions should also be removed.
+
+Calibration defaults preserve **Auto / On / Off**. Temperature/fan preset resets restore server defaults,
+and per-material preheat and humidity overrides retain their server JSON representation.
+Failure-detection connection tests save pending edits first; an unverified token is never reported as
+authenticated. Printer AI details distinguish unmeasured/errored monitoring from measured verdicts.
+
+The API explorer reads the connected server's OpenAPI schema and executes live requests using only the
+test API key you explicitly supply (or anonymously if blank), not the signed-in session. Write operations
+require confirmation. Response status, body, duration, and copied results are available in the explorer.
 
 ## Requirements
 

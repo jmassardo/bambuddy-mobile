@@ -7,10 +7,11 @@ import type { SettingsScreenController } from './useSettingsScreenController';
 import { pickNumber, pickString, type ApiRecord } from '@/utils/data';
 import { useTranslation } from '@/i18n';
 import { useAuth } from '@/contexts/AuthContext';
+import { ApiExplorerSettings } from './ApiExplorerSettings';
 
 export function ApiKeysSettingsSection({ controller }: { controller: SettingsScreenController }) {
   const { t } = useTranslation();
-  const { hasPermission } = useAuth();
+  const { authEnabled, hasPermission } = useAuth();
   const navigation = useNavigation<NavigationProp<{ CameraIntegrations: undefined }>>();
   const { newApiKeyName, createdApiKey } = controller.state;
   const { setNewApiKeyName } = controller.actions;
@@ -38,6 +39,7 @@ export function ApiKeysSettingsSection({ controller }: { controller: SettingsScr
       <SectionCard title={t('camera.integrations', { defaultValue: 'Camera integrations' })}>
         <PrimaryButton label={t('camera.manageIntegrations', { defaultValue: 'Camera tokens and OBS overlays' })} disabled={!hasPermission('camera:view')} onPress={() => navigation.navigate('CameraIntegrations')} />
       </SectionCard>
+      {!authEnabled || hasPermission('api_keys:read') ? <ApiExplorerSettings /> : null}
     </>
   );
 }

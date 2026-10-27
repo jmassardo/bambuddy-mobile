@@ -11,6 +11,10 @@ const mockSetQueryData = jest.fn();
 const mockShowToast = jest.fn();
 let mockCanControl = false;
 
+jest.mock('@/api/workflowSettings', () => ({
+  workflowSettingsApi: { getPrinterAiStatus: jest.fn() },
+}));
+
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate, setOptions: jest.fn() }),
 }));
