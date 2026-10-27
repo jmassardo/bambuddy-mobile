@@ -11,7 +11,6 @@ import {
   buildMediaUrl,
   request,
   requestBlob,
-  requestWithFallback,
   uploadFile,
   type UploadableFile,
 } from './http';
@@ -40,23 +39,14 @@ export const projectsApi = {
       `/projects/${id}/archives?limit=${limit}&offset=${offset}`,
     ),
 
-  sliceProject: async (id: number, data: Record<string, unknown>) =>
-    requestWithFallback<Record<string, unknown>>(
-      {
-        endpoint: `/projects/${id}/slice`,
-        options: {
-          method: 'POST',
-          body: JSON.stringify(data),
-        },
-      },
-      {
-        endpoint: '/slicer/slice',
-        options: {
-          method: 'POST',
-          body: JSON.stringify({ project_id: id, ...data }),
-        },
-      },
-    ),
+  getAllProjectArchives: async (id: number) => {
+    const archives: Array<ApiEntity<Archive>> = [];
+    for (let offset = 0; ; offset += 100) {
+      const page = await request<Array<ApiEntity<Archive>>>(`/projects/${id}/archives?limit=100&offset=${offset}`);
+      archives.push(...page);
+      if (page.length < 100) return archives;
+    }
+  },
 
   getProjectBOM: async (projectId: number) =>
     request<Array<ApiEntity<BOMItem>>>(`/projects/${projectId}/bom`),

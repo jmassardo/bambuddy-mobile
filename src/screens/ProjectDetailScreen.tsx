@@ -311,9 +311,9 @@ export default function ProjectDetailScreen() {
             label={t('projects.saveTemplate', { defaultValue: 'Save as template' })} variant="secondary"
             disabled={templateMutation.isPending} loading={templateMutation.isPending}
             onPress={() => templateMutation.mutate()} /> : null}
-          <PrimaryButton label="Batch Print" variant="secondary" onPress={() => setShowBatchModal(true)} />
-          <PrimaryButton label="Run Pipeline" variant="secondary" onPress={() => setShowPipelineModal(true)} />
-          <PrimaryButton label="Slice" variant="secondary" onPress={() => setShowSliceModal(true)} />
+          {hasPermission('queue:create') ? <PrimaryButton label={t('projects.batchPrint', { defaultValue: 'Batch Print' })} variant="secondary" onPress={() => setShowBatchModal(true)} /> : null}
+          {hasPermission('pipelines:read') && hasPermission('pipelines:run') ? <PrimaryButton label={t('projects.runPipeline', { defaultValue: 'Run Pipeline' })} variant="secondary" onPress={() => setShowPipelineModal(true)} /> : null}
+          {hasPermission('library:upload') ? <PrimaryButton label={t('projects.slice', { defaultValue: 'Slice' })} variant="secondary" onPress={() => setShowSliceModal(true)} /> : null}
           {pickString(project, ['url']) ? (
             <PrimaryButton label="Open link" variant="secondary" onPress={() => void Linking.openURL(pickString(project, ['url']))} />
           ) : null}

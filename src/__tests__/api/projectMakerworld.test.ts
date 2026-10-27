@@ -32,6 +32,14 @@ describe('current project and MakerWorld server contracts', () => {
     expect(request).toHaveBeenLastCalledWith('/projects/9/create-template', { method: 'POST' });
   });
 
+  it('loads every archive page for project source selection without hiding sources after the first page', async () => {
+    jest.mocked(request).mockResolvedValueOnce(Array.from({ length: 100 }, (_, id) => ({ id }))).mockResolvedValueOnce([{ id: 100 }]);
+    const archives = await projectsApi.getAllProjectArchives(9);
+    expect(archives).toHaveLength(101);
+    expect(request).toHaveBeenNthCalledWith(1, '/projects/9/archives?limit=100&offset=0');
+    expect(request).toHaveBeenNthCalledWith(2, '/projects/9/archives?limit=100&offset=100');
+  });
+
   it('imports resolved model identity and deletes the resulting library file', async () => {
     const payload = { model_id: 23, instance_id: 45, profile_id: 67, folder_id: 89 };
     await makerworldApi.importInstance(payload);

@@ -156,6 +156,11 @@ zero before tare. Restart browser, restart daemon, reboot, shutdown and updates
 require explicit remote-device confirmation. A queued command is not proof of
 execution or recovery; inspect device status and reported update progress.
 
+Project **Batch Print**, **Slice**, and **Run Pipeline** actions first select an
+actual linked library file or project archive. Printing uses the shared configured
+queue launcher (including multiple printers, quantities, and project association);
+slicing and pipelines use their source-aware configuration and preflight dialogs.
+
 ## Requirements
 
 - A self-hosted Bambuddy server instance
