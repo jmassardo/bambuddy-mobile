@@ -15,6 +15,7 @@ export function WorkflowNumberField({
   integer = true,
   onClear,
   placeholder,
+  disabled = false,
 }: {
   label: string;
   value: number;
@@ -24,6 +25,7 @@ export function WorkflowNumberField({
   integer?: boolean;
   onClear?: () => void;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   const [text, setText] = useState(String(value));
   const { colors } = useTheme();
@@ -43,9 +45,11 @@ export function WorkflowNumberField({
           label={label}
           accessibilityLabel={label}
           value={text}
+          editable={!disabled}
           placeholder={placeholder}
           keyboardType={integer ? 'number-pad' : 'decimal-pad'}
           onChangeText={next => {
+            if (disabled) return;
             setText(next);
             if (!next.trim()) {
               onClear?.();

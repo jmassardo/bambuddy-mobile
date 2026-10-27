@@ -35,7 +35,10 @@ import {
   SettingsSearchFocusProvider,
 } from '@/components/settings/SettingsSearchFocus';
 import { searchSettings } from '@/components/settings/settingsSearch';
-import type { WorkflowObicoTestResult } from '@/types/api';
+import type {
+  ArchiveRetentionSettings,
+  WorkflowObicoTestResult,
+} from '@/types/api';
 
 jest.mock('@/theme', () => ({
   useTheme: () => ({ colors: new Proxy({}, { get: () => '#888888' }) }),
@@ -479,6 +482,112 @@ describe('workflow settings behavior', () => {
       library_archive_mode: 'ask',
       library_disk_warning_gb: 2.5,
     });
+    await act(async () => renderer.unmount());
+  });
+
+  it('locks all retention editors until the submitted policy has finished saving', async () => {
+    let finishSave!: (settings: ArchiveRetentionSettings) => void;
+    mockApi.saveArchiveRetention.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          finishSave = resolve;
+        }),
+    );
+    const renderer = await renderSettings(GeneralWorkflowSettings, {});
+    await act(async () => {
+      await new Promise<void>(resolve => setTimeout(() => resolve(), 10));
+    });
+    await act(async () =>
+      componentWithLabel(
+        renderer,
+        SwitchRow,
+        'Auto-purge old archives',
+      ).props.onValueChange(true),
+    );
+    await act(async () =>
+      componentWithLabel(
+        renderer,
+        WorkflowNumberField,
+        'Maximum archive age (days)',
+      ).props.onChange(30),
+    );
+    await act(async () =>
+      componentWithLabel(
+        renderer,
+        PrimaryButton,
+        'Save archive retention',
+      ).props.onPress(),
+    );
+    await act(async () => {
+      await new Promise<void>(resolve => setTimeout(() => resolve(), 10));
+    });
+    expect(mockApi.saveArchiveRetention).toHaveBeenCalledWith(
+      { enabled: true, days: 30, purge_stats: false },
+      expect.anything(),
+    );
+    expect(
+      componentWithLabel(renderer, SwitchRow, 'Auto-purge old archives').props
+        .disabled,
+    ).toBe(true);
+    expect(
+      componentWithLabel(
+        renderer,
+        SwitchRow,
+        'Also permanently delete statistics',
+      ).props.disabled,
+    ).toBe(true);
+    const ageInput = renderer.root
+      .findAllByType(TextInput)
+      .find(
+        input =>
+          input.props.accessibilityLabel === 'Maximum archive age (days)',
+      )!;
+    expect(ageInput.props.editable).toBe(false);
+    await act(async () => ageInput.props.onChangeText('90'));
+    expect(ageInput.props.value).toBe('30');
+    await act(async () =>
+      finishSave({ enabled: true, days: 30, purge_stats: false }),
+    );
+    await act(async () => {
+      await new Promise<void>(resolve => setTimeout(() => resolve(), 10));
+    });
+    expect(
+      componentWithLabel(
+        renderer,
+        WorkflowNumberField,
+        'Maximum archive age (days)',
+      ).props.value,
+    ).toBe(30);
+    expect(
+      componentWithLabel(renderer, SwitchRow, 'Auto-purge old archives').props
+        .disabled,
+    ).toBe(false);
+    expect(
+      componentWithLabel(
+        renderer,
+        SwitchRow,
+        'Also permanently delete statistics',
+      ).props.disabled,
+    ).toBe(false);
+    expect(
+      renderer.root
+        .findAllByType(TextInput)
+        .find(
+          input =>
+            input.props.accessibilityLabel === 'Maximum archive age (days)',
+        )!.props.editable,
+    ).toBe(true);
+    await act(async () =>
+      componentWithLabel(
+        renderer,
+        SwitchRow,
+        'Auto-purge old archives',
+      ).props.onValueChange(false),
+    );
+    expect(
+      componentWithLabel(renderer, SwitchRow, 'Auto-purge old archives').props
+        .value,
+    ).toBe(false);
     await act(async () => renderer.unmount());
   });
 

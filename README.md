@@ -135,6 +135,7 @@ ledger requires finance modification permission and explicit confirmation.
 
 Settings search opens the matching section and security sub-panel and identifies the selected control.
 Workflow edits use **Save settings**; archive retention uses its own **Save archive retention** action.
+Retention editors are locked while their save is pending.
 Automatic archive purging removes old files permanently. Enable deletion of statistics only if those
 historical contributions should also be removed.
 

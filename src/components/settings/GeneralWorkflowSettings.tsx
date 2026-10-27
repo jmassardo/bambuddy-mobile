@@ -105,6 +105,7 @@ export function GeneralWorkflowSettings({
                   defaultValue: 'Auto-purge old archives',
                 })}
                 value={retentionDraft.enabled}
+                disabled={save.isPending}
                 onValueChange={enabled =>
                   setRetentionDraft({ ...retentionDraft, enabled })
                 }
@@ -114,6 +115,7 @@ export function GeneralWorkflowSettings({
                   defaultValue: 'Maximum archive age (days)',
                 })}
                 value={retentionDraft.days}
+                disabled={save.isPending}
                 min={7}
                 max={3650}
                 onChange={days =>
@@ -125,6 +127,7 @@ export function GeneralWorkflowSettings({
                   defaultValue: 'Also permanently delete statistics',
                 })}
                 value={retentionDraft.purge_stats}
+                disabled={save.isPending}
                 onValueChange={purge_stats =>
                   setRetentionDraft({ ...retentionDraft, purge_stats })
                 }
