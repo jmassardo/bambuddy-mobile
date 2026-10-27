@@ -167,6 +167,25 @@ actual linked library file or project archive. Printing uses the shared configur
 queue launcher (including multiple printers, quantities, and project association);
 slicing and pipelines use their source-aware configuration and preflight dialogs.
 
+### Library content previews
+
+Library files open an authenticated in-app preview for STL, 3MF (including
+individual plates), STEP/STP, G-code toolpaths, PDF, CSV/XLS/XLSX/ODS, and images.
+Use **Details** for editable notes, source/external links, result photos and tags.
+The library also supports multi-file/ZIP import, nested moves, STL-to-3MF
+combination, sliced version groups, and recoverable trash with retention policies.
+
+Preview engines are loaded from pinned public CDNs and require internet access;
+file bytes are downloaded through the app's authenticated HTTP transport.
+Credentials and server URLs are not passed to the preview JavaScript. The mobile
+preview limit is 100 MB. Workbook rows/columns are paged rather than silently
+discarded. Original downloads remain available when a preview cannot be rendered.
+
+On macOS, `node scripts/verify-asset-viewers.cjs` runs real WebKit render and
+interaction checks using generated fixtures and Xcode's Swift compiler. It needs
+internet access for the same preview engines and cleans up its worktree-local
+`.viewer-validation` artifacts.
+
 ## Requirements
 
 - A self-hosted Bambuddy server instance

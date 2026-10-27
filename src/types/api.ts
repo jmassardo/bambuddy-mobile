@@ -5062,3 +5062,45 @@ export interface InventoryLabelOptions {
   format: 'pdf' | 'png';
   dpi: 203 | 300 | 600;
 }
+
+// Library previews lane: current library response contracts.
+export interface LibraryTrashResponse {
+  items: Array<ApiEntity<LibraryTrashItem>>;
+  total: number;
+  retention_days: number;
+}
+
+export interface LibraryTrashSettings {
+  retention_days: number;
+  auto_purge_enabled: boolean;
+  auto_purge_days: number;
+  auto_purge_include_never_printed: boolean;
+}
+
+export interface LibraryFolderReadme {
+  filename: string;
+  content: string;
+  truncated: boolean;
+}
+
+export interface LibraryThumbnailBatch {
+  processed: number;
+  succeeded: number;
+  failed: number;
+  results: Array<{
+    file_id: number;
+    filename: string;
+    success: boolean;
+    error: string | null;
+  }>;
+}
+
+export interface LibraryFileUploadResult {
+  id: number;
+  filename: string;
+  file_type: string;
+  file_size: number;
+  thumbnail_path: string | null;
+  duplicate_of?: number | null;
+  metadata?: Record<string, unknown> | null;
+}

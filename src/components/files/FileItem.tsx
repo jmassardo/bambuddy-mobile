@@ -20,6 +20,7 @@ import {
   Box,
 } from 'lucide-react-native';
 import { api } from '@/api/client';
+import { useTranslation } from '@/i18n';
 import { useTheme } from '@/theme';
 import {
   borderRadius,
@@ -80,6 +81,10 @@ interface FileItemProps {
   onPreview?: () => void;
   onSlice?: () => void;
   on3dPreview?: () => void;
+  onLink?: () => void;
+  onDetails?: () => void;
+  wrapName?: boolean;
+  showModified?: boolean;
 }
 
 function thumbnailUrl(id: number): string | null {
@@ -134,15 +139,20 @@ export function FileItem({
   onPress,
   onLongPress,
   onToggleSelect,
-  onRename: _onRename,
+  onRename,
   onDelete,
   onMove,
-  onDownload: _onDownload,
+  onDownload,
   onPreview,
   onSlice,
   on3dPreview,
+  onLink,
+  onDetails,
+  wrapName = true,
+  showModified = true,
 }: FileItemProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [thumbError, setThumbError] = useState(false);
   const id = Number(pickId(item));
   const name = pickString(item, ['print_name', 'filename', 'name'], 'Untitled');
@@ -157,7 +167,7 @@ export function FileItem({
   const isReadonly = pickBoolean(item, ['external_readonly']);
   const printCount = pickNumber(item, ['print_count'], 0);
   const size = pickNumber(item, ['file_size', 'size', 'size_bytes'], 0);
-  const updatedAt = pickString(item, ['updated_at', 'created_at', 'modified_at']);
+  const updatedAt = pickString(item, ['fs_modified_at', 'updated_at', 'created_at', 'modified_at']);
   // uploader and slicedFor available via pickString if needed in future
   const tags = pickArray(item, ['tags']).filter(isRecord);
   const previewSource = useMemo(() => {
@@ -170,7 +180,7 @@ export function FileItem({
   const FileTypeIcon = FILE_ITEM_ICONS[iconName];
   const isGrid = viewMode === 'grid';
   const isSliceable = /\.(3mf|stl|step|stp)$/i.test(rawFilename) && !/\.gcode(\.3mf)?$/i.test(rawFilename);
-  const isPreviewable = /\.(3mf|stl|gcode|gcode\.3mf)$/i.test(rawFilename);
+  const isPreviewable = /\.(3mf|stl|step|stp|gcode|pdf|csv|xlsx|xls|ods|png|jpe?g|gif|webp|bmp|svg)$/i.test(rawFilename);
   const isPrintable = /\.gcode(\.3mf)?$/i.test(rawFilename);
 
   return (
@@ -234,7 +244,7 @@ export function FileItem({
       <View style={styles.content}>
         <View style={styles.titleRow}>
           <View style={styles.titleGroup}>
-            <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
+            <Text style={[styles.title, { color: colors.text }]} numberOfLines={wrapName ? undefined : 1}>
               {name}
             </Text>
             {name !== rawFilename ? (
@@ -263,10 +273,10 @@ export function FileItem({
             <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Size</Text>
             <Text style={[styles.metaValue, { color: colors.text }]}>{isFolder ? '—' : formatFileSize(size)}</Text>
           </View>
-          <View style={styles.metaItem}>
+          {showModified ? <View style={styles.metaItem}>
             <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Updated</Text>
             <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>{formatDateTime(updatedAt)}</Text>
-          </View>
+          </View> : null}
           {printCount > 0 ? (
             <View style={styles.metaItem}>
               <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Prints</Text>
@@ -291,6 +301,9 @@ export function FileItem({
               <Text style={[styles.chipText, { color: colors.warning }]}>Read only</Text>
             </View>
           ) : null}
+          {pickNumber(item, ['variant_group_id']) ? <View style={[styles.chip, {backgroundColor: colors.surfaceElevated, borderColor: colors.border}]}>
+            <Text style={[styles.chipText, {color: colors.textSecondary}]}>{t('library.versionBadge', {defaultValue: '{{count}} versions · group #{{id}}', count: pickNumber(item, ['variant_count']), id: pickNumber(item, ['variant_group_id'])})}</Text>
+          </View> : null}
         </View>
 
         {tags.length > 0 ? (
@@ -312,10 +325,14 @@ export function FileItem({
         ) : null}
 
         <View style={[styles.actionsRow, { borderColor: colors.borderSubtle }]}> 
+          <ActionPill label={t('library.details', {defaultValue: 'Details'})} icon="file-text" color={colors.info} onPress={!isFolder ? onDetails : undefined} />
           <ActionPill label="Preview" icon="image" color={colors.info} onPress={isPreviewable ? onPreview : undefined} />
-          <ActionPill label="3D" icon="box" color={colors.highlight} onPress={/\.(stl|3mf)$/i.test(rawFilename) ? on3dPreview : undefined} />
+          <ActionPill label="3D" icon="box" color={colors.highlight} onPress={/\.(stl|3mf|step|stp)$/i.test(rawFilename) ? on3dPreview : undefined} />
           <ActionPill label="Slice" icon="layers" color={colors.accent} onPress={isSliceable ? onSlice : undefined} />
-          <ActionPill label="Move" icon="folder" color={colors.warning} onPress={onMove} />
+          <ActionPill label={t('library.rename', {defaultValue: 'Rename'})} icon="edit" color={colors.accent} onPress={isFolder || !isReadonly ? onRename : undefined} />
+          <ActionPill label={t('library.download', {defaultValue: 'Download'})} icon="download" color={colors.info} onPress={!isFolder ? onDownload : undefined} />
+          <ActionPill label={t('library.link', {defaultValue: 'Link'})} icon="folder" color={colors.info} onPress={isFolder ? onLink : undefined} />
+          <ActionPill label="Move" icon="folder" color={colors.warning} onPress={!isFolder && !isReadonly ? onMove : undefined} />
           <ActionPill label="Delete" icon="trash" color={colors.error} onPress={onDelete} />
         </View>
       </View>

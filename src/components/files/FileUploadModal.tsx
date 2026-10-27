@@ -6,11 +6,14 @@ import {
   StyleSheet,
   Text,
   View,
+  ScrollView,
+  Switch,
 } from 'react-native';
 import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import { useMutation } from '@tanstack/react-query';
 import { FileUp, Upload, X } from 'lucide-react-native';
-import { api } from '@/api/client';
+import { filesApi } from '@/api/files';
+import { useTranslation } from '@/i18n';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -28,6 +31,9 @@ interface SelectedFile {
   name: string;
   type: string;
   size?: number | null;
+  progress: number;
+  status: 'pending' | 'uploading' | 'done' | 'error';
+  error?: string;
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -42,39 +48,50 @@ export function FileUploadModal({
   onUploaded,
 }: FileUploadModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { showToast } = useToast();
-  const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
+  const [preserveStructure, setPreserveStructure] = useState(true);
+  const [createFolderFromZip, setCreateFolderFromZip] = useState(false);
+  const [generateThumbnails, setGenerateThumbnails] = useState(true);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     if (!visible) {
-      setSelectedFile(null);
+      setSelectedFiles([]);
       setProgress(0);
     }
   }, [visible]);
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedFile) {
+      if (!selectedFiles.length) {
         throw new Error('Choose a file to upload first.');
       }
 
       setProgress(0);
-      return api.uploadLibraryFile(
-        {
-          uri: selectedFile.uri,
-          name: selectedFile.name,
-          type: selectedFile.type,
-        },
-        folderId,
-        (nextProgress) => setProgress(nextProgress),
-      );
+      let failed = false;
+      for (const file of selectedFiles.filter(value => value.status !== 'done')) {
+        const update = (patch: Partial<SelectedFile>) => setSelectedFiles(current =>
+          current.map(value => value.uri === file.uri ? { ...value, ...patch } : value));
+        update({ status: 'uploading', progress: 0, error: undefined });
+        try {
+          await filesApi.uploadLibraryFile(file, folderId, nextProgress => {
+            setProgress(nextProgress);
+            update({ progress: nextProgress });
+          }, { preserveStructure, createFolderFromZip, generateThumbnails });
+          update({ status: 'done', progress: 100 });
+        } catch (error) {
+          failed = true;
+          update({ status: 'error', error: getErrorMessage(error, t('library.uploadFailed', { defaultValue: 'Upload failed; retry this file.' })) });
+        }
+      }
+      onUploaded?.();
+      if (failed) throw new Error(t('library.uploadPartial', { defaultValue: 'Some files could not be uploaded. Successful files are kept; retry the remaining files.' }));
     },
     onSuccess: () => {
       setProgress(100);
-      showToast('File uploaded.', 'success');
-      onUploaded?.();
-      onClose();
+      showToast(t('library.uploadsCompleted', {defaultValue: 'Uploads completed.'}), 'success');
     },
     onError: (error) => {
       showToast(getErrorMessage(error, 'Unable to upload file.'), 'error');
@@ -83,17 +100,17 @@ export function FileUploadModal({
 
   const chooseFile = async () => {
     try {
-      const [asset] = await pick({
+      const assets = await pick({
         type: [types.allFiles],
         presentationStyle: 'fullScreen',
+        allowMultiSelection: true,
       });
 
-      setSelectedFile({
-        uri: asset.uri,
-        name: asset.name ?? 'upload',
-        type: asset.type ?? 'application/octet-stream',
-        size: asset.size,
-      });
+      setSelectedFiles(current => [...current, ...assets.filter(asset => !current.some(file => file.uri === asset.uri)).map(asset => ({
+        uri: asset.uri, name: asset.name ?? 'upload',
+        type: asset.type ?? 'application/octet-stream', size: asset.size,
+        progress: 0, status: 'pending' as const,
+      }))]);
       setProgress(0);
     } catch (error) {
       if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) return;
@@ -107,7 +124,7 @@ export function FileUploadModal({
   );
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {if (!uploadMutation.isPending) onClose();}}>
       <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}> 
         <View style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
           <View style={[styles.header, { borderBottomColor: colors.borderSubtle }]}> 
@@ -115,13 +132,14 @@ export function FileUploadModal({
               <Text style={[styles.title, { color: colors.text }]}>Upload file</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Choose a file from your device and upload it to Bambuddy.</Text>
             </View>
-            <Pressable onPress={onClose} style={styles.closeButton} accessibilityLabel="Close" accessibilityRole="button">
+            <Pressable disabled={uploadMutation.isPending} onPress={onClose} style={styles.closeButton} accessibilityLabel="Close" accessibilityRole="button">
               <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
 
           <View style={styles.content}>
             <Pressable
+              disabled={uploadMutation.isPending}
               onPress={() => {
                 void chooseFile();
               }}
@@ -135,19 +153,36 @@ export function FileUploadModal({
             >
               <FileUp size={22} color={colors.accentLight} strokeWidth={2} />
               <View style={styles.filePickerTextWrap}>
-                <Text style={[styles.filePickerTitle, { color: colors.text }]}>Choose file</Text>
+                <Text style={[styles.filePickerTitle, { color: colors.text }]}>{t('library.chooseFiles', {defaultValue: 'Choose files'})}</Text>
                 <Text style={[styles.filePickerSubtitle, { color: colors.textSecondary }]}>3MF, G-code, STL, ZIP, or any printable library asset</Text>
               </View>
             </Pressable>
 
-            {selectedFile ? (
-              <View style={[styles.fileSummary, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
-                <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={2}>{selectedFile.name}</Text>
-                <Text style={[styles.fileMeta, { color: colors.textSecondary }]}> 
-                  {selectedFile.size != null ? formatFileSize(selectedFile.size) : 'Unknown size'}
-                </Text>
+            <ScrollView style={styles.fileList}>
+              {selectedFiles.map(file => (
+                <View key={file.uri} style={[styles.fileSummary, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <Text style={[styles.fileName, { color: colors.text }]}>{file.name}</Text>
+                  <Text style={[styles.fileMeta, { color: file.status === 'error' ? colors.error : colors.textSecondary }]}>
+                    {file.size != null ? formatFileSize(file.size) : ''} • {t(`library.uploadStatus.${file.status}`, {defaultValue: file.status})} • {file.progress}% {file.error}
+                  </Text>
+                  {file.status !== 'done' && !uploadMutation.isPending ? (
+                    <Pressable onPress={() => setSelectedFiles(current => current.filter(value => value.uri !== file.uri))}>
+                      <Text style={{ color: colors.error }}>{t('library.removePending', { defaultValue: 'Remove from upload list' })}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ))}
+            </ScrollView>
+            {([
+              [t('library.zipHierarchy', { defaultValue: 'Preserve ZIP folder hierarchy' }), preserveStructure, setPreserveStructure],
+              [t('library.zipFolder', { defaultValue: 'Create a folder named after each ZIP' }), createFolderFromZip, setCreateFolderFromZip],
+              [t('library.uploadThumbnails', { defaultValue: 'Generate STL thumbnails (including ZIP contents)' }), generateThumbnails, setGenerateThumbnails],
+            ] as const).map(([label, value, setter]) => (
+              <View key={label} style={styles.optionRow}>
+                <Text style={[styles.optionLabel, { color: colors.text }]}>{label}</Text>
+                <Switch accessibilityLabel={label} value={value} onValueChange={setter} disabled={uploadMutation.isPending} />
               </View>
-            ) : null}
+            ))}
 
             {(uploadMutation.isPending || progress > 0) ? (
               <View style={styles.progressSection}>
@@ -169,6 +204,7 @@ export function FileUploadModal({
 
           <View style={[styles.footer, { borderTopColor: colors.borderSubtle }]}> 
             <Pressable
+              disabled={uploadMutation.isPending}
               onPress={onClose}
               style={[
                 styles.secondaryButton,
@@ -179,16 +215,16 @@ export function FileUploadModal({
             </Pressable>
             <Pressable
               onPress={() => uploadMutation.mutate()}
-              disabled={!selectedFile || uploadMutation.isPending}
+              disabled={!selectedFiles.some(file => file.status !== 'done') || uploadMutation.isPending}
               style={[
                 styles.primaryButton,
                 {
                   backgroundColor:
-                    !selectedFile || uploadMutation.isPending
+                    !selectedFiles.some(file => file.status !== 'done') || uploadMutation.isPending
                       ? colors.surfaceHover
                       : colors.accent,
                   borderColor:
-                    !selectedFile || uploadMutation.isPending
+                    !selectedFiles.some(file => file.status !== 'done') || uploadMutation.isPending
                       ? colors.border
                       : colors.accent,
                 },
@@ -209,6 +245,9 @@ export function FileUploadModal({
 }
 
 const styles = StyleSheet.create({
+  fileList: { maxHeight: 230 },
+  optionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  optionLabel: { flex: 1 },
   backdrop: {
     flex: 1,
     justifyContent: 'center',

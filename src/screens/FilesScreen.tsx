@@ -1,9 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import type { MainTabNavigationProp, AppNavigationProp } from '@/navigation/types';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { MainTabNavigationProp } from '@/navigation/types';
 import {
   FlatList,
-  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -11,10 +10,23 @@ import {
   StyleSheet,
   Text,
   View,
+  Switch,
 } from 'react-native';
 import { CheckCircle, ChevronDown, ChevronRight, Pause, X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
+import { filesApi } from '@/api/files';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/i18n';
+import { useLibraryPreference } from '@/hooks/useLibraryPreference';
+import { folderDestinations, folderPath, validDays, canGroupVersions } from '@/utils/library';
+import { shareBlob } from '@/utils/share';
+import { AssetPreviewModal, inferPreviewMode, type AssetPreviewSource } from '@/components/files/AssetPreviewModal';
+import { LibraryFileDetails } from '@/components/files/LibraryFileDetails';
+import { LibraryPolicy } from '@/components/files/LibraryPolicy';
+import { FolderAssociation } from '@/components/files/FolderAssociation';
+import { FolderReadme } from '@/components/files/FolderReadme';
+import { LibraryFolderTree } from '@/components/files/LibraryFolderTree';
 import { FileUploadModal } from '@/components/files/FileUploadModal';
 import { Breadcrumb, FileItem } from '@/components/files/FileItem';
 import {
@@ -112,7 +124,7 @@ function sortEntries(entries: ApiRecord[], sort: FileSort) {
   copy.sort((a, b) => {
     switch (sort) {
       case 'date':
-        return new Date(pickString(b, ['updated_at', 'created_at', 'modified_at'])).getTime() - new Date(pickString(a, ['updated_at', 'created_at', 'modified_at'])).getTime();
+        return new Date(pickString(b, ['fs_modified_at', 'updated_at', 'created_at', 'modified_at'])).getTime() - new Date(pickString(a, ['fs_modified_at', 'updated_at', 'created_at', 'modified_at'])).getTime();
       case 'size':
         return pickNumber(b, ['file_size', 'size', 'size_bytes']) - pickNumber(a, ['file_size', 'size', 'size_bytes']);
       case 'type':
@@ -127,8 +139,10 @@ function sortEntries(entries: ApiRecord[], sort: FileSort) {
 }
 
 export default function FilesScreen() {
+  const { t } = useTranslation();
+  const { hasPermission, hasAnyPermission, user, authEnabled } = useAuth();
+  const route = useRoute();
   const navigation = useNavigation<MainTabNavigationProp<'Files'>>();
-  const rootNavigation = useNavigation<AppNavigationProp>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Files' });
   }, [navigation]);
@@ -138,8 +152,29 @@ export default function FilesScreen() {
   const queryClient = useQueryClient();
   const [folderStack, setFolderStack] = useState<FolderNode[]>([{ id: null, name: 'Library' }]);
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<FileViewMode>('list');
-  const [sortBy, setSortBy] = useState<FileSort>('name');
+  const [viewMode, setViewMode] = useLibraryPreference<FileViewMode>('view', 'list');
+  const [sortBy, setSortBy] = useLibraryPreference<FileSort>('sort', 'name');
+  const [ascending, setAscending] = useLibraryPreference('ascending', true);
+  const [folderSort, setFolderSort] = useLibraryPreference<'name' | 'activity'>('folderSort', 'name');
+  const [folderAscending, setFolderAscending] = useLibraryPreference('folderAscending', true);
+  const [wrapNames, setWrapNames] = useLibraryPreference('wrapNames', true);
+  const [showModified, setShowModified] = useLibraryPreference('showModified', true);
+  const [browseTree, setBrowseTree] = useLibraryPreference('browseTree', false);
+  const [collapseFolders, setCollapseFolders] = useLibraryPreference('collapseFolders', true);
+  const [uploader, setUploader] = useState('');
+  const [associationFolder, setAssociationFolder] = useState<ApiRecord | null>(null);
+  const [deleteFolder, setDeleteFolder] = useState<ApiRecord | null>(null);
+  const [hardDeleteIds, setHardDeleteIds] = useState<number[]>([]);
+  const [confirmEmptyTrash, setConfirmEmptyTrash] = useState(false);
+  const [viewerSource, setViewerSource] = useState<AssetPreviewSource | null>(null);
+  const [combineIds, setCombineIds] = useState<number[]>([]);
+  const [copies, setCopies] = useState<Record<number, string>>({});
+  const [combinedName, setCombinedName] = useState('');
+  const [sliceCombined, setSliceCombined] = useState(false);
+  const [sliceAutoArrange, setSliceAutoArrange] = useState(false);
+  const [tagAction, setTagAction] = useState<'add' | 'remove' | 'replace'>('add');
+  const [tagSearch, setTagSearch] = useState('');
+  const [projectLinkTarget, setProjectLinkTarget] = useState<number | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>('all');
   const [sizeRangeFilter, setSizeRangeFilter] = useState<SizeRangeFilter>('all');
@@ -155,14 +190,15 @@ export default function FilesScreen() {
   const [deleteIds, setDeleteIds] = useState<number[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [printFileId, setPrintFileId] = useState<number | null>(null);
-  const [preview3dFileId, setPreview3dFileId] = useState<number | null>(null);
   const [showExternalFolderModal, setShowExternalFolderModal] = useState(false);
   const [externalFolderName, setExternalFolderName] = useState('');
   const [externalFolderPath, setExternalFolderPath] = useState('');
   const [externalFolderReadonly, setExternalFolderReadonly] = useState(true);
+  const [externalShowHidden, setExternalShowHidden] = useState(false);
   const [pendingExternalFolderDelete, setPendingExternalFolderDelete] = useState<ApiRecord | null>(null);
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [purgeDays, setPurgeDays] = useState(90);
+  const [purgeDaysInput, setPurgeDaysInput] = useState('90');
   const [includeNeverPrinted, setIncludeNeverPrinted] = useState(true);
   const [showTagFilterModal, setShowTagFilterModal] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
@@ -171,18 +207,18 @@ export default function FilesScreen() {
   const [tagDraftName, setTagDraftName] = useState('');
   const [editingTagId, setEditingTagId] = useState<number | null>(null);
   const [pendingTagDelete, setPendingTagDelete] = useState<ApiRecord | null>(null);
-  const [readmeExpanded, setReadmeExpanded] = useState(true);
+  const [readmeExpanded, setReadmeExpanded] = useLibraryPreference('readmeExpanded', true);
   const [showSliceModal, setShowSliceModal] = useState(false);
   const [sliceSourceId, setSliceSourceId] = useState<number | null>(null);
   const [sliceSourceName, setSliceSourceName] = useState('');
   const currentFolder = folderStack[folderStack.length - 1];
 
   const filesQuery = useQuery({
-    queryKey: ['libraryFiles', currentFolder.id ?? 'root'],
+    queryKey: ['libraryFiles', currentFolder.id ?? 'root', search.trim() !== '', selectedTagIds],
     queryFn: () =>
       currentFolder.id != null
-        ? api.getLibraryFiles(currentFolder.id)
-        : api.getLibraryFiles(undefined, false),
+        ? api.getLibraryFiles(currentFolder.id, true, undefined, { recursive: search.trim() !== '', tagIds: selectedTagIds })
+        : api.getLibraryFiles(undefined, false, undefined, {tagIds: selectedTagIds}),
     enabled: !trashMode,
   });
   const foldersQuery = useQuery({
@@ -236,7 +272,7 @@ export default function FilesScreen() {
 
   const entries = useMemo(() => {
     if (trashMode) {
-      const source = Array.isArray(trashQuery.data) ? trashQuery.data : [];
+      const source = trashQuery.data?.items ?? [];
       return source.filter(isRecord);
     }
     const files = Array.isArray(filesQuery.data) ? filesQuery.data.filter(isRecord) : [];
@@ -262,6 +298,14 @@ export default function FilesScreen() {
     queryFn: () => api.getLibraryFileText(readmeFileId as number),
     enabled: !trashMode && readmeFileId != null,
   });
+  const folderReadmeQuery = useQuery({
+    queryKey: ['libraryFolderReadme', currentFolder.id],
+    queryFn: () => filesApi.getLibraryFolderReadme(currentFolder.id!),
+    enabled: !trashMode && currentFolder.id !== null,
+    retry: false,
+  });
+  const readmeContent = currentFolder.id !== null ? folderReadmeQuery.data?.content : readmeQuery.data;
+  const hasReadme = currentFolder.id !== null ? Boolean(folderReadmeQuery.data) : readmeFile !== null;
 
   const fileTypes = useMemo(() => {
     const values = new Set<string>();
@@ -286,7 +330,7 @@ export default function FilesScreen() {
 
   function matchesDateRange(item: ApiRecord, range: DateRangeFilter) {
     if (range === 'all') return true;
-    const stamp = new Date(pickString(item, ['updated_at', 'created_at', 'modified_at'])).getTime();
+    const stamp = new Date(pickString(item, ['fs_modified_at', 'updated_at', 'created_at', 'modified_at'])).getTime();
     if (!Number.isFinite(stamp)) return true;
     const now = Date.now();
     if (range === 'today') return now - stamp < 24 * 60 * 60 * 1000;
@@ -319,25 +363,27 @@ export default function FilesScreen() {
     [externalFoldersQuery.data],
   );
 
+  const routeParams = route.params as {folderId?: number; fileId?: number; projectId?: number} | undefined;
+  const consumedRoute = React.useRef('');
   React.useEffect(() => {
-    setReadmeExpanded(true);
-  }, [currentFolder.id, readmeFileId]);
-
-  React.useEffect(() => {
-    if (preview3dFileId != null) {
-      const file = entries.find(item => Number(pickId(item)) === preview3dFileId);
-      if (file) {
-        const filename = pickString(file, ['filename', 'name'], 'Model');
-        const url = api.getLibraryFileDownloadUrl(preview3dFileId);
-        rootNavigation.navigate('Model3DPreview', { fileId: preview3dFileId, filename, fileUrl: url });
-      }
-      setPreview3dFileId(null);
+    const key = `${route.key}:${routeParams?.folderId}:${routeParams?.fileId}:${routeParams?.projectId}`;
+    if (consumedRoute.current === key || (routeParams?.folderId != null && !foldersQuery.data)) return;
+    consumedRoute.current = key;
+    if (routeParams?.projectId != null && routeParams?.folderId == null && routeParams?.fileId == null) setProjectLinkTarget(routeParams.projectId);
+    if (routeParams?.folderId != null && foldersQuery.data) {
+      const path = folderPath(foldersQuery.data.filter(isRecord), routeParams.folderId);
+      if (path) setFolderStack([{id: null, name: 'Library'}, ...path]);
     }
-  }, [preview3dFileId, entries, rootNavigation]);
+    if (routeParams?.fileId != null) {
+      void filesApi.getLibraryFile(routeParams.fileId).then(file => setPreviewItem(file)).catch((error: Error) => showToast(error.message, 'error'));
+    }
+  }, [route.key, routeParams?.folderId, routeParams?.fileId, routeParams?.projectId, foldersQuery.data, showToast]);
+
 
   const filteredEntries = useMemo(() => {
     const term = search.trim().toLowerCase();
     let result = entries.filter(item => {
+      if (uploader && (isFolderEntry(item) || !pickString(item, ['created_by_username']).toLowerCase().includes(uploader.toLowerCase()))) return false;
       if (typeFilter !== 'all' && !isFolderEntry(item)) {
         if (pickString(item, ['file_type', 'type']) !== typeFilter) return false;
       }
@@ -375,10 +421,14 @@ export default function FilesScreen() {
       return haystack.includes(term);
     });
 
-    const folders = sortEntries(result.filter(isFolderEntry), sortBy);
+    const folders = [...result.filter(isFolderEntry)].sort((a, b) => folderSort === 'name'
+      ? entryName(a).localeCompare(entryName(b))
+      : new Date(pickString(a, ['latest_activity_at', 'updated_at'])).getTime() - new Date(pickString(b, ['latest_activity_at', 'updated_at'])).getTime());
+    if (!folderAscending) folders.reverse();
     const files = sortEntries(result.filter(item => !isFolderEntry(item)), sortBy);
+    if (ascending !== (sortBy === 'name' || sortBy === 'type')) files.reverse();
     return [...folders, ...files];
-  }, [entries, search, selectedTagIds, selectedFileTypes, dateRangeFilter, sizeRangeFilter, sortBy, typeFilter, sizeBuckets]);
+  }, [entries, search, selectedTagIds, selectedFileTypes, dateRangeFilter, sizeRangeFilter, sortBy, typeFilter, sizeBuckets, uploader, folderSort, folderAscending, ascending]);
 
   const visibleFolders = useMemo(
     () => filteredEntries.filter(isFolderEntry),
@@ -395,38 +445,9 @@ export default function FilesScreen() {
     return { folders, files, totalSize };
   }, [entries]);
 
-  const rootFolders = useMemo(() => {
-    const tree = foldersQuery.data;
-    if (!Array.isArray(tree)) return [];
-    // Top-level folders (parent_id is null) as folder entries
-    return tree.filter(isRecord).filter(f => f.parent_id == null).map(f => ({
-      ...f,
-      is_folder: true,
-      type: 'folder',
-      filename: pickString(f, ['name'], 'Folder'),
-      name: pickString(f, ['name'], 'Folder'),
-    }));
-  }, [foldersQuery.data]);
-
   const moveTargets = useMemo(() => {
-    const targets: Array<{ id: number | null; name: string }> = [{ id: null, name: 'Library root' }];
-    folderStack.forEach(node => {
-      if (node.id !== null) targets.push(node);
-    });
-    rootFolders.forEach(folder => {
-      const id = Number(pickId(folder));
-      if (!targets.some(target => target.id === id)) {
-        targets.push({ id, name: pickString(folder, ['name', 'filename'], `Folder ${id}`) });
-      }
-    });
-    visibleFolders.forEach(folder => {
-      const id = Number(pickId(folder));
-      if (!targets.some(target => target.id === id)) {
-        targets.push({ id, name: pickString(folder, ['name', 'filename'], `Folder ${id}`) });
-      }
-    });
-    return targets;
-  }, [folderStack, rootFolders, visibleFolders]);
+    return [{ id: null, name: 'Library root', readonly: false }, ...folderDestinations((foldersQuery.data ?? []).filter(isRecord))];
+  }, [foldersQuery.data]);
 
   const refreshActive = async () => {
     await Promise.all([
@@ -445,6 +466,8 @@ export default function FilesScreen() {
       queryClient.invalidateQueries({ queryKey: ['libraryTags'] }),
       queryClient.invalidateQueries({ queryKey: ['externalFolders'] }),
       queryClient.invalidateQueries({ queryKey: ['pendingUploads'] }),
+      queryClient.invalidateQueries({ queryKey: ['libraryFileDetails'] }),
+      queryClient.invalidateQueries({ queryKey: ['libraryFolderReadme'] }),
     ]);
   };
 
@@ -460,9 +483,11 @@ export default function FilesScreen() {
   });
 
   const renameMutation = useMutation({
-    mutationFn: ({ id, name }: { id: number; name: string }) => api.renameLibraryItem(id, name),
-    onSuccess: async () => {
+    mutationFn: ({ id, name }: { id: number; name: string }) => renameItem && isFolderEntry(renameItem)
+      ? filesApi.updateLibraryFolder(id, {name}) : api.renameLibraryItem(id, name),
+    onSuccess: async (_data, {id, name}) => {
       await invalidateFiles();
+      if (renameItem && isFolderEntry(renameItem)) setFolderStack(current => current.map(node => node.id === id ? {...node, name} : node));
       setRenameItem(null);
       setRenameValue('');
       showToast('Item renamed.', 'success');
@@ -514,6 +539,7 @@ export default function FilesScreen() {
     },
     onSuccess: async () => {
       await invalidateFiles();
+      setSelectedIds([]);
       showToast('Item restored from trash.', 'success');
     },
     onError: () => showToast('Unable to restore the item.', 'error'),
@@ -527,6 +553,8 @@ export default function FilesScreen() {
     },
     onSuccess: async () => {
       await invalidateFiles();
+      setHardDeleteIds([]);
+      setSelectedIds([]);
       showToast('Item permanently deleted.', 'success');
     },
     onError: () => showToast('Unable to permanently delete the item.', 'error'),
@@ -536,6 +564,8 @@ export default function FilesScreen() {
     mutationFn: () => api.emptyLibraryTrash(),
     onSuccess: async () => {
       await invalidateFiles();
+      setConfirmEmptyTrash(false);
+      setSelectedIds([]);
       showToast('Trash emptied.', 'success');
     },
     onError: () => showToast('Unable to empty trash.', 'error'),
@@ -547,6 +577,8 @@ export default function FilesScreen() {
         name: externalFolderName.trim(),
         external_path: externalFolderPath.trim(),
         readonly: externalFolderReadonly,
+        show_hidden: externalShowHidden,
+        parent_id: currentFolder.id,
       }),
     onSuccess: async () => {
       await invalidateFiles();
@@ -554,6 +586,7 @@ export default function FilesScreen() {
       setExternalFolderName('');
       setExternalFolderPath('');
       setExternalFolderReadonly(true);
+      setExternalShowHidden(false);
       showToast('External folder added.', 'success');
     },
     onError: (error: Error) => showToast(error.message || 'Unable to add the external folder.', 'error'),
@@ -615,13 +648,23 @@ export default function FilesScreen() {
   });
 
   const assignTagsMutation = useMutation({
-    mutationFn: () => api.bulkAssignLibraryTags(tagEditorFileIds, tagEditorSelectedIds, 'replace'),
+    mutationFn: () => api.bulkAssignLibraryTags(tagEditorFileIds, tagEditorSelectedIds, tagAction),
     onSuccess: async () => {
       await invalidateFiles();
       setTagEditorFileIds([]);
       showToast('File tags updated.', 'success');
     },
     onError: (error: Error) => showToast(error.message || 'Unable to update file tags.', 'error'),
+  });
+  const createSelectionTagMutation = useMutation({
+    mutationFn: () => filesApi.createLibraryTag(tagDraftName.trim()),
+    onSuccess: async tag => {
+      await invalidateFiles();
+      const id = pickNumber(tag, ['id']);
+      if (id) setTagEditorSelectedIds(current => current.includes(id) ? current : [...current, id]);
+      setTagDraftName('');
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
   });
 
   const toggleSelected = (id: number) => {
@@ -642,6 +685,10 @@ export default function FilesScreen() {
         ...current,
         { id: id, name: pickString(item, ['name', 'filename'], 'Folder') },
       ]);
+      return;
+    }
+    if (inferPreviewMode(pickString(item, ['filename', 'name']))) {
+      setViewerSource({fileId: id, filename: pickString(item, ['filename', 'name'])});
       return;
     }
     setPreviewItem(item);
@@ -667,8 +714,62 @@ export default function FilesScreen() {
       .map(tag => pickNumber(tag, ['id']))
       .filter(Boolean);
     setTagEditorFileIds(ids);
-    setTagEditorSelectedIds(commonTagIds);
+    setTagEditorSelectedIds(ids.length === 1 ? commonTagIds : []);
+    setTagAction(ids.length === 1 ? 'replace' : 'add');
+    setTagSearch('');
   };
+
+  const folderDeleteMutation = useMutation({
+    mutationFn: () => filesApi.deleteLibraryFolder(Number(pickId(deleteFolder!))),
+    onSuccess: async () => {
+      const id = Number(pickId(deleteFolder!));
+      setFolderStack(current => current.some(node => node.id === id) ? current.slice(0, current.findIndex(node => node.id === id)) : current);
+      setDeleteFolder(null); await invalidateFiles();
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+  const thumbnailMutation = useMutation({
+    mutationFn: (ids?: number[]) => filesApi.generateLibraryThumbnails(ids ? {file_ids: ids} : {all_missing: true}),
+    onSuccess: async result => { await invalidateFiles(); showToast(t('library.thumbnailsResult', {defaultValue: '{{success}} thumbnails generated; {{failed}} failed.', success: result.succeeded, failed: result.failed}), result.failed ? 'error' : 'success'); },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+  const combineMutation = useMutation({
+    mutationFn: () => filesApi.combineLibraryFiles({items: combineIds.map(id => ({file_id: id, copies: Number(copies[id] ?? '1')})), filename: combinedName.trim(), folder_id: currentFolder.id}),
+    onSuccess: async result => {
+      await invalidateFiles(); setCombineIds([]); setSelectedIds([]);
+      if (sliceCombined) { setSliceSourceId(result.id); setSliceSourceName(result.filename); setSliceAutoArrange(true); setShowSliceModal(true); }
+      showToast(t('library.combined', {defaultValue: 'Combined 3MF created.'}), 'success');
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+  const groupMutation = useMutation({
+    mutationFn: () => filesApi.groupLibraryVersions(selectedIds),
+    onSuccess: async () => { await invalidateFiles(); setSelectedIds([]); showToast(t('library.versionsGrouped', { defaultValue: 'Sliced files grouped as versions.' }), 'success'); },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+  const linkProjectMutation = useMutation({
+    mutationFn: async ({fileIds, folderId}: {fileIds?: number[]; folderId?: number}) => {
+      if (projectLinkTarget === null) return;
+      if (folderId !== undefined) await filesApi.updateLibraryFolder(folderId, {project_id: projectLinkTarget});
+      for (const id of fileIds ?? []) await filesApi.updateLibraryFile(id, {project_id: projectLinkTarget});
+    },
+    onSuccess: async () => {
+      await Promise.all([invalidateFiles(), ...['projects', 'project', 'projectDetail', 'projectFolders', 'projectFiles', 'projectLibraryFiles', 'projectFileProgress', 'projectActionArchives'].map(key => queryClient.invalidateQueries({queryKey: [key]}))]);
+      setSelectedIds([]);
+      showToast(t('library.linkedProject', {defaultValue: 'Library items linked to project.'}), 'success');
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+  const downloadFile = async (item: ApiRecord) => {
+    showToast(t('library.downloading', { defaultValue: 'Downloading original file…' }), 'info');
+    try { await shareBlob(await filesApi.downloadFileBlob(Number(pickId(item))), pickString(item, ['filename', 'name'])); }
+    catch (error) { showToast(error instanceof Error ? error.message : t('library.downloadFailed', { defaultValue: 'Download failed.' }), 'error'); }
+  };
+  const canEdit = (item: ApiRecord) => !authEnabled || hasPermission('library:update_all') || (hasPermission('library:update_own') && user?.id === pickNumber(item, ['created_by_id']));
+  const canDelete = (item: ApiRecord) => isFolderEntry(item)
+    ? hasPermission('library:delete_all') || (hasPermission('library:delete_own') && !item.is_external && !item.project_id && !item.archive_id && pickNumber(item, ['file_count']) === 0 && pickArray(item, ['children']).length === 0)
+    : hasPermission('library:delete_all') || (hasPermission('library:delete_own') && user?.id === pickNumber(item, ['created_by_id']));
+  const selectedFiles = entries.filter(item => !isFolderEntry(item) && selectedIds.includes(Number(pickId(item))));
 
   if (!trashMode && filesQuery.isLoading && !filesQuery.data) {
     return <LoadingScreen message="Loading files…" />;
@@ -700,7 +801,7 @@ export default function FilesScreen() {
       <FlatList
         key={viewMode}
         data={filteredEntries}
-        keyExtractor={item => `${trashMode ? 'trash' : 'file'}-${pickId(item)}`}
+        keyExtractor={item => `${trashMode ? 'trash' : isFolderEntry(item) ? 'folder' : 'file'}-${pickId(item)}`}
         numColumns={!trashMode && viewMode === 'grid' ? 2 : 1}
         renderItem={({ item }) => {
           if (trashMode) {
@@ -708,6 +809,7 @@ export default function FilesScreen() {
             return (
               <View style={styles.trashItemWrap}>
                 <SectionCard title={pickString(item, ['filename', 'name'], 'Deleted item')} subtitle={`Deleted ${formatDateTime(pickString(item, ['deleted_at', 'created_at']))}`}>
+                  <Chip label={t('library.selectItem', {defaultValue: 'Select {{name}}', name: entryName(item)})} selected={selectedIds.includes(id)} onPress={() => toggleSelected(id)} />
                   <Text style={[styles.trashMeta, { color: colors.textSecondary }]}>Auto purge {formatDateTime(pickString(item, ['auto_purge_at']))}</Text>
                   <Text style={[styles.trashMeta, { color: colors.textSecondary }]}>Folder {pickString(item, ['folder_name'], 'Library')}</Text>
                   <Text style={[styles.trashMeta, { color: colors.textSecondary }]}>{formatFileSize(pickNumber(item, ['file_size']))}</Text>
@@ -716,7 +818,7 @@ export default function FilesScreen() {
                       restoreMutation.mutate([id]);
                     }} />
                     <PrimaryButton label="Delete" variant="danger" onPress={() => {
-                      permanentDeleteMutation.mutate([id]);
+                      setHardDeleteIds([id]);
                     }} />
                   </View>
                 </SectionCard>
@@ -730,6 +832,8 @@ export default function FilesScreen() {
               <FileItem
                 item={item}
                 viewMode={viewMode}
+                wrapName={wrapNames}
+                showModified={showModified}
                 selected={selectedIds.includes(id)}
                 showSelection={selectionMode && !isFolderEntry(item)}
                 onPress={() => openEntry(item)}
@@ -742,25 +846,23 @@ export default function FilesScreen() {
                   setSelectedIds([id]);
                 }}
                 onToggleSelect={() => toggleSelected(id)}
-                onRename={() => {
+                onRename={(isFolderEntry(item) ? hasPermission('library:update_all') : canEdit(item)) ? () => {
                   setRenameItem(item);
                   setRenameValue(pickString(item, ['filename', 'name'], ''));
-                }}
-                onDelete={() => {
-                  setDeleteIds([id]);
-                }}
-                onMove={() => setMoveIds([id])}
-                onDownload={() => {
-                  if (isFolderEntry(item)) return;
-                  const downloadUrl = api.getLibraryFileDownloadUrl(id);
-                  Linking.openURL(downloadUrl).catch(() => {
-                    showToast('Could not open download link.', 'error');
-                  });
-                }}
-                onPreview={() => setPreviewItem(item)}
+                } : undefined}
+                onDelete={canDelete(item) ? () => {
+                  if (isFolderEntry(item)) setDeleteFolder(item); else setDeleteIds([id]);
+                } : undefined}
+                onMove={canEdit(item) ? () => setMoveIds([id]) : undefined}
+                onLink={hasPermission('library:update_all') ? () => setAssociationFolder(item) : undefined}
+                onDownload={() => void downloadFile(item)}
+                onPreview={() => setViewerSource({fileId: id, filename: pickString(item, ['filename', 'name'])})}
+                onDetails={() => setPreviewItem(item)}
+                on3dPreview={() => setViewerSource({fileId: id, filename: pickString(item, ['filename', 'name']), mode: 'model'})}
                 onSlice={() => {
                   setSliceSourceId(Number(pickId(item)));
                   setSliceSourceName(pickString(item, ['print_name', 'filename', 'name'], ''));
+                  setSliceAutoArrange(false);
                   setShowSliceModal(true);
                 }}
               />
@@ -785,7 +887,7 @@ export default function FilesScreen() {
         ListHeaderComponent={
           <View style={styles.headerStack}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
-              <StatCard label={trashMode ? 'Trash items' : 'Files'} value={String(fileStats.files)} helper={trashMode ? 'Deleted library files' : 'Current folder'} />
+              <StatCard label={trashMode ? 'Trash items' : 'Files'} value={String(trashMode ? trashQuery.data?.total ?? 0 : fileStats.files)} helper={trashMode ? `${trashQuery.data?.retention_days ?? 0} days retention` : 'Current folder'} />
               <StatCard label="Folders" value={String(fileStats.folders)} helper="Current folder" />
               <StatCard label="Size" value={formatFileSize(fileStats.totalSize)} helper="Visible items" />
               <StatCard label="Tags" value={String(Array.isArray(tagsQuery.data) ? tagsQuery.data.length : 0)} helper="Library catalog" />
@@ -793,6 +895,7 @@ export default function FilesScreen() {
             </ScrollView>
 
             <SectionCard title={trashMode ? 'Library trash' : 'File manager'} subtitle={trashMode ? 'Recover or permanently delete files from trash.' : 'Folder navigation, upload, file actions, and web-style metadata in one mobile view.'}>
+              {trashMode ? <Text style={[styles.trashMeta, {color: colors.textSecondary}]}>{t('library.retentionSummary', {defaultValue: '{{days}} days retention', days: trashQuery.data?.retention_days ?? 0})}</Text> : null}
               {!trashMode ? (
                 <Breadcrumb
                   path={folderStack}
@@ -808,6 +911,41 @@ export default function FilesScreen() {
                 placeholder={trashMode ? 'Search trash by filename' : 'Search files, folders, uploader, or profile'}
                 onFilterPress={trashMode ? undefined : () => setShowTagFilterModal(true)}
               />
+              {!trashMode ? <>
+                {projectLinkTarget !== null ? <SectionCard title={t('library.linkProjectTitle', {defaultValue: 'Link to project #{{id}}', id: projectLinkTarget})} subtitle={t('library.linkProjectInstructions', {defaultValue: 'Browse to a folder or select files, then link them. Existing project links on those items will be replaced.'})}>
+                  {currentFolder.id !== null && hasPermission('library:update_all') ? <PrimaryButton label={t('library.linkCurrentProject', {defaultValue: 'Link current folder to this project'})} onPress={() => linkProjectMutation.mutate({folderId: currentFolder.id!})} disabled={linkProjectMutation.isPending} /> : null}
+                  <PrimaryButton label={t('common.done', {defaultValue: 'Done'})} variant="secondary" onPress={() => setProjectLinkTarget(null)} />
+                </SectionCard> : null}
+                <TextField label={t('library.uploaderFilter', {defaultValue: 'Uploader (independent filter)'})} value={uploader} onChangeText={setUploader} placeholder={t('library.anyUploader', {defaultValue: 'Any uploader'})} />
+                <ScrollView horizontal contentContainerStyle={styles.filterRow}>
+                  <Chip label={t('library.anyUploader', {defaultValue: 'Any uploader'})} selected={!uploader} onPress={() => setUploader('')} />
+                  {Array.from(new Set(entries.filter(item => !isFolderEntry(item)).map(item => pickString(item, ['created_by_username'])).filter(Boolean))).map(name => <Chip key={name} label={name} selected={uploader === name} onPress={() => setUploader(name)} />)}
+                </ScrollView>
+                <ScrollView horizontal contentContainerStyle={styles.filterRow}>
+                  <Chip label={t('library.ascending', {defaultValue: 'Ascending'})} selected={ascending} onPress={() => setAscending(true)} />
+                  <Chip label={t('library.descending', {defaultValue: 'Descending'})} selected={!ascending} onPress={() => setAscending(false)} />
+                  <Chip label={t('library.folderNameSort', {defaultValue: 'Folders: name'})} selected={folderSort === 'name'} onPress={() => setFolderSort('name')} />
+                  <Chip label={t('library.folderActivitySort', {defaultValue: 'Folders: recent activity'})} selected={folderSort === 'activity'} onPress={() => setFolderSort('activity')} />
+                  <Chip label={folderAscending ? t('library.foldersAsc', {defaultValue: 'Folders ↑'}) : t('library.foldersDesc', {defaultValue: 'Folders ↓'})} selected onPress={() => setFolderAscending(value => !value)} />
+                  <Chip label={t('library.multilevel', {defaultValue: 'Multilevel folder browser'})} selected={browseTree} onPress={() => setBrowseTree(value => !value)} />
+                  <Chip label={t('library.collapseFolders', {defaultValue: 'Folders collapsed by default'})} selected={collapseFolders} onPress={() => setCollapseFolders(value => !value)} />
+                  <Chip label={t('library.wrapNames', {defaultValue: 'Wrap names'})} selected={wrapNames} onPress={() => setWrapNames(value => !value)} />
+                  <Chip label={t('library.showModified', {defaultValue: 'Show modified date'})} selected={showModified} onPress={() => setShowModified(value => !value)} />
+                </ScrollView>
+                {browseTree ? <LibraryFolderTree tree={(foldersQuery.data ?? []).filter(isRecord)} sort={folderSort} ascending={folderAscending} collapsed={collapseFolders} wrap={wrapNames} onChoose={id => {
+                  const path = id === null ? [] : folderPath((foldersQuery.data ?? []).filter(isRecord), id);
+                  if (path) { setFolderStack([{id: null, name: 'Library'}, ...path]); setSelectedIds([]); }
+                }} /> : null}
+                {currentFolder.id !== null ? <View style={styles.headerActions}>
+                  {hasPermission('library:update_all') ? <>
+                    <PrimaryButton label={t('library.renameFolder', {defaultValue: 'Rename current folder'})} variant="secondary" onPress={() => {setRenameItem({id: currentFolder.id!, name: currentFolder.name, is_folder: true}); setRenameValue(currentFolder.name);}} />
+                    <PrimaryButton label={t('library.linkFolder', {defaultValue: 'Link current folder'})} variant="secondary" onPress={() => {
+                      const find = (nodes: ApiRecord[]): ApiRecord | undefined => {for (const node of nodes) {if (node.id === currentFolder.id) return node; const found = find(pickArray(node, ['children']).filter(isRecord)); if (found) return found;} return undefined;};
+                      setAssociationFolder(find((foldersQuery.data ?? []).filter(isRecord)) ?? null);
+                    }} />
+                  </> : null}
+                </View> : null}
+              </> : null}
               {!trashMode && selectedTagNames.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
                   {selectedTagNames.map(tag => (
@@ -845,7 +983,7 @@ export default function FilesScreen() {
                         if (selectedFileTypes.length === 0) {
                           setTypeFilter(type);
                         } else if (selectedFileTypes.includes(type)) {
-                          setSelectedFileTypes(current => current.filter(t => t !== type));
+                          setSelectedFileTypes(current => current.filter(value => value !== type));
                         } else {
                           setSelectedFileTypes(current => [...current, type]);
                         }
@@ -860,7 +998,7 @@ export default function FilesScreen() {
                     const now = Date.now();
                     const count = entries.filter(item => {
                       if (isFolderEntry(item)) return false;
-                      const stamp = new Date(pickString(item, ['updated_at', 'created_at', 'modified_at'])).getTime();
+                      const stamp = new Date(pickString(item, ['fs_modified_at', 'updated_at', 'created_at', 'modified_at'])).getTime();
                       if (range === 'today') return now - stamp < 24 * 60 * 60 * 1000;
                       if (range === 'week') return now - stamp < 7 * 24 * 60 * 60 * 1000;
                       if (range === 'month') return now - stamp < 30 * 24 * 60 * 60 * 1000;
@@ -930,13 +1068,13 @@ export default function FilesScreen() {
                   onPress={() => {
                     setShowUploadModal(true);
                   }}
-                  disabled={trashMode}
+                  disabled={trashMode || !hasPermission('library:upload') || moveTargets.some(target => target.id === currentFolder.id && target.readonly)}
                 />
                 <PrimaryButton
                   label="New folder"
                   variant="secondary"
                   onPress={() => setShowNewFolder(true)}
-                  disabled={trashMode}
+                  disabled={trashMode || !hasPermission('library:upload')}
                 />
                 <PrimaryButton
                   label="Tags"
@@ -948,13 +1086,13 @@ export default function FilesScreen() {
                   label="Purge old"
                   variant="secondary"
                   onPress={() => setShowPurgeModal(true)}
-                  disabled={trashMode}
+                  disabled={trashMode || !hasPermission('library:purge')}
                 />
                 <PrimaryButton
                   label="External folders"
                   variant="secondary"
                   onPress={() => setShowExternalFolderModal(true)}
-                  disabled={trashMode}
+                  disabled={trashMode || !hasPermission('settings:update')}
                 />
                 <PrimaryButton
                   label={trashMode ? 'Back to files' : 'Open trash'}
@@ -965,15 +1103,22 @@ export default function FilesScreen() {
                   }}
                 />
                 {trashMode ? (
+                  <>
+                  <PrimaryButton label={t('library.selectAllTrash', {defaultValue: 'Select all trash'})} variant="secondary" onPress={() => setSelectedIds(entries.map(item => Number(pickId(item))))} />
+                  <PrimaryButton label={t('library.restoreSelected', {defaultValue: 'Restore selected ({{count}})', count: selectedIds.length})} disabled={!selectedIds.length || restoreMutation.isPending} onPress={() => restoreMutation.mutate(selectedIds)} />
+                  <PrimaryButton label={t('library.deleteSelected', {defaultValue: 'Permanently delete selected ({{count}})', count: selectedIds.length})} variant="danger" disabled={!selectedIds.length} onPress={() => setHardDeleteIds(selectedIds)} />
+                  <PrimaryButton label={t('library.clearSelection', {defaultValue: 'Clear selection'})} variant="secondary" onPress={() => setSelectedIds([])} />
                   <PrimaryButton
                     label="Empty trash"
                     variant="danger"
                     onPress={() => {
-                      emptyTrashMutation.mutate();
+                      setConfirmEmptyTrash(true);
                     }}
                     disabled={emptyTrashMutation.isPending || entries.length === 0}
                   />
+                  </>
                 ) : null}
+                {!trashMode && hasAnyPermission('library:update_all', 'library:update_own') ? <PrimaryButton label={t('library.generateMissing', {defaultValue: 'Generate all missing thumbnails'})} variant="secondary" disabled={thumbnailMutation.isPending} onPress={() => thumbnailMutation.mutate(undefined)} /> : null}
               </View>
               {pendingUploads.length > 0 ? (
                 <View style={[styles.pendingUploads, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
@@ -984,6 +1129,7 @@ export default function FilesScreen() {
                 </View>
               ) : null}
             </SectionCard>
+            {trashMode ? <LibraryPolicy /> : null}
 
             {!trashMode ? (
               <SectionCard
@@ -1010,7 +1156,7 @@ export default function FilesScreen() {
                           label="Sync"
                           variant="secondary"
                           onPress={() => void scanExternalFolderMutation.mutateAsync(Number(pickId(folder)))}
-                          disabled={scanExternalFolderMutation.isPending}
+                          disabled={scanExternalFolderMutation.isPending || !hasPermission('settings:update')}
                         />
                         <PrimaryButton
                           label="Delete"
@@ -1035,10 +1181,10 @@ export default function FilesScreen() {
           />
         }
         ListFooterComponent={
-          !trashMode && readmeFile ? (
+          !trashMode && hasReadme ? (
             <SectionCard
               title="README"
-              subtitle={pickString(readmeFile, ['filename', 'name'], 'README.md')}
+              subtitle={folderReadmeQuery.data?.filename ?? (readmeFile ? pickString(readmeFile, ['filename', 'name'], 'README.md') : 'README.md')}
               right={(
                 <Pressable style={styles.readmeToggle} onPress={() => setReadmeExpanded(current => !current)}>
                   <Text style={[styles.previewLine, { color: colors.accentLight }]}>
@@ -1058,9 +1204,10 @@ export default function FilesScreen() {
                 ) : readmeQuery.isError ? (
                   <Text style={[styles.readmeText, { color: colors.error }]}>Unable to load this README.</Text>
                 ) : (
-                  <Text style={[styles.readmeText, { color: colors.text }]}>
-                    {(readmeQuery.data ?? '').trim() || 'This README is empty.'}
-                  </Text>
+                  <>
+                    {folderReadmeQuery.data?.truncated ? <Text style={[styles.readmeText, {color: colors.warning}]}>{t('library.readmeTruncated', {defaultValue: 'This README was truncated by the server. Download the original for the complete document.'})}</Text> : null}
+                    <FolderReadme markdown={(readmeContent ?? '').trim() || t('library.emptyReadme', {defaultValue: 'This README is empty.'})} />
+                  </>
                 )
               ) : null}
             </SectionCard>
@@ -1074,6 +1221,9 @@ export default function FilesScreen() {
             <Text style={[styles.selectionText, { color: colors.text }]}>{selectionCount} selected</Text>
             <PrimaryButton label="Move" variant="secondary" onPress={() => setMoveIds(selectedIds)} />
             <PrimaryButton label="Tags" variant="secondary" onPress={() => openTagEditor(selectedIds)} />
+            {projectLinkTarget !== null ? <PrimaryButton label={t('library.linkSelectedProject', {defaultValue: 'Link selected files to project'})} onPress={() => linkProjectMutation.mutate({fileIds: selectedIds})} disabled={linkProjectMutation.isPending} /> : null}
+            {hasPermission('library:upload') && selectedFiles.length && selectedFiles.every(file => /\.stl$/i.test(pickString(file, ['filename']))) ? <PrimaryButton label={t('library.combine', {defaultValue: 'Combine STL → 3MF'})} onPress={() => {setCombineIds(selectedIds); setCopies(Object.fromEntries(selectedIds.map(id => [id, '1']))); setCombinedName('combined.3mf'); setSliceCombined(false);}} /> : null}
+            {canGroupVersions(selectedFiles) && selectedFiles.every(canEdit) ? <PrimaryButton label={t('library.groupVersions', {defaultValue: 'Group as versions'})} onPress={() => groupMutation.mutate()} disabled={groupMutation.isPending} /> : null}
             <PrimaryButton
               label={addToQueueMutation.isPending ? 'Adding…' : 'Add to Queue'}
               onPress={() => {
@@ -1141,12 +1291,13 @@ export default function FilesScreen() {
           {moveTargets.map(target => (
             <Pressable
               key={`${target.id ?? 'root'}-${target.name}`}
+              disabled={target.readonly || moveMutation.isPending}
               onPress={() => {
                 moveMutation.mutate({ ids: moveIds, targetId: target.id });
               }}
               style={[styles.moveTarget, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
             >
-              <Text style={[styles.moveTargetTitle, { color: colors.text }]}>{target.name}</Text>
+              <Text style={[styles.moveTargetTitle, { color: target.readonly ? colors.textTertiary : colors.text }]}>{target.name}{target.readonly ? t('library.readonlySuffix', {defaultValue: ' (read only)'}) : ''}</Text>
               <Text style={[styles.moveTargetSubtitle, { color: colors.textSecondary }]}>
                 {target.id === currentFolder.id ? 'Current folder' : target.id === null ? 'Top level' : `Folder #${target.id}`}
               </Text>
@@ -1170,13 +1321,21 @@ export default function FilesScreen() {
               <Text style={[styles.previewLine, { color: colors.text }]}>Filename: {pickString(previewItem, ['filename', 'name'], 'Unknown')}</Text>
               <Text style={[styles.previewLine, { color: colors.text }]}>Type: {pickString(previewItem, ['file_type', 'type'], 'file').toUpperCase()}</Text>
               <Text style={[styles.previewLine, { color: colors.text }]}>Size: {formatFileSize(pickNumber(previewItem, ['file_size', 'size', 'size_bytes']))}</Text>
-              <Text style={[styles.previewLine, { color: colors.text }]}>Updated: {formatDateTime(pickString(previewItem, ['updated_at', 'created_at', 'modified_at']))}</Text>
+              <Text style={[styles.previewLine, { color: colors.text }]}>Updated: {formatDateTime(pickString(previewItem, ['fs_modified_at', 'updated_at', 'created_at', 'modified_at']))}</Text>
               <Text style={[styles.previewLine, { color: colors.text }]}>Uploader: {pickString(previewItem, ['created_by_username'], 'Unknown')}</Text>
               <Text style={[styles.previewLine, { color: colors.text }]}>Prints: {pickNumber(previewItem, ['print_count'], 0)}</Text>
               {pickString(previewItem, ['sliced_for_model']) ? (
                 <Text style={[styles.previewLine, { color: colors.text }]}>Sliced for: {pickString(previewItem, ['sliced_for_model'])}</Text>
               ) : null}
             </SectionCard>
+            <LibraryFileDetails fileId={Number(pickId(previewItem))} />
+            <View style={styles.headerActions}>
+              {projectLinkTarget !== null && canEdit(previewItem) ? <PrimaryButton label={t('library.linkFileProject', {defaultValue: 'Link this file to project'})} onPress={() => linkProjectMutation.mutate({fileIds: [Number(pickId(previewItem))]})} disabled={linkProjectMutation.isPending} /> : null}
+              {inferPreviewMode(pickString(previewItem, ['filename', 'name'])) ? <PrimaryButton label={t('library.openPreview', {defaultValue: 'Open content preview'})} onPress={() => setViewerSource({fileId: Number(pickId(previewItem)), filename: pickString(previewItem, ['filename', 'name'])})} /> : null}
+              {/\.3mf$/i.test(pickString(previewItem, ['filename'])) ? <PrimaryButton label={t('library.openToolpath', {defaultValue: 'Inspect toolpaths'})} variant="secondary" onPress={() => setViewerSource({fileId: Number(pickId(previewItem)), filename: pickString(previewItem, ['filename']), mode: 'gcode'})} /> : null}
+              {canEdit(previewItem) && /\.(stl|pdf)$/i.test(pickString(previewItem, ['filename'])) ? <PrimaryButton label={t('library.generateThumbnail', {defaultValue: 'Generate / repair thumbnail'})} variant="secondary" disabled={thumbnailMutation.isPending} onPress={() => thumbnailMutation.mutate([Number(pickId(previewItem))])} /> : null}
+              <PrimaryButton label={t('library.downloadOriginal', {defaultValue: 'Download / share original'})} variant="secondary" onPress={() => void downloadFile(previewItem)} />
+            </View>
 
             {!isFolderEntry(previewItem) ? (
               <SectionCard title="Tags" subtitle="Manage tag assignments for this file.">
@@ -1233,15 +1392,44 @@ export default function FilesScreen() {
         <View style={styles.modalFooter}>
           <PrimaryButton label="Close" variant="secondary" onPress={() => setPreviewItem(null)} />
         </View>
+        {previewItem ? <AssetPreviewModal source={viewerSource} onClose={() => setViewerSource(null)} /> : null}
       </ModalShell>
 
-      {!trashMode ? (
+      {!trashMode && hasPermission('library:upload') && !moveTargets.some(target => target.id === currentFolder.id && target.readonly) ? (
         <FloatingActionButton
           icon="plus"
           label="Upload"
           onPress={() => setShowUploadModal(true)}
         />
       ) : null}
+
+      {!previewItem ? <AssetPreviewModal source={viewerSource} onClose={() => setViewerSource(null)} /> : null}
+      <ModalShell visible={associationFolder !== null} title={t('library.folderAssociation', {defaultValue: 'Folder association'})} onClose={() => setAssociationFolder(null)}>
+        {associationFolder ? <FolderAssociation folder={associationFolder} onSaved={() => {setAssociationFolder(null); void invalidateFiles();}} /> : null}
+      </ModalShell>
+      <ModalShell visible={combineIds.length > 0} title={t('library.combineModels', {defaultValue: 'Combine STL models'})} onClose={() => setCombineIds([])}>
+        <ScrollView style={styles.modalScroll}>
+          <TextField label={t('library.outputFilename', {defaultValue: 'Output filename'})} value={combinedName} onChangeText={setCombinedName} />
+          {combineIds.map(id => <TextField key={id} label={t('library.copiesOf', {defaultValue: 'Copies: {{name}} (1–100)', name: entryName(entries.find(item => Number(pickId(item)) === id) ?? {})})} value={copies[id] ?? '1'} keyboardType="number-pad" onChangeText={value => setCopies(current => ({...current, [id]: value}))} />)}
+          <View style={styles.toggleRow}>
+            <Text style={[styles.toggleTitle, {color: colors.text}]}>{t('library.sliceNext', {defaultValue: 'Slice next with auto-arrange'})}</Text>
+            <Switch value={sliceCombined} onValueChange={setSliceCombined} />
+          </View>
+        </ScrollView>
+        <PrimaryButton label={t('library.combine', {defaultValue: 'Combine STL → 3MF'})} disabled={combineMutation.isPending || !combinedName.trim() || combineIds.some(id => validDays(copies[id] ?? '1', 1, 100) === null)} onPress={() => combineMutation.mutate()} />
+      </ModalShell>
+      <ConfirmModal visible={deleteFolder !== null} onClose={() => setDeleteFolder(null)} onConfirm={() => folderDeleteMutation.mutate()}
+        title={t('library.deleteFolder', {defaultValue: 'Permanently delete folder and descendants?'})}
+        message={t('library.deleteFolderImpact', {defaultValue: 'Permanently delete “{{name}}” and all nested folders? At least {{count}} active file(s), plus any trashed descendants, will be deleted and cannot be restored. External folders are unlinked; their disk contents are not deleted.', name: deleteFolder ? entryName(deleteFolder) : '', count: deleteFolder ? (() => { const count = (node: ApiRecord): number => pickNumber(node, ['file_count']) + pickArray(node, ['children']).filter(isRecord).reduce((sum, child) => sum + count(child), 0); return count(deleteFolder); })() : 0})}
+        confirmLabel={t('common.delete')} loading={folderDeleteMutation.isPending} />
+      <ConfirmModal visible={hardDeleteIds.length > 0} onClose={() => setHardDeleteIds([])} onConfirm={() => permanentDeleteMutation.mutate(hardDeleteIds)}
+        title={t('library.permanentDelete', {defaultValue: 'Permanently delete {{count}} file(s)?', count: hardDeleteIds.length})}
+        message={t('library.permanentDeleteNames', {defaultValue: 'This cannot be undone: {{names}}', names: entries.filter(item => hardDeleteIds.includes(Number(pickId(item)))).map(entryName).join(', ')})}
+        confirmLabel={t('common.delete')} loading={permanentDeleteMutation.isPending} />
+      <ConfirmModal visible={confirmEmptyTrash} onClose={() => setConfirmEmptyTrash(false)} onConfirm={() => emptyTrashMutation.mutate()}
+        title={t('library.emptyTrashConfirm', {defaultValue: 'Permanently delete all {{count}} trash items?', count: trashQuery.data?.total ?? 0})}
+        message={t('library.emptyTrashWarning', {defaultValue: 'This deletes the original assets and cannot be undone.'})}
+        confirmLabel={t('common.delete')} loading={emptyTrashMutation.isPending} />
 
       <FileUploadModal
         visible={showUploadModal}
@@ -1253,6 +1441,7 @@ export default function FilesScreen() {
       />
 
       <PrintModal
+        {...{initialMode: 'asap'}}
         visible={printFileId != null}
         initialFileId={printFileId}
         onClose={() => setPrintFileId(null)}
@@ -1266,6 +1455,10 @@ export default function FilesScreen() {
       >
         <TextField label="Display name" value={externalFolderName} onChangeText={setExternalFolderName} placeholder="Shared library" />
         <TextField label="Path" value={externalFolderPath} onChangeText={setExternalFolderPath} placeholder="/Volumes/Prints" />
+        <View style={styles.toggleRow}>
+          <Text style={[styles.toggleTitle, {color: colors.text}]}>{t('library.showHidden', {defaultValue: 'Include hidden files'})}</Text>
+          <Switch accessibilityLabel={t('library.showHidden', {defaultValue: 'Include hidden files'})} value={externalShowHidden} onValueChange={setExternalShowHidden} />
+        </View>
         <View style={[styles.toggleRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
           <View style={styles.toggleText}>
             <Text style={[styles.toggleTitle, { color: colors.text }]}>Read only</Text>
@@ -1297,9 +1490,10 @@ export default function FilesScreen() {
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           {[30, 60, 90, 180, 365].map(days => (
-            <Chip key={days} label={`${days} days`} selected={purgeDays === days} onPress={() => setPurgeDays(days)} />
+            <Chip key={days} label={`${days} days`} selected={purgeDays === days} onPress={() => {setPurgeDays(days); setPurgeDaysInput(String(days));}} />
           ))}
         </ScrollView>
+        <TextField label={t('library.customPurgeAge', {defaultValue: 'Older than days (1–3650)'})} value={purgeDaysInput} keyboardType="number-pad" onChangeText={value => {setPurgeDaysInput(value); const days = validDays(value); if (days !== null) setPurgeDays(days);}} />
         <View style={[styles.toggleRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
           <View style={styles.toggleText}>
             <Text style={[styles.toggleTitle, { color: colors.text }]}>Include never printed</Text>
@@ -1330,7 +1524,7 @@ export default function FilesScreen() {
             label={purgeOldFilesMutation.isPending ? 'Purging…' : 'Purge old files'}
             variant="danger"
             onPress={() => void purgeOldFilesMutation.mutateAsync()}
-            disabled={purgeOldFilesMutation.isPending}
+            disabled={purgeOldFilesMutation.isPending || validDays(purgeDaysInput) === null || libraryPurgePreviewQuery.isError || libraryPurgePreviewQuery.isFetching}
           />
         </View>
       </ModalShell>
@@ -1416,8 +1610,12 @@ export default function FilesScreen() {
         subtitle={`Apply tags to ${tagEditorFileIds.length} selected file${tagEditorFileIds.length === 1 ? '' : 's'}.`}
         onClose={() => setTagEditorFileIds([])}
       >
+        <SearchBar value={tagSearch} onChangeText={setTagSearch} placeholder={t('library.searchTags', {defaultValue: 'Search or create tags'})} />
+        <View style={styles.headerActions}>
+          {(['add', 'remove', 'replace'] as const).map(action => <Chip key={action} label={t(`library.tagAction.${action}`, {defaultValue: {add: 'Add selected tags', remove: 'Remove selected tags', replace: 'Replace all tags'}[action]})} selected={tagAction === action} onPress={() => setTagAction(action)} />)}
+        </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          {tagCatalog.map(tag => {
+          {tagCatalog.filter(tag => pickString(tag, ['name']).toLowerCase().includes(tagSearch.toLowerCase())).map(tag => {
             const tagId = pickNumber(tag, ['id']);
             const selected = tagEditorSelectedIds.includes(tagId);
             return (
@@ -1430,7 +1628,8 @@ export default function FilesScreen() {
             );
           })}
         </ScrollView>
-        <Text style={[styles.pendingUploadsText, { color: colors.textSecondary }]}>Open the tags modal to create or rename catalog tags.</Text>
+        <TextField label={t('library.createTag', {defaultValue: 'Create tag without leaving selection'})} value={tagDraftName} onChangeText={setTagDraftName} />
+        <PrimaryButton label={t('library.createTag', {defaultValue: 'Create tag'})} disabled={!tagDraftName.trim() || createSelectionTagMutation.isPending} onPress={() => createSelectionTagMutation.mutate()} />
         <View style={styles.modalFooter}>
           <PrimaryButton label="Cancel" variant="secondary" onPress={() => setTagEditorFileIds([])} />
           <PrimaryButton
@@ -1449,7 +1648,7 @@ export default function FilesScreen() {
           void deleteExternalFolderMutation.mutateAsync(Number(pickId(pendingExternalFolderDelete)));
         }}
         title="Remove external folder?"
-        message={pendingExternalFolderDelete ? `Remove ${pickString(pendingExternalFolderDelete, ['name'])} from the mobile file manager?` : ''}
+        message={pendingExternalFolderDelete ? t('library.removeExternalImpact', {defaultValue: 'Unlink “{{name}}” and all nested folders and file entries? Library metadata and result photos will be removed. Original files on the external disk will not be deleted.', name: pickString(pendingExternalFolderDelete, ['name'])}) : ''}
         confirmLabel="Delete"
         loading={deleteExternalFolderMutation.isPending}
       />
@@ -1484,6 +1683,7 @@ export default function FilesScreen() {
       />
 
       <SliceModal
+        {...{defaultAutoArrange: sliceAutoArrange}}
         visible={showSliceModal}
         onClose={() => {
           setShowSliceModal(false);
