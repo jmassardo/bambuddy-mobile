@@ -312,10 +312,12 @@ traffic that leaves the local network.
 - **Remember me** saves sessions in Keychain/Keystore. Turning it off removes
   previously saved credentials and keeps the new session in memory only, until
   the app process closes. Login supports email-code delivery/resending and
-  alphanumeric backup codes.
+  alphanumeric backup codes. LDAP credentials remain available when local-account
+  login is disabled.
 - Local users can change their own passwords; successful changes require signing
   in again. LDAP passwords remain directory-managed. Delegated user-management
-  permissions control which account/group actions appear.
+  permissions allow read access; account/group writes additionally require an
+  administrator while authentication is enabled.
 - SSO uses native cryptographic randomness (`react-native-get-random-values`,
   imported at app startup). The authorization window follows the server's OIDC
   flow without JavaScript credential/token injection. It only exchanges tokens

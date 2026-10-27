@@ -212,14 +212,26 @@ it('denies the entire user view without users:read', async () => {
   const r = await render(<UsersScreen />);
   expect(api.getUsers).not.toHaveBeenCalled(); expect(output(r)).toContain('User access required');
 });
-it('exposes only the user mutation capabilities actually delegated', async () => {
-  mockIsAdmin = false; mockPermissions = new Set(['users:read', 'users:update']);
+it.each([
+  { authEnabled: true, isAdmin: false, canWrite: false },
+  { authEnabled: true, isAdmin: true, canWrite: true },
+  { authEnabled: false, isAdmin: false, canWrite: true },
+])('requires the backend admin guard for user/group writes: auth=$authEnabled admin=$isAdmin', async ({ authEnabled, isAdmin, canWrite }) => {
+  mockAuthEnabled = authEnabled; mockIsAdmin = isAdmin;
+  mockPermissions = new Set(['users:read', 'users:create', 'users:update', 'users:delete', 'groups:read', 'groups:create', 'groups:update', 'groups:delete']);
+  jest.mocked(api.getGroups).mockResolvedValue([{ id: 3, name: 'Operators', is_default: false }]);
   const r = await render(<UsersScreen />);
   const list = r.root.findByType(FlatList);
+  expect(api.getUsers).toHaveBeenCalled();
+  expect(api.getGroups).toHaveBeenCalled();
   const row = await render(list.props.renderItem({ item: list.props.data[0] }));
-  expect(row.root.findAllByProps({ testID: 'Edit' }).length).toBeGreaterThan(0);
-  expect(row.root.findAllByProps({ testID: 'Delete' })).toHaveLength(0);
-  expect(r.root.findAllByProps({ testID: 'Create user' })).toHaveLength(0);
+  expect(row.root.findAllByProps({ testID: 'Edit' }).length > 0).toBe(canWrite);
+  expect(row.root.findAllByProps({ testID: 'Delete' }).length > 0).toBe(canWrite);
+  expect(r.root.findAllByProps({ testID: 'Create user' }).length > 0).toBe(canWrite);
+  const footer = await render(list.props.ListFooterComponent);
+  expect(footer.root.findAllByProps({ accessibilityLabel: 'Create group' })[0].props.disabled).toBe(!canWrite);
+  expect(footer.root.findAllByProps({ accessibilityLabel: 'Edit group' })[0].props.disabled).toBe(!canWrite);
+  expect(footer.root.findAllByProps({ accessibilityLabel: 'Delete group' }).length > 0).toBe(canWrite);
 });
 it('creates every selected API scope, presents enrollment QR, and dismisses the one-time secret', async () => {
   const r = await render(<ScopedApiKeysManager />);

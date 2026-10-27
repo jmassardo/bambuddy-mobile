@@ -50,9 +50,16 @@ export default function UsersScreen() {
   }, [navigation]);
 
   const { colors } = useTheme();
-  const { isAdmin, user: currentUser, hasPermission } = useAuth();
+  const { authEnabled, isAdmin, user: currentUser, hasPermission } = useAuth();
   const canRead = hasPermission('users:read');
   const canReadGroups = hasPermission('groups:read');
+  const canAdminister = !authEnabled || isAdmin;
+  const canCreateUser = canAdminister && hasPermission('users:create');
+  const canUpdateUser = canAdminister && hasPermission('users:update');
+  const canDeleteUser = canAdminister && hasPermission('users:delete');
+  const canCreateGroup = canAdminister && hasPermission('groups:create');
+  const canUpdateGroup = canAdminister && hasPermission('groups:update');
+  const canDeleteGroup = canAdminister && hasPermission('groups:delete');
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
@@ -87,7 +94,7 @@ export default function UsersScreen() {
   const ldapSearchQuery = useQuery({
     queryKey: ['ldapSearch', ldapQuery],
     queryFn: () => api.searchLDAPDirectory(ldapQuery.trim()),
-    enabled: isAdmin && showCreate && createMode === 'ldap' && ldapQuery.trim().length >= 2,
+    enabled: canCreateUser && showCreate && createMode === 'ldap' && ldapQuery.trim().length >= 2,
   });
 
   const refreshAll = async () => {
@@ -292,7 +299,7 @@ export default function UsersScreen() {
               </View>
 
               <View style={styles.actions}>
-                {hasPermission('users:update') ? <PrimaryButton label="Edit" variant="secondary" onPress={() => openEdit(item)} /> : null}
+                {canUpdateUser ? <PrimaryButton label="Edit" variant="secondary" onPress={() => openEdit(item)} /> : null}
                 {isAdmin && pickNumber(item, ['id']) !== pickNumber(currentUser, ['id']) ? (
                   <PrimaryButton
                     label={resetPasswordMutation.isPending ? 'Resetting…' : 'Reset password'}
@@ -300,7 +307,7 @@ export default function UsersScreen() {
                     onPress={() => void resetPasswordMutation.mutateAsync(pickNumber(item, ['id']))}
                   />
                 ) : null}
-                {hasPermission('users:delete') && pickNumber(item, ['id']) !== pickNumber(currentUser, ['id']) ? (
+                {canDeleteUser && pickNumber(item, ['id']) !== pickNumber(currentUser, ['id']) ? (
                   <PrimaryButton
                     label="Delete"
                     variant="danger"
@@ -317,7 +324,7 @@ export default function UsersScreen() {
             <View style={styles.groupsSectionHeader}>
               <Text style={[styles.groupsSectionTitle, { color: colors.text }]}>Groups</Text>
               <Pressable
-                disabled={!hasPermission('groups:create')}
+                disabled={!canCreateGroup}
                 onPress={() => { setEditGroupId(null); setShowGroupEdit(true); }}
                 style={[styles.groupAddBtn, { backgroundColor: colors.accent }]}
                 accessibilityLabel="Create group"
@@ -340,10 +347,10 @@ export default function UsersScreen() {
                     </Text>
                   </View>
                   <View style={styles.groupActions}>
-                    <Pressable disabled={!hasPermission('groups:update')} onPress={() => { setEditGroupId(gId); setShowGroupEdit(true); }} style={styles.groupActionBtn} accessibilityLabel="Edit group" accessibilityRole="button">
+                    <Pressable disabled={!canUpdateGroup} onPress={() => { setEditGroupId(gId); setShowGroupEdit(true); }} style={styles.groupActionBtn} accessibilityLabel="Edit group" accessibilityRole="button">
                       <Edit2 size={14} color={colors.textSecondary} />
                     </Pressable>
-                    {!isSystem && hasPermission('groups:delete') && (
+                    {!isSystem && canDeleteGroup && (
                       <Pressable onPress={() => setDeleteGroupId(gId)} style={styles.groupActionBtn} accessibilityLabel="Delete group" accessibilityRole="button">
                         <Trash2 size={14} color={colors.error} />
                       </Pressable>
@@ -359,7 +366,7 @@ export default function UsersScreen() {
       />
 
       <ActionSheetModal
-        visible={pendingDeleteUser != null}
+        visible={canDeleteUser && pendingDeleteUser != null}
         title="Delete user"
         subtitle={
           pendingDeleteUser
@@ -385,14 +392,14 @@ export default function UsersScreen() {
         ]}
       />
 
-      {hasPermission('users:create') ? <FloatingActionButton icon="plus" label="Create user" onPress={() => setShowCreate(true)} /> : null}
+      {canCreateUser ? <FloatingActionButton icon="plus" label="Create user" onPress={() => setShowCreate(true)} /> : null}
 
-      <Modal visible={showCreate} animationType="slide" transparent>
+      <Modal visible={showCreate && canCreateUser} animationType="slide" transparent>
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
             <ScrollView contentContainerStyle={styles.modalContent}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Create user</Text>
-              {ldapEnabled && isAdmin ? (
+              {ldapEnabled && canCreateUser ? (
                 <InlineTabBar
                   value={createMode}
                   tabs={[
@@ -495,7 +502,7 @@ export default function UsersScreen() {
         </View>
       </Modal>
 
-      <Modal visible={showEdit} animationType="slide" transparent>
+      <Modal visible={showEdit && canUpdateUser} animationType="slide" transparent>
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
             <ScrollView contentContainerStyle={styles.modalContent}>
@@ -545,13 +552,13 @@ export default function UsersScreen() {
       </Modal>
 
       <GroupEditModal
-        visible={showGroupEdit}
+        visible={showGroupEdit && (editGroupId == null ? canCreateGroup : canUpdateGroup)}
         onClose={() => setShowGroupEdit(false)}
         groupId={editGroupId}
       />
 
       <ConfirmModal
-        visible={deleteGroupId != null}
+        visible={canDeleteGroup && deleteGroupId != null}
         onClose={() => setDeleteGroupId(null)}
         onConfirm={() => deleteGroupId && deleteGroupMutation.mutate(deleteGroupId)}
         title="Delete Group"

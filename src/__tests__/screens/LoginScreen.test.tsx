@@ -21,6 +21,7 @@ const mockForgotPasswordConfirm = jest.fn();
 const mockSetAuthToken = jest.fn();
 const mockSendEmail = jest.fn();
 const mockPolicy = jest.fn();
+const mockLDAPStatus = jest.fn();
 const mockProviders = jest.fn();
 const mockAuthorize = jest.fn();
 const mockExchange = jest.fn();
@@ -28,6 +29,7 @@ const renderers: ReactTestRenderer.ReactTestRenderer[] = [];
 
 jest.mock('@/api/auth', () => ({ authApi: {
   getAdvancedAuthStatus: () => mockPolicy(),
+  getLDAPStatus: () => mockLDAPStatus(),
   sendEmailOTP: (token: string) => mockSendEmail(token),
 } }));
 jest.mock('@/components/settings/shared', () => {
@@ -159,6 +161,7 @@ describe('LoginScreen', () => {
     mockForgotPasswordConfirm.mockResolvedValue({ message: 'reset' });
     mockSetAuthToken.mockResolvedValue(undefined);
     mockPolicy.mockResolvedValue({ local_login_enabled: true, autologin_provider_id: null });
+    mockLDAPStatus.mockResolvedValue({ ldap_enabled: false, ldap_configured: false });
     mockProviders.mockResolvedValue([]);
     mockSendEmail.mockResolvedValue({ message: 'sent', pre_auth_token: 'rotated-token' });
     mockAuthorize.mockResolvedValue({ auth_url: 'https://identity/authorize?state=server-state&redirect_uri=https%3A%2F%2Fbambuddy.test%2Fapi%2Fv1%2Fauth%2Foidc%2Fcallback' });
@@ -192,6 +195,58 @@ describe('LoginScreen', () => {
     expect(findInput(renderer, 'Username')).toBeTruthy();
     expect(findInput(renderer, 'Password')).toBeTruthy();
     expect(findPressableForText(renderer, 'Login').props.disabled).toBe(true);
+  });
+
+  it('allows directory credentials when local-account login is disabled', async () => {
+    mockPolicy.mockResolvedValue({ local_login_enabled: false, autologin_provider_id: null });
+    mockLDAPStatus.mockResolvedValue({ ldap_enabled: true, ldap_configured: true });
+    const renderer = await renderScreen();
+    expect(findInput(renderer, 'Username')).toBeTruthy();
+    expect(findInput(renderer, 'Password')).toBeTruthy();
+    expect(findText(renderer, 'Forgot password?')).toBeNull();
+    await act(async () => {
+      findInput(renderer, 'Username')!.props.onChangeText('directory-user');
+      findInput(renderer, 'Password')!.props.onChangeText('directory-password');
+    });
+    await act(async () => { findPressableForText(renderer, 'Login').props.onPress(); });
+    expect(mockLogin).toHaveBeenCalledWith('directory-user', 'directory-password', true);
+  });
+
+  it('stays closed while both credential policies are unknown, then allows a confirmed LDAP provider', async () => {
+    let resolveLDAP!: (status: { ldap_enabled: boolean; ldap_configured: boolean }) => void;
+    mockPolicy.mockReturnValue(new Promise(() => {}));
+    mockLDAPStatus.mockReturnValue(new Promise(resolve => { resolveLDAP = resolve; }));
+    const renderer = await renderScreen();
+    expect(findInput(renderer, 'Username')).toBeUndefined();
+    expect(findText(renderer, 'Login')).toBeNull();
+    await act(async () => {
+      resolveLDAP({ ldap_enabled: true, ldap_configured: true });
+      await new Promise<void>(r => setTimeout(r, 10));
+    });
+    expect(findInput(renderer, 'Username')).toBeTruthy();
+    expect(findText(renderer, 'Login')).not.toBeNull();
+  });
+
+  it('does not delay confirmed local sign-in while LDAP status is unknown', async () => {
+    mockLDAPStatus.mockReturnValue(new Promise(() => {}));
+    const renderer = await renderScreen();
+    expect(findInput(renderer, 'Username')).toBeTruthy();
+    expect(findText(renderer, 'Login')).not.toBeNull();
+  });
+
+  it('does not expose credentials if local login is disabled and LDAP status is unavailable', async () => {
+    mockPolicy.mockResolvedValue({ local_login_enabled: false, autologin_provider_id: null });
+    mockLDAPStatus.mockRejectedValue(new Error('Directory status unavailable'));
+    const renderer = await renderScreen();
+    expect(findInput(renderer, 'Username')).toBeUndefined();
+    expect(findText(renderer, 'Login')).toBeNull();
+    expect(findText(renderer, 'Retry directory sign-in status')).not.toBeNull();
+    mockLDAPStatus.mockResolvedValue({ ldap_enabled: true, ldap_configured: true });
+    await act(async () => {
+      findPressableForText(renderer, 'Retry directory sign-in status').props.onPress();
+      await new Promise<void>(r => setTimeout(r, 10));
+    });
+    expect(findInput(renderer, 'Username')).toBeTruthy();
   });
 
   it('shows the 2FA input when a pre-auth token is returned', async () => {

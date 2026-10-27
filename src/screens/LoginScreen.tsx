@@ -133,6 +133,14 @@ export default function LoginScreen() {
     queryKey: ['advancedAuthStatus'],
     queryFn: authApi.getAdvancedAuthStatus,
   });
+  const ldapStatusQuery = useQuery({
+    queryKey: ['ldapStatus'],
+    queryFn: authApi.getLDAPStatus,
+  });
+  const localLoginEnabled = policyQuery.data?.local_login_enabled === true;
+  const ldapLoginEnabled = ldapStatusQuery.data?.ldap_enabled === true;
+  const credentialsEnabled = localLoginEnabled || ldapLoginEnabled;
+  const credentialsPolicyPending = !credentialsEnabled && (policyQuery.isPending || ldapStatusQuery.isPending);
   const emailMutation = useMutation({
     mutationFn: async () => {
       if (!preAuthToken) throw new Error('Sign in again to request a verification code.');
@@ -365,7 +373,7 @@ export default function LoginScreen() {
                   : 'Sign in to manage your printers, queue, and library.'}
           </Text>
 
-          {step === 'credentials' && policyQuery.data?.local_login_enabled === true && (
+          {step === 'credentials' && credentialsEnabled && (
             <>
               <TextField
                 label="Username"
@@ -385,14 +393,14 @@ export default function LoginScreen() {
                 textContentType="password"
                 userName={serverHostname}
               />
-              <Pressable
+              {localLoginEnabled ? <Pressable
                 onPress={() => {
                   setError('');
                   setStep('forgot');
                 }}
               >
                 <Text style={[styles.link, { color: colors.accent }]}>Forgot password?</Text>
-              </Pressable>
+              </Pressable> : null}
             </>
           )}
 
@@ -529,10 +537,12 @@ export default function LoginScreen() {
           {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
 
           {step === 'credentials' || step === '2fa' ? <SwitchRow label={t('auth.rememberMe', { defaultValue: 'Remember me' })} description={t('auth.rememberMeHint', { defaultValue: 'Off: keep the session only until the app process closes. On: save securely in Keychain/Keystore.' })} value={remember} onValueChange={setRemember} disabled={submitMutation.isPending || oidcBusy} /> : null}
-          {step === 'credentials' && policyQuery.isLoading ? <Text style={{ color: colors.textSecondary }}>{t('auth.loadingPolicy', { defaultValue: 'Loading login policy…' })}</Text> : null}
-          {step === 'credentials' && policyQuery.data?.local_login_enabled === false ? <Text style={{ color: colors.textSecondary }}>{t('auth.localLoginDisabled', { defaultValue: 'Local sign-in is disabled. Choose a single sign-on provider below.' })}</Text> : null}
+          {step === 'credentials' && credentialsPolicyPending ? <Text style={{ color: colors.textSecondary }}>{t('auth.loadingPolicy', { defaultValue: 'Loading login policy…' })}</Text> : null}
+          {step === 'credentials' && policyQuery.data?.local_login_enabled === false && ldapStatusQuery.data?.ldap_enabled === false ? <Text style={{ color: colors.textSecondary }}>{t('auth.localLoginDisabled', { defaultValue: 'Local sign-in is disabled. Choose a single sign-on provider below.' })}</Text> : null}
+          {step === 'credentials' && !localLoginEnabled && ldapLoginEnabled ? <Text style={{ color: colors.textSecondary }}>{t('auth.directoryLoginHint', { defaultValue: 'Sign in with your directory account.' })}</Text> : null}
           {step === 'credentials' && policyQuery.isError ? <PrimaryButton label={t('auth.retryPolicy', { defaultValue: 'Retry login policy' })} variant="secondary" onPress={() => void policyQuery.refetch()} /> : null}
-          {step === 'credentials' && policyQuery.data?.local_login_enabled === true && (
+          {step === 'credentials' && ldapStatusQuery.isError ? <PrimaryButton label={t('auth.retryDirectoryStatus', { defaultValue: 'Retry directory sign-in status' })} variant="secondary" onPress={() => void ldapStatusQuery.refetch()} /> : null}
+          {step === 'credentials' && credentialsEnabled && (
             <PrimaryButton
               label={submitMutation.isPending ? 'Signing in…' : 'Login'}
               onPress={() => submitMutation.mutate()}
