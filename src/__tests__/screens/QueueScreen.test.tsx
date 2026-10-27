@@ -9,11 +9,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import QueueScreen from '@/screens/QueueScreen';
 import { ApiError } from '@/api/http';
 import { Choice } from '@/components/printers/PrintOptionsForm';
+import { QueueBulkEditModal } from '@/components/queue/QueueBulkEditModal';
 import type { PrintQueueItem } from '@/types/api';
 
 const mockRequest = jest.fn();
 const mockToast = jest.fn();
-const mockPermission = jest.fn(() => true);
+const mockPermission = jest.fn((permission: string) => Boolean(permission));
 let mockShortage = false;
 const mockItems = [
   {
@@ -66,6 +67,7 @@ const mockItems = [
     archive_name: 'Done',
   },
 ] as unknown as PrintQueueItem[];
+let mockQueueItems: PrintQueueItem[] = [];
 const mockBatch = {
   id: 8,
   name: 'Production order',
@@ -354,6 +356,7 @@ describe('queue management workflows', () => {
     jest.clearAllMocks();
     mockPermission.mockReturnValue(true);
     mockShortage = false;
+    mockQueueItems = mockItems.map(item => ({ ...item }));
     mockRequest.mockImplementation(
       async (path: string, options?: RequestInit) => {
         if (options?.method) {
@@ -381,7 +384,7 @@ describe('queue management workflows', () => {
         }
         if (path === '/queue/batches') return [mockBatch];
         if (path === '/queue/batches/8') return mockBatch;
-        return mockItems;
+        return mockQueueItems;
       },
     );
   });
@@ -403,6 +406,147 @@ describe('queue management workflows', () => {
     await settle();
     await settle();
   }
+  it.each([8, null])(
+    'allows queue:update_own to start staged jobs owned by %s without printer-control permission',
+    async owner => {
+      mockPermission.mockImplementation(
+        permission => permission === 'queue:update_own',
+      );
+      mockQueueItems = [
+        { ...mockItems[0], manual_start: true, created_by_id: owner },
+      ];
+      await renderScreen();
+      await press(renderer, 'start-1');
+      expect(writes()).toEqual([['/queue/1/start', { method: 'POST' }]]);
+      if (owner === null) {
+        expect(
+          renderer.root
+            .findAllByType(Pressable)
+            .some(n => n.props.accessibilityLabel === 'edit-1'),
+        ).toBe(false);
+      }
+    },
+  );
+  it('allows queue:update_all to start another owner’s staged job without printer-control permission', async () => {
+    mockPermission.mockImplementation(
+      permission => permission === 'queue:update_all',
+    );
+    mockQueueItems = [{ ...mockItems[0], manual_start: true, created_by_id: 99 }];
+    await renderScreen();
+    await press(renderer, 'start-1');
+    expect(writes()).toEqual([['/queue/1/start', { method: 'POST' }]]);
+  });
+  it.each(['queue:update_own', 'printers:control'])(
+    'does not let %s start another owner’s staged job',
+    async permission => {
+      mockPermission.mockImplementation(value => value === permission);
+      mockQueueItems = [
+        { ...mockItems[0], manual_start: true, created_by_id: 99 },
+      ];
+      await renderScreen();
+      expect(
+        renderer.root
+          .findAllByType(Pressable)
+          .some(n => n.props.accessibilityLabel === 'start-1'),
+      ).toBe(false);
+      expect(writes()).toEqual([]);
+    },
+  );
+  it.each([
+    [null, null, true],
+    [10, null, false],
+    [null, 20, false],
+  ] as const)(
+    'disables fixed-printer bulk choices only for unresolved alternatives (library %s, archive %s)',
+    async (library_file_id, archive_id, disabled) => {
+      mockQueueItems = [
+        {
+          ...mockItems[0],
+          printer_id: null,
+          library_file_id,
+          archive_id,
+          variants: [{ library_file_id: 10 }, { library_file_id: 11 }],
+        },
+      ];
+      await renderScreen();
+      await press(renderer, 'Select visible pending');
+      await press(renderer, 'Bulk edit');
+      const assignment = renderer.root
+        .findAllByType(Choice)
+        .find(n => n.props.label === 'Assign printer')!;
+      expect(
+        Boolean(button(assignment, 'Printer One · X1C').props.disabled),
+      ).toBe(disabled);
+      expect(button(assignment, 'Unchanged').props.disabled).toBeFalsy();
+      expect(button(assignment, 'Unassigned').props.disabled).toBeFalsy();
+      if (!disabled) {
+        await choose(renderer, 'Assign printer', 'Printer One · X1C');
+        await press(renderer, 'Apply');
+        expect(JSON.parse(writes()[0][1].body)).toEqual({
+          item_ids: [1],
+          printer_id: 1,
+        });
+      }
+    },
+  );
+  it('blocks unsafe mixed bulk assignment at submission while retaining other bulk options', async () => {
+    mockQueueItems = [
+      {
+        ...mockItems[0],
+        printer_id: null,
+        library_file_id: null,
+        archive_id: null,
+        variants: [{ library_file_id: 10 }, { library_file_id: 11 }],
+      },
+      mockItems[1],
+    ];
+    await renderScreen();
+    await press(renderer, 'Select visible pending');
+    await press(renderer, 'Bulk edit');
+    await act(async () =>
+      renderer.root.findByType(QueueBulkEditModal).props.onSave({
+        printer_id: 1,
+        manual_start: true,
+      }),
+    );
+    await settle();
+    expect(writes()).toEqual([]);
+    await choose(renderer, 'Manual staged start', 'On');
+    await press(renderer, 'Apply');
+    expect(writes()[0][0]).toBe('/queue/bulk');
+    expect(JSON.parse(writes()[0][1].body)).toEqual({
+      item_ids: [1, 2],
+      manual_start: true,
+    });
+  });
+  it('revalidates a stale fixed-printer draft when a selected job becomes unresolved, and still allows unassignment', async () => {
+    await renderScreen();
+    await press(renderer, 'Select visible pending');
+    await press(renderer, 'Bulk edit');
+    await choose(renderer, 'Assign printer', 'Printer One · X1C');
+    await act(async () => {
+      client.setQueryData(['queue'], [
+        {
+          ...mockItems[0],
+          printer_id: null,
+          library_file_id: null,
+          archive_id: null,
+          variants: [{ library_file_id: 10 }, { library_file_id: 11 }],
+        },
+        mockItems[1],
+      ]);
+    });
+    await settle();
+    await press(renderer, 'Apply');
+    expect(writes()).toEqual([]);
+    expect(mockToast).not.toHaveBeenCalled();
+    await choose(renderer, 'Assign printer', 'Unassigned');
+    await press(renderer, 'Apply');
+    expect(JSON.parse(writes()[0][1].body)).toEqual({
+      item_ids: [1, 2],
+      printer_id: null,
+    });
+  });
   it('opens editable and configured-history drafts instead of retrying immediately', async () => {
     await renderScreen();
     await press(renderer, 'edit-1');

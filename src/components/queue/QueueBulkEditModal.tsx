@@ -21,6 +21,7 @@ export function QueueBulkEditModal({
   count,
   printers,
   loading,
+  allowFixedPrinterAssignment = true,
   onClose,
   onSave,
 }: {
@@ -28,6 +29,7 @@ export function QueueBulkEditModal({
   count: number;
   printers: Printer[];
   loading: boolean;
+  allowFixedPrinterAssignment?: boolean;
   onClose: () => void;
   onSave: (value: PrintQueueItemUpdate) => void;
 }) {
@@ -43,6 +45,10 @@ export function QueueBulkEditModal({
   const [schedule, setSchedule] = useState('unchanged');
   const [date, setDate] = useState('');
   const [error, setError] = useState('');
+  const assignmentError = t('printing.unresolvedVariantAssignment', {
+    defaultValue:
+      'Jobs with unresolved alternative slices cannot be assigned a fixed printer. Leave the printer unchanged or unassigned.',
+  });
   useEffect(() => {
     if (visible) {
       setDraft({});
@@ -76,10 +82,14 @@ export function QueueBulkEditModal({
                 .map(p => ({
                   value: p.id,
                   label: `${p.name} · ${p.model ?? ''}`,
+                  disabled: !allowFixedPrinterAssignment,
                 })),
             ]}
             onChange={printer_id => setDraft({ ...draft, printer_id })}
           />
+          {!allowFixedPrinterAssignment && (
+            <LaunchText>{assignmentError}</LaunchText>
+          )}
           <Choice
             label="Scheduled time"
             value={schedule}
@@ -116,6 +126,8 @@ export function QueueBulkEditModal({
             disabled={loading}
             onPress={() => {
               try {
+                if (!allowFixedPrinterAssignment && draft.printer_id != null)
+                  throw new Error(assignmentError);
                 const target = draft.preheat_chamber_target_override;
                 if (
                   target != null &&

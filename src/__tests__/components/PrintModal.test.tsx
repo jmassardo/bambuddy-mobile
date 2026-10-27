@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 import React from 'react';
-import { Pressable, TextInput } from 'react-native';
+import { Image, Pressable, TextInput } from 'react-native';
 import ReactTestRenderer, {
   act,
   type ReactTestInstance,
@@ -349,6 +349,12 @@ describe('configured native print launch', () => {
         ([path]) => path === '/archives/20/filament-requirements?plate_id=1',
       ),
     ).toBe(true);
+    expect(
+      renderer.root.findAllByType(Image).map(image => image.props.source.uri),
+    ).toEqual([
+      'https://server/api/v1/archives/20/plate-thumbnail/1',
+      'https://server/api/v1/archives/20/plate-thumbnail/2',
+    ]);
     await press(renderer, 'Cancel');
     expect(mutations()).toEqual([]);
     expect(mockClose).toHaveBeenCalled();
@@ -390,6 +396,12 @@ describe('configured native print launch', () => {
   });
   it('creates independently mapped plate quantities on each selected compatible printer', async () => {
     await renderModal();
+    expect(
+      renderer.root.findAllByType(Image).map(image => image.props.source.uri),
+    ).toEqual([
+      'https://server/api/v1/library/files/10/plate-thumbnail/1',
+      'https://server/api/v1/library/files/10/plate-thumbnail/2',
+    ]);
     await press(renderer, 'Select all eligible');
     await press(renderer, 'Select all plates');
     const copyInputs = renderer.root

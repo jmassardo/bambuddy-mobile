@@ -27,11 +27,7 @@ export const printLaunchApi = {
       }`,
     ),
   plateThumbnail: (source: PrintSource, plate: number) =>
-    buildMediaUrl(
-      source.kind === 'library'
-        ? `${path(source)}/plate-thumbnail/${plate}`
-        : `${path(source)}/plates/${plate}/thumbnail`,
-    ),
+    buildMediaUrl(`${path(source)}/plate-thumbnail/${plate}`),
   inventory: (printerId: number) =>
     request<PrintLaunchInventory>(`/printers/${printerId}/inventory-remain`),
   costCenters: () =>

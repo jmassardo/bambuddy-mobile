@@ -59,6 +59,11 @@ const printerLabel = (item: PrintQueueItem) =>
   (item.target_model ? `Any ${item.target_model}` : 'Unassigned');
 const terminal = (item: PrintQueueItem) =>
   ['completed', 'failed', 'skipped', 'cancelled'].includes(item.status);
+// Fixed-printer scheduling bypasses variant resolution and needs a concrete source.
+const unresolvedVariants = (item: PrintQueueItem) =>
+  !!item.variants?.length &&
+  item.archive_id == null &&
+  item.library_file_id == null;
 type Confirmation = {
   title: string;
   message: string;
@@ -136,6 +141,12 @@ export default function QueueScreen() {
   const canUpdate = (item: PrintQueueItem) =>
     hasPermission('queue:update_all') ||
     (hasPermission('queue:update_own') && item.created_by_id === user?.id);
+  // Starting claims ownerless imports; ordinary editing remains owner-only.
+  const canStart = (item: PrintQueueItem) =>
+    item.status === 'pending' &&
+    (hasPermission('queue:update_all') ||
+      (hasPermission('queue:update_own') &&
+        (item.created_by_id == null || item.created_by_id === user?.id)));
   const canDelete = (item: PrintQueueItem) =>
     hasPermission('queue:delete_all') ||
     (hasPermission('queue:delete_own') && item.created_by_id === user?.id);
@@ -228,6 +239,9 @@ export default function QueueScreen() {
     );
   };
   const selectedItems = pending.filter(i => selected.includes(i.id));
+  const allowFixedPrinterAssignment = !selectedItems
+    .filter(canUpdate)
+    .some(unresolvedVariants);
   const gates = useMemo(() => {
     const result = new Map<number, { name: string; count: number }>();
     items
@@ -338,7 +352,7 @@ export default function QueueScreen() {
           if (canUpdate(item)) toggle(item.id);
         }}
         onStart={
-          canUpdate(item) && hasPermission('printers:control')
+          canStart(item)
             ? () => {
                 void start(item.id);
               }
@@ -967,8 +981,19 @@ export default function QueueScreen() {
         count={selectedItems.length}
         printers={printers.data ?? []}
         loading={busy}
+        allowFixedPrinterAssignment={allowFixedPrinterAssignment}
         onClose={() => setBulkOpen(false)}
         onSave={(update: PrintQueueItemUpdate) => {
+          if (update.printer_id != null && !allowFixedPrinterAssignment) {
+            showToast(
+              t('printing.unresolvedVariantAssignment', {
+                defaultValue:
+                  'Jobs with unresolved alternative slices cannot be assigned a fixed printer. Leave the printer unchanged or unassigned.',
+              }),
+              'error',
+            );
+            return;
+          }
           void perform(async () => {
             const result = await queueApi.bulkUpdateQueue({
               item_ids: selectedItems.filter(canUpdate).map(i => i.id),
