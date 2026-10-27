@@ -6,6 +6,7 @@ import { PrintDefaultsSettings } from './PrintDefaultsSettings';
 import { QueueWorkflowSettings } from './QueueWorkflowSettings';
 import { WorkflowNumberField } from './WorkflowFields';
 import { useTranslation } from '@/i18n';
+import { SlicerSetupSection, type SlicerSetupValues } from '@/components/slicing/SlicerSetupSection';
 
 export function QueueSettingsSection({
   controller,
@@ -119,21 +120,18 @@ export function QueueSettingsSection({
           }
           keyboardType="number-pad"
         />
-        <TextField
-          label="Preferred slicer"
-          value={String(draft.preferred_slicer ?? 'bambu_studio')}
-          onChangeText={value =>
-            setDraft(current => ({ ...current, preferred_slicer: value }))
-          }
-        />
-        <SwitchRow
-          label="Use slicer API"
-          value={Boolean(draft.use_slicer_api)}
-          onValueChange={value =>
-            setDraft(current => ({ ...current, use_slicer_api: value }))
-          }
-        />
       </SectionCard>
+      <SlicerSetupSection
+        value={{
+          preferred_slicer: String(draft.preferred_slicer ?? 'bambu_studio') as SlicerSetupValues['preferred_slicer'],
+          use_slicer_api: Boolean(draft.use_slicer_api),
+          bambu_studio_api_url: String(draft.bambu_studio_api_url ?? ''),
+          orcaslicer_api_url: String(draft.orcaslicer_api_url ?? ''),
+          slicer_stall_timeout_minutes: Number(draft.slicer_stall_timeout_minutes ?? 15),
+        }}
+        onChange={patch => setDraft(current => ({ ...current, ...patch }))}
+        disabled={!controller.permissions.canUpdateSettings}
+      />
       <QueueWorkflowSettings controller={controller} />
     </>
   );

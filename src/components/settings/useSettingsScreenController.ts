@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useTranslation } from '@/i18n';
+import { validateSlicerSetup, type SlicerSetupValues } from '@/components/slicing/SlicerSetupSection';
 import {
   BUILT_IN_NAV_ITEMS,
   getNavigationLayout,
@@ -91,6 +93,7 @@ export function useSettingsScreenController() {
   const { colors, mode, setMode } = useTheme();
   const { isAdmin, authEnabled, user, hasPermission } = useAuth();
   const { showToast } = useToast();
+  const { text } = useTranslation();
   const queryClient = useQueryClient();
 
   const [section, setSection] = useState<SectionKey | null>(null);
@@ -164,7 +167,7 @@ export function useSettingsScreenController() {
   const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: api.getSettings });
   const smartPlugsQuery = useQuery({ queryKey: ['smartPlugs'], queryFn: api.getSmartPlugs });
   const providersQuery = useQuery({ queryKey: ['notificationProviders'], queryFn: api.getNotificationProviders });
-  const apiKeysQuery = useQuery({ queryKey: ['apiKeys'], queryFn: api.getApiKeys });
+  const apiKeysQuery = useQuery({ queryKey: ['apiKeys'], queryFn: api.getApiKeys, enabled: hasPermission('api_keys:read') });
   const cameraTokensQuery = useQuery({
     queryKey: ['cameraTokens'],
     queryFn: () => (isAdmin ? api.listAllLongLivedCameraTokens() : api.listMyLongLivedCameraTokens()),
@@ -330,7 +333,7 @@ export function useSettingsScreenController() {
       settingsQuery.refetch(),
       smartPlugsQuery.refetch(),
       providersQuery.refetch(),
-      apiKeysQuery.refetch(),
+      ...(hasPermission('api_keys:read') ? [apiKeysQuery.refetch()] : []),
       externalLinksQuery.refetch(),
       printersQuery.refetch(),
       virtualPrinterListQuery.refetch(),
@@ -355,7 +358,17 @@ export function useSettingsScreenController() {
   };
 
   const saveSettingsMutation = useMutation({
-    mutationFn: async () => api.updateSettings(draft),
+    mutationFn: async () => {
+      const error = validateSlicerSetup({
+        preferred_slicer: String(draft.preferred_slicer ?? 'bambu_studio') as SlicerSetupValues['preferred_slicer'],
+        use_slicer_api: Boolean(draft.use_slicer_api),
+        bambu_studio_api_url: String(draft.bambu_studio_api_url ?? ''),
+        orcaslicer_api_url: String(draft.orcaslicer_api_url ?? ''),
+        slicer_stall_timeout_minutes: Number(draft.slicer_stall_timeout_minutes ?? 15),
+      });
+      if (error) throw new Error(text(error));
+      return api.updateSettings(draft);
+    },
     onSuccess: async data => {
       setDraft(data);
       await queryClient.invalidateQueries({ queryKey: ['settings'] });

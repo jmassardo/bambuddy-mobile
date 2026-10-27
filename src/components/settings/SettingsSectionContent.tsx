@@ -3,6 +3,8 @@ import { Text } from 'react-native';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { ApiKeysSettingsSection } from './ApiKeysSettingsSection';
 import { ExternalCamerasSettingsSection } from './ExternalCamerasSettingsSection';
+import { CustomNavigationSettingsSection } from './CustomNavigationSettingsSection';
+import { FinancePolicySection } from '@/components/finance/FinancePolicySection';
 import { BackupSettingsSection } from './BackupSettingsSection';
 import { FailureDetectionSettingsSection } from './FailureDetectionSettingsSection';
 import { FilamentSettingsSection } from './FilamentSettingsSection';
@@ -31,7 +33,7 @@ export function SettingsSectionContent({ controller }: { controller: SettingsScr
   return (
     <>
       <PrimaryButton label="Back to sections" variant="secondary" onPress={() => controller.actions.setSection(null)} />
-      {section === 'general' ? <GeneralSettingsSection controller={controller} /> : null}
+      {section === 'general' ? <><GeneralSettingsSection controller={controller} /><FinancePolicySection /></> : null}
       {section === 'plugs' ? <SmartPlugsSection controller={controller} /> : null}
       {section === 'notifications' ? <NotificationsSettingsSection controller={controller} /> : null}
       {section === 'queue' ? <QueueSettingsSection controller={controller} /> : null}
@@ -40,6 +42,7 @@ export function SettingsSectionContent({ controller }: { controller: SettingsScr
       {section === 'network' ? <NetworkSettingsSection controller={controller} /> : null}
       {section === 'mqtt' ? <MqttSettingsSection controller={controller} /> : null}
       {section === 'navigation' ? <NavigationSettingsSection controller={controller} /> : null}
+      {section === 'custom-navigation' ? <CustomNavigationSettingsSection controller={controller} /> : null}
       {section === 'apikeys' ? <ApiKeysSettingsSection controller={controller} /> : null}
       {section === 'external-cameras' ? <ExternalCamerasSettingsSection controller={controller} /> : null}
       {section === 'virtual-printer' ? <VirtualPrinterSettingsSection controller={controller} /> : null}
