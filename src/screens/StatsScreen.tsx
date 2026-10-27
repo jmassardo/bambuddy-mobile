@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Share from 'react-native-share';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
@@ -14,13 +16,21 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { SimpleBarChart } from '@/components/common/Charts';
-import { InlineTabBar, PrimaryButton, SectionCard, StatCard } from '@/components/common/AppUI';
+import { PrimaryButton, SectionCard, StatCard } from '@/components/common/AppUI';
 import { ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { shareBlob } from '@/utils/share';
+import { reportsApi } from '@/api/reports';
+import { financeApi } from '@/api/finance';
+import { reportRange, summarizeReportEvents, validCustomRange, type ReportRange, type ReportScope } from '@/utils/reports';
+import { reportCsv, reportXlsxBase64 } from '@/utils/reportExport';
+import { ReportRangeControls, reportPresets, reportRangeKey } from '@/components/reports/ReportRangeControls';
+import { ReportLayout } from '@/components/reports/ReportLayout';
+import { AccuracyReport, ExplorationReport, PurchasingReports, RecordsReport, usePurchasingMode } from '@/components/reports/ReportDetails';
+import { useTranslation } from '@/i18n';
 import {
   formatCurrency,
   formatDate,
@@ -32,7 +42,7 @@ import {
   type ApiRecord,
 } from '@/utils/data';
 
-type RangeKey = 'today' | '7d' | '30d' | '90d' | 'all';
+type RangeKey = ReportRange;
 type SelectorKey = 'printer' | 'user' | null;
 
 type SelectorOption = {
@@ -40,19 +50,6 @@ type SelectorOption = {
   label: string;
   value: number | null;
 };
-
-function getRangeParams(range: RangeKey) {
-  const now = new Date();
-  const end = now.toISOString().split('T')[0];
-  if (range === 'all') return {};
-  const days = range === 'today' ? 1 : Number(range.replace('d', ''));
-  const start = new Date(now);
-  start.setDate(start.getDate() - (days - 1));
-  return {
-    dateFrom: start.toISOString().split('T')[0],
-    dateTo: end,
-  };
-}
 
 function materialKey(item: ApiRecord) {
   return pickString(item, ['material', 'filament_type', 'type'], 'Unknown');
@@ -118,20 +115,16 @@ function timeBucket(item: ApiRecord) {
   return 'Evening';
 }
 
-function getRangeDays(range: RangeKey) {
-  if (range === 'all') return undefined;
-  if (range === 'today') return 1;
-  return Number(range.replace('d', ''));
-}
-
-function buildStatsSummaryCsv(stats: ApiRecord, archives: ApiRecord[], range: RangeKey, printerId: number | null, userId: number | null) {
+function buildStatsSummaryCsv(stats: ApiRecord, archives: ApiRecord[], range: RangeKey, printerId: number | null, userId: number | null, scope: ReportScope) {
   const rows = [
     { metric: 'Total prints', value: String(pickNumber(stats, ['total_prints', 'prints_count'], archives.length)) },
-    { metric: 'Success rate', value: formatPercent(pickNumber(stats, ['success_rate'], 0), 1) },
-    { metric: 'Total print time', value: formatDuration(Math.round(pickNumber(stats, ['total_print_time_seconds', 'total_print_time'], 0))) },
+    { metric: 'Success rate', value: formatPercent(pickNumber(stats, ['success_rate'], pickNumber(stats, ['total_prints']) ? pickNumber(stats, ['successful_prints']) / pickNumber(stats, ['total_prints']) : 0), 1) },
+    { metric: 'Total print time', value: formatDuration(Math.round(pickNumber(stats, ['total_print_time_seconds', 'total_print_time'], pickNumber(stats, ['total_print_time_hours']) * 3600))) },
     { metric: 'Filament used', value: formatWeight(pickNumber(stats, ['total_filament_grams', 'total_filament_g', 'filament_total_g'], 0)) },
     { metric: 'Total cost', value: formatCurrency(pickNumber(stats, ['total_cost', 'cost_total'], 0)) },
     { metric: 'Range', value: range },
+    { metric: 'From', value: scope.dateFrom ?? 'All' },
+    { metric: 'To', value: scope.dateTo ?? 'All' },
     { metric: 'Printer', value: printerId ? `${printerId}` : 'All' },
     { metric: 'User', value: userId !== null ? `${userId}` : 'All' },
   ];
@@ -141,7 +134,7 @@ function buildStatsSummaryCsv(stats: ApiRecord, archives: ApiRecord[], range: Ra
 function toCsvSummary(rows: Array<{ metric: string; value: string }>) {
   return [
     rows.map(r => `"${r.metric}"`).join(','),
-    ...rows.map(r => `"${r.value}"`).join(','),
+    rows.map(r => `"${r.value.replace(/"/g, '""')}"`).join(','),
   ].join('\n');
 }
 
@@ -155,17 +148,19 @@ function buildFailureRates(items: ApiRecord[], keyFn: (item: ApiRecord) => strin
     current.rate = current.total > 0 ? current.failures / current.total : 0;
     rows.set(key, current);
   });
-  return Array.from(rows.values()).sort((a, b) => b.rate - a.rate || b.failures - a.failures).slice(0, 6);
+  return Array.from(rows.values()).sort((a, b) => b.rate - a.rate || b.failures - a.failures);
 }
 
 function isValidUserFilter(userId: number | null, isAdminFilter: boolean, usersLoaded: boolean, users: ApiRecord[]) {
   if (userId === null) return true;
   if (!isAdminFilter) return false;
+  if (userId === -1) return true;
   if (!usersLoaded) return true;
   return users.some(user => pickNumber(user, ['id']) === userId);
 }
 
 export default function StatsScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Stats'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Statistics' });
@@ -173,37 +168,63 @@ export default function StatsScreen() {
 
   const { colors } = useTheme();
   const { showToast } = useToast();
-  const { isAdmin } = useAuth();
+  const { hasPermission } = useAuth();
+  const canFilterUser = hasPermission('stats:filter_by_user');
   const [range, setRange] = useState<RangeKey>('30d');
+  const [customDates, setCustomDates] = useState<ReportScope>({});
   const [selectedPrinterId, setSelectedPrinterId] = useState<number | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selector, setSelector] = useState<SelectorKey>(null);
   const [userFilterValidated, setUserFilterValidated] = useState(true);
 
-  const params = getRangeParams(range);
+  React.useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(reportRangeKey).then(raw => {
+      if (!raw || !active) return;
+      const saved = JSON.parse(raw) as { range?: ReportRange; dateFrom?: string; dateTo?: string };
+      if (!saved.range || !reportPresets.includes(saved.range)) return;
+      if (saved.range === 'custom' && !validCustomRange(saved.dateFrom ?? '', saved.dateTo ?? '')) return;
+      setRange(saved.range);
+      setCustomDates({ dateFrom: saved.dateFrom, dateTo: saved.dateTo });
+    }).catch(() => showToast(t('stats.rangeLoadFailed', { defaultValue: 'Unable to load saved timeframe.' }), 'warning'));
+    return () => { active = false; };
+  }, [showToast, t]);
+  const params = range === 'custom' ? customDates : reportRange(range);
   const queryParams = useMemo(() => ({
     ...params,
     ...(selectedPrinterId ? { printerId: selectedPrinterId } : {}),
-    ...(isAdmin && selectedUserId !== null ? { createdById: selectedUserId } : {}),
-  }), [isAdmin, params, selectedPrinterId, selectedUserId]);
+    ...(canFilterUser && selectedUserId !== null ? { createdById: selectedUserId } : {}),
+  }), [canFilterUser, params, selectedPrinterId, selectedUserId]);
 
-  const statsQuery = useQuery({
+  const aggregateStatsQuery = useQuery({
     queryKey: ['archiveStats', queryParams],
-    queryFn: () => api.getArchiveStats(queryParams),
+    queryFn: () => api.getArchiveStats({
+      dateFrom: queryParams.dateFrom,
+      dateTo: queryParams.dateTo,
+      createdById: queryParams.createdById,
+    }),
   });
   const archivesQuery = useQuery({
     queryKey: ['archives', 'stats-screen', queryParams],
-    queryFn: () => api.getArchives({ ...queryParams, limit: 1000 }),
+    queryFn: () => reportsApi.events(queryParams),
   });
+  const statsQuery = {
+    ...aggregateStatsQuery,
+    // The aggregate handler does not accept printer_id. Never send a filter
+    // that the server silently ignores and present farm-wide totals as local.
+    data: selectedPrinterId === null ? aggregateStatsQuery.data : summarizeReportEvents(archivesQuery.data ?? []),
+  };
   const printersQuery = useQuery({
     queryKey: ['printers', 'stats-screen'],
     queryFn: () => api.getPrinters(),
   });
   const usersQuery = useQuery({
     queryKey: ['users', 'stats-screen'],
-    queryFn: () => api.getUsers(),
-    enabled: isAdmin,
+    queryFn: financeApi.users,
+    enabled: canFilterUser && (hasPermission('users:read') || hasPermission('users:read_slim')),
   });
+  const flagsQuery = useQuery({ queryKey: ['ui-flags'], queryFn: reportsApi.flags });
+  const inventoryMode = usePurchasingMode();
 
   const usersData = useMemo(
     () => (usersQuery.data ?? []) as ApiRecord[],
@@ -211,31 +232,31 @@ export default function StatsScreen() {
   );
 
   const isUserFilterValid = useMemo(() => {
-    return isValidUserFilter(selectedUserId, isAdmin, usersQuery.isSuccess, usersData);
-  }, [selectedUserId, isAdmin, usersQuery.isSuccess, usersData]);
+    return isValidUserFilter(selectedUserId, canFilterUser, usersQuery.isSuccess, usersData);
+  }, [selectedUserId, canFilterUser, usersQuery.isSuccess, usersData]);
 
   React.useEffect(() => {
-    if (!isUserFilterValid && selectedUserId !== null && isAdmin) {
+    if (!isUserFilterValid && selectedUserId !== null) {
       setUserFilterValidated(false);
       showToast('Selected user is no longer available. Showing all users.', 'warning');
       setSelectedUserId(null);
     } else if (userFilterValidated && !isUserFilterValid) {
       setUserFilterValidated(true);
     }
-  }, [isUserFilterValid, selectedUserId, isAdmin, userFilterValidated, showToast]);
+  }, [isUserFilterValid, selectedUserId, userFilterValidated, showToast]);
 
   React.useEffect(() => {
-    if (usersQuery.isSuccess && usersData.length === 0 && isAdmin) {
+    if (usersQuery.isSuccess && usersData.length === 0 && canFilterUser) {
       console.warn('StatsScreen: No users available to filter by.');
     }
-  }, [usersQuery.isSuccess, usersData.length, isAdmin]);
+  }, [usersQuery.isSuccess, usersData.length, canFilterUser]);
 
   const refreshAll = async () => {
     await Promise.all([
       statsQuery.refetch(),
       archivesQuery.refetch(),
       printersQuery.refetch(),
-      isAdmin ? usersQuery.refetch() : Promise.resolve(),
+      canFilterUser ? usersQuery.refetch() : Promise.resolve(),
     ]);
   };
 
@@ -251,15 +272,12 @@ export default function StatsScreen() {
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
-      const blob = await api.exportArchiveStats({
-        format,
-        days: getRangeDays(range),
-        dateFrom: queryParams.dateFrom,
-        dateTo: queryParams.dateTo,
-        printerId: selectedPrinterId ?? undefined,
-        createdById: isAdmin ? (selectedUserId ?? undefined) : undefined,
-      });
-      await shareBlob(blob, `${filenameBase}.${format}`);
+      if (format === 'xlsx') {
+        const type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        await Share.open({ url: `data:${type};base64,${reportXlsxBase64(archivesQuery.data ?? [], queryParams)}`, type, filename: `${filenameBase}.xlsx`, saveToFiles: true, failOnCancel: false });
+        return;
+      }
+      await shareBlob(new Blob([reportCsv(archivesQuery.data ?? [], queryParams)], { type: 'text/csv', lastModified: Date.now() }), `${filenameBase}.csv`);
     },
     onSuccess: (_data, format) => showToast(`${format.toUpperCase()} export ready to share.`, 'success'),
     onError: (error: Error) => showToast(error.message || 'Unable to export statistics.', 'error'),
@@ -273,7 +291,8 @@ export default function StatsScreen() {
         archives,
         range,
         selectedPrinterId,
-        isAdmin ? selectedUserId : null,
+        canFilterUser ? selectedUserId : null,
+        queryParams,
       );
       const blobOptions: BlobOptions = {
         type: 'text/csv',
@@ -299,6 +318,16 @@ export default function StatsScreen() {
     () => ((archivesQuery.data ?? []) as ApiRecord[]).filter(Boolean),
     [archivesQuery.data],
   );
+  const printerNames = useMemo(() => {
+    const result: Record<string, string> = {};
+    const names = aggregateStatsQuery.data?.printer_names;
+    if (names && typeof names === 'object') {
+      Object.entries(names).forEach(([id, name]) => { if (typeof name === 'string') result[id] = name; });
+    }
+    printersQuery.data?.forEach(printer => { result[String(printer.id)] = printer.name; });
+    return result;
+  }, [aggregateStatsQuery.data, printersQuery.data]);
+  const reportCurrency = pickString(flagsQuery.data, ['currency'], 'USD');
 
   const printerOptions = useMemo<SelectorOption[]>(() => {
     const options: SelectorOption[] = [{ key: 'all', label: 'All printers', value: null }];
@@ -313,7 +342,10 @@ export default function StatsScreen() {
   }, [printersQuery.data]);
 
   const userOptions = useMemo<SelectorOption[]>(() => {
-    const options: SelectorOption[] = [{ key: 'all', label: 'All users', value: null }];
+    const options: SelectorOption[] = [
+      { key: 'all', label: 'All users', value: null },
+      { key: 'system', label: t('stats.systemUser', { defaultValue: 'No user (system)' }), value: -1 },
+    ];
     ((usersQuery.data ?? []) as ApiRecord[]).forEach(row => {
       const id = pickNumber(row, ['id']);
       options.push({
@@ -323,7 +355,7 @@ export default function StatsScreen() {
       });
     });
     return options;
-  }, [usersQuery.data]);
+  }, [usersQuery.data, t]);
 
   const selectedPrinterLabel = useMemo(
     () => printerOptions.find(option => option.value === selectedPrinterId)?.label ?? 'All printers',
@@ -336,8 +368,8 @@ export default function StatsScreen() {
 
   const quickStats = useMemo(() => ({
     totalPrints: pickNumber(statsQuery.data, ['total_prints', 'prints_count'], archives.length),
-    successRate: pickNumber(statsQuery.data, ['success_rate'], 0),
-    printTime: pickNumber(statsQuery.data, ['total_print_time_seconds', 'total_print_time'], 0),
+    successRate: pickNumber(statsQuery.data, ['success_rate'], pickNumber(statsQuery.data, ['total_prints']) > 0 ? pickNumber(statsQuery.data, ['successful_prints']) / pickNumber(statsQuery.data, ['total_prints']) : 0),
+    printTime: pickNumber(statsQuery.data, ['total_print_time_seconds', 'total_print_time'], pickNumber(statsQuery.data, ['total_print_time_hours']) * 3600),
     filament: pickNumber(statsQuery.data, ['total_filament_grams', 'total_filament_g', 'filament_total_g'], 0),
     cost: pickNumber(statsQuery.data, ['total_cost', 'cost_total'], 0),
   }), [archives.length, statsQuery.data]);
@@ -357,7 +389,7 @@ export default function StatsScreen() {
         const key = dayKey(getArchiveTimestamp(item));
         if (key) uniqueDays.add(key);
       });
-      days.push(...Array.from(uniqueDays).sort().slice(-42));
+      days.push(...Array.from(uniqueDays).sort());
     }
     const counts = new Map<string, number>();
     archives.forEach(item => {
@@ -378,13 +410,13 @@ export default function StatsScreen() {
       current.grams += pickNumber(item, ['filament_used_grams', 'filament_used_g'], 0);
       trendMap.set(key, current);
     });
-    return Array.from(trendMap.values()).sort((a, b) => a.label.localeCompare(b.label)).slice(-6);
+    return Array.from(trendMap.values()).sort((a, b) => a.label.localeCompare(b.label));
   }, [archives]);
 
   const printerBreakdown = useMemo(() => {
     const byPrinter = new Map<string, { name: string; prints: number; grams: number; failures: number }>();
     archives.forEach(item => {
-      const key = printerKey(item);
+      const key = printerNames[String(item.printer_id)] ?? printerKey(item);
       const current = byPrinter.get(key) ?? { name: key, prints: 0, grams: 0, failures: 0 };
       current.prints += 1;
       current.grams += pickNumber(item, ['filament_used_grams', 'filament_used_g'], 0);
@@ -392,7 +424,7 @@ export default function StatsScreen() {
       byPrinter.set(key, current);
     });
     return Array.from(byPrinter.values()).sort((a, b) => b.prints - a.prints);
-  }, [archives]);
+  }, [archives, printerNames]);
 
   const materialBreakdown = useMemo(() => {
     const rows = new Map<string, number>();
@@ -402,8 +434,7 @@ export default function StatsScreen() {
     });
     return Array.from(rows.entries())
       .map(([name, grams]) => ({ name, grams }))
-      .sort((a, b) => b.grams - a.grams)
-      .slice(0, 5);
+      .sort((a, b) => b.grams - a.grams);
   }, [archives]);
 
   const durationDistribution = useMemo(() => {
@@ -416,7 +447,7 @@ export default function StatsScreen() {
       { label: '16h+', min: 57600, max: Infinity, count: 0 },
     ];
     archives.forEach(item => {
-      const seconds = pickNumber(item, ['print_time_seconds', 'print_time', 'duration_seconds'], 0);
+      const seconds = pickNumber(item, ['actual_time_seconds', 'print_time_seconds', 'print_time', 'duration_seconds'], 0);
       if (seconds <= 0) return;
       const bucket = buckets.find(b => seconds >= b.min && seconds < b.max);
       if (bucket) bucket.count += 1;
@@ -454,8 +485,7 @@ export default function StatsScreen() {
     });
     return Array.from(rows.entries())
       .map(([label, count]) => ({ label, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 6);
+      .sort((a, b) => b.count - a.count);
   }, [archives]);
 
   if (statsQuery.isLoading || archivesQuery.isLoading) {
@@ -494,19 +524,13 @@ export default function StatsScreen() {
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Quick stats, exports, failure analysis, and printer breakdowns.</Text>
         </View>
 
-        <InlineTabBar
+        <ReportRangeControls
           value={range}
-          tabs={[
-            { key: 'today', label: 'Today' },
-            { key: '7d', label: '7 Days' },
-            { key: '30d', label: '30 Days' },
-            { key: '90d', label: '90 Days' },
-            { key: 'all', label: 'All Time' },
-          ]}
-          onChange={value => setRange(value as RangeKey)}
+          scope={params}
+          onApply={(value, dates) => { setCustomDates(dates ?? {}); setRange(value); }}
         />
 
-        {isAdmin && (selectedPrinterId !== null || selectedUserId !== null) && (
+        {(selectedPrinterId !== null || selectedUserId !== null) && (
           <View style={styles.activeFilters}>
             <Text style={[styles.activeFiltersLabel, { color: colors.textSecondary }]}>Active filters:</Text>
             {selectedPrinterId !== null && (
@@ -541,7 +565,7 @@ export default function StatsScreen() {
               <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Printer</Text>
               <Text style={[styles.filterValue, { color: colors.text }]} numberOfLines={1}>{selectedPrinterLabel}</Text>
             </Pressable>
-            {isAdmin ? (
+            {canFilterUser ? (
               <Pressable style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setSelector('user')}>
                 <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>User</Text>
                 <Text style={[styles.filterValue, { color: colors.text }]} numberOfLines={1}>{selectedUserLabel}</Text>
@@ -578,12 +602,12 @@ export default function StatsScreen() {
               disabled={statsSummaryMutation.isPending}
             />
           </View>
-          <PrimaryButton
+          {hasPermission('archives:update_all') && <PrimaryButton
             label={recalculateCostsMutation.isPending ? 'Recalculating…' : 'Recalculate costs'}
             onPress={() => void recalculateCostsMutation.mutateAsync()}
             loading={recalculateCostsMutation.isPending}
             disabled={recalculateCostsMutation.isPending}
-          />
+          />}
         </SectionCard>
 
         <View style={styles.grid}>
@@ -594,7 +618,7 @@ export default function StatsScreen() {
           <StatCard label="Cost" value={formatCurrency(quickStats.cost)} />
         </View>
 
-        {isAdmin && selectedUserId !== null && (
+        {canFilterUser && selectedUserId !== null && (
           <SectionCard
             title="User details"
             subtitle={`Per-user breakdown for ${selectedUserLabel}.`}
@@ -647,6 +671,31 @@ export default function StatsScreen() {
           </SectionCard>
         )}
 
+        <ReportLayout summaries={{
+          'Failure Analysis': `${failureRateByMaterial.reduce((sum, row) => sum + row.failures, 0)} / ${archives.length}`,
+          'Activity heatmap': `${heatmap.days.length} · ${archives.length}`,
+          'Filament trends': formatWeight(quickStats.filament),
+          'Printer breakdown': `${printerBreakdown.length} · ${archives.length}`,
+          'Print duration distribution': formatDuration(quickStats.printTime),
+          'Print habits': `${archives.length}`,
+          'Time of day': `${hourlyData.filter(row => row.value > 0).length} / 24`,
+          accuracy: statsQuery.data?.average_time_accuracy == null ? t('stats.noAccuracy', { defaultValue: 'No estimate data' }) : `${statsQuery.data.average_time_accuracy}%`,
+          records: `${archives.length} ${t('stats.recordEvents', { defaultValue: 'print events considered' })}`,
+          exploration: `${formatWeight(quickStats.filament)} · ${formatDuration(quickStats.printTime)} · ${archives.length}`,
+          purchasing: t('stats.currentStock', { defaultValue: 'Current stock; consumption and cost follow selected dates.' }),
+        }}>
+        <SectionCard key="accuracy" title={t('stats.estimateAccuracy', { defaultValue: 'Estimate accuracy' })}>
+          <AccuracyReport stats={statsQuery.data ?? {}} printerNames={printerNames} />
+        </SectionCard>
+        <SectionCard key="records" title={t('stats.recordsStreaks', { defaultValue: 'Records and streaks' })}>
+          <RecordsReport archives={archives} currency={reportCurrency} />
+        </SectionCard>
+        <SectionCard key="exploration" title={t('stats.exploration', { defaultValue: 'Report exploration' })}>
+          <ExplorationReport archives={archives} printerNames={printerNames} currency={reportCurrency} scope={queryParams} />
+        </SectionCard>
+        {inventoryMode.data !== true && <SectionCard key="purchasing" title={t('stats.purchasing', { defaultValue: 'Purchasing reports' })}>
+          <PurchasingReports scope={queryParams} currency={reportCurrency} />
+        </SectionCard>}
         <SectionCard title="Failure Analysis" subtitle="Failure rates by material, printer, time of day, and common reasons.">
           <FailureList title="By material" rows={failureRateByMaterial} colors={colors} formatValue={row => `${formatPercent(row.rate, 0)} • ${row.failures}/${row.total}`} />
           <FailureList title="By printer" rows={failureRateByPrinter} colors={colors} formatValue={row => `${formatPercent(row.rate, 0)} • ${row.failures}/${row.total}`} />
@@ -758,13 +807,14 @@ export default function StatsScreen() {
         <SectionCard title="Time of day" subtitle="When you start prints during the day.">
           {hourlyData.some(d => d.value > 0) ? (
             <SimpleBarChart
-              data={hourlyData.filter((_, i) => i % 2 === 0).map(d => ({ label: d.label, value: d.value, color: colors.warning }))}
+              data={hourlyData.map(d => ({ label: d.label, value: d.value, color: colors.warning }))}
               height={160}
             />
           ) : (
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No time-of-day data available.</Text>
           )}
         </SectionCard>
+        </ReportLayout>
       </ScrollView>
 
       <SelectionModal

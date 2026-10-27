@@ -37,6 +37,9 @@ Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print
 - Live MJPEG camera streaming
 - Spool inventory with NFC tag scanning
 - Statistics, analytics, and historical archives with photo galleries
+- Calendar/custom-date reports with saved dashboard layouts, estimate accuracy, records, material/color/habit exploration, and purchasing summaries
+- Permission-aware finance wallets, budgets, cost-center membership, and ledger administration
+- Live measured smart-plug energy overview, separate from archived-print energy reports
 - Project hierarchies with descendant rollups, complete-set production targets,
   formatted notes, BOM tracking, templates, and JSON/ZIP import/export
 - MakerWorld model resolution and sequential bulk import to nested library folders,
@@ -81,6 +84,7 @@ It supports folders, plate/image/text previews, selected-file download through t
 native save/share sheet, and confirmed deletion. Printer file permission is required.
 Object skipping supports plate-image and list multi-selection with a grouped,
 irreversible confirmation; it remains available after reconnecting mid-print.
+
 ### Project transfers
 
 Projects can import a single project ZIP (including supported linked files), a project
@@ -89,6 +93,21 @@ JSON, or an array of exported project JSON records. **Export project** shares a 
 bulk transfer format. Choose **Link library files or folders** on a project to associate
 library content. Complete sets are limited by the sliced file with the fewest completed
 copies; source STL/3MF models do not count as printed assemblies.
+### Reports and finance
+
+Statistics retain the chosen timeframe and report layout on the device. CSV,
+Excel, JSON, and summary exports use the same selected event/date/printer/user
+scope as the dashboard. Purchasing usage/cost follows the dates; remaining stock
+is current, not historical. Internal purchasing reports are hidden in Spoolman
+mode.
+
+Finance requires a signed-in account and cost-center permissions; its menu entry
+is shown when server billing is enabled. Reading all wallets, creating centers,
+and modifying finance are separate permissions. Private centers cannot be
+renamed, deleted, or assigned members, but authorized operators can edit their
+budgets. An unlimited budget is distinct from a zero budget, which prevents
+printing. Billing/reset policy requires settings permissions; rebuilding the
+ledger requires finance modification permission and explicit confirmation.
 
 ## Requirements
 

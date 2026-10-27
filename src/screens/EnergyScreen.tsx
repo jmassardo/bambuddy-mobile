@@ -19,6 +19,8 @@ import {
   type ApiRecord,
 } from '@/utils/data';
 import { SimpleDonutChart, MultiSeriesLineChart } from '@/components/common/Charts';
+import { LivePlugEnergy } from '@/components/finance/LivePlugEnergy';
+import { FinancePolicySection } from '@/components/finance/FinancePolicySection';
 
 type RangeKey = '7d' | '30d' | '90d' | 'all';
 
@@ -292,6 +294,8 @@ export default function EnergyScreen() {
         />
       }
     >
+      <LivePlugEnergy />
+      <FinancePolicySection energyOnly />
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Energy dashboard</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>

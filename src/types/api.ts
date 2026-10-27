@@ -36,6 +36,8 @@ export type Permission =
   | 'firmware:read' | 'firmware:update'
   | 'ams_history:read'
   | 'stats:read' | 'stats:filter_by_user'
+  | 'cost_centers:read_own' | 'cost_centers:read_all' | 'cost_centers:create' | 'cost_centers:modify'
+  | 'users:read_slim'
   | 'system:read'
   | 'settings:read' | 'settings:update' | 'settings:backup' | 'settings:restore'
   | 'github:backup' | 'github:restore'
@@ -46,6 +48,66 @@ export type Permission =
   | 'groups:read' | 'groups:create' | 'groups:update' | 'groups:delete'
   | 'pipelines:read' | 'pipelines:write' | 'pipelines:run'
   | 'websocket:connect';
+
+// Reports-finance parity: finance wire contracts
+export interface FinanceBalance {
+  user_id: number;
+  balance: number;
+  currency: string;
+  updated_at: string | null;
+}
+
+export interface FinanceTransaction {
+  id: number;
+  user_id: number;
+  cost_center_id: number | null;
+  transaction_type: 'print_charge' | 'deposit' | 'withdraw' | 'manual_adjustment';
+  amount: number;
+  balance_after: number | null;
+  description: string | null;
+  created_at: string;
+  print_archive_id?: number | null;
+}
+
+export interface FinanceLedger {
+  items: FinanceTransaction[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface FinanceCenter {
+  id: number;
+  name: string;
+  is_private: boolean;
+  owner_user_id: number | null;
+  is_active: boolean;
+  total_balance: number;
+  total_budget: number | null;
+  monthly_budget: number | null;
+  budget_mode: string;
+  budget_limit: number | null;
+  budget_used: number | null;
+  budget_available: number | null;
+  can_print: boolean;
+}
+
+export interface FinanceMember {
+  id: number;
+  cost_center_id: number;
+  user_id: number;
+  can_print: boolean;
+}
+
+export interface PurchasingReportRow {
+  supplier_id?: number;
+  supplier_name?: string;
+  material_number?: string;
+  spool_count: number;
+  remaining_g: number;
+  consumed_g: number;
+  cost: number;
+}
 
 export interface GroupBrief {
   id: number;
