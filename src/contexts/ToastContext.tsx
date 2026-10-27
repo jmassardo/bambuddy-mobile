@@ -3,6 +3,7 @@ import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import { borderRadius, fontSize, spacing } from '../theme/tokens';
+import { useTranslation } from '@/i18n';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -22,6 +23,7 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 let nextId = 0;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const { text } = useTranslation();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -80,7 +82,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           >
             <View style={[styles.indicator, { backgroundColor: typeColors[toast.type] }]} />
             <Text style={[styles.message, { color: colors.text }]} numberOfLines={3}>
-              {toast.message}
+              {text(toast.message)}
             </Text>
           </Animated.View>
         ))}

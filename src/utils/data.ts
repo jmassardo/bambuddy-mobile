@@ -1,4 +1,5 @@
 import type { ThemeColors } from '../theme';
+import { formatPreferredCurrency, formatPreferredDate, formatPreferredDateTime, formatPreferredTime } from './preferences';
 
 export type ApiRecord = Record<string, unknown>;
 
@@ -99,21 +100,15 @@ export function statusColor(status: string, colors: ThemeColors): string {
 }
 
 export function formatDate(value: unknown): string {
-  if (typeof value !== 'string' && typeof value !== 'number') return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleDateString();
+  return formatPreferredDate(value);
 }
 
 export function formatDateTime(value: unknown): string {
-  if (typeof value !== 'string' && typeof value !== 'number') return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleString();
+  return formatPreferredDateTime(value);
 }
 
 export function formatTime(date: Date): string {
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+  return formatPreferredTime(date);
 }
 
 export function formatDuration(value: unknown): string {
@@ -148,13 +143,7 @@ export function formatWeight(value: unknown): string {
 }
 
 export function formatCurrency(value: unknown): string {
-  const numeric = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : 0;
-  if (!Number.isFinite(numeric)) return '—';
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(numeric);
+  return formatPreferredCurrency(value);
 }
 
 export function extensionFromName(name: string): string {

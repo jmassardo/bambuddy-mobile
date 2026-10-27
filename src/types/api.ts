@@ -47,6 +47,7 @@ export type Permission =
   | 'users:read' | 'users:create' | 'users:update' | 'users:delete'
   | 'groups:read' | 'groups:create' | 'groups:update' | 'groups:delete'
   | 'pipelines:read' | 'pipelines:write' | 'pipelines:run'
+  | 'cost_centers:read_own' | 'cost_centers:read_all' | 'cost_centers:create' | 'cost_centers:modify'
   | 'websocket:connect';
 
 // Reports-finance parity: finance wire contracts
@@ -2383,6 +2384,9 @@ export interface APIKeyUpdate {
 }
 
 export interface AppSettings {
+  // Global parity: maintainer announcements policy.
+  announcements_enabled?: boolean;
+  announcements_all_users?: boolean;
   auto_archive: boolean;
   save_thumbnails: boolean;
   capture_finish_photo: boolean;
@@ -5011,4 +5015,38 @@ export interface ArchivePrinterMedia {
   local_timelapse: { name: string; size: number } | null;
   remote_files: Array<{ name: string; path: string; size: number; type?: string }>;
   warnings: string[];
+}
+
+// Global parity: maintainer announcements, separate from printer notifications.
+export interface UiDisplayPreferences {
+  date_format: AppSettings['date_format'];
+  time_format: AppSettings['time_format'];
+}
+export interface UiFlags {
+  currency: string;
+  billing_enabled: boolean;
+  user_notifications_enabled: boolean;
+  check_updates: boolean;
+}
+export interface UiNavigationPreferences {
+  default_sidebar_order: string;
+}
+export interface AnnouncementText {
+  title: string;
+  body: string;
+  link_label?: string;
+}
+export interface Announcement {
+  id: string;
+  level: 'info' | 'important' | 'critical';
+  texts: Record<string, AnnouncementText>;
+  link_url: string | null;
+  published_at: string | null;
+  expires_at: string | null;
+  archived: boolean;
+  read: boolean;
+}
+export interface AnnouncementList {
+  visible: boolean;
+  announcements: Announcement[];
 }

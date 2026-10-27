@@ -1,4 +1,5 @@
 // Native translations authored for this app. No upstream translation assets are bundled.
+import { nativeCatalogs } from './nativeCatalog';
 export const availableLanguages = [
   { key: 'en', label: 'English' }, { key: 'de', label: 'Deutsch' },
   { key: 'es', label: 'Español' }, { key: 'fr', label: 'Français' },
@@ -72,4 +73,7 @@ const rows: Record<Exclude<Language, 'en'>, string[]> = {
 export const catalogs: Record<Language, Record<string, string>> = { en: english } as Record<Language, Record<string, string>>;
 for (const language of Object.keys(rows) as Exclude<Language, 'en'>[]) {
   catalogs[language] = Object.fromEntries(keys.map((key, index) => [key, rows[language][index]]));
+}
+for (const language of Object.keys(catalogs) as Language[]) {
+  Object.assign(catalogs[language], nativeCatalogs[language]);
 }

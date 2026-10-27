@@ -14,6 +14,7 @@ import {
 import { AlertTriangle, Info, AlertCircle } from 'lucide-react-native';
 import { useTheme } from '@/theme';
 import { fontSize } from '@/theme/tokens';
+import { useTranslation } from '@/i18n';
 
 export interface ConfirmModalProps {
   visible: boolean;
@@ -57,6 +58,7 @@ export function ConfirmModal({
   returnFocusRef,
 }: ConfirmModalProps) {
   const { colors } = useTheme();
+  const { text } = useTranslation();
   const isMountedRef = useRef(false);
   const isConfirmingRef = useRef(false);
 
@@ -80,7 +82,7 @@ export function ConfirmModal({
     const timer = setTimeout(() => {
       if (isMountedRef.current) {
         try {
-          AccessibilityInfo.announceForAccessibility(title);
+          AccessibilityInfo.announceForAccessibility(text(title));
         } catch {
           // AccessibilityInfo may not be available in test environments
         }
@@ -90,7 +92,7 @@ export function ConfirmModal({
     return () => {
       clearTimeout(timer);
     };
-  }, [visible, title, isMountedRef]);
+  }, [visible, title, text, isMountedRef]);
 
   const handleClose = useCallback(() => {
     if (loading) return;
@@ -138,12 +140,12 @@ export function ConfirmModal({
       <View
         style={[styles.backdrop, { backgroundColor: colors.overlay }]}
         accessibilityViewIsModal={true}
-        accessibilityLabel={`${title}. ${variantDesc}. ${message}. Choose confirm or cancel.`}
+        accessibilityLabel={`${text(title)}. ${text(message)}. ${text(confirmLabel)} / ${text(cancelLabel)}`}
       >
         <View
           style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }, cardStyle]}
           onLayout={handleCardLayout}
-          accessibilityLabel={title}
+          accessibilityLabel={text(title)}
           accessibilityState={{ busy: loading, disabled: false }}
         >
           <View style={styles.iconRow}>
@@ -167,14 +169,14 @@ export function ConfirmModal({
               accessibilityRole="header"
               numberOfLines={0}
             >
-              {title}
+              {text(title)}
             </Text>
             <Text
               style={[styles.message, { color: colors.textSecondary }]}
               accessibilityRole="text"
               numberOfLines={0}
             >
-              {message}
+              {text(message)}
             </Text>
           </ScrollView>
           <View style={styles.buttons}>
@@ -183,25 +185,25 @@ export function ConfirmModal({
               disabled={loading}
               style={[styles.button, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
               accessibilityRole="button"
-              accessibilityLabel={cancelLabel}
+              accessibilityLabel={text(cancelLabel)}
               accessibilityState={{ disabled: loading, checked: false }}
               hitSlop={8}
             >
-              <Text style={[styles.buttonText, { color: colors.text }]}>{cancelLabel}</Text>
+              <Text style={[styles.buttonText, { color: colors.text }]}>{text(cancelLabel)}</Text>
             </Pressable>
             <Pressable
               onPress={handleConfirm}
               disabled={loading}
               style={[styles.button, styles.confirmButton, { backgroundColor: accentColor }]}
               accessibilityRole="button"
-              accessibilityLabel={confirmLabel}
+              accessibilityLabel={text(confirmLabel)}
               accessibilityState={{ disabled: loading, checked: false, busy: loading }}
               hitSlop={8}
             >
               {loading ? (
                 <ActivityIndicator size="small" color={colors.textInverse} />
               ) : (
-                <Text style={[styles.buttonText, { color: colors.textInverse }]}>{confirmLabel}</Text>
+                <Text style={[styles.buttonText, { color: colors.textInverse }]}>{text(confirmLabel)}</Text>
               )}
             </Pressable>
           </View>

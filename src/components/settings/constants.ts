@@ -7,6 +7,7 @@ import type {
   StorageLocation,
 } from '@/types/api';
 import { pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
+import { availableLanguages } from '@/i18n/catalog';
 import type {
   CameraTokenFormState,
   CustomNavItemFormState,
@@ -50,19 +51,8 @@ export const SECTION_ITEMS: SectionItem[] = [
   { key: 'storage-locations', icon: 'layers', title: 'Storage Locations', description: 'Shelves, drawers, and boxes for organizing filament spools.' },
 ];
 
-export const LANGUAGE_OPTIONS = [
-  { key: 'en', label: 'English' },
-  { key: 'de', label: 'Deutsch' },
-  { key: 'fr', label: 'Français' },
-  { key: 'it', label: 'Italiano' },
-  { key: 'ja', label: '日本語' },
-  { key: 'pt-BR', label: 'Português (BR)' },
-] as const satisfies ReadonlyArray<OptionItem>;
-
-export const NOTIFICATION_LANGUAGE_OPTIONS = [
-  { key: 'en', label: 'English' },
-  { key: 'de', label: 'Deutsch' },
-] as const satisfies ReadonlyArray<OptionItem>;
+export const LANGUAGE_OPTIONS = availableLanguages;
+export const NOTIFICATION_LANGUAGE_OPTIONS = availableLanguages;
 
 export const DATE_FORMAT_OPTIONS = [
   { key: 'system', label: 'System' },
@@ -78,13 +68,10 @@ export const TIME_FORMAT_OPTIONS = [
 ] as const satisfies ReadonlyArray<OptionItem>;
 
 export const CURRENCY_OPTIONS = [
-  { key: 'USD', label: 'USD' },
-  { key: 'EUR', label: 'EUR' },
-  { key: 'GBP', label: 'GBP' },
-  { key: 'CAD', label: 'CAD' },
-  { key: 'AUD', label: 'AUD' },
-  { key: 'JPY', label: 'JPY' },
-] as const satisfies ReadonlyArray<OptionItem>;
+  'USD', 'EUR', 'GBP', 'CHF', 'JPY', 'CNY', 'CAD', 'AUD', 'INR', 'HKD',
+  'KRW', 'SEK', 'NOK', 'DKK', 'PLN', 'BRL', 'TWD', 'SGD', 'NZD', 'MXN',
+  'BZD', 'MYR', 'CZK', 'THB', 'ZAR', 'TRY', 'RUB', 'HUF', 'ILS', 'UAH', 'IDR', 'PHP',
+].map(code => ({ key: code, label: code })) satisfies ReadonlyArray<OptionItem>;
 
 export const SMTP_SECURITY_OPTIONS: Array<OptionItem<SmtpSecurity>> = [
   { key: 'starttls', label: 'STARTTLS' },

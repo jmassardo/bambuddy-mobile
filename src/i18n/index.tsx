@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { availableLanguages, catalogs, english, type Language } from './catalog';
 import { setFormattingPreferences } from '@/utils/preferences';
@@ -24,12 +24,20 @@ export function deviceLanguage(): Language {
 export function createTranslator(language: Language): Translate {
   return (key, options = {}) => {
     const plural = options.count === undefined ? key : `${key}_${new Intl.PluralRules(language).select(options.count)}`;
-    const template = catalogs[language][plural] ?? catalogs[language][key] ?? english[plural] ?? english[key] ?? options.defaultValue ?? key;
+    const alias = literalKeys.get(options.defaultValue ?? key);
+    const aliasPlural = alias && options.count !== undefined ? `${alias}_${new Intl.PluralRules(language).select(options.count)}` : alias;
+    const template = catalogs[language][plural] ?? catalogs[language][key] ??
+      (aliasPlural ? catalogs[language][aliasPlural] : undefined) ??
+      (alias ? catalogs[language][alias] : undefined) ??
+      english[plural] ?? english[key] ?? options.defaultValue ?? key;
     return template.replace(/\{\{(\w+)\}\}/g, (match, name: string) => String(options[name] ?? match));
   };
 }
 
 const literalKeys = new Map(Object.entries(english).map(([key, text]) => [text, key]));
+literalKeys.set('Settings saved.', 'common.saved');
+literalKeys.set('Tap to retry', 'common.retry');
+literalKeys.set('Error', 'common.error');
 interface LocalizationValue {
   language: Language;
   loaded: boolean;
@@ -47,21 +55,24 @@ const LocalizationContext = createContext<LocalizationValue>({
 export function LocalizationProvider({ children }: { children: React.ReactNode }) {
   const [language, updateLanguage] = useState<Language>(deviceLanguage);
   const [loaded, setLoaded] = useState(false);
+  const userSelected = useRef(false);
   useEffect(() => {
     let active = true;
     AsyncStorage.getItem(LANGUAGE_STORAGE_KEY)
-      .then(stored => { if (active && stored) updateLanguage(resolveLanguage(stored)); })
+      .then(stored => { if (active && !userSelected.current && stored) updateLanguage(resolveLanguage(stored)); })
       .catch(() => {})
       .finally(() => { if (active) setLoaded(true); });
     return () => { active = false; };
   }, []);
   useEffect(() => { setFormattingPreferences({ locale: language }); }, [language]);
   const setLanguage = useCallback(async (next: string) => {
+    userSelected.current = true;
     const resolved = resolveLanguage(next);
     await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, resolved);
     updateLanguage(resolved);
   }, []);
   const resetLanguage = useCallback(async () => {
+    userSelected.current = true;
     await AsyncStorage.removeItem(LANGUAGE_STORAGE_KEY);
     updateLanguage(deviceLanguage());
   }, []);

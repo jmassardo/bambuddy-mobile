@@ -24,6 +24,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { fontSize, spacing } from '../../theme/tokens';
+import { useTranslation } from '@/i18n';
 
 interface LoadingScreenProps {
   message?: string;
@@ -31,11 +32,12 @@ interface LoadingScreenProps {
 
 export function LoadingScreen({ message = 'Loading...' }: LoadingScreenProps) {
   const { colors } = useTheme();
+  const { text } = useTranslation();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ActivityIndicator size="large" color={colors.accent} />
-      <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
+      <Text style={[styles.message, { color: colors.textSecondary }]}>{text(message)}</Text>
     </View>
   );
 }
@@ -104,6 +106,7 @@ const EMPTY_STATE_ICONS: Record<
 
 export function EmptyState({ icon = '📭', title, message }: EmptyStateProps) {
   const { colors } = useTheme();
+  const { text } = useTranslation();
   const iconName = EMPTY_STATE_ICON_MAP[icon] ?? icon;
   const IconComponent = EMPTY_STATE_ICONS[iconName] ?? Archive;
 
@@ -112,9 +115,9 @@ export function EmptyState({ icon = '📭', title, message }: EmptyStateProps) {
       <View style={[styles.emptyIconWrap, { backgroundColor: colors.surfaceElevated }]}>
         <IconComponent size={28} color={colors.textTertiary} strokeWidth={2} />
       </View>
-      <Text style={[styles.emptyTitle, { color: colors.text }]}>{title}</Text>
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>{text(title)}</Text>
       {message && (
-        <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>
+        <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{text(message)}</Text>
       )}
     </View>
   );
@@ -127,20 +130,21 @@ interface OfflineStateProps {
 
 export function OfflineState({ message = 'No network connection. Tap to retry.', onRetry }: OfflineStateProps) {
   const { colors } = useTheme();
+  const { text, t } = useTranslation();
 
   return (
     <View style={styles.emptyContainer}>
       <View style={[styles.emptyIconWrap, { backgroundColor: `${colors.warning}18` }]}>
         <WifiOff size={28} color={colors.warning} strokeWidth={2} />
       </View>
-      <Text style={[styles.emptyTitle, { color: colors.warning }]}>No Network</Text>
-      <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>
+      <Text style={[styles.emptyTitle, { color: colors.warning }]}>{t('common.offline', { defaultValue: 'No network' })}</Text>
+      <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{text(message)}</Text>
       {onRetry && (
         <Text
           style={[styles.retryButton, { color: colors.accent }]}
           onPress={onRetry}
         >
-          Tap to retry
+          {t('common.retry')}
         </Text>
       )}
     </View>
@@ -154,20 +158,21 @@ interface ErrorStateProps {
 
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
   const { colors } = useTheme();
+  const { text, t } = useTranslation();
 
   return (
     <View style={styles.emptyContainer}>
       <View style={[styles.emptyIconWrap, { backgroundColor: `${colors.error}18` }]}>
         <AlertCircle size={28} color={colors.error} strokeWidth={2} />
       </View>
-      <Text style={[styles.emptyTitle, { color: colors.error }]}>Error</Text>
-      <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>
+      <Text style={[styles.emptyTitle, { color: colors.error }]}>{t('common.error')}</Text>
+      <Text style={[styles.emptyMessage, { color: colors.textSecondary }]} accessibilityRole="alert">{text(message)}</Text>
       {onRetry && (
         <Text
           style={[styles.retryButton, { color: colors.accent }]}
           onPress={onRetry}
         >
-          Tap to retry
+          {t('common.retry')}
         </Text>
       )}
     </View>

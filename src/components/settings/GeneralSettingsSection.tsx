@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { SectionCard, InlineTabBar, TextField } from '@/components/common/AppUI';
 import {
@@ -12,8 +12,12 @@ import { OptionChipsField, SwitchRow, settingsStyles, stringifyNumberField } fro
 import type { SettingsScreenController } from './useSettingsScreenController';
 import { GeneralWorkflowSettings } from './GeneralWorkflowSettings';
 import { PrintDefaultsSettings } from './PrintDefaultsSettings';
+import { UiPreferencesSection } from './UiPreferencesSection';
+import { useTranslation } from '@/i18n';
 
 export function GeneralSettingsSection({ controller }: { controller: SettingsScreenController }) {
+  const { language, setLanguage, t } = useTranslation();
+  const [languageError, setLanguageError] = useState(false);
   const { draft } = controller.state;
   const { setDraft } = controller.actions;
 
@@ -30,13 +34,18 @@ export function GeneralSettingsSection({ controller }: { controller: SettingsScr
           onChange={value => controller.setMode(value as typeof controller.mode)}
         />
         <OptionChipsField
-          label="Language"
-          value={String(draft.language ?? 'en')}
+          label={t('preferences.language')}
+          value={language}
           options={LANGUAGE_OPTIONS}
-          onChange={value => setDraft(current => ({ ...current, language: value }))}
+          onChange={value => {
+            setDraft(current => ({ ...current, language: value }));
+            setLanguageError(false);
+            void setLanguage(value).catch(() => setLanguageError(true));
+          }}
         />
+        {languageError ? <Text accessibilityRole="alert" style={{ color: controller.colors.error }}>{t('common.error')}</Text> : null}
         <OptionChipsField
-          label="Notification language"
+          label={t('preferences.notificationLanguage')}
           value={String(draft.notification_language ?? 'en')}
           options={NOTIFICATION_LANGUAGE_OPTIONS}
           onChange={value => setDraft(current => ({ ...current, notification_language: value }))}
@@ -61,6 +70,8 @@ export function GeneralSettingsSection({ controller }: { controller: SettingsScr
         </View>
         <Text style={[settingsStyles.helper, { color: controller.colors.textSecondary }]}>Temperatures are currently stored and reported by the server in Celsius.</Text>
       </SectionCard>
+
+      <UiPreferencesSection controller={controller} />
 
       <SectionCard title="Archiving & capture" subtitle="Archive behavior, thumbnails, finish photos, and timelapse defaults.">
         <SwitchRow
