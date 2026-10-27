@@ -1,13 +1,13 @@
 import 'react-native-get-random-values';
-import React, { useEffect } from 'react';
-import { StatusBar, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Linking, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { ErrorBoundary } from 'react-error-boundary';
-import { NavigationContainer } from '@react-navigation/native';
+import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MutationCache, QueryClient, QueryClientProvider, QueryErrorResetBoundary, onlineManager, useQueryClient } from '@tanstack/react-query';
 import NetInfo from '@react-native-community/netinfo';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { useOffline } from '@/hooks/useOffline';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { PushNotificationProvider } from '@/contexts/PushNotificationContext';
@@ -15,7 +15,17 @@ import RootNavigator from '@/navigation/RootNavigator';
 import { ThemeProvider, useTheme } from '@/theme';
 import { useServerStore } from '@/api/server';
 import { OfflineBanner } from '@/components/common/OfflineBanner';
-import { LocalizationProvider } from '@/i18n';
+import { LocalizationProvider, useTranslation } from '@/i18n';
+import { ServerPreferencesSync } from '@/components/common/ServerPreferencesSync';
+import { BugReportCollectionGuard } from '@/components/system/BugReportTools';
+import { AnnouncementBanner } from '@/components/common/AnnouncementBanner';
+import { SliceJobStatusBanner, SliceJobTrackerProvider } from '@/contexts/SliceJobTrackerContext';
+import { useUiPreferencesStore } from '@/store/uiPreferencesStore';
+import { useNavigationItems } from '@/navigation/useNavigationItems';
+import { applicationLandingState, parseConnectAuthorizeLink } from '@/navigation/applicationEntry';
+import type { RootStackParamList } from '@/navigation/types';
+
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 onlineManager.setEventListener((setOnline) => {
   return NetInfo.addEventListener((state) => {
@@ -49,18 +59,68 @@ const queryClient = new QueryClient({
 function AppContent() {
   const theme = useTheme();
   const { isOffline } = useOffline();
-  const queryClient = useQueryClient();
+  const appQueryClient = useQueryClient();
+  const { user, authEnabled, loading, requiresSetup } = useAuth();
+  const serverUrl = useServerStore(state => state.serverUrl);
+  const preferencesLoaded = useUiPreferencesStore(state => state.loaded);
+  const landingPage = useUiPreferencesStore(state => state.landingPage);
+  const navigationItems = useNavigationItems();
+  const [navigationReady, setNavigationReady] = useState(false);
+  const [linkLoaded, setLinkLoaded] = useState(false);
+  const [pendingConsent, setPendingConsent] = useState<RootStackParamList['ConnectAuthorize'] | null>(null);
+  const appliedSession = useRef<string | null>(null);
+  const session = serverUrl && !requiresSetup && (!authEnabled || user)
+    ? `${serverUrl}:${user?.id ?? 'guest'}` : null;
+  const authenticated = Boolean(session) && !loading;
+  const entryReady = preferencesLoaded && !navigationItems.loading && linkLoaded;
 
   useEffect(() => {
-    queryClient.setDefaultOptions({
+    let active = true;
+    let receivedLink = false;
+    const subscription = Linking.addEventListener('url', event => {
+      const consent = parseConnectAuthorizeLink(event.url);
+      if (consent) {
+        receivedLink = true;
+        setPendingConsent(consent);
+      }
+    });
+    void Linking.getInitialURL().then(url => {
+      if (active && !receivedLink && url) setPendingConsent(parseConnectAuthorizeLink(url));
+    }).catch(() => {}).finally(() => { if (active) setLinkLoaded(true); });
+    return () => { active = false; subscription.remove(); };
+  }, []);
+
+  useEffect(() => {
+    if (!session) {
+      appliedSession.current = null;
+      return;
+    }
+    if (!authenticated || !entryReady || !navigationReady || !navigationRef.isReady()) return;
+    if (appliedSession.current !== session) {
+      const state = applicationLandingState(landingPage, navigationItems.items);
+      navigationRef.resetRoot(pendingConsent && user
+        ? { ...state, index: state.routes.length, routes: [...state.routes, { name: 'ConnectAuthorize', params: pendingConsent }] }
+        : state);
+      appliedSession.current = session;
+      if (pendingConsent && user) setPendingConsent(null);
+    } else if (pendingConsent && user) {
+      navigationRef.navigate('ConnectAuthorize', pendingConsent);
+      setPendingConsent(null);
+    }
+  }, [session, authenticated, entryReady, navigationReady, landingPage, navigationItems.items, pendingConsent, user]);
+
+  useEffect(() => {
+    appQueryClient.setDefaultOptions({
       queries: {
         refetchInterval: isOffline ? false : undefined,
       },
     });
-  }, [queryClient, isOffline]);
+  }, [appQueryClient, isOffline]);
 
   return (
     <NavigationContainer
+      ref={navigationRef}
+      onReady={() => setNavigationReady(true)}
       theme={{
         dark: true,
         colors: {
@@ -84,8 +144,26 @@ function AppContent() {
         barStyle="light-content"
         backgroundColor={theme.colors.background}
       />
-      <RootNavigator />
+      {authenticated ? <>
+        <AnnouncementBanner onReadMore={id => {
+          if (navigationRef.isReady()) navigationRef.navigate('Announcements', { id });
+        }} />
+        <SliceJobStatusBanner />
+      </> : null}
+      <RootNavigator entryReady={entryReady} />
     </NavigationContainer>
+  );
+}
+
+function AppErrorFallback({ resetErrorBoundary }: { resetErrorBoundary: () => void }) {
+  const { text } = useTranslation();
+  const theme = useTheme();
+  return (
+    <View style={[styles.error, { backgroundColor: theme.colors.background }]}>
+      <Text accessibilityRole="alert" style={[styles.errorTitle, { color: theme.colors.text }]}>{text('Something went wrong')}</Text>
+      <Text style={[styles.errorMessage, { color: theme.colors.textSecondary }]}>{text('An unexpected error occurred. Tap below to try again.')}</Text>
+      <Text accessibilityRole="button" onPress={resetErrorBoundary} style={[styles.retry, { color: theme.colors.accent }]}>{text('Retry')}</Text>
+    </View>
   );
 }
 
@@ -102,7 +180,7 @@ export default function App() {
 
   return (
     <LocalizationProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
+      <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
         <ThemeProvider>
           <QueryClientProvider client={queryClient}>
@@ -110,18 +188,16 @@ export default function App() {
               {({ reset }) => (
                 <ErrorBoundary
                   onReset={reset}
-                  fallbackRender={({ resetErrorBoundary }) => (
-                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-                      <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8, color: '#fff' }}>Something went wrong</Text>
-                      <Text style={{ color: '#aaa', marginBottom: 16, textAlign: 'center' }}>An unexpected error occurred. Tap below to try again.</Text>
-                      <Text onPress={resetErrorBoundary} style={{ color: '#00AE42', fontSize: 16, fontWeight: '600' }}>Retry</Text>
-                    </View>
-                  )}
+                  fallbackRender={({ resetErrorBoundary }) => <AppErrorFallback resetErrorBoundary={resetErrorBoundary} />}
                 >
                   <PushNotificationProvider>
                     <ToastProvider>
                       <AuthProvider>
-                        <AppContent />
+                        <ServerPreferencesSync />
+                        <BugReportCollectionGuard />
+                        <SliceJobTrackerProvider>
+                          <AppContent />
+                        </SliceJobTrackerProvider>
                       </AuthProvider>
                     </ToastProvider>
                   </PushNotificationProvider>
@@ -135,3 +211,11 @@ export default function App() {
     </LocalizationProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  error: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  errorTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
+  errorMessage: { marginBottom: 16, textAlign: 'center' },
+  retry: { fontSize: 16, fontWeight: '600' },
+});
