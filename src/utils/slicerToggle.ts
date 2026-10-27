@@ -37,7 +37,8 @@ interface EnumRead {
 /** A resolved expression value. `undefined` means "could not determine". */
 type Value = boolean | number | string | EnumRead | undefined;
 
-const isEnumRead = (v: Value): v is EnumRead => typeof v === 'object' && v !== null && 'enumKey' in v;
+const isEnumRead = (v: Value): v is EnumRead =>
+  typeof v === 'object' && v !== null && 'enumKey' in v;
 
 /** A bare C++ enumerator (`ipGyroid`, `IroningType::NoIroning`) seen in an expression. */
 const ENUM_SYMBOL = 'enum:';
@@ -73,23 +74,49 @@ function asBoolean(v: Value): boolean | undefined {
  * first entry, which is what `opt_float_nullable(key, variant_index)` reads for
  * the active variant.
  */
-export function makeConfigReader(settings: Record<string, SettingValue>, schema: ProcessSchema): ConfigReader {
+export function makeConfigReader(
+  settings: Record<string, SettingValue>,
+  schema: ProcessSchema,
+): ConfigReader {
   const read = (key: string): Value => {
     let v: unknown = settings[key];
     if (v === undefined || v === '') v = schema[key]?.default;
     if (Array.isArray(v)) v = v[0];
-    if (typeof v === 'boolean' || typeof v === 'number' || typeof v === 'string') return v;
+    if (
+      typeof v === 'boolean' ||
+      typeof v === 'number' ||
+      typeof v === 'string'
+    )
+      return v;
     return undefined;
   };
-  return { get: read, has: (key) => key in schema };
+  return { get: read, has: key => key in schema };
 }
 
 // --- Tokenizer -------------------------------------------------------------
 
-type Token = { kind: 'num'; value: number } | { kind: 'str'; value: string } | { kind: 'id'; value: string } | { kind: 'op'; value: string };
+type Token =
+  | { kind: 'num'; value: number }
+  | { kind: 'str'; value: string }
+  | { kind: 'id'; value: string }
+  | { kind: 'op'; value: string };
 
 // Longest-first: `->` must be tried before `-`, `<=` before `<`.
-const OPERATORS = ['->', '||', '&&', '==', '!=', '<=', '>=', '(', ')', ',', '<', '>', '!'];
+const OPERATORS = [
+  '->',
+  '||',
+  '&&',
+  '==',
+  '!=',
+  '<=',
+  '>=',
+  '(',
+  ')',
+  ',',
+  '<',
+  '>',
+  '!',
+];
 
 function tokenize(src: string): Token[] | undefined {
   const tokens: Token[] = [];
@@ -115,7 +142,7 @@ function tokenize(src: string): Token[] | undefined {
       i += num[0].length;
       continue;
     }
-    const op = OPERATORS.find((o) => src.startsWith(o, i));
+    const op = OPERATORS.find(o => src.startsWith(o, i));
     if (op) {
       tokens.push({ kind: 'op', value: op });
       i += op.length;
@@ -123,7 +150,9 @@ function tokenize(src: string): Token[] | undefined {
     }
     // Identifiers, including the `->`, `::`, `<>` decorations of the C++
     // accessor forms; the parser strips those apart below.
-    const id = /^[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*/.exec(src.slice(i));
+    const id = /^[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*/.exec(
+      src.slice(i),
+    );
     if (id) {
       tokens.push({ kind: 'id', value: id[0] });
       i += id[0].length;
@@ -161,7 +190,13 @@ class Evaluator {
   private readonly resolving: Set<string>;
   private readonly memo: Map<string, Value>;
 
-  constructor(cfg: ConfigReader, locals: Record<string, string>, schema: ProcessSchema, resolving: Set<string>, memo: Map<string, Value>) {
+  constructor(
+    cfg: ConfigReader,
+    locals: Record<string, string>,
+    schema: ProcessSchema,
+    resolving: Set<string>,
+    memo: Map<string, Value>,
+  ) {
     this.cfg = cfg;
     this.locals = locals;
     this.schema = schema;
@@ -274,18 +309,31 @@ class Evaluator {
       if (typeof value !== 'string') return undefined;
       if (t.value === 'is_auto') return /\(auto\)$/.test(value);
       if (t.value === 'is_tree') return /^tree\(/.test(value);
-      if (t.value === 'is_centered_pattern') return ['archimedeanchords', 'octagramspiral'].includes(value.replace(/[ _]/g, ''));
-      if (t.value === 'is_centered_fill') return ['concentric', 'archimedeanchords', 'octagramspiral'].includes(value.replace(/[ _]/g, ''));
+      if (t.value === 'is_centered_pattern')
+        return ['archimedeanchords', 'octagramspiral'].includes(
+          value.replace(/[ _]/g, ''),
+        );
+      if (t.value === 'is_centered_fill')
+        return ['concentric', 'archimedeanchords', 'octagramspiral'].includes(
+          value.replace(/[ _]/g, ''),
+        );
       return undefined;
     }
 
     // A bare identifier is either a named local or a C++ enum symbol.
     const local = this.locals[t.value];
     if (local !== undefined) return this.resolveLocal(t.value, local);
-    const key = t.value === 'pattern' ? 'sparse_infill_pattern' : t.value === 'gcflavor' ? 'gcode_flavor' : t.value;
+    const key =
+      t.value === 'pattern'
+        ? 'sparse_infill_pattern'
+        : t.value === 'gcflavor'
+        ? 'gcode_flavor'
+        : t.value;
     if (this.cfg.has(key)) {
       const value = this.cfg.get(key);
-      return this.schema[key]?.enum_values ? { enumKey: key, value: typeof value === 'string' ? value : undefined } : value;
+      return this.schema[key]?.enum_values
+        ? { enumKey: key, value: typeof value === 'string' ? value : undefined }
+        : value;
     }
     // Not a local, so it is a C++ enumerator; `compare` decides whether it can
     // be matched against the other side's declared enum values.
@@ -296,7 +344,8 @@ class Evaluator {
   private parseConfigAccess(): Value {
     if (!this.eatOp('->')) return undefined;
     const name = this.peek();
-    if (!name || name.kind !== 'id' || !ACCESSORS.has(name.value)) return undefined;
+    if (!name || name.kind !== 'id' || !ACCESSORS.has(name.value))
+      return undefined;
     this.pos += 1;
 
     // Optional `<ConfigOptionFloat>` / `<InfillPattern>` template argument.
@@ -357,7 +406,13 @@ class Evaluator {
     if (this.resolving.has(name)) return undefined;
 
     this.resolving.add(name);
-    const nested = new Evaluator(this.cfg, this.locals, this.schema, this.resolving, this.memo);
+    const nested = new Evaluator(
+      this.cfg,
+      this.locals,
+      this.schema,
+      this.resolving,
+      this.memo,
+    );
     const value = nested.evaluate(source);
     this.resolving.delete(name);
 
@@ -378,8 +433,18 @@ class Evaluator {
  * A transliteration that matches nothing yields `undefined`, not a confident
  * `false` that would grey out a field for the wrong reason.
  */
-function compare(left: Value, right: Value, op: string, schema: ProcessSchema): Value {
-  const symbolSide = typeof left === 'string' && left.startsWith(ENUM_SYMBOL) ? left : typeof right === 'string' && right.startsWith(ENUM_SYMBOL) ? right : undefined;
+function compare(
+  left: Value,
+  right: Value,
+  op: string,
+  schema: ProcessSchema,
+): Value {
+  const symbolSide =
+    typeof left === 'string' && left.startsWith(ENUM_SYMBOL)
+      ? left
+      : typeof right === 'string' && right.startsWith(ENUM_SYMBOL)
+      ? right
+      : undefined;
 
   if (symbolSide !== undefined) {
     if (op !== '==' && op !== '!=') return undefined;
@@ -389,7 +454,9 @@ function compare(left: Value, right: Value, op: string, schema: ProcessSchema): 
     const declared = schema[other.enumKey]?.enum_values;
     if (!declared || other.value === undefined) return undefined;
 
-    const matches = enumCandidates(symbolSide.slice(ENUM_SYMBOL.length)).filter((c) => declared.includes(c));
+    const matches = enumCandidates(symbolSide.slice(ENUM_SYMBOL.length)).filter(
+      c => declared.includes(c),
+    );
     if (matches.length !== 1) return undefined;
 
     const equal = matches[0] === other.value;
@@ -402,7 +469,10 @@ function compare(left: Value, right: Value, op: string, schema: ProcessSchema): 
 
   if (op === '==' || op === '!=') {
     if (l0 === undefined || r0 === undefined) return undefined;
-    const equal = typeof l0 === 'string' || typeof r0 === 'string' ? String(l0) === String(r0) : asNumber(l0) === asNumber(r0);
+    const equal =
+      typeof l0 === 'string' || typeof r0 === 'string'
+        ? String(l0) === String(r0)
+        : asNumber(l0) === asNumber(r0);
     return op === '==' ? equal : !equal;
   }
 
@@ -423,10 +493,14 @@ function compare(left: Value, right: Value, op: string, schema: ProcessSchema): 
  * `btNoBrim`               -> ["no_brim", "no brim", "nobrim"]
  */
 function enumCandidates(symbol: string): string[] {
-  const bare = symbol.includes('::') ? symbol.slice(symbol.lastIndexOf('::') + 2) : symbol;
+  const bare = symbol.includes('::')
+    ? symbol.slice(symbol.lastIndexOf('::') + 2)
+    : symbol;
   // Enumerators are either bare PascalCase or PascalCase behind a lowercase
   // type tag (ip*, bt*, sms*); try both readings.
-  const cores = [bare, /^[a-z]+([A-Z].*)$/.exec(bare)?.[1]].filter((c): c is string => Boolean(c));
+  const cores = [bare, /^[a-z]+([A-Z].*)$/.exec(bare)?.[1]].filter(
+    (c): c is string => Boolean(c),
+  );
 
   const out = new Set<string>();
   for (const core of cores) {
@@ -451,7 +525,11 @@ export interface ToggleRules {
  * Only rules that evaluate to a definite `false` contribute; unknown and true
  * both leave the field enabled.
  */
-export function disabledKeys(settings: Record<string, SettingValue>, schema: ProcessSchema, toggles: ToggleRules): Set<string> {
+export function disabledKeys(
+  settings: Record<string, SettingValue>,
+  schema: ProcessSchema,
+  toggles: ToggleRules,
+): Set<string> {
   const cfg = makeConfigReader(settings, schema);
   const memo = new Map<string, Value>();
   const disabled = new Set<string>();
@@ -461,7 +539,13 @@ export function disabledKeys(settings: Record<string, SettingValue>, schema: Pro
     // condition, the rest selects which extruder variant to read.
     const condition = splitCondition(rule.enable_if);
     if (!condition) continue;
-    const evaluator = new Evaluator(cfg, toggles.locals, schema, new Set(), memo);
+    const evaluator = new Evaluator(
+      cfg,
+      toggles.locals,
+      schema,
+      new Set(),
+      memo,
+    );
     if (asBoolean(evaluator.evaluate(condition)) === false) {
       for (const field of rule.fields) disabled.add(field);
     }
@@ -481,7 +565,8 @@ function splitCondition(expr: string): string | undefined {
     const c = expr[i];
     if (c === '(') depth += 1;
     else if (c === ')') depth -= 1;
-    else if (c === ',' && depth === 0) return expr.slice(0, i).trim() || undefined;
+    else if (c === ',' && depth === 0)
+      return expr.slice(0, i).trim() || undefined;
   }
   return expr.trim() || undefined;
 }

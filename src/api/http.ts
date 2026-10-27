@@ -109,12 +109,13 @@ export class ApiError extends Error {
  * Wraps `fetch` with an AbortController-based timeout.
  * - Timeout fires → ApiError with code 'timeout', status 0.
  * - Caller-supplied signal abort → re-thrown as plain AbortError.
+ * - A null timeout lets server-supervised operations run until the caller aborts.
  * - Timer is always cleared in `finally`.
  */
 async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
-  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  timeoutMs: number | null = DEFAULT_TIMEOUT_MS,
 ): Promise<Response> {
   const controller = new AbortController();
   let didTimeout = false;
@@ -130,10 +131,13 @@ async function fetchWithTimeout(
     options.signal.addEventListener('abort', onAbort, { once: true });
   }
 
-  const timer = setTimeout(() => {
-    didTimeout = true;
-    controller.abort();
-  }, timeoutMs);
+  const timer =
+    timeoutMs === null
+      ? undefined
+      : setTimeout(() => {
+          didTimeout = true;
+          controller.abort();
+        }, timeoutMs);
 
   try {
     return await fetch(url, { ...options, signal: controller.signal });
@@ -151,7 +155,7 @@ async function fetchWithTimeout(
     }
     throw error;
   } finally {
-    clearTimeout(timer);
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -348,6 +352,7 @@ registerServerUrlChangeHandler(async (previousUrl, nextUrl) => {
 export async function request<T>(
   endpoint: string,
   options: RequestInit = {},
+  timeoutMs: number | null = DEFAULT_TIMEOUT_MS,
 ): Promise<T> {
   const serverUrl = getServerUrl();
   const headers: Record<string, string> = {
@@ -359,10 +364,14 @@ export async function request<T>(
     headers.Authorization = 'Bearer ' + authToken;
   }
 
-  const response = await fetchWithTimeout(apiUrl(serverUrl, endpoint), {
-    ...options,
-    headers,
-  });
+  const response = await fetchWithTimeout(
+    apiUrl(serverUrl, endpoint),
+    {
+      ...options,
+      headers,
+    },
+    timeoutMs,
+  );
 
   if (!response.ok) {
     const error = await safeParseJson<Record<string, unknown>>(response).catch(

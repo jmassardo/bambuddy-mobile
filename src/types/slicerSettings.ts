@@ -8,7 +8,11 @@
  */
 
 /** A value the user has set for one process option, in its slicer-side form. */
-export type SettingValue = string | number | boolean | Array<string | number | boolean>;
+export type SettingValue =
+  | string
+  | number
+  | boolean
+  | Array<string | number | boolean>;
 
 /**
  * OrcaSlicer's `ConfigOptionType` names, as they appear in the extracted schema.

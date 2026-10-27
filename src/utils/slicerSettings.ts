@@ -10,12 +10,17 @@
  * serialises through the schema, never by guessing from the JavaScript type.
  */
 
-import type { ProcessOption, ProcessSchema, SettingValue } from '../types/slicerSettings';
+import type {
+  ProcessOption,
+  ProcessSchema,
+  SettingValue,
+} from '../types/slicerSettings';
 
 /** Option types whose config value is a per-extruder vector. */
 const VECTOR_TYPES = new Set(['coBools', 'coFloats', 'coFloatsOrPercents']);
 
-export const isVectorOption = (option: ProcessOption): boolean => VECTOR_TYPES.has(option.type);
+export const isVectorOption = (option: ProcessOption): boolean =>
+  VECTOR_TYPES.has(option.type);
 
 /**
  * Numeric bound from the schema, or `undefined` when it isn't a number at all.
@@ -23,8 +28,11 @@ export const isVectorOption = (option: ProcessOption): boolean => VECTOR_TYPES.h
  * unresolved C++ expressions the extractor could not follow, and those must not
  * reach an input's `min`/`max`.
  */
-export function numericBound(bound: number | string | undefined): number | undefined {
-  if (typeof bound === 'number') return Number.isFinite(bound) ? bound : undefined;
+export function numericBound(
+  bound: number | string | undefined,
+): number | undefined {
+  if (typeof bound === 'number')
+    return Number.isFinite(bound) ? bound : undefined;
   if (typeof bound !== 'string') return undefined;
   const n = Number.parseFloat(bound);
   return Number.isFinite(n) ? n : undefined;
@@ -50,7 +58,10 @@ export function displaySidetext(option: ProcessOption): string | undefined {
  * process preset sets something like 0.42 — showing the former for a preset
  * that sets the latter is simply wrong.
  */
-export function baselineForDisplay(option: ProcessOption, presetValue?: SettingValue): string {
+export function baselineForDisplay(
+  option: ProcessOption,
+  presetValue?: SettingValue,
+): string {
   const d = presetValue !== undefined ? presetValue : option.default;
   if (d === undefined) return '';
   // Per-extruder vectors render as a comma-separated list. C++ literal
@@ -68,10 +79,20 @@ export function baselineForDisplay(option: ProcessOption, presetValue?: SettingV
  * stores them; scalars become strings, which is what every Bambu process preset
  * uses even for numeric options.
  */
-export function serializeSetting(option: ProcessOption, value: SettingValue): string | string[] {
+export function serializeSetting(
+  option: ProcessOption,
+  value: SettingValue,
+): string | string[] {
   if (isVectorOption(option)) {
-    const parts = Array.isArray(value) ? value.map(String) : String(value).split(',');
-    return parts.map((p) => p.trim()).filter((p) => p !== '');
+    const parts = Array.isArray(value)
+      ? value.map(String)
+      : String(value).split(',');
+    return parts
+      .map(p => p.trim())
+      .filter(p => p !== '')
+      .map(p =>
+        option.type === 'coBools' ? (p === '1' || p === 'true' ? '1' : '0') : p,
+      );
   }
 
   if (option.type === 'coBool') {
@@ -90,7 +111,10 @@ export function serializeSetting(option: ProcessOption, value: SettingValue): st
 }
 
 /** Serialises the panel's sparse override map for the slice request. */
-export function serializeOverrides(values: Record<string, SettingValue>, schema: ProcessSchema): Record<string, string | string[]> {
+export function serializeOverrides(
+  values: Record<string, SettingValue>,
+  schema: ProcessSchema,
+): Record<string, string | string[]> {
   const out: Record<string, string | string[]> = {};
   for (const [key, value] of Object.entries(values)) {
     const option = schema[key];
@@ -119,7 +143,10 @@ export function isModified(
   if (value === undefined || value === '') return false;
 
   const flatten = (v: SettingValue): string => {
-    const serialized = serializeSetting(option, Array.isArray(v) ? v.map(String).join(', ') : v);
+    const serialized = serializeSetting(
+      option,
+      Array.isArray(v) ? v.map(String).join(', ') : v,
+    );
     return Array.isArray(serialized) ? serialized.join(', ') : serialized;
   };
 

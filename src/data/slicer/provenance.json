@@ -1,0 +1,9 @@
+{
+  "source": "BambuBuddy frontend/src/data/slicer",
+  "sourceRevision": "98ecaf5020e3a20a5de49859b8ad5a754d5ad85c",
+  "schemaFields": 348,
+  "pages": ["Quality", "Strength", "Speed", "Support", "Multimaterial", "Others"],
+  "refresh": "Regenerate metadata in the upstream server repository with scripts/generate-slicer-schema.mjs, then copy process-schema.json, process-ui-tree.json and process-toggle-rules.json together. Keep the matching schema types, serializer and dependency evaluator synchronized.",
+  "labels": "Option labels, units, tooltips, ordering and dependencies deliberately match the canonical OrcaSlicer/BambuBuddy process schema. Editor chrome uses native localization.",
+  "payloads": "Only intentional schema-validated overrides are serialized. Source designer settings are sent as adopted keys, never arbitrary JSON values."
+}

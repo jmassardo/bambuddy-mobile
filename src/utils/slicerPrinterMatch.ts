@@ -60,7 +60,10 @@ const PRINTER_MODEL_SUFFIX_ALIASES: Record<string, readonly string[]> = {
  * the alias table for short codes Bambu introduced after the long forms
  * shipped (#1649).
  */
-export function matchesPrinterModelSuffix(presetSuffix: string, printerModel: string): boolean {
+export function matchesPrinterModelSuffix(
+  presetSuffix: string,
+  printerModel: string,
+): boolean {
   const p = presetSuffix.toUpperCase();
   const m = printerModel.toUpperCase();
   if (p === m) return true;
@@ -142,7 +145,10 @@ const DEFAULT_NOZZLE = '0.4';
 // Strip a trailing "<size> nozzle" segment, returning the nozzle string
 // (e.g. "0.6") or null when absent. Used by both BBL-token and printer-
 // preset extractors so the suffix is parsed identically on both sides.
-function takeNozzleSuffix(s: string): { stripped: string; nozzle: string | null } {
+function takeNozzleSuffix(s: string): {
+  stripped: string;
+  nozzle: string | null;
+} {
   const m = s.match(/^(.*?)\s+([\d.]+)\s*nozzle\s*$/i);
   if (!m) return { stripped: s.trim(), nozzle: null };
   return { stripped: m[1].trim(), nozzle: m[2] };
@@ -151,7 +157,9 @@ function takeNozzleSuffix(s: string): { stripped: string; nozzle: string | null 
 // Pull the model token and nozzle out of a "@BBL <token> [<size> nozzle]"
 // suffix. The token may contain a space (e.g. "A1 mini"), so we strip a
 // trailing nozzle segment rather than splitting on the first whitespace.
-function extractBblToken(presetName: string): { token: string; nozzle: string | null } | null {
+function extractBblToken(
+  presetName: string,
+): { token: string; nozzle: string | null } | null {
   const marker = '@BBL ';
   const idx = presetName.indexOf(marker);
   if (idx < 0) return null;
@@ -163,8 +171,11 @@ function extractBblToken(presetName: string): { token: string; nozzle: string | 
 // Pull the model fragment and nozzle out of a "Bambu Lab <model> [<size>
 // nozzle]" printer preset name. Returns null for non-Bambu printer
 // presets — there is no reliable name-based match against those.
-function extractPrinterPresetModel(printerPresetName: string): { model: string; nozzle: string | null } | null {
-  const m = stripUserClonePrefix(printerPresetName).match(/^Bambu Lab\s+(.+)$/i);
+function extractPrinterPresetModel(
+  printerPresetName: string,
+): { model: string; nozzle: string | null } | null {
+  const m =
+    stripUserClonePrefix(printerPresetName).match(/^Bambu Lab\s+(.+)$/i);
   if (!m) return null;
   const { stripped, nozzle } = takeNozzleSuffix(m[1]);
   return stripped ? { model: stripped, nozzle } : null;
@@ -208,7 +219,9 @@ function sameNozzle(a: string, b: string): boolean {
 //      says nothing about which models the profile belongs to.
 //
 // The first two shapes are also parsed in ConfigureAmsSlotModal (#1623).
-function extractPrinterTag(presetName: string): { token: string | null; nozzle: string | null } | null {
+function extractPrinterTag(
+  presetName: string,
+): { token: string | null; nozzle: string | null } | null {
   const cleaned = stripTrailingParenthetical(presetName);
   const bbl = extractBblToken(cleaned);
   if (bbl) return bbl;
@@ -257,9 +270,9 @@ function classifyByBambuName(
     // printer OUT, but a matching size proves nothing about the model, so
     // the best this can ever return is 'unknown' — never 'match'.
     if (
-      selectedParts.nozzle !== null
-      && parsed.nozzle !== null
-      && !sameNozzle(parsed.nozzle, selectedParts.nozzle)
+      selectedParts.nozzle !== null &&
+      parsed.nozzle !== null &&
+      !sameNozzle(parsed.nozzle, selectedParts.nozzle)
     ) {
       return 'mismatch';
     }
@@ -278,8 +291,9 @@ function classifyByBambuName(
   // ``matchesPrinterModelSuffix`` consults the alias table before declaring a
   // mismatch — see #1649.
   if (
-    normalizeModelFragment(selectedParts.model) !== normalizeModelFragment(inferredModel)
-    && !matchesPrinterModelSuffix(parsed.token, selectedParts.model)
+    normalizeModelFragment(selectedParts.model) !==
+      normalizeModelFragment(inferredModel) &&
+    !matchesPrinterModelSuffix(parsed.token, selectedParts.model)
   ) {
     return 'mismatch';
   }
@@ -319,16 +333,24 @@ export function presetCompatibility(
     // against a selected "# Bambu Lab …" reads as a mismatch — which now
     // hides the preset rather than merely demoting it.
     const selected = stripUserClonePrefix(selectedPrinterName);
-    return compat.some((name) => stripUserClonePrefix(name) === selected) ? 'match' : 'mismatch';
+    return compat.some(name => stripUserClonePrefix(name) === selected)
+      ? 'match'
+      : 'mismatch';
   }
   // (2) BambuStudio's `@BBL <model>` name convention — covers cloud /
   // standard presets that don't carry compatible_printers.
-  return classifyByBambuName(preset.name, selectedPrinterName, index.bambuModelByShortCode);
+  return classifyByBambuName(
+    preset.name,
+    selectedPrinterName,
+    index.bambuModelByShortCode,
+  );
 }
 
 // model token compiles to a flexible-whitespace word-boundary regex.
 function _tokenToRegex(token: string): RegExp {
-  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+  const escaped = token
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\s+/g, '\\s+');
   return new RegExp(`\\b${escaped}\\b`, 'i');
 }
 
@@ -366,11 +388,14 @@ export function extractPresetModel(
     const suffix = name.slice(atIdx + 1).trim();
     const bblMatch = suffix.match(/^BBL\s+(.+?)(?:\s+[\d.]+\s*nozzle)?$/i);
     if (bblMatch) return bblMatch[1].trim();
-    const longMatch = suffix.match(/^Bambu Lab\s+(.+?)(?:\s+[\d.]+\s*nozzle)?$/i);
+    const longMatch = suffix.match(
+      /^Bambu Lab\s+(.+?)(?:\s+[\d.]+\s*nozzle)?$/i,
+    );
     if (longMatch) {
       const longFragment = longMatch[1].trim();
       const fullKey = `Bambu Lab ${longFragment}`;
-      if (printerModelsLongToShort[fullKey]) return printerModelsLongToShort[fullKey];
+      if (printerModelsLongToShort[fullKey])
+        return printerModelsLongToShort[fullKey];
       const lower = fullKey.toLowerCase();
       for (const [k, v] of Object.entries(printerModelsLongToShort)) {
         if (k.toLowerCase() === lower) return v;

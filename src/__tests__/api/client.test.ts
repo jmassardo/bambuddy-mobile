@@ -428,6 +428,35 @@ describe('request timeouts and JSON guard', () => {
     await setAuthToken(null);
   });
 
+  it('lets server-supervised preview slices exceed the normal request timeout', async () => {
+    mockFetch.mockImplementation((_url: string, options?: RequestInit) =>
+      new Promise<Response>(resolve => {
+        expect(options?.signal?.aborted).toBe(false);
+        setTimeout(() => resolve(createResponse({ filaments: [] })), 120_000);
+      }),
+    );
+    const result = request('/library/files/7/filament-requirements', {}, null);
+    jest.advanceTimersByTime(120_000);
+    await expect(result).resolves.toEqual({ filaments: [] });
+  });
+
+  it('still cancels an unbounded preview when its caller leaves the source', async () => {
+    const controller = new AbortController();
+    mockFetch.mockImplementation((_url: string, options?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        options?.signal?.addEventListener('abort', () => {
+          const error = new Error('Aborted by caller');
+          error.name = 'AbortError';
+          reject(error);
+        });
+      }),
+    );
+    const result = request('/library/files/7/filament-requirements', { signal: controller.signal }, null);
+    jest.advanceTimersByTime(DEFAULT_TIMEOUT_MS * 2);
+    controller.abort();
+    await expect(result).rejects.toMatchObject({ name: 'AbortError', message: 'Aborted by caller' });
+  });
+
   it('rejects with a timeout ApiError when server does not respond within DEFAULT_TIMEOUT_MS', async () => {
     mockFetch.mockImplementation(
       (_url: string, options?: RequestInit) =>

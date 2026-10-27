@@ -37,7 +37,12 @@ import {
 
 export type Slot = 'printer' | 'process' | 'filament';
 
-export const SLICE_MODAL_TIER_ORDER = ['local', 'orca_cloud', 'cloud', 'standard'] as const;
+export const SLICE_MODAL_TIER_ORDER = [
+  'local',
+  'orca_cloud',
+  'cloud',
+  'standard',
+] as const;
 
 const TIER_BONUS: Record<PresetSource, number> = {
   local: 1.75,
@@ -46,7 +51,10 @@ const TIER_BONUS: Record<PresetSource, number> = {
   standard: 0.5,
 };
 
-export function pickDefault(by: UnifiedPresetsResponse, slot: Slot): PresetRef | null {
+export function pickDefault(
+  by: UnifiedPresetsResponse,
+  slot: Slot,
+): PresetRef | null {
   for (const tier of SLICE_MODAL_TIER_ORDER) {
     const list = by[tier][slot];
     if (list.length > 0) {
@@ -65,7 +73,7 @@ export function findPreset(
   slot: Slot,
 ): UnifiedPreset | null {
   if (!ref) return null;
-  return by[ref.source][slot].find((p) => p.id === ref.id) ?? null;
+  return by[ref.source][slot].find(p => p.id === ref.id) ?? null;
 }
 
 // Find a preset by exact name across tiers (local → cloud → standard). Used
@@ -77,7 +85,7 @@ export function findPresetByName(
 ): PresetRef | null {
   if (!name) return null;
   for (const tier of SLICE_MODAL_TIER_ORDER) {
-    const p = by[tier][slot].find((x) => x.name === name);
+    const p = by[tier][slot].find(x => x.name === name);
     if (p) return { source: p.source, id: p.id };
   }
   return null;
@@ -98,14 +106,19 @@ export function pickProcessDefault(
   const preferred = findPresetByName(by, 'process', preferredName);
   if (preferred) {
     const p = findPreset(by, preferred, 'process');
-    if (p && presetCompatibility(p, 'process', printerName, compatIndex) !== 'mismatch') {
+    if (
+      p &&
+      presetCompatibility(p, 'process', printerName, compatIndex) !== 'mismatch'
+    ) {
       return preferred;
     }
   }
   for (const wanted of ['match', 'unknown'] as const) {
     for (const tier of SLICE_MODAL_TIER_ORDER) {
       const candidates = by[tier].process.filter(
-        (p) => presetCompatibility(p, 'process', printerName, compatIndex) === wanted,
+        p =>
+          presetCompatibility(p, 'process', printerName, compatIndex) ===
+          wanted,
       );
       const chosen = preferDefaultLayerHeight(candidates);
       if (chosen) return { source: chosen.source, id: chosen.id };
@@ -138,7 +151,9 @@ const PROCESS_LAYER_HEIGHT = /^\s*([\d.]+)\s*mm\b/i;
  * is still eligible — an imported preset called "My Draft" must remain
  * pickable when it is the only candidate.
  */
-function preferDefaultLayerHeight(candidates: UnifiedPreset[]): UnifiedPreset | null {
+function preferDefaultLayerHeight(
+  candidates: UnifiedPreset[],
+): UnifiedPreset | null {
   let best: UnifiedPreset | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
   let bestHeight = Number.NEGATIVE_INFINITY;
@@ -149,8 +164,11 @@ function preferDefaultLayerHeight(candidates: UnifiedPreset[]): UnifiedPreset | 
     const distance = usable
       ? Math.abs(height - DEFAULT_LAYER_HEIGHT_MM)
       : Number.POSITIVE_INFINITY;
-    if (best == null || distance < bestDistance
-      || (distance === bestDistance && usable && height > bestHeight)) {
+    if (
+      best == null ||
+      distance < bestDistance ||
+      (distance === bestDistance && usable && height > bestHeight)
+    ) {
       best = p;
       bestDistance = distance;
       bestHeight = usable ? height : Number.NEGATIVE_INFINITY;
@@ -235,7 +253,8 @@ export function pickFilamentForSlot(
       if (reqType && presetType && reqType === presetType) score += 10;
       if (reqColor && presetColor) {
         if (presetColor === reqColor) score += 5;
-        else if (colorsAreSimilar(p.filament_colour ?? '', required.color)) score += 2;
+        else if (colorsAreSimilar(p.filament_colour ?? '', required.color))
+          score += 2;
       }
       score += TIER_BONUS[tier];
       const ref = { source: p.source, id: p.id };
@@ -243,7 +262,10 @@ export function pickFilamentForSlot(
         if (bestWrongType == null || score > bestWrongType.score) {
           bestWrongType = { ref, score };
         }
-      } else if (presetCompatibility(p, 'filament', printerName, compatIndex) === 'mismatch') {
+      } else if (
+        presetCompatibility(p, 'filament', printerName, compatIndex) ===
+        'mismatch'
+      ) {
         if (bestMismatch == null || score > bestMismatch.score) {
           bestMismatch = { ref, score };
         }
