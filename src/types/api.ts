@@ -511,6 +511,7 @@ export interface AMSUnit {
   dry_target_temp: number | null; // Active-cycle target °C (Bambu does not echo)
   dry_filament: string | null;    // Active-cycle filament name we sent
   module_type: string;    // "ams", "n3f", "n3s"
+  dry_countdown_stalled?: boolean;
 }
 
 export interface NozzleInfo {
@@ -654,6 +655,10 @@ export interface PrinterStatus {
   awaiting_plate_clear: boolean;
   // AMS drying support
   supports_drying: boolean;
+  supports_drying_while_printing?: boolean;
+  drying_screen_only?: boolean;
+  left_aux_fan_speed?: number | null;
+  exhaust_fan_present?: boolean;
   // Active chamber heater (responds to M141). True only for H2C/H2D/H2DPro/H2S/X2D.
   supports_chamber_heater?: boolean;
 }
@@ -4322,4 +4327,79 @@ export interface SponsorPromptCheckResponse {
   family?: 'prints' | 'cost' | 'archives' | 'anniversary' | 'version-update';
   threshold?: number;
   payload?: Record<string, unknown>;
+}
+// Printer-controls parity: physical device commands and runtime integrations.
+export interface DeviceSlotConfiguration {
+  tray_info_idx: string;
+  tray_type: string;
+  tray_sub_brands: string;
+  tray_color: string;
+  nozzle_temp_min: number;
+  nozzle_temp_max: number;
+  cali_idx: number;
+  nozzle_diameter: string;
+  setting_id: string;
+  kprofile_filament_id?: string;
+  kprofile_setting_id?: string;
+  k_value: number;
+  orca_profile_id?: string;
+}
+
+export interface DeviceSlotResult {
+  tray_info_idx?: string;
+  orca_fallback_reason?: string | null;
+}
+
+export interface ScheduledDryingCreate {
+  printer_id: number;
+  ams_id: number;
+  temp: number;
+  duration_hours: number;
+  filament: string;
+  rotate_tray: boolean;
+  start_after: string | null;
+}
+
+export interface ScheduledDrying extends ScheduledDryingCreate {
+  id: number;
+  status: string;
+  waiting_reason: string | null;
+  error_message: string | null;
+  error_code?: string | null;
+}
+
+export interface PrinterHASensorReading {
+  id: number;
+  name: string;
+  entity_id: string;
+  kind: string;
+  state: string | null;
+  value: number | null;
+  unit: string | null;
+  reachable: boolean;
+  alerting: boolean;
+  block_print: boolean;
+}
+
+export interface SpoolmanSlotSpool {
+  id: number;
+  brand: string | null;
+  material: string;
+  color_name: string | null;
+  rgba: string | null;
+  slicer_filament_name?: string | null;
+  archived_at?: string | null;
+}
+
+export interface SpoolmanSlotBinding {
+  printer_id: number;
+  ams_id: number;
+  tray_id: number;
+  spoolman_spool_id: number;
+}
+
+export interface PrinterSDListing {
+  path: string;
+  files: { name: string; path: string; size: number; is_directory: boolean; modified?: string | null }[];
+  warnings: string[];
 }

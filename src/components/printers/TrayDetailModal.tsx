@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -20,6 +21,11 @@ import {
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { AssignSpoolModal } from '@/components/printers/AssignSpoolModal';
 import { LinkSpoolModal } from '@/components/printers/LinkSpoolModal';
+import { ConfigureDeviceSlot } from '@/components/printers/ConfigureDeviceSlot';
+import { printerControlsApi as device } from '@/api/printerControls';
+import { dryingCapabilities, dryingReasonText, physicalTrayId, requireInteger, unloadTrayId } from './deviceControlUtils';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/i18n';
 import { api, ApiError } from '@/api/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -75,7 +81,6 @@ function flattenFilamentPresets(
     'local',
     'orca_cloud',
     'cloud',
-    'standard',
   ];
 
   return sources.flatMap(source =>
@@ -95,6 +100,8 @@ export function TrayDetailModal({
   onClose,
 }: TrayDetailModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const { hasPermission } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [configuring, setConfiguring] = useState(false);
@@ -105,6 +112,8 @@ export function TrayDetailModal({
   const [dryingDuration, setDryingDuration] = useState('6');
   const [dryingFilament, setDryingFilament] = useState('');
   const [rotateTray, setRotateTray] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<UnifiedPreset | null>(null);
+  const [rfidBaseline, setRfidBaseline] = useState<number | null>(null);
 
   useEffect(() => {
     if (!visible) {
@@ -112,13 +121,15 @@ export function TrayDetailModal({
       setShowAssignSpoolModal(false);
       setShowLinkSpoolModal(false);
       setSearch('');
+      setSelectedPreset(null);
+      setRfidBaseline(null);
     }
   }, [visible]);
 
   useEffect(() => {
     if (!tray) return;
-    setDryingTemp(String(Math.max(45, Math.min(85, tray.drying_temp ?? 55))));
-    setDryingDuration(String(Math.max(1, Math.min(24, tray.drying_time ?? 6))));
+    setDryingTemp(tray.drying_temp == null ? '' : String(tray.drying_temp));
+    setDryingDuration(tray.drying_time == null ? '' : String(tray.drying_time));
     setDryingFilament(tray.tray_sub_brands || tray.tray_type || '');
     setRotateTray(false);
   }, [tray]);
@@ -143,12 +154,16 @@ export function TrayDetailModal({
     enabled: visible && configuring,
     staleTime: 120_000,
   });
+  const builtinPresetsQuery = useQuery({
+    queryKey: ['builtinFilaments'], queryFn: () => device.builtinFilaments(),
+    enabled: visible && configuring, staleTime: Infinity,
+  });
 
   const statusQuery = useQuery({
     queryKey: ['printerStatus', printerId],
     queryFn: () => api.getPrinterStatus(printerId),
     enabled: visible,
-    refetchInterval: visible ? 15_000 : false,
+    refetchInterval: visible ? 3000 : false,
   });
 
   const assignmentsQuery = useQuery({
@@ -181,9 +196,9 @@ export function TrayDetailModal({
   });
 
   const loadMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (extruder?: number) => {
       if (!context) throw new Error('Tray context unavailable');
-      return api.loadFilament(printerId, context.amsId, context.trayId);
+      return device.load(printerId, physicalTrayId(context.amsId, context.trayId), extruder);
     },
     onSuccess: async () => {
       await invalidatePrinter();
@@ -195,7 +210,7 @@ export function TrayDetailModal({
   });
 
   const unloadMutation = useMutation({
-    mutationFn: () => api.unloadFilament(printerId),
+    mutationFn: () => device.unload(printerId, context ? unloadTrayId(context.amsId, context.trayId) : undefined),
     onSuccess: async () => {
       await invalidatePrinter();
       showToast('Filament unload started.', 'success');
@@ -205,26 +220,32 @@ export function TrayDetailModal({
       showToast(getErrorMessage(error, 'Unable to unload filament.'), 'error'),
   });
 
-  const savePresetMutation = useMutation({
-    mutationFn: (preset: UnifiedPreset) => {
+  const refreshMutation = useMutation({
+    mutationFn: () => {
       if (!context) throw new Error('Tray context unavailable');
-      return api.saveSlotPreset(
-        printerId,
-        context.amsId,
-        context.trayId,
-        preset.id,
-        preset.name,
-        preset.source,
-      );
+      setRfidBaseline(statusQuery.data?.last_ams_update ?? 0);
+      return api.refreshAmsSlot(printerId, context.amsId, context.trayId);
     },
-    onSuccess: async () => {
-      await invalidatePrinter();
-      showToast('Slot profile updated.', 'success');
-      setConfiguring(false);
+    onError: error => {
+      setRfidBaseline(null);
+      showToast(getErrorMessage(error, t('device.rfidFailed', { defaultValue: 'Device RFID reread failed.' })), 'error');
     },
-    onError: error =>
-      showToast(getErrorMessage(error, 'Unable to update slot profile.'), 'error'),
   });
+  useEffect(() => {
+    if (rfidBaseline == null || refreshMutation.isPending) return;
+    if ((statusQuery.data?.last_ams_update ?? 0) > rfidBaseline && statusQuery.data?.ams_status_main !== 2) {
+      setRfidBaseline(null);
+      showToast(t('device.rfidCompleted', { defaultValue: 'AMS status refreshed after RFID reread.' }), 'success');
+    }
+  }, [rfidBaseline, refreshMutation.isPending, showToast, statusQuery.data?.last_ams_update, statusQuery.data?.ams_status_main, t]);
+  useEffect(() => {
+    if (rfidBaseline == null) return;
+    const timer = setTimeout(() => {
+      setRfidBaseline(null);
+      showToast(t('device.rfidTimeout', { defaultValue: 'RFID command sent, but no completion was reported. Check the tray and retry.' }), 'error');
+    }, 60000);
+    return () => clearTimeout(timer);
+  }, [rfidBaseline, showToast, t]);
 
   const unassignSpoolMutation = useMutation({
     mutationFn: () => {
@@ -282,8 +303,12 @@ export function TrayDetailModal({
   }, [context, slotPresetsQuery.data]);
 
   const presets = useMemo(
-    () => flattenFilamentPresets(slicerPresetsQuery.data as UnifiedPresetsResponse | undefined),
-    [slicerPresetsQuery.data],
+    () => [...flattenFilamentPresets(slicerPresetsQuery.data as UnifiedPresetsResponse | undefined),
+      ...(builtinPresetsQuery.data ?? []).map(preset => ({
+        id: `builtin_${preset.filament_id}`, name: preset.name, source: 'standard' as const,
+        filament_type: preset.type,
+      }))],
+    [slicerPresetsQuery.data, builtinPresetsQuery.data],
   );
 
   const filteredPresets = useMemo(() => {
@@ -321,12 +346,14 @@ export function TrayDetailModal({
   );
   const dryingSupported = Boolean(
     visible &&
-      statusQuery.data?.supports_drying &&
+      (statusQuery.data?.supports_drying || statusQuery.data?.drying_screen_only) &&
       currentAms &&
+      ['n3f', 'n3s'].includes(currentAms.module_type) &&
       !context?.isExternal,
   );
   const dryingActive = Boolean((currentAms?.dry_time ?? 0) > 0);
   const dryingLoadedTray = Boolean(currentAms?.tray.some(slot => slot.state === 11));
+  const dryingCaps = currentAms ? dryingCapabilities(statusQuery.data, currentAms) : null;
   const currentAssignment = useMemo(
     () =>
       (assignmentsQuery.data ?? []).find(
@@ -345,15 +372,15 @@ export function TrayDetailModal({
   const startDryingMutation = useMutation({
     mutationFn: () => {
       if (!context) throw new Error('Tray context unavailable');
-      const temp = Math.max(45, Math.min(85, Number(dryingTemp) || 55));
-      const duration = Math.max(1, Math.min(24, Number(dryingDuration) || 6));
+      const temp = requireInteger(dryingTemp, 45, dryingCaps?.maxTemperature ?? 45);
+      const duration = requireInteger(dryingDuration, 1, 24);
       return api.startDrying(
         printerId,
         context.amsId,
         temp,
         duration,
         dryingFilament.trim(),
-        rotateTray && !dryingLoadedTray,
+        rotateTray && !dryingLoadedTray && dryingCaps?.canRotate === true,
       );
     },
     onSuccess: async () => {
@@ -379,8 +406,18 @@ export function TrayDetailModal({
 
   if (!tray || !context) return null;
 
-  const loadDisabled = isPrinting || !hasFilament || loadMutation.isPending;
-  const unloadDisabled = isPrinting || unloadMutation.isPending;
+  const canControl = hasPermission('printers:control') && statusQuery.data?.connected === true;
+  const loadDisabled = !canControl || isPrinting || !hasFilament || loadMutation.isPending;
+  const unloadDisabled = !canControl || isPrinting || unloadMutation.isPending;
+  const requestLoad = () => {
+    if (statusQuery.data?.fila_switch?.installed && statusQuery.data?.temperatures?.nozzle_2 != null && !context.isExternal) {
+      Alert.alert(t('device.feedDirection', { defaultValue: 'Choose feed direction' }), t('device.chooseHotend', { defaultValue: 'Which hotend should this AMS feed?' }), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('device.right', { defaultValue: 'Right' }), onPress: () => loadMutation.mutate(0) },
+        { text: t('device.left', { defaultValue: 'Left' }), onPress: () => loadMutation.mutate(1) },
+      ]);
+    } else loadMutation.mutate(undefined);
+  };
   const slotLabel = context.isExternal
     ? context.amsLabel
     : `${context.amsLabel} • Slot ${context.label}`;
@@ -457,6 +494,9 @@ export function TrayDetailModal({
                   Current profile: {currentProfileLabel}
                 </Text>
                 <ScrollView showsVerticalScrollIndicator={false}>
+                  {selectedPreset ? <ConfigureDeviceSlot key={`${selectedPreset.source}-${selectedPreset.id}`} printerId={printerId}
+                    amsId={context.amsId} trayId={context.trayId} tray={tray} preset={selectedPreset}
+                    onSaved={() => { setConfiguring(false); setSelectedPreset(null); }} /> : null}
                   {slicerPresetsQuery.isLoading ? (
                     <View style={styles.loadingState}>
                       <ActivityIndicator color={colors.accent} />
@@ -465,6 +505,7 @@ export function TrayDetailModal({
                       </Text>
                     </View>
                   ) : null}
+                  {slicerPresetsQuery.error || builtinPresetsQuery.error ? <Text style={{ color: colors.error }}>{slicerPresetsQuery.error?.message || builtinPresetsQuery.error?.message}</Text> : null}
 
                   {!slicerPresetsQuery.isLoading && filteredPresets.length === 0 ? (
                     <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -477,8 +518,7 @@ export function TrayDetailModal({
                     return (
                       <Pressable
                         key={`${preset.source}-${preset.id}`}
-                        onPress={() => savePresetMutation.mutate(preset)}
-                        disabled={savePresetMutation.isPending}
+                        onPress={() => setSelectedPreset(preset)}
                         style={[
                           styles.presetRow,
                           {
@@ -487,7 +527,6 @@ export function TrayDetailModal({
                               : colors.surfaceElevated,
                             borderColor: selected ? colors.accent : colors.border,
                           },
-                          savePresetMutation.isPending && styles.disabledButton,
                         ]}
                       >
                         <View style={styles.presetText}>
@@ -620,10 +659,14 @@ export function TrayDetailModal({
                       AMS drying
                     </Text>
                     <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-                      {dryingActive
+                      {dryingCaps?.screenOnly ? t('device.screenOnly', { defaultValue: 'Control from printer screen only' }) : dryingCaps?.stalled ? t('device.stalled', { defaultValue: 'Not running / countdown stalled' }) : dryingActive
                         ? `${Math.ceil((currentAms?.dry_time ?? 0) / 60)}h remaining`
                         : 'Start a drying cycle for this AMS.'}
                     </Text>
+
+                    {dryingCaps?.blockedReasons.length ? <Text style={{ color: colors.warning }}>
+                      {t('device.dryingBlocked', { defaultValue: 'Blocked: {{reasons}}', reasons: dryingCaps.blockedReasons.map(code => t(`device.dryingReason.${code}`, { defaultValue: dryingReasonText(code) })).join(', ') })}
+                    </Text> : null}
 
                     {dryingActive ? (
                       <View style={styles.detailList}>
@@ -642,14 +685,18 @@ export function TrayDetailModal({
                           <Text style={[styles.detailValue, { color: colors.text }]}>
                             {currentAms?.dry_target_temp != null
                               ? `${currentAms.dry_target_temp}°C`
-                              : `${dryingTemp}°C`}
+                              : '—'}
                           </Text>
                         </View>
                         <PrimaryButton
                           label={stopDryingMutation.isPending ? 'Stopping…' : 'Stop drying'}
                           variant="danger"
-                          onPress={() => stopDryingMutation.mutate()}
-                          disabled={stopDryingMutation.isPending}
+                          onPress={() => Alert.alert(t('device.stopDrying', { defaultValue: 'Stop drying' }),
+                            t('device.confirmStopDrying', { defaultValue: 'Stop this AMS drying cycle?' }), [
+                              { text: t('common.cancel'), style: 'cancel' },
+                              { text: t('common.confirm', { defaultValue: 'Confirm' }), onPress: () => stopDryingMutation.mutate() },
+                            ])}
+                          disabled={!canControl || dryingCaps?.screenOnly || stopDryingMutation.isPending}
                           loading={stopDryingMutation.isPending}
                         />
                       </View>
@@ -675,7 +722,7 @@ export function TrayDetailModal({
                         />
                         <Pressable
                           onPress={() => {
-                            if (!dryingLoadedTray) setRotateTray(current => !current);
+                            if (!dryingLoadedTray && dryingCaps?.canRotate) setRotateTray(current => !current);
                           }}
                           style={[
                             styles.toggleRow,
@@ -699,7 +746,7 @@ export function TrayDetailModal({
                               { color: rotateTray && !dryingLoadedTray ? colors.accentLight : colors.textSecondary },
                             ]}
                           >
-                            {dryingLoadedTray ? 'Unavailable' : rotateTray ? 'On' : 'Off'}
+                            {dryingLoadedTray || !dryingCaps?.canRotate ? 'Unavailable' : rotateTray ? 'On' : 'Off'}
                           </Text>
                         </Pressable>
                         {dryingLoadedTray ? (
@@ -710,7 +757,7 @@ export function TrayDetailModal({
                         <PrimaryButton
                           label={startDryingMutation.isPending ? 'Starting…' : 'Start drying'}
                           onPress={() => startDryingMutation.mutate()}
-                          disabled={startDryingMutation.isPending}
+                          disabled={!canControl || dryingCaps?.screenOnly || !dryingCaps?.supported || !!dryingCaps?.blockedReasons.length || (isPrinting && statusQuery.data?.supports_drying_while_printing !== true) || startDryingMutation.isPending}
                           loading={startDryingMutation.isPending}
                         />
                       </View>
@@ -801,14 +848,19 @@ export function TrayDetailModal({
                 <View style={styles.actions}>
                   <PrimaryButton
                     label={loadMutation.isPending ? 'Loading…' : 'Load filament'}
-                    onPress={() => loadMutation.mutate()}
+                    onPress={requestLoad}
                     disabled={loadDisabled}
                     loading={loadMutation.isPending}
                   />
                   <PrimaryButton
                     label={unloadMutation.isPending ? 'Unloading…' : 'Unload filament'}
                     variant="secondary"
-                    onPress={() => unloadMutation.mutate()}
+                    onPress={() => Alert.alert(t('device.unload', { defaultValue: 'Unload filament?' }),
+                      context.amsId >= 128 && context.amsId <= 135
+                        ? t('device.htUnloadFallback', { defaultValue: 'AMS HT cannot be addressed individually. This will unload the printer’s currently active feed path.' })
+                        : t('device.unloadSelected', { defaultValue: 'Unload the hotend fed from this selected slot?' }), [
+                        { text: t('common.cancel'), style: 'cancel' }, { text: t('common.confirm', { defaultValue: 'Confirm' }), onPress: () => unloadMutation.mutate() },
+                      ])}
                     disabled={unloadDisabled}
                     loading={unloadMutation.isPending}
                   />
@@ -816,8 +868,11 @@ export function TrayDetailModal({
                     label="Configure slot"
                     variant="secondary"
                     onPress={() => setConfiguring(true)}
-                    disabled={savePresetMutation.isPending}
+                    disabled={!canControl || !hasPermission('printers:update')}
                   />
+                  {!context.isExternal ? <PrimaryButton label={rfidBaseline != null ? t('device.readingRFID', { defaultValue: 'Waiting for device RFID reread…' }) : t('device.rereadRFID', { defaultValue: 'Reread spool RFID on printer' })}
+                    variant="secondary" disabled={!hasPermission('printers:ams_rfid') || !statusQuery.data?.connected || isPrinting || rfidBaseline != null} loading={refreshMutation.isPending}
+                    onPress={() => refreshMutation.mutate()} /> : null}
                 </View>
               </ScrollView>
             )}
@@ -833,6 +888,7 @@ export function TrayDetailModal({
         slotLabel={slotLabel}
         materialHint={tray.tray_type}
         colorHint={tray.tray_color}
+        profileHint={currentPreset?.preset_name ?? tray.tray_sub_brands}
         onClose={() => setShowAssignSpoolModal(false)}
       />
 

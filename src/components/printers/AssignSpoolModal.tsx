@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -12,6 +13,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Package, Search, X } from 'lucide-react-native';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { api, ApiError } from '@/api/client';
+import { printerControlsApi as device } from '@/api/printerControls';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/i18n';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -25,6 +29,7 @@ interface AssignSpoolModalProps {
   slotLabel: string;
   materialHint?: string | null;
   colorHint?: string | null;
+  profileHint?: string | null;
   onClose: () => void;
 }
 
@@ -56,12 +61,41 @@ export function AssignSpoolModal({
   slotLabel,
   materialHint,
   colorHint,
+  profileHint,
   onClose,
 }: AssignSpoolModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const { hasPermission } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [source, setSource] = useState<'inventory' | 'spoolman'>('inventory');
+  const spoolman = useQuery({ queryKey: ['spoolmanStatus'], queryFn: () => api.getSpoolmanStatus(), enabled: visible });
+  const spoolmanSpools = useQuery({ queryKey: ['spoolmanSlotSpools'], queryFn: () => device.spoolmanSpools(), enabled: visible && source === 'spoolman' && spoolman.data?.enabled === true });
+  const bindings = useQuery({ queryKey: ['spoolmanSlotBindings'], queryFn: () => device.spoolmanBindings(), enabled: visible && spoolman.data?.enabled === true });
+  const binding = bindings.data?.find(item => item.printer_id === printerId && item.ams_id === amsId && item.tray_id === trayId);
+  const confirmAssignment = (spool: { material: string; rgba: string | null; slicer_filament_name?: string | null }, submit: () => void) => {
+    const mismatch = (materialHint && spool.material.toLowerCase() !== materialHint.toLowerCase())
+      || (profileHint && spool.slicer_filament_name && spool.slicer_filament_name !== profileHint);
+    Alert.alert(mismatch ? t('device.assignmentMismatch', { defaultValue: 'Material / profile mismatch' }) : t('device.assignSpool', { defaultValue: 'Assign spool?' }),
+      t('device.assignmentChanges', { defaultValue: 'Current: {{current}}. New: {{next}}. Assignment may replace the printer material, color and K profile. Empty slots are configured after insertion. Continue?',
+        current: [materialHint, profileHint].filter(Boolean).join(' · ') || '—',
+        next: [spool.material, spool.slicer_filament_name, spool.rgba].filter(Boolean).join(' · ') }),
+      [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.confirm', { defaultValue: 'Confirm' }), onPress: submit }]);
+  };
+  const assignSpoolman = useMutation({
+    mutationFn: (id: number) => device.assignSpoolman(printerId, amsId, trayId, id),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['spoolmanSlotBindings'] }),
+        queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] }),
+      ]);
+      showToast(t('device.spoolmanAssigned', { defaultValue: 'Spoolman spool assigned to this slot.' }), 'success');
+      onClose();
+    },
+    onError: error => showToast(error.message, 'error'),
+  });
 
   const spoolsQuery = useQuery({
     queryKey: ['inventorySpools', 'assign-modal'],
@@ -131,13 +165,17 @@ export function AssignSpoolModal({
 
   const assignMutation = useMutation({
     mutationFn: (spoolId: number) => api.assignSpool(spoolId, printerId, amsId, trayId),
-    onSuccess: async () => {
+    onSuccess: async assignment => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['inventoryAssignments'] }),
         queryClient.invalidateQueries({ queryKey: ['inventorySpools'] }),
         queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] }),
       ]);
-      showToast('Spool assigned to slot.', 'success');
+      showToast(assignment.pending_config
+        ? t('device.assignedAwaitingInsert', { defaultValue: 'Spool assigned; printer configuration is waiting for insertion.' })
+        : assignment.configured
+          ? t('device.assignedConfigured', { defaultValue: 'Spool assigned and printer slot configured.' })
+          : t('device.assignedNotConfirmed', { defaultValue: 'Spool assigned; printer configuration has not been confirmed.' }), 'success');
       onClose();
     },
     onError: error =>
@@ -185,6 +223,22 @@ export function AssignSpoolModal({
             autoCapitalize="none"
             autoCorrect={false}
           />
+          {spoolman.data?.enabled ? <View style={styles.hints}>
+            <PrimaryButton label={t('device.localInventory', { defaultValue: 'Local inventory' })} variant={source === 'inventory' ? 'primary' : 'secondary'} onPress={() => setSource('inventory')} />
+            <PrimaryButton label="Spoolman" variant={source === 'spoolman' ? 'primary' : 'secondary'} onPress={() => setSource('spoolman')} />
+          </View> : null}
+          {binding ? <Text style={{ color: colors.text }}>{t('device.spoolmanBinding', { defaultValue: 'Current Spoolman binding: #{{id}}', id: binding.spoolman_spool_id })}</Text> : null}
+          {bindings.error ? <Text style={{ color: colors.error }}>{bindings.error.message}</Text> : null}
+          {source === 'spoolman' ? <ScrollView>
+            {spoolmanSpools.isLoading ? <ActivityIndicator /> : null}
+            {spoolmanSpools.error ? <Text style={{ color: colors.error }}>{spoolmanSpools.error.message}</Text> : null}
+            {spoolmanSpools.data?.filter(spool => !bindings.data?.some(item =>
+              item.spoolman_spool_id === spool.id && !(item.printer_id === printerId && item.ams_id === amsId && item.tray_id === trayId)))
+              .filter(spool => [spool.brand, spool.material, spool.color_name, String(spool.id)].join(' ').toLowerCase().includes(search.toLowerCase()))
+              .map(spool => <PrimaryButton key={spool.id} label={`#${spool.id} · ${spool.brand} ${spool.material} ${spool.color_name ?? ''}`}
+                disabled={!hasPermission('inventory:update') || assignSpoolman.isPending || !bindings.isSuccess}
+                onPress={() => confirmAssignment(spool, () => assignSpoolman.mutate(spool.id))} />)}
+          </ScrollView> : null}
 
           <View style={styles.hints}>
             {materialHint ? (
@@ -243,13 +297,13 @@ export function AssignSpoolModal({
               </View>
             ) : null}
 
-            {filteredSpools.map(spool => {
+            {source === 'inventory' ? filteredSpools.map(spool => {
               const color = swatchColor(spool);
               return (
                 <Pressable
                   key={spool.id}
-                  onPress={() => assignMutation.mutate(spool.id)}
-                  disabled={assignMutation.isPending}
+                  onPress={() => confirmAssignment(spool, () => assignMutation.mutate(spool.id))}
+                  disabled={!hasPermission('inventory:update') || assignMutation.isPending || !assignmentsQuery.isSuccess}
                   style={[
                     styles.row,
                     {
@@ -286,7 +340,7 @@ export function AssignSpoolModal({
                   </Text>
                 </Pressable>
               );
-            })}
+            }) : null}
           </ScrollView>
 
           <PrimaryButton label="Close" variant="secondary" onPress={onClose} />

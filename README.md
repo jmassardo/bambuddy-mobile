@@ -60,6 +60,22 @@ Printer options include connection/profile editing (blank replacement access cod
 
 The firmware badge opens available versions, release notes, and SD-card prerequisite checks. Firmware upload requires the server's firmware-update permission and **does not install the update**: apply the uploaded file from the printer's Settings → Firmware menu. Printer controls and plate clearance require their corresponding server permissions; clearing a plate may release waiting queue jobs.
 
+### Physical printer controls
+
+Printer details include live heater/fan controls, per-AMS environmental history,
+friendly names, backup groups, and capability-aware drying with delayed schedules.
+Tray sheets can reread device RFID, configure material/color/K profiles, assign
+local or Spoolman inventory, and route filament to a hotend when an FTS is fitted.
+AMS-HT unload uses the printer-wide fallback, with an explicit warning.
+Unknown capabilities and backup state are not treated as disabled device settings.
+Screen-only drying must be controlled at the printer.
+
+The printer SD browser accesses the **physical printer**, not the server Library.
+It supports folders, plate/image/text previews, selected-file download through the
+native save/share sheet, and confirmed deletion. Printer file permission is required.
+Object skipping supports plate-image and list multi-selection with a grouped,
+irreversible confirmation; it remains available after reconnecting mid-print.
+
 ## Requirements
 
 - A self-hosted Bambuddy server instance

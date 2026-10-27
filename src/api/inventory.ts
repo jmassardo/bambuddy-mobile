@@ -51,7 +51,7 @@ export const inventoryApi = {
     amsId: number,
     trayId: number,
   ) =>
-    request<void>('/inventory/assignments', {
+    request<SpoolAssignment>('/inventory/assignments', {
       method: 'POST',
       body: JSON.stringify({
         spool_id: spoolId,

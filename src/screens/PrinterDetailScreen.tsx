@@ -1,4 +1,5 @@
 import React from 'react';
+import { PrinterDeviceControls } from '@/components/printers/PrinterDeviceControls';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import {
@@ -946,6 +947,8 @@ export default function PrinterDetailScreen() {
           ).toFixed(0)}%`}
         />
       </SectionCard>
+
+      <PrinterDeviceControls printerId={printerId} model={printerQuery.data?.model} />
 
       <SectionCard title="AMS" subtitle="Loaded filament slots.">
         {amsSlots.length > 0 ? (

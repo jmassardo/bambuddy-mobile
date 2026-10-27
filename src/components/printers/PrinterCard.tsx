@@ -103,8 +103,7 @@ export function PrinterCard({
   const isConnected = status?.connected ?? false;
   const isPrinting = status?.state === 'RUNNING' || status?.state === 'PAUSE';
   const isPaused = status?.state === 'PAUSE';
-  const isPrintingWithObjects =
-    isPrinting && (status?.printable_objects_count ?? 0) > 0;
+  const isPrintingWithObjects = isPrinting;
   const taskThumbnailUrl = (status as PrinterStatusWithThumbnail | undefined)
     ?.task_thumbnail_url;
   const hmsErrors = filterKnownHMSErrors(status?.hms_errors ?? []);
