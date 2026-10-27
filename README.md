@@ -39,6 +39,8 @@ Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print
 - Statistics, analytics, and historical archives with photo galleries
 - Project organization for multi-part builds
 - Maintenance tracking
+- Notification providers (including Bark, CallMeBot, and Home Assistant), per-event/printer routing, photo/quiet-hour/digest policies, draft and aggregate delivery tests, searchable template previews, and filterable delivery history
+- Personal email preferences remain independent of provider event subscriptions; bed-cooled alerts support a configurable 20–80 °C threshold
 - Planned push notifications
 
 ## Requirements

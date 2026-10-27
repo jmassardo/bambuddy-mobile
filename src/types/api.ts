@@ -2271,9 +2271,22 @@ export interface MQTTStatus {
 
 // Notification types
 
-export type ProviderType = 'callmebot' | 'ntfy' | 'pushover' | 'telegram' | 'email' | 'discord' | 'webhook' | 'homeassistant';
+export type ProviderType = 'callmebot' | 'ntfy' | 'pushover' | 'telegram' | 'email' | 'discord' | 'webhook' | 'homeassistant' | 'bark';
 
-export interface NotificationProvider {
+// Notifications parity: newer server delivery and event fields.
+export interface NotificationDeliveryFields {
+  attach_photo?: boolean;
+  on_print_confirm_request?: boolean;
+  on_plate_clear_required?: boolean;
+  on_billing_charge_failed?: boolean;
+  on_ams_drying_suspended?: boolean;
+  on_ha_sensor_alert?: boolean;
+  on_location_ha_sensor_alert?: boolean;
+  on_app_message?: boolean;
+  telegram_verdict_mode?: 'buttons' | 'reactions' | 'both';
+}
+
+export interface NotificationProvider extends NotificationDeliveryFields {
   id: number;
   name: string;
   provider_type: ProviderType;
@@ -2333,7 +2346,7 @@ export interface NotificationProvider {
   updated_at: string;
 }
 
-export interface NotificationProviderCreate {
+export interface NotificationProviderCreate extends NotificationDeliveryFields {
   name: string;
   provider_type: ProviderType;
   enabled?: boolean;
@@ -2385,7 +2398,7 @@ export interface NotificationProviderCreate {
   printer_id?: number | null;
 }
 
-export interface NotificationProviderUpdate {
+export interface NotificationProviderUpdate extends NotificationDeliveryFields {
   name?: string;
   provider_type?: ProviderType;
   enabled?: boolean;
@@ -2576,6 +2589,20 @@ export interface GitHubBackupTriggerResponse {
 export interface NotificationTestRequest {
   provider_type: ProviderType;
   config: Record<string, unknown>;
+  attach_photo?: boolean;
+}
+
+// Notifications parity: aggregate delivery-test results.
+export interface NotificationTestAllResponse {
+  tested: number;
+  success: number;
+  failed: number;
+  results: Array<{
+    provider_id: number;
+    provider_name: string;
+    success: boolean;
+    message: string;
+  }>;
 }
 
 export interface NotificationTestResponse {

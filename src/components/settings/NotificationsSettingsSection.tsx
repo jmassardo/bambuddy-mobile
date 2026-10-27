@@ -6,15 +6,20 @@ import { PrimaryButton, SectionCard, StatusBadge } from '@/components/common/App
 import { settingsStyles } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
 import { pickBoolean, pickString, statusColor, type ApiRecord } from '@/utils/data';
+import { BedCooledThreshold } from '@/components/notifications/BedCooledThreshold';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/i18n';
 
 export function NotificationsSettingsSection({ controller }: { controller: SettingsScreenController }) {
   const navigation = useNavigation<RootNavigationProp<'Settings'>>();
+  const { hasPermission } = useAuth();
+  const { t } = useTranslation();
   const providers = (controller.queries.providersQuery.data ?? []) as ApiRecord[];
 
   return (
-    <SectionCard title="Notifications" subtitle="Provider status plus a shortcut to the dedicated notification preferences screen.">
-      <Text style={[settingsStyles.helper, { color: controller.colors.textSecondary }]}>Providers: {providers.length}</Text>
-      {providers.slice(0, 5).map(provider => {
+    <SectionCard title={t('notifications.title', { defaultValue: 'Notifications' })} subtitle={t('notifications.settingsSubtitle', { defaultValue: 'Delivery providers and personal notification preferences.' })}>
+      <Text style={[settingsStyles.helper, { color: controller.colors.textSecondary }]}>{t('notifications.providerCount', { defaultValue: 'Providers: {{count}}', count: providers.length })}</Text>
+      {providers.map(provider => {
         const enabled = pickBoolean(provider, ['enabled']);
         return (
           <View key={pickString(provider, ['id'])} style={[settingsStyles.itemCard, { backgroundColor: controller.colors.surfaceElevated, borderColor: controller.colors.border }]}> 
@@ -28,7 +33,8 @@ export function NotificationsSettingsSection({ controller }: { controller: Setti
           </View>
         );
       })}
-      <PrimaryButton label="Open notification preferences" onPress={() => navigation.navigate('Notifications')} variant="secondary" />
+      {hasPermission('settings:update') ? <BedCooledThreshold /> : null}
+      <PrimaryButton label={t('notifications.openPreferences', { defaultValue: 'Open notification preferences' })} onPress={() => navigation.navigate('Notifications')} variant="secondary" />
     </SectionCard>
   );
 }
