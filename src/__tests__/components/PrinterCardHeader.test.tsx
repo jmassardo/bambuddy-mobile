@@ -19,6 +19,7 @@ const colors = {
 const mockNavigate = jest.fn();
 const mockRefetch = jest.fn();
 let mockStatus: WorkflowPrinterAiStatus;
+let mockStatusError = false;
 jest.mock('@/theme', () => ({ useTheme: () => ({ colors }) }));
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate }),
@@ -29,6 +30,8 @@ jest.mock('@/contexts/AuthContext', () => ({
 jest.mock('@tanstack/react-query', () => ({
   useQuery: () => ({
     data: mockStatus,
+    isError: mockStatusError,
+    error: mockStatusError ? new Error('Network unavailable') : null,
     isLoading: false,
     refetch: mockRefetch,
   }),
@@ -60,6 +63,7 @@ describe('PrinterCardHeader live AI detection badge', () => {
       per_printer: {},
       last_error: null,
     };
+    mockStatusError = false;
     selectSettingsSearchResult(null);
   });
   afterEach(() => selectSettingsSearchResult(null));
@@ -136,10 +140,27 @@ describe('PrinterCardHeader live AI detection badge', () => {
     expect(screen.getByText('AI unknown')).toHaveStyle({
       color: colors.textSecondary,
     });
+
     await fireEvent.press(
       screen.getByRole('button', { name: /Open AI detection details/ }),
     );
     expect(screen.queryByText(/Score:/)).toBeNull();
+  });
+
+  it('does not present a cached safe measurement as current when status refresh is unavailable', async () => {
+    mockStatus.per_printer['1'] = {
+      class: 'safe',
+      score: 0.001,
+      frame_count: 5,
+    };
+    mockStatusError = true;
+    const screen = await render(<PrinterCardHeader {...baseProps} />);
+    expect(screen.getByText('AI unavailable')).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole('button', { name: /Open AI detection details/ }),
+    );
+    expect(screen.queryByText(/Score:/)).toBeNull();
+    expect(screen.getByText('Network unavailable')).toBeTruthy();
   });
 
   it('retains the health-pill ordering around actual safe inference', async () => {

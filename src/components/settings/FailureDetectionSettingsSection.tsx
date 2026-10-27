@@ -267,6 +267,16 @@ export function FailureDetectionSettingsSection({
           'Effective service diagnostics',
         )}
       >
+        {status.isError && status.data ? (
+          <Text
+            style={[settingsStyles.helper, { color: controller.colors.error }]}
+          >
+            {fieldLabel(
+              'statusStale',
+              'Unable to refresh service diagnostics. Values below are last known, not current.',
+            )}
+          </Text>
+        ) : null}
         {status.data ? (
           <>
             <Text
@@ -371,7 +381,13 @@ export function FailureDetectionSettingsSection({
       <SectionCard
         title={fieldLabel('detectionHistory', 'Recent detection decisions')}
       >
-        {!status.data?.history.length ? (
+        {status.isError && !status.data ? (
+          <Text
+            style={[settingsStyles.helper, { color: controller.colors.error }]}
+          >
+            {fieldLabel('historyUnavailable', 'Detection history unavailable.')}
+          </Text>
+        ) : !status.data?.history.length ? (
           <Text
             style={[
               settingsStyles.helper,

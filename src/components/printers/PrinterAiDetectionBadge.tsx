@@ -84,7 +84,7 @@ export function PrinterAiDetectionBadge({
       >
         <ScrollView>
           <Text style={[settingsStyles.helper, { color }]}>{label}</Text>
-          {hasAiVerdict(detection) ? (
+          {!status.isError && hasAiVerdict(detection) ? (
             <Text style={[settingsStyles.helper, { color: colors.text }]}>
               {t('workflow.ai.measurement', {
                 defaultValue: 'Score: {{score}} • Frames analyzed: {{frames}}',
