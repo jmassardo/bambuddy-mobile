@@ -12,7 +12,7 @@ export type MainTabParamList = {
   Dashboard: undefined;
   Queue: undefined;
   Archives: undefined;
-  Files: undefined;
+  Files: { folderId?: number; fileId?: number; projectId?: number } | undefined;
   More: undefined;
 };
 
@@ -24,6 +24,9 @@ export type RootStackParamList = {
   ArchiveDetail: { id: number | string };
   ProjectDetail: { id: number | string };
   Camera: { id: number | string };
+  CameraWall: undefined;
+  CameraIntegrations: undefined;
+  Announcements: { id?: string } | undefined;
   Scanner: { mode?: string } | undefined;
   Settings: undefined;
   Setup: undefined;
@@ -37,6 +40,9 @@ export type RootStackParamList = {
   System: undefined;
   Users: undefined;
   Energy: undefined;
+  Finance: undefined;
+  SlicerPipelines: undefined;
+  PipelineRuns: undefined;
   VirtualPrinters: undefined;
   SpoolBuddy: undefined;
   ExternalLinkBrowser: { url: string; title?: string };
@@ -53,6 +59,13 @@ export type RootStackParamList = {
   TimelapseEditor: { archiveId: number };
   PrintLog: { archiveId?: number } | undefined;
   SpoolAssignmentHistory: undefined;
+  ConnectAuthorize: {
+    client_id: string;
+    redirect_uri: string;
+    code_challenge: string;
+    code_challenge_method: 'S256';
+    state?: string;
+  };
 };
 
 export type RootNavigationProp<

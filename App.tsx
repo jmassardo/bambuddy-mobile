@@ -1,3 +1,4 @@
+import 'react-native-get-random-values';
 import React, { useEffect } from 'react';
 import { StatusBar, Text, View } from 'react-native';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -14,6 +15,7 @@ import RootNavigator from '@/navigation/RootNavigator';
 import { ThemeProvider, useTheme } from '@/theme';
 import { useServerStore } from '@/api/server';
 import { OfflineBanner } from '@/components/common/OfflineBanner';
+import { LocalizationProvider } from '@/i18n';
 
 onlineManager.setEventListener((setOnline) => {
   return NetInfo.addEventListener((state) => {
@@ -99,7 +101,8 @@ export default function App() {
   if (serverLoading) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <LocalizationProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
           <QueryClientProvider client={queryClient}>
@@ -128,6 +131,7 @@ export default function App() {
           </QueryClientProvider>
         </ThemeProvider>
       </SafeAreaProvider>
-    </GestureHandlerRootView>
+      </GestureHandlerRootView>
+    </LocalizationProvider>
   );
 }
