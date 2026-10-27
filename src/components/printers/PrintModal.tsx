@@ -65,6 +65,7 @@ export interface PrintModalProps {
   initialPrinterId?: number | null;
   initialFileId?: number | null;
   initialArchiveId?: number | null;
+  projectId?: number;
   initialMode?: 'asap' | 'queue' | 'scheduled';
   queueItem?: PrintQueueItem | null;
   requeue?: boolean;
@@ -854,6 +855,7 @@ export function PrintModal(props: PrintModalProps) {
           await queueApi.addToQueue({
             ...options,
             variants: reviewed,
+            project_id: props.projectId,
             target_location: location || null,
             scheduled_time: scheduled,
             quantity: 1,
@@ -880,6 +882,7 @@ export function PrintModal(props: PrintModalProps) {
             ...(source!.kind === 'library'
               ? { library_file_id: source!.id }
               : { archive_id: source!.id }),
+            project_id: props.projectId,
             plates: chosenPlates.map((plate, i) => ({
               plate_id: plate,
               plate_name: plates.find(p => p.index === plate)?.name,
@@ -908,6 +911,7 @@ export function PrintModal(props: PrintModalProps) {
               ...(source!.kind === 'library'
                 ? { library_file_id: source!.id }
                 : { archive_id: source!.id }),
+              project_id: props.projectId,
               printer_id: printerId,
               target_model: targetMode === 'model' ? model : null,
               target_location: targetMode === 'model' ? location || null : null,
@@ -958,6 +962,7 @@ export function PrintModal(props: PrintModalProps) {
                 'cleanup_library_after_dispatch',
                 'insert_at_top',
                 'insert_position',
+                'project_id',
               ]);
               const update = Object.fromEntries(
                 Object.entries(data).filter(([field]) => !immutable.has(field)),

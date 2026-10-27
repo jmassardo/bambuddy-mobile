@@ -368,7 +368,7 @@ describe('configured native print launch', () => {
       status: 'pending',
       created_by_id: 8,
     } as PrintQueueItem;
-    await renderModal({ queueItem: original });
+    await renderModal({ queueItem: original, projectId: 9 });
     await choose(renderer, 'Bed levelling', 'Off');
     expect(mutations()).toEqual([]);
     expect(original.bed_levelling).toBe('auto');
@@ -386,6 +386,7 @@ describe('configured native print launch', () => {
       },
     });
     expect(saved[0].data).not.toHaveProperty('library_file_id');
+    expect(saved[0].data).not.toHaveProperty('project_id');
   });
   it('creates independently mapped plate quantities on each selected compatible printer', async () => {
     await renderModal();
@@ -457,6 +458,7 @@ describe('configured native print launch', () => {
   it('queues alternative slices once in chosen preference order, not as bulk jobs', async () => {
     await renderModal({
       initialPrinterId: null,
+      projectId: 9,
       variantFiles: [
         {
           library_file_id: 10,
@@ -483,6 +485,7 @@ describe('configured native print launch', () => {
       expect.objectContaining({ library_file_id: 10, plate_id: 1 }),
     ]);
     expect(mutations()[0].data).not.toHaveProperty('library_file_id');
+    expect(mutations()[0].data.project_id).toBe(9);
   });
   it('blocks budgeted launch when the mapped total exceeds available funds', async () => {
     mockSettings.mockResolvedValue({
@@ -542,7 +545,7 @@ describe('configured native print launch', () => {
     });
   });
   it('lets a copies field be cleared and re-entered without deselecting its plate', async () => {
-    await renderModal();
+    await renderModal({ projectId: 9 });
     const copies = () =>
       renderer.root
         .findAllByType(TextInput)
@@ -557,7 +560,39 @@ describe('configured native print launch', () => {
     expect(
       mutations().find(m => m.path === '/queue/batches')?.data.plates,
     ).toEqual([expect.objectContaining({ plate_id: 1, quantity_target: 3 })]);
+    expect(
+      mutations().find(m => m.path === '/queue/batches')?.data.project_id,
+    ).toBe(9);
+    expect(mutations().find(m => m.path === '/queue/')?.data).toMatchObject({
+      library_file_id: 10,
+      project_id: 9,
+    });
   });
+  it.each([
+    ['library', 'library_file_id', 10],
+    ['archive', 'archive_id', 20],
+  ] as const)(
+    'associates a %s print with its project without replacing the real source',
+    async (kind, sourceField, sourceId) => {
+      await renderModal({
+        initialFileId: kind === 'library' ? sourceId : null,
+        initialArchiveId: kind === 'archive' ? sourceId : null,
+        projectId: 9,
+      });
+      await press(renderer, 'Submit print jobs');
+      expect(mutations()).toEqual([
+        expect.objectContaining({
+          path: '/queue/',
+          data: expect.objectContaining({
+            [sourceField]: sourceId,
+            project_id: 9,
+            printer_id: 1,
+          }),
+        }),
+      ]);
+      expect(mutations()[0].data).not.toHaveProperty('printer_ids');
+    },
+  );
   it('resets saved model-target material overrides to the actual slice instead of reapplying history values', async () => {
     await renderModal({
       queueItem: {

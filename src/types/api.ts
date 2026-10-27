@@ -1382,6 +1382,7 @@ export interface PrintQueueItemCreate {
 
 export interface PrintBatchCreate {
   name: string;
+  project_id?: number | null;
   archive_id?: number | null;
   library_file_id?: number | null;
   /** When set, the listed pending items are assigned to the new batch
