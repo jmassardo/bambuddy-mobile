@@ -242,6 +242,8 @@ function SliceForm(props: SliceModalProps) {
       overrides: serializeIntentional(
         overrides,
         presetValues.data?.values ?? {},
+        plates.data?.design_overrides ?? [],
+        sourceKeys,
       ),
     });
   const slice = useMutation({

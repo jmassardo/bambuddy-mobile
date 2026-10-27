@@ -51,10 +51,6 @@ jest.mock('@/api/slicing', () => ({
     ].map(key => [key, jest.fn()]),
   ),
 }));
-jest.mock('@/components/slicing/ProcessSettingsEditor', () => ({
-  ProcessSettingsEditor: () => null,
-  serializeIntentional: () => ({}),
-}));
 const empty = { printer: [], process: [], filament: [] };
 const presets: UnifiedPresetsResponse = {
   local: {
@@ -106,14 +102,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(slicingApi.presets).mockResolvedValue(presets);
   jest.mocked(slicingApi.models).mockResolvedValue({ 'Bambu Lab P1S': 'P1S' });
-  jest
-    .mocked(slicingApi.plates)
-    .mockResolvedValue({
-      plates: [],
-      is_multi_plate: false,
-      embedded_printer: 'Bambu Lab P1S 0.4 nozzle',
-      embedded_process: '0.20 Standard',
-    });
+  jest.mocked(slicingApi.plates).mockResolvedValue({
+    plates: [],
+    is_multi_plate: false,
+    embedded_printer: 'Bambu Lab P1S 0.4 nozzle',
+    embedded_process: '0.20 Standard',
+  });
   jest.mocked(slicingApi.requirements).mockResolvedValue({
     filaments: [
       { slot_id: 1, type: 'PLA', color: '#111111', used_in_plate: false },
@@ -128,13 +122,11 @@ beforeEach(() => {
     .mocked(slicingApi.pipelines)
     .mockResolvedValue({ pipelines: [pipeline] });
   jest.mocked(slicingApi.previewProgress).mockResolvedValue(null);
-  jest
-    .mocked(slicingApi.slice)
-    .mockResolvedValue({
-      job_id: 88,
-      status: 'pending',
-      status_url: '/slice-jobs/88',
-    });
+  jest.mocked(slicingApi.slice).mockResolvedValue({
+    job_id: 88,
+    status: 'pending',
+    status_url: '/slice-jobs/88',
+  });
   jest
     .mocked(settingsApi.getSettings)
     .mockResolvedValue({ pipeline_max_copies: 4 } as Awaited<
@@ -147,6 +139,69 @@ beforeEach(() => {
     >);
 });
 describe('Source slicing workflows', () => {
+  it.each(['file', 'archive'] as const)(
+    'lets a manual preset-valued edit override an adopted designer value for %s',
+    async sourceType => {
+      jest.mocked(slicingApi.plates).mockResolvedValue({
+        plates: [],
+        is_multi_plate: false,
+        design_overrides: [
+          {
+            key: 'wall_loops',
+            value: '5',
+            printer_coupled: false,
+            preset_defining: false,
+          },
+        ],
+      });
+      jest.mocked(slicingApi.presetValues).mockResolvedValue({
+        resolved: true,
+        reason: 'ok',
+        values: { wall_loops: '2' },
+      });
+      const ui = await render(
+        wrap(
+          <SliceModal
+            visible
+            onClose={jest.fn()}
+            sourceType={sourceType}
+            sourceId={5}
+            sourceName="part.3mf"
+          />,
+        ),
+      );
+      await waitFor(() =>
+        expect(
+          ui.getByLabelText('Slice').props.accessibilityState?.disabled,
+        ).toBe(false),
+      );
+      await fireEvent.changeText(
+        ui.getByLabelText('Search every process setting'),
+        'wall_loops',
+      );
+      await waitFor(() =>
+        expect(ui.getByLabelText('Wall loops').props.value).toBe('2'),
+      );
+      await fireEvent(
+        ui.getByLabelText('Use source value: Wall loops'),
+        'valueChange',
+        true,
+      );
+      expect(ui.getByLabelText('Wall loops').props.value).toBe('5');
+      await fireEvent.changeText(ui.getByLabelText('Wall loops'), '2');
+      await fireEvent.press(ui.getByRole('button', { name: 'Slice' }));
+      await waitFor(() =>
+        expect(slicingApi.slice).toHaveBeenCalledWith(
+          expect.objectContaining({ sourceType }),
+          expect.objectContaining({
+            design_overrides: ['wall_loops'],
+            process_overrides: { wall_loops: '2' },
+          }),
+        ),
+      );
+      await ui.unmount();
+    },
+  );
   it.each(['file', 'archive'] as const)(
     'sends real positional presets and edited colours/layout from %s and tracks after closing',
     async sourceType => {
@@ -209,16 +264,14 @@ describe('Source slicing workflows', () => {
       },
     });
     const saved = { ...pipeline, id: 2, name: 'Saved bundle' };
-    jest
-      .mocked(slicingApi.pipelines)
-      .mockResolvedValue({
-        pipelines: [
-          {
-            ...pipeline,
-            filament_presets: [{ source: 'local', id: 'pipeline-pla' }],
-          },
-        ],
-      });
+    jest.mocked(slicingApi.pipelines).mockResolvedValue({
+      pipelines: [
+        {
+          ...pipeline,
+          filament_presets: [{ source: 'local', id: 'pipeline-pla' }],
+        },
+      ],
+    });
     jest.mocked(slicingApi.create).mockImplementation(async () => {
       jest
         .mocked(slicingApi.pipelines)

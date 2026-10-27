@@ -130,16 +130,14 @@ beforeEach(() => {
     .mocked(slicingApi.pipelines)
     .mockResolvedValue({ pipelines: [pipeline] });
   const empty = { printer: [], process: [], filament: [] };
-  jest
-    .mocked(slicingApi.presets)
-    .mockResolvedValue({
-      local: empty,
-      cloud: empty,
-      orca_cloud: empty,
-      standard: empty,
-      cloud_status: 'ok',
-      orca_cloud_status: 'ok',
-    } as UnifiedPresetsResponse);
+  jest.mocked(slicingApi.presets).mockResolvedValue({
+    local: empty,
+    cloud: empty,
+    orca_cloud: empty,
+    standard: empty,
+    cloud_status: 'ok',
+    orca_cloud_status: 'ok',
+  } as UnifiedPresetsResponse);
   jest
     .mocked(slicingApi.latestRun)
     .mockResolvedValue({ runs: [failed], total: 1 });
@@ -158,6 +156,67 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 describe('Pipeline operations', () => {
+  it.each(['specific_printer', 'printer_class'] as const)(
+    'clears an existing %s binding using the server clearing sentinels',
+    async targetKind => {
+      const bound = {
+        ...pipeline,
+        target_kind: targetKind,
+        target_printer_id: targetKind === 'specific_printer' ? 2 : null,
+        target_model_class: targetKind === 'printer_class' ? 'P1S' : null,
+      };
+      jest
+        .mocked(slicingApi.pipelines)
+        .mockResolvedValue({ pipelines: [bound] });
+      jest.mocked(slicingApi.update).mockImplementation(async (_id, body) => {
+        const updated = {
+          ...bound,
+          target_printer_id:
+            body.target_printer_id == null
+              ? bound.target_printer_id
+              : body.target_printer_id || null,
+          target_model_class:
+            body.target_model_class == null
+              ? bound.target_model_class
+              : body.target_model_class || null,
+          updated_at: '2026-10-28',
+        };
+        jest
+          .mocked(slicingApi.pipelines)
+          .mockResolvedValue({ pipelines: [updated] });
+        return updated;
+      });
+      const ui = await render(wrap(<SlicerPipelinesScreen />));
+      await ui.findByText('Edit');
+      await fireEvent.press(ui.getByText('Edit'));
+      await fireEvent.press(
+        ui.getByText(
+          targetKind === 'specific_printer'
+            ? 'Target printer: Farm printer'
+            : 'Model class: P1S',
+        ),
+      );
+      await fireEvent.press(
+        ui.getByText(
+          targetKind === 'specific_printer' ? 'No target' : 'No class',
+        ),
+      );
+      await fireEvent.press(ui.getByText('Save'));
+      await waitFor(() =>
+        expect(slicingApi.update).toHaveBeenCalledWith(
+          1,
+          expect.objectContaining({
+            target_printer_id: 0,
+            target_model_class: '',
+          }),
+        ),
+      );
+      await ui.findByText(
+        'No target — this pipeline cannot run until a target is configured.',
+      );
+      await ui.unmount();
+    },
+  );
   it('filters and pages all runs, expands provenance/copy errors, retries only failed copies and confirms clear/cancel', async () => {
     jest
       .mocked(slicingApi.retry)
@@ -226,7 +285,7 @@ describe('Pipeline operations', () => {
         name: 'PLA farm',
         description: 'Night shift',
         target_kind: 'printer_class',
-        target_printer_id: null,
+        target_printer_id: 0,
         target_model_class: 'P1S',
         fanout_strategy: 'round_robin',
       }),

@@ -41,6 +41,32 @@ const configuration = () => ({
   overrides: { sparse_infill_density: '20%' },
 });
 describe('Slicing configuration precedence', () => {
+  it('omits redundant source-valued edits without comparing unselected source settings', () => {
+    const source = [
+      {
+        key: 'wall_loops',
+        value: '5',
+        printer_coupled: false,
+        preset_defining: false,
+      },
+    ];
+    expect(
+      serializeIntentional({ wall_loops: '5' }, { wall_loops: '2' }, source, [
+        'wall_loops',
+      ]),
+    ).toEqual({});
+    expect(
+      serializeIntentional(
+        { wall_loops: '2' },
+        { wall_loops: '2' },
+        source,
+        [],
+      ),
+    ).toEqual({});
+    expect(
+      serializeIntentional({}, { wall_loops: '2' }, source, ['wall_loops']),
+    ).toEqual({});
+  });
   it('keeps positional unused slots, source alpha, explicit colours and all-plates sentinel', () => {
     const body = buildSliceRequest(configuration());
     expect(body).toMatchObject({

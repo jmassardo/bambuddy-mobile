@@ -92,13 +92,24 @@ export function validateSetting(
 export function serializeIntentional(
   values: Record<string, SettingValue>,
   preset: Record<string, SettingValue>,
+  source: DesignOverride[] = [],
+  sourceKeys: readonly string[] = [],
 ) {
+  // The server applies adopted designer settings before the user's edits.
+  const baseline = {
+    ...preset,
+    ...Object.fromEntries(
+      source
+        .filter(value => sourceKeys.includes(value.key))
+        .map(value => [value.key, value.value]),
+    ),
+  };
   return serializeOverrides(
     Object.fromEntries(
       Object.entries(values).filter(
         ([key, value]) =>
           processSchema[key] &&
-          isModified(processSchema[key], value, preset[key]) &&
+          isModified(processSchema[key], value, baseline[key]) &&
           !validateSetting(processSchema[key], String(value)),
       ),
     ),

@@ -305,9 +305,8 @@ function PipelineRow({
                   target_printer_id:
                     kind === 'specific_printer' && printer
                       ? Number(printer)
-                      : null,
-                  target_model_class:
-                    kind === 'printer_class' ? model || null : null,
+                      : 0,
+                  target_model_class: kind === 'printer_class' ? model : '',
                   fanout_strategy: fanout,
                 })
               }

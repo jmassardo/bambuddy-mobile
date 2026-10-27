@@ -3768,8 +3768,8 @@ export interface SlicerPipelineCreateRequest {
 
 export type SlicerPipelineUpdateRequest = Partial<SlicerPipelineCreateRequest> & {
   target_kind?: 'specific_printer' | 'printer_class';
-  // ``target_printer_id: 0`` means "clear the target" — the backend maps that
-  // to null. Use null in TypeScript for the same intent.
+  // Updates clear the printer with 0 and the model class with ''.
+  // Null/omitted values leave existing bindings unchanged.
   target_printer_id?: number | null;
   target_model_class?: string | null;
   fanout_strategy?: 'max_parallel' | 'fill_one_first' | 'round_robin';
