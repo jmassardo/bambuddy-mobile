@@ -168,7 +168,6 @@ describe('api client', () => {
       endpoint: '/queue/reorder',
       method: 'POST',
       body: {
-        item_ids: [10, 12],
         items: [
           { id: 10, position: 1 },
           { id: 12, position: 2 },
@@ -181,15 +180,14 @@ describe('api client', () => {
       call: () =>
         api.bulkUpdateQueue({
           item_ids: [10, 12],
-          update: { status: 'cancelled', manual_start: true },
+          update: { bed_levelling: 'auto', manual_start: true },
         }),
       endpoint: '/queue/bulk',
       method: 'PATCH',
       body: {
         item_ids: [10, 12],
-        status: 'cancelled',
+        bed_levelling: 'auto',
         manual_start: true,
-        update: { status: 'cancelled', manual_start: true },
       },
       response: { updated: 2 },
     },

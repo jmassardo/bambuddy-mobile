@@ -1149,6 +1149,87 @@ export interface SimilarArchive {
 
 // Queue types
 
+// Queue / print-launch parity contracts (server print_queue schemas).
+export type CalibrationChoice = boolean | 'off' | 'on' | 'auto';
+
+export interface QueueVariant {
+  library_file_id: number;
+  target_model?: string | null;
+  filename?: string;
+  plate_id?: number | null;
+  ams_mapping?: number[] | null;
+  nozzle_mapping?: number[] | null;
+  nozzle_rack_choice?: Record<number, number> | null;
+  filament_overrides?: PrintQueueItemCreate['filament_overrides'];
+}
+
+export interface PrintBatchPlateProgress {
+  plate_id: number | null;
+  plate_name?: string | null;
+  quantity_target: number;
+  dispatched: number;
+  remaining: number;
+  pending_count: number;
+  printing_count: number;
+  completed_count: number;
+  failed_count: number;
+  cancelled_count: number;
+  skipped_count: number;
+  actual_cost: number | null;
+  estimated_remaining_cost: number | null;
+  can_dispatch: boolean;
+}
+
+export interface PrintLaunchPlate {
+  index: number;
+  name: string | null;
+  objects?: string[];
+  filament_count?: number;
+  bed_type?: string | null;
+  print_time_seconds?: number | null;
+  filament_used_grams?: number | null;
+}
+
+export interface PrintLaunchRequirement {
+  slot_id: number;
+  type: string;
+  color: string;
+  used_grams: number;
+  used_meters?: number;
+  extruder_id?: number | null;
+  nozzle_id?: number | null;
+  force_color_match?: boolean;
+  tray_info_idx?: string;
+  group_id?: number;
+  group?: {
+    on_rack: boolean;
+    nozzle_diameter: string;
+    volume_type: string;
+    filament_color?: string;
+  };
+}
+
+export interface PrintLaunchInventory {
+  inventory_remain_g: Record<string, number>;
+  slot_materials?: Array<{
+    global_tray_id: number;
+    material_key: string;
+    extruder: number;
+    remaining_g: number;
+    spool?: { brand?: string | null; material?: string | null; color_name?: string | null } | null;
+  }>;
+}
+
+export interface PrintLaunchCostCenter {
+  id: number;
+  name: string;
+  is_private: boolean;
+  is_active: boolean;
+  can_print: boolean;
+  budget_mode: 'none' | 'total' | 'monthly';
+  budget_available: number | null;
+}
+
 export interface PrintQueueItem {
   id: number;
   printer_id: number | null;  // null = unassigned
@@ -1174,16 +1255,22 @@ export interface PrintQueueItem {
   // PrintModal's deficit warning was acknowledged.
   skip_filament_check: boolean;
   ams_mapping: number[] | null;  // AMS slot mapping for multi-color prints
-  filament_overrides: Array<{ slot_id: number; type: string; color: string; color_name?: string; force_color_match?: boolean }> | null;  // Filament overrides for model-based assignment
+  filament_overrides: Array<{ slot_id: number; type: string; color: string; color_name?: string; force_color_match?: boolean; tray_info_idx?: string | null }> | null;  // Filament overrides for model-based assignment
   plate_id: number | null;  // Plate ID for multi-plate 3MF files
   // Print options
-  bed_levelling: boolean;
-  flow_cali: boolean;
+  bed_levelling: CalibrationChoice;
+  flow_cali: CalibrationChoice;
   vibration_cali: boolean;
   layer_inspect: boolean;
   timelapse: boolean;
   use_ams: boolean;
-  nozzle_offset_cali: boolean;
+  nozzle_offset_cali: CalibrationChoice;
+  confirm_outcome?: boolean;
+  cost_center_id?: number | null;
+  estimated_cost?: number | null;
+  nozzle_rack_choice?: Record<number, number> | null;
+  nozzle_mapping?: number[] | null;
+  variants?: QueueVariant[];
   preheat_override: 'inherit' | 'on' | 'off';
   preheat_chamber_target_override: number | null;
   status: 'pending' | 'printing' | 'completed' | 'failed' | 'skipped' | 'cancelled';
@@ -1233,6 +1320,14 @@ export interface PrintBatch {
   completed_count: number;
   failed_count: number;
   cancelled_count: number;
+  skipped_count?: number;
+  has_targets?: boolean;
+  target_count?: number;
+  remaining_count?: number;
+  dispatchable_count?: number;
+  actual_cost?: number | null;
+  estimated_remaining_cost?: number | null;
+  plates?: PrintBatchPlateProgress[];
 }
 
 export interface PrintBatchUngroupResponse {
@@ -1244,7 +1339,7 @@ export interface PrintQueueItemCreate {
   printer_id?: number | null;  // null = unassigned
   target_model?: string | null;  // Target printer model (mutually exclusive with printer_id)
   target_location?: string | null;  // Target location filter (only used with target_model)
-  filament_overrides?: Array<{ slot_id: number; type: string; color: string; color_name?: string; force_color_match?: boolean }> | null;
+  filament_overrides?: Array<{ slot_id: number; type: string; color: string; color_name?: string; force_color_match?: boolean; tray_info_idx?: string | null }> | null;
   archive_id?: number | null;
   library_file_id?: number | null;
   scheduled_time?: string | null;
@@ -1259,13 +1354,18 @@ export interface PrintQueueItemCreate {
   ams_mapping?: number[] | null;  // AMS slot mapping for multi-color prints
   plate_id?: number | null;  // Plate ID for multi-plate 3MF files
   // Print options
-  bed_levelling?: boolean;
-  flow_cali?: boolean;
+  bed_levelling?: CalibrationChoice;
+  flow_cali?: CalibrationChoice;
   vibration_cali?: boolean;
   layer_inspect?: boolean;
   timelapse?: boolean;
   use_ams?: boolean;
-  nozzle_offset_cali?: boolean;
+  nozzle_offset_cali?: CalibrationChoice;
+  confirm_outcome?: boolean;
+  cost_center_id?: number | null;
+  estimated_cost?: number | null;
+  nozzle_rack_choice?: Record<number, number> | null;
+  variants?: QueueVariant[];
   preheat_override?: 'inherit' | 'on' | 'off';
   preheat_chamber_target_override?: number | null;
   // Auto-print G-code injection
@@ -1288,13 +1388,14 @@ export interface PrintBatchCreate {
    *  (manual "Group as batch"). When omitted/empty, an empty batch is
    *  returned so the client can pass batch_id on subsequent addToQueue calls. */
   item_ids?: number[];
+  plates?: Array<{ plate_id: number | null; plate_name?: string | null; quantity_target: number; sort_order: number }>;
 }
 
 export interface PrintQueueItemUpdate {
   printer_id?: number | null;  // null = unassign
   target_model?: string | null;  // Target printer model (mutually exclusive with printer_id)
   target_location?: string | null;  // Target location filter (only used with target_model)
-  filament_overrides?: Array<{ slot_id: number; type: string; color: string; color_name?: string; force_color_match?: boolean }> | null;
+  filament_overrides?: Array<{ slot_id: number; type: string; color: string; color_name?: string; force_color_match?: boolean; tray_info_idx?: string | null }> | null;
   position?: number;
   scheduled_time?: string | null;
   require_previous_success?: boolean;
@@ -1303,13 +1404,18 @@ export interface PrintQueueItemUpdate {
   ams_mapping?: number[];
   plate_id?: number | null;  // Plate ID for multi-plate 3MF files
   // Print options
-  bed_levelling?: boolean;
-  flow_cali?: boolean;
+  bed_levelling?: CalibrationChoice;
+  flow_cali?: CalibrationChoice;
   vibration_cali?: boolean;
   layer_inspect?: boolean;
   timelapse?: boolean;
   use_ams?: boolean;
-  nozzle_offset_cali?: boolean;
+  nozzle_offset_cali?: CalibrationChoice;
+  confirm_outcome?: boolean;
+  cost_center_id?: number | null;
+  estimated_cost?: number | null;
+  nozzle_rack_choice?: Record<number, number> | null;
+  nozzle_mapping?: number[] | null;
   preheat_override?: 'inherit' | 'on' | 'off';
   preheat_chamber_target_override?: number | null;
   // Auto-print G-code injection
@@ -1324,13 +1430,16 @@ export interface PrintQueueBulkUpdate {
   auto_off_after?: boolean;
   manual_start?: boolean;
   // Print options
-  bed_levelling?: boolean;
-  flow_cali?: boolean;
+  bed_levelling?: CalibrationChoice;
+  flow_cali?: CalibrationChoice;
   vibration_cali?: boolean;
   layer_inspect?: boolean;
   timelapse?: boolean;
   use_ams?: boolean;
-  nozzle_offset_cali?: boolean;
+  nozzle_offset_cali?: CalibrationChoice;
+  confirm_outcome?: boolean;
+  cost_center_id?: number | null;
+  estimated_cost?: number | null;
   preheat_override?: 'inherit' | 'on' | 'off';
   preheat_chamber_target_override?: number | null;
   // Auto-print G-code injection

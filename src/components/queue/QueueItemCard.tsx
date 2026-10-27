@@ -46,6 +46,8 @@ import {
   formatWeight,
 } from '@/utils/data';
 import HapticFeedback from 'react-native-haptic-feedback';
+import { calibration } from '@/utils/printLaunch';
+import { useTranslation } from '@/i18n';
 
 const HAPTIC_OPTIONS = {
   enableVibrateFallback: true,
@@ -135,6 +137,7 @@ function QueueActionButton({
   color: string;
   subtle?: boolean;
 }) {
+  const { t } = useTranslation();
   if (!onPress) return null;
   const IconComponent = icon ? QUEUE_ACTION_ICONS[icon] : null;
 
@@ -151,7 +154,7 @@ function QueueActionButton({
       ]}
     >
       {IconComponent ? <IconComponent size={14} color={color} strokeWidth={2} /> : null}
-      <Text style={[styles.actionText, { color }]}>{label}</Text>
+      <Text style={[styles.actionText, { color }]}>{t(`queue.${label.replace(/\W/g, '')}`, { defaultValue: label })}</Text>
     </Pressable>
   );
 }
@@ -163,6 +166,7 @@ function OptionChip({
   label: string;
   color: string;
 }) {
+  const { t } = useTranslation();
   return (
     <View
       style={[
@@ -170,7 +174,7 @@ function OptionChip({
         { backgroundColor: `${color}18`, borderColor: `${color}55` },
       ]}
     >
-      <Text style={[styles.optionChipText, { color }]}>{label}</Text>
+      <Text style={[styles.optionChipText, { color }]}>{t(`queue.${label.replace(/\W/g, '')}`, { defaultValue: label })}</Text>
     </View>
   );
 }
@@ -263,13 +267,14 @@ export function QueueItemCardContent({
       : null,
     item.auto_off_after ? { label: 'Auto power off', color: colors.info } : null,
     item.gcode_injection ? { label: 'G-code injection', color: colors.accent } : null,
-    item.bed_levelling ? { label: 'Bed levelling', color: colors.accent } : null,
-    item.flow_cali ? { label: 'Flow cali', color: colors.accent } : null,
+    calibration(item.bed_levelling) !== 'off' ? { label: `Bed levelling · ${calibration(item.bed_levelling)}`, color: colors.accent } : null,
+    calibration(item.flow_cali) !== 'off' ? { label: `Flow cali · ${calibration(item.flow_cali)}`, color: colors.accent } : null,
     item.vibration_cali ? { label: 'Vibration cali', color: colors.accent } : null,
     item.layer_inspect ? { label: 'Layer inspect', color: colors.accent } : null,
     item.timelapse ? { label: 'Timelapse', color: colors.accent } : null,
     item.use_ams ? { label: 'AMS', color: colors.accent } : null,
-    item.nozzle_offset_cali ? { label: 'Nozzle offset', color: colors.accent } : null,
+    calibration(item.nozzle_offset_cali) !== 'off' ? { label: `Nozzle offset · ${calibration(item.nozzle_offset_cali)}`, color: colors.accent } : null,
+    item.confirm_outcome ? { label: 'Confirm outcome', color: colors.info } : null,
     item.preheat_override && item.preheat_override !== 'inherit'
       ? {
           label:
@@ -481,7 +486,7 @@ export function QueueItemCardContent({
             {item.status === 'pending' ? (
               <>
                 <QueueActionButton label="Start" icon="play" onPress={onStart} color={colors.accent} />
-                <QueueActionButton label="Reassign" icon="printer" onPress={onReassign} color={colors.info} />
+                <QueueActionButton label="Edit" icon="printer" onPress={onReassign} color={colors.info} />
                 <QueueActionButton label="Cancel" icon="x" onPress={onCancel} color={colors.warning} />
                 <QueueActionButton label="Delete" icon="trash" onPress={onDelete} color={colors.error} />
               </>
@@ -494,7 +499,7 @@ export function QueueItemCardContent({
             ) : null}
             {['completed', 'failed', 'skipped', 'cancelled'].includes(item.status) ? (
               <>
-                <QueueActionButton label="Retry" icon="refresh" onPress={onRetry} color={colors.accent} />
+                <QueueActionButton label="Configure requeue" icon="refresh" onPress={onRetry} color={colors.accent} />
                 <QueueActionButton label="Delete" icon="trash" onPress={onDelete} color={colors.error} />
               </>
             ) : null}
@@ -511,7 +516,7 @@ export function QueueItemCardContent({
           <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
             {formatWeight(item.filament_used_grams)}
           </Text>
-          {item.preheat_chamber_target_override ? (
+          {item.preheat_chamber_target_override != null ? (
             <>
               <Text style={[styles.summaryDivider, { color: colors.textTertiary }]}>•</Text>
               <Text style={[styles.summaryText, { color: colors.textSecondary }]}>Preheat {item.preheat_chamber_target_override}°</Text>
@@ -526,8 +531,8 @@ export function QueueItemCardContent({
         </View>
       ) : null}
 
-      {item.status === 'completed' && item.filament_used_grams ? (
-        <Text style={[styles.costHint, { color: colors.textTertiary }]}>Estimated material cost {formatCurrency((item.filament_used_grams / 1000) * 24)}</Text>
+      {item.estimated_cost != null ? (
+        <Text style={[styles.costHint, { color: colors.textTertiary }]}>Estimated material cost {formatCurrency(item.estimated_cost)}</Text>
       ) : null}
     </View>
   );
@@ -557,7 +562,6 @@ export function QueueItemCard({
   index,
   isDragging: parentIsDragging = false,
   dragIndex,
-  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   dragTargetIndex,
   dragEnabled = false,
 }: QueueItemCardProps) {
