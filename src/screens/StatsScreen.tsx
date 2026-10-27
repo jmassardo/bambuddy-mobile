@@ -55,8 +55,12 @@ function materialKey(item: ApiRecord) {
   return pickString(item, ['material', 'filament_type', 'type'], 'Unknown');
 }
 
-function printerKey(item: ApiRecord) {
-  return pickString(item, ['printer_name', 'printer'], 'Unknown printer');
+function printerKey(item: ApiRecord, printerNames?: Record<string, string>) {
+  return printerNames?.[String(item.printer_id)] ?? pickString(
+    item,
+    ['printer_name', 'printer'],
+    item.printer_id == null ? 'Unknown printer' : `#${item.printer_id}`,
+  );
 }
 
 function archiveStatus(item: ApiRecord) {
@@ -138,11 +142,15 @@ function toCsvSummary(rows: Array<{ metric: string; value: string }>) {
   ].join('\n');
 }
 
-function buildFailureRates(items: ApiRecord[], keyFn: (item: ApiRecord) => string) {
-  const rows = new Map<string, { label: string; total: number; failures: number; rate: number }>();
+function buildFailureRates(
+  items: ApiRecord[],
+  keyFn: (item: ApiRecord) => string,
+  labelFn: (item: ApiRecord) => string = keyFn,
+) {
+  const rows = new Map<string, { key: string; label: string; total: number; failures: number; rate: number }>();
   items.forEach(item => {
     const key = keyFn(item) || 'Unknown';
-    const current = rows.get(key) ?? { label: key, total: 0, failures: 0, rate: 0 };
+    const current = rows.get(key) ?? { key, label: labelFn(item) || 'Unknown', total: 0, failures: 0, rate: 0 };
     current.total += 1;
     if (isFailure(item)) current.failures += 1;
     current.rate = current.total > 0 ? current.failures / current.total : 0;
@@ -475,7 +483,11 @@ export default function StatsScreen() {
   }, [archives]);
 
   const failureRateByMaterial = useMemo(() => buildFailureRates(archives, materialKey), [archives]);
-  const failureRateByPrinter = useMemo(() => buildFailureRates(archives, printerKey), [archives]);
+  const failureRateByPrinter = useMemo(() => buildFailureRates(
+    archives,
+    item => item.printer_id == null ? `name:${printerKey(item)}` : `id:${item.printer_id}`,
+    item => printerKey(item, printerNames),
+  ), [archives, printerNames]);
   const failureRateByTimeOfDay = useMemo(() => buildFailureRates(archives, timeBucket), [archives]);
   const failureReasons = useMemo(() => {
     const rows = new Map<string, number>();
@@ -851,7 +863,7 @@ function FailureList({
   formatValue,
 }: {
   title: string;
-  rows: { label: string; total: number; failures: number; rate: number }[];
+  rows: { key?: string; label: string; total: number; failures: number; rate: number }[];
   colors: ReturnType<typeof useTheme>['colors'];
   formatValue: (row: { label: string; total: number; failures: number; rate: number }) => string;
 }) {
@@ -865,7 +877,7 @@ function FailureList({
     <View style={styles.failureSection}>
       <Text style={[styles.failureTitle, { color: colors.text }]}>{title}</Text>
       {rows.map(row => (
-        <View key={row.label} style={styles.barRow}>
+        <View key={row.key ?? row.label} style={styles.barRow}>
           <View style={styles.barHeader}>
             <Text style={[styles.barLabel, { color: colors.text }]}>{row.label}</Text>
             <Text style={[styles.barValue, { color: colors.textSecondary }]}>{formatValue(row)}</Text>
