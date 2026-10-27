@@ -145,3 +145,29 @@ for (const language of Object.keys(moreRows) as Language[]) {
   const values = moreRows[language].split('|');
   Object.assign(nativeCatalogs[language], Object.fromEntries(moreKeys.map((key, index) => [key, values[index]])));
 }
+const rootKeys = [
+  'screen.printer', 'screen.archive', 'screen.project', 'screen.qrScanner',
+  'screen.externalLink', 'screen.modelPreview', 'screen.websocketStatus',
+  'screen.editTimelapse', 'screen.assignmentHistory', 'common.connect', 'common.unexpectedError',
+];
+const rootRows: Record<Language, string> = {
+  en: 'Printer|Archive|Project|QR Scanner|External Link|3D Preview|WebSocket Status|Edit Timelapse|Assignment History|Connect|An unexpected error occurred. Tap below to try again.',
+  de: 'Drucker|Archiv|Projekt|QR-Scanner|Externer Link|3D-Vorschau|WebSocket-Status|Zeitraffer bearbeiten|Zuweisungsverlauf|Verbinden|Ein unerwarteter Fehler ist aufgetreten. Tippen Sie unten, um es erneut zu versuchen.',
+  es: 'Impresora|Archivo de impresión|Proyecto|Escáner QR|Enlace externo|Vista previa 3D|Estado de WebSocket|Editar cámara rápida|Historial de asignaciones|Conectar|Se produjo un error inesperado. Pulse abajo para volver a intentarlo.',
+  fr: 'Imprimante|Archive|Projet|Scanner QR|Lien externe|Aperçu 3D|État WebSocket|Modifier le timelapse|Historique des affectations|Connecter|Une erreur inattendue est survenue. Appuyez ci-dessous pour réessayer.',
+  ja: 'プリンター|アーカイブ|プロジェクト|QRスキャナー|外部リンク|3Dプレビュー|WebSocketの状態|タイムラプスを編集|割り当て履歴|接続|予期しないエラーが発生しました。下をタップして再試行してください。',
+  it: 'Stampante|Archivio|Progetto|Scanner QR|Collegamento esterno|Anteprima 3D|Stato WebSocket|Modifica timelapse|Cronologia assegnazioni|Connetti|Si è verificato un errore imprevisto. Tocca qui sotto per riprovare.',
+  ko: '프린터|보관 항목|프로젝트|QR 스캐너|외부 링크|3D 미리 보기|WebSocket 상태|타임랩스 편집|할당 기록|연결|예기치 않은 오류가 발생했습니다. 아래를 눌러 다시 시도하세요.',
+  nl: 'Printer|Archief|Project|QR-scanner|Externe link|3D-voorbeeld|WebSocket-status|Timelapse bewerken|Toewijzingsgeschiedenis|Verbinden|Er is een onverwachte fout opgetreden. Tik hieronder om het opnieuw te proberen.',
+  'pt-BR': 'Impressora|Arquivo de impressão|Projeto|Leitor QR|Link externo|Prévia 3D|Status do WebSocket|Editar timelapse|Histórico de atribuições|Conectar|Ocorreu um erro inesperado. Toque abaixo para tentar novamente.',
+  'zh-CN': '打印机|归档|项目|二维码扫描器|外部链接|3D 预览|WebSocket 状态|编辑延时摄影|分配历史|连接|发生意外错误。请点击下方重试。',
+  'zh-TW': '印表機|封存|專案|QR 掃描器|外部連結|3D 預覽|WebSocket 狀態|編輯縮時攝影|指派紀錄|連線|發生非預期錯誤。請點選下方重試。',
+  sv: 'Skrivare|Arkiv|Projekt|QR-skanner|Extern länk|3D-förhandsvisning|WebSocket-status|Redigera timelapse|Tilldelningshistorik|Anslut|Ett oväntat fel uppstod. Tryck nedan för att försöka igen.',
+  tr: 'Yazıcı|Arşiv|Proje|QR tarayıcı|Harici bağlantı|3D önizleme|WebSocket durumu|Hızlandırılmış çekimi düzenle|Atama geçmişi|Bağlan|Beklenmeyen bir hata oluştu. Tekrar denemek için aşağıya dokunun.',
+  ru: 'Принтер|Архив|Проект|QR-сканер|Внешняя ссылка|3D-просмотр|Состояние WebSocket|Редактировать таймлапс|История назначений|Подключиться|Произошла непредвиденная ошибка. Нажмите ниже, чтобы повторить.',
+  uk: 'Принтер|Архів|Проєкт|QR-сканер|Зовнішнє посилання|3D-перегляд|Стан WebSocket|Редагувати таймлапс|Історія призначень|Підключитися|Сталася неочікувана помилка. Натисніть нижче, щоб повторити.',
+};
+for (const language of Object.keys(rootRows) as Language[]) {
+  const values = rootRows[language].split('|');
+  Object.assign(nativeCatalogs[language], Object.fromEntries(rootKeys.map((key, index) => [key, values[index]])));
+}

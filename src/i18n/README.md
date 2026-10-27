@@ -40,7 +40,11 @@ safety mechanism, **not** evidence that an uncatalogued screen has been translat
 
 Run `node scripts/audit-native-translations.js` after integrating feature lanes to
 list uncovered literal JSX labels and untranslated `t(..., {defaultValue})` calls.
-The inventory is heuristic; review strings before migration (especially user data).
+Pass an alternate source directory to inspect a read-only integration worktree:
+`node scripts/audit-native-translations.js /path/to/integration/src`.
+The audit also inventories object-defined UI labels, missing explicit keys and
+literal toast/alert messages. The inventory is heuristic; review strings before
+migration (especially user data, computed strings and dynamically built keys).
 Navigation and existing feature-screen literals still require integration migration.
 
 # Formatting
