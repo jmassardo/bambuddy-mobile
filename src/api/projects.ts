@@ -5,6 +5,7 @@ import type {
   Project,
   ProjectListItem,
   TimelineEvent,
+  ProjectFileProgress,
 } from '@/types/api';
 import {
   buildMediaUrl,
@@ -28,7 +29,7 @@ export const projectsApi = {
 
   updateProject: async (id: number, data: Record<string, unknown>) =>
     request<Record<string, unknown>>(`/projects/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(data),
     }),
 
@@ -102,4 +103,22 @@ export const projectsApi = {
 
   exportProjectZip: async (projectId: number) =>
     requestBlob(`/projects/${projectId}/export`),
+
+  exportProjectJson: (projectId: number) =>
+    request<Record<string, unknown>>(`/projects/${projectId}/export?format=json`),
+
+  importProject: (data: Record<string, unknown>) =>
+    request<ApiEntity<Project>>('/projects/import', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  importProjectFile: (file: UploadableFile) =>
+    uploadFile<ApiEntity<Project>>('/projects/import/file', file),
+
+  createTemplateFromProject: (projectId: number) =>
+    request<ApiEntity<Project>>(`/projects/${projectId}/create-template`, { method: 'POST' }),
+
+  getProjectFileProgress: (projectId: number) =>
+    request<ProjectFileProgress[]>(`/projects/${projectId}/file-progress`),
 };

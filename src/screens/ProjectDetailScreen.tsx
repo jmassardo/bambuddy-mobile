@@ -3,6 +3,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import {
   Image,
+  Alert,
   Linking,
   Modal,
   Pressable,
@@ -14,6 +15,13 @@ import {
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
+import { projectsApi } from '@/api/projects';
+import { RichProjectNotes } from '@/components/projects/RichProjectNotes';
+import { ProjectHierarchySummary } from '@/components/projects/ProjectHierarchySummary';
+import { ProjectTransferActions } from '@/components/projects/ProjectTransferActions';
+import { completeProjectSets, isPrintableProjectFile } from '@/utils/projectHierarchy';
+import { openLibrary } from '@/utils/libraryNavigation';
+import { useTranslation } from '@/i18n';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { InlineTabBar, PrimaryButton, ProgressBar, SectionCard, StatCard, StatusBadge, TextField } from '@/components/common/AppUI';
 import {
@@ -37,6 +45,7 @@ function isProjectModelFile(file: ApiRecord) {
 }
 
 export default function ProjectDetailScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'ProjectDetail'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Project' });
@@ -57,6 +66,7 @@ export default function ProjectDetailScreen() {
   const [showSliceModal, setShowSliceModal] = useState(false);
   const [editingBom, setEditingBom] = useState<ApiRecord | null>(null);
   const [bomForm, setBomForm] = useState(DEFAULT_BOM);
+  const [hideCompletedBom, setHideCompletedBom] = useState(false);
 
   const projectQuery = useQuery({
     queryKey: ['project', projectId],
@@ -88,6 +98,20 @@ export default function ProjectDetailScreen() {
     queryFn: () => api.getLibraryFiles(undefined, false, projectId),
     enabled: Number.isFinite(projectId),
   });
+  const fileProgressQuery = useQuery({
+    queryKey: ['projectFileProgress', projectId],
+    queryFn: () => projectsApi.getProjectFileProgress(projectId),
+    enabled: Number.isFinite(projectId),
+  });
+  const templateMutation = useMutation({
+    mutationFn: () => projectsApi.createTemplateFromProject(projectId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['projects'] });
+      await queryClient.invalidateQueries({ queryKey: ['projectTemplates'] });
+      showToast(t('projects.templateSaved', { defaultValue: 'Project saved as template.' }), 'success');
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
 
   const refreshAll = async () => {
     await Promise.all([
@@ -97,6 +121,7 @@ export default function ProjectDetailScreen() {
       timelineQuery.refetch(),
       linkedFoldersQuery.refetch(),
       projectFilesQuery.refetch(),
+      fileProgressQuery.refetch(),
     ]);
   };
 
@@ -194,6 +219,9 @@ export default function ProjectDetailScreen() {
   }, [projectFiles]);
 
   const stats = (project?.stats ?? {}) as ApiRecord;
+  const visibleBomItems = hideCompletedBom ? bomItems.filter(item => !pickBoolean(item, ['is_complete'])) : bomItems;
+  const completeSets = completeProjectSets(projectFiles, fileProgressQuery.data ?? [], pickNumber(project, ['target_sets']));
+  const progressByFileId = new Map((fileProgressQuery.data ?? []).map(row => [row.file_id, row.completed_count]));
 
   React.useEffect(() => {
     if (project && !editingNotes) {
@@ -263,6 +291,7 @@ export default function ProjectDetailScreen() {
           ) : null}
         </View>
         <View style={styles.summaryGrid}>
+          <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{t('projects.ownTotals', { defaultValue: 'This project only (excludes descendants)' })}</Text>
           <StatCard label="Print jobs" value={String(pickNumber(stats, ['total_archives'], archives.length))} />
           <StatCard label="Print time" value={formatDuration(pickNumber(stats, ['total_print_time_hours'], 0) * 3600)} />
           <StatCard label="Filament" value={formatWeight(pickNumber(stats, ['total_filament_grams'], 0))} />
@@ -277,6 +306,11 @@ export default function ProjectDetailScreen() {
           <Text style={[styles.progressMeta, { color: colors.textSecondary }]}>{Math.round(partsProgress)}% • {pickNumber(stats, ['remaining_parts'], 0)} remaining</Text>
         </View>
         <View style={styles.actions}>
+          <ProjectTransferActions projectId={projectId} />
+          {hasPermission('projects:create') && !pickBoolean(project, ['is_template']) ? <PrimaryButton
+            label={t('projects.saveTemplate', { defaultValue: 'Save as template' })} variant="secondary"
+            disabled={templateMutation.isPending} loading={templateMutation.isPending}
+            onPress={() => templateMutation.mutate()} /> : null}
           <PrimaryButton label="Batch Print" variant="secondary" onPress={() => setShowBatchModal(true)} />
           <PrimaryButton label="Run Pipeline" variant="secondary" onPress={() => setShowPipelineModal(true)} />
           <PrimaryButton label="Slice" variant="secondary" onPress={() => setShowSliceModal(true)} />
@@ -299,6 +333,14 @@ export default function ProjectDetailScreen() {
           ) : null}
         </View>
       </SectionCard>
+      <ProjectHierarchySummary project={project} onOpen={id => navigation.push('ProjectDetail', { id })} />
+      {pickNumber(project, ['target_sets']) > 0 ? <SectionCard title={t('projects.completeSets', { defaultValue: 'Complete sets' })}>
+        {fileProgressQuery.isError || projectFilesQuery.isError ? <ErrorState message={t('projects.progressError', { defaultValue: 'Unable to load production progress.' })} onRetry={() => { void fileProgressQuery.refetch(); void projectFilesQuery.refetch(); }} /> : fileProgressQuery.isLoading || projectFilesQuery.isLoading ? <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{t('projects.loadingProgress', { defaultValue: 'Loading production progress…' })}</Text> : <>
+          <Text style={[styles.bodyText, { color: colors.text }]}>{t('projects.setsCount', { defaultValue: '{{done}} / {{target}} complete sets · {{remaining}} remaining', done: completeSets ?? 0, target: pickNumber(project, ['target_sets']), remaining: Math.max(0, pickNumber(project, ['target_sets']) - (completeSets ?? 0)) })}</Text>
+          <ProgressBar progress={((completeSets ?? 0) / pickNumber(project, ['target_sets'])) * 100} color={colors.accent} trackColor={colors.surfaceElevated} />
+          <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{completeSets === null ? t('projects.noPrintableFiles', { defaultValue: 'Link sliced printable files to calculate complete sets.' }) : t('projects.setsHint', { defaultValue: 'Limited by the printable file with the fewest completed copies.' })}</Text>
+        </>}
+      </SectionCard> : null}
 
       <InlineTabBar
         value={tab}
@@ -317,7 +359,7 @@ export default function ProjectDetailScreen() {
           <SectionCard title="Notes" subtitle="Project summary, instructions, and context.">
             {editingNotes ? (
               <>
-                <TextField label="Notes" value={notes} onChangeText={setNotes} multiline />
+                <RichProjectNotes key={`edit-${projectId}`} value={notes} editable onChange={setNotes} />
                 <View style={styles.actions}>
                   <PrimaryButton label="Cancel" variant="secondary" onPress={() => { setEditingNotes(false); setNotes(pickString(project, ['notes'])); }} />
                   <PrimaryButton
@@ -328,9 +370,7 @@ export default function ProjectDetailScreen() {
                 </View>
               </>
             ) : (
-              <Text style={[styles.bodyText, { color: colors.textSecondary }]}> 
-                {pickString(project, ['notes'], 'No notes have been added yet.')}
-              </Text>
+              <RichProjectNotes key={pickString(project, ['notes'])} value={pickString(project, ['notes'], t('projects.noNotes', { defaultValue: 'No notes have been added yet.' }))} />
             )}
           </SectionCard>
 
@@ -350,11 +390,12 @@ export default function ProjectDetailScreen() {
 
       {tab === 'bom' ? (
         <SectionCard title="Bill of materials" subtitle="Parts to source, buy, or track for this project.">
+          <PrimaryButton label={hideCompletedBom ? t('projects.showAllBom', { defaultValue: 'Show all items' }) : t('projects.hideDoneBom', { defaultValue: 'Hide completed items' })} variant="secondary" onPress={() => setHideCompletedBom(value => !value)} />
           {hasPermission('projects:update') ? (
             <PrimaryButton label="Add BOM item" variant="secondary" onPress={() => openBomModal()} />
           ) : null}
-          {bomItems.length > 0 ? (
-            bomItems.map(item => (
+          {visibleBomItems.length > 0 ? (
+            visibleBomItems.map(item => (
               <View key={pickString(item, ['id'])} style={[styles.rowCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
                 <View style={styles.rowHeader}>
                   <View style={styles.rowText}>
@@ -383,7 +424,11 @@ export default function ProjectDetailScreen() {
                         })
                       }
                     />
-                    <PrimaryButton label="Delete" variant="danger" onPress={() => void deleteBomMutation.mutateAsync(pickNumber(item, ['id']))} />
+                    <PrimaryButton label={t('common.delete')} variant="danger" disabled={deleteBomMutation.isPending} onPress={() => Alert.alert(
+                      t('projects.deleteBomTitle', { defaultValue: 'Delete BOM item?' }),
+                      t('projects.deleteBomConfirm', { defaultValue: 'Delete “{{name}}”? This cannot be undone.', name: pickString(item, ['name']) }),
+                      [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.delete'), style: 'destructive', onPress: () => deleteBomMutation.mutate(pickNumber(item, ['id'])) }],
+                    )} />
                   </View>
                 ) : null}
               </View>
@@ -428,10 +473,12 @@ export default function ProjectDetailScreen() {
           ) : null}
 
           <SectionCard title="Linked files" subtitle="Library folders and printable files connected to this project.">
+            {hasPermission('projects:update') ? <PrimaryButton variant="secondary" label={t('projects.linkLibrary', { defaultValue: 'Link library files or folders' })} onPress={() => openLibrary(navigation, { projectId })} /> : null}
             {linkedFolders.length > 0 ? (
               linkedFolders.map(folder => (
                 <View key={pickString(folder, ['id'])} style={[styles.rowCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
                   <Text style={[styles.rowTitle, { color: colors.text }]}>{pickString(folder, ['name'], 'Folder')}</Text>
+                  <PrimaryButton variant="secondary" label={t('projects.openFolder', { defaultValue: 'Open folder in Library' })} onPress={() => openLibrary(navigation, { folderId: pickNumber(folder, ['id']) })} />
                   <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>Files: {pickNumber(folder, ['file_count'], 0)}</Text>
                   {(filesByFolder.get(pickNumber(folder, ['id'])) ?? []).map(file => (
                     <View key={pickString(file, ['id'])} style={styles.fileRow}>
@@ -443,6 +490,13 @@ export default function ProjectDetailScreen() {
                       <View style={styles.rowText}>
                         <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>{pickString(file, ['print_name', 'filename'], 'Library file')}</Text>
                         <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>{pickString(file, ['file_type'], 'file').toUpperCase()}</Text>
+                        {isPrintableProjectFile(file) ? <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>{fileProgressQuery.isError ? t('projects.progressError', { defaultValue: 'Unable to load production progress.' }) : fileProgressQuery.isLoading ? t('projects.loadingProgress', { defaultValue: 'Loading production progress…' }) : t('projects.fileProduction', {
+                          defaultValue: '{{done}} printed · target {{target}} · {{remaining}} remaining',
+                          done: progressByFileId.get(pickNumber(file, ['id'])) ?? 0,
+                          target: pickNumber(project, ['target_sets']) || '—',
+                          remaining: pickNumber(project, ['target_sets']) ? Math.max(0, pickNumber(project, ['target_sets']) - (progressByFileId.get(pickNumber(file, ['id'])) ?? 0)) : '—',
+                        })}</Text> : null}
+                        <PrimaryButton variant="secondary" label={t('projects.openFile', { defaultValue: 'Open in Library' })} onPress={() => openLibrary(navigation, { folderId: pickNumber(folder, ['id']), fileId: pickNumber(file, ['id']) })} />
                       </View>
                       <StatusBadge label={pickString(file, ['file_type'], 'file')} color={colors.accent} />
                     </View>
@@ -450,7 +504,7 @@ export default function ProjectDetailScreen() {
                 </View>
               ))
             ) : (
-              <EmptyState icon="📁" title="No linked folders" message="Link File Manager folders on the web to surface them here." />
+              <EmptyState icon="📁" title="No linked folders" message={t('projects.linkFilesHint', { defaultValue: 'Use Link library files or folders to associate existing library content.' })} />
             )}
           </SectionCard>
         </>

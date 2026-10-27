@@ -11,7 +11,15 @@ declare module 'react-native-webview' {
     allowsInlineMediaPlayback?: boolean;
     allowsFullscreenVideo?: boolean;
     mediaPlaybackRequiresUserAction?: boolean;
+    domStorageEnabled?: boolean;
+    scrollEnabled?: boolean;
+    onShouldStartLoadWithRequest?: (request: { url: string }) => boolean;
+    onMessage?: (event: { nativeEvent: { data: string } }) => void;
   }
 
-  export const WebView: React.ComponentType<WebViewProps>;
+  export interface WebViewHandle {
+    injectJavaScript: (script: string) => void;
+  }
+
+  export const WebView: React.ForwardRefExoticComponent<WebViewProps & React.RefAttributes<WebViewHandle>>;
 }

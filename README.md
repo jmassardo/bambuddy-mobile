@@ -37,7 +37,10 @@ Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print
 - Live MJPEG camera streaming
 - Spool inventory with NFC tag scanning
 - Statistics, analytics, and historical archives with photo galleries
-- Project organization for multi-part builds
+- Project hierarchies with descendant rollups, complete-set production targets,
+  formatted notes, BOM tracking, templates, and JSON/ZIP import/export
+- MakerWorld model resolution and sequential bulk import to nested library folders,
+  with native library/slicing follow-ups and confirmed import deletion
 - Maintenance tracking, lifetime-hour corrections, per-printer intervals, documentation and default restoration
 - Notification providers (including Bark, CallMeBot, and Home Assistant), per-event/printer routing, photo/quiet-hour/digest policies, draft and aggregate delivery tests, searchable template previews, and filterable delivery history
 - Personal email preferences remain independent of provider event subscriptions; bed-cooled alerts support a configurable 20–80 °C threshold
@@ -78,6 +81,14 @@ It supports folders, plate/image/text previews, selected-file download through t
 native save/share sheet, and confirmed deletion. Printer file permission is required.
 Object skipping supports plate-image and list multi-selection with a grouped,
 irreversible confirmation; it remains available after reconnecting mid-print.
+### Project transfers
+
+Projects can import a single project ZIP (including supported linked files), a project
+JSON, or an array of exported project JSON records. **Export project** shares a ZIP;
+**Export all projects** shares restorable metadata-only JSON, matching the server's
+bulk transfer format. Choose **Link library files or folders** on a project to associate
+library content. Complete sets are limited by the sliced file with the fewest completed
+copies; source STL/3MF models do not count as printed assemblies.
 
 ## Requirements
 

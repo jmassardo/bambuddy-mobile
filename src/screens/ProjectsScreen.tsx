@@ -24,6 +24,10 @@ import { ActionSheetModal } from '@/components/common/ActionSheetModal';
 import { FloatingActionButton, InlineTabBar, PrimaryButton, SearchBar, StatusBadge, TextField } from '@/components/common/AppUI';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { ProjectBatchPrintModal } from '@/components/projects/ProjectActionModals';
+import { ProjectParentPicker } from '@/components/projects/ProjectParentPicker';
+import { ProjectTransferActions } from '@/components/projects/ProjectTransferActions';
+import { projectTree } from '@/utils/projectHierarchy';
+import { useTranslation } from '@/i18n';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -38,6 +42,8 @@ interface ProjectFormState {
   color: string;
   targetCount: string;
   targetPartsCount: string;
+  targetSets: string;
+  parentId: number | null;
   url: string;
   tags: string;
   dueDate: string;
@@ -54,6 +60,8 @@ const DEFAULT_FORM: ProjectFormState = {
   color: PROJECT_COLORS[0],
   targetCount: '',
   targetPartsCount: '',
+  targetSets: '',
+  parentId: null,
   url: '',
   tags: '',
   dueDate: '',
@@ -72,6 +80,7 @@ function projectCoverUrl(project: ApiRecord): string | null {
 }
 
 export default function ProjectsScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Projects'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Projects' });
@@ -87,6 +96,7 @@ export default function ProjectsScreen() {
   const [batchProject, setBatchProject] = useState<ApiRecord | null>(null);
   const [pendingDeleteProject, setPendingDeleteProject] = useState<ApiRecord | null>(null);
   const [form, setForm] = useState<ProjectFormState>(DEFAULT_FORM);
+  const [expanded, setExpanded] = useState(new Set<number>());
 
   const projectsQuery = useQuery({
     queryKey: ['projects'],
@@ -116,6 +126,8 @@ export default function ProjectsScreen() {
         color: form.color,
         target_count: form.targetCount ? Number(form.targetCount) : undefined,
         target_parts_count: form.targetPartsCount ? Number(form.targetPartsCount) : undefined,
+        target_sets: form.targetSets ? Number(form.targetSets) : null,
+        parent_id: form.parentId,
         url: form.url.trim() || undefined,
         tags: form.tags.trim() || undefined,
         due_date: form.dueDate || undefined,
@@ -139,6 +151,8 @@ export default function ProjectsScreen() {
         status: form.status,
         target_count: form.targetCount ? Number(form.targetCount) : undefined,
         target_parts_count: form.targetPartsCount ? Number(form.targetPartsCount) : undefined,
+        target_sets: form.targetSets ? Number(form.targetSets) : null,
+        parent_id: form.parentId,
         url: form.url.trim() || null,
         tags: form.tags.trim() || undefined,
         due_date: form.dueDate || undefined,
@@ -228,6 +242,8 @@ export default function ProjectsScreen() {
       color: pickString(project, ['color'], PROJECT_COLORS[0]),
       targetCount: pickString(project, ['target_count']),
       targetPartsCount: pickString(project, ['target_parts_count']),
+      targetSets: pickString(project, ['target_sets']),
+      parentId: project.parent_id == null ? null : Number(project.parent_id),
       url: pickString(project, ['url']),
       tags: pickString(project, ['tags']),
       dueDate: pickString(project, ['due_date']).split('T')[0] || '',
@@ -254,8 +270,8 @@ export default function ProjectsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}> 
       <FlatList
-        data={filteredProjects}
-        keyExtractor={item => pickString(item, ['id'])}
+        data={projectTree(projects, expanded, new Set(filteredProjects.map(project => pickNumber(project, ['id']))), !!search.trim() || filter !== 'all')}
+        keyExtractor={item => pickString(item.project, ['id'])}
         contentContainerStyle={styles.content}
         ItemSeparatorComponent={ProjectsItemSeparator}
         refreshControl={
@@ -267,6 +283,7 @@ export default function ProjectsScreen() {
         }
         ListHeaderComponent={
           <View style={styles.headerArea}>
+            <ProjectTransferActions />
             <SearchBar value={search} onChangeText={setSearch} placeholder="Search projects" />
             <InlineTabBar
               value={filter}
@@ -280,7 +297,7 @@ export default function ProjectsScreen() {
             />
           </View>
         }
-        renderItem={({ item }) => {
+        renderItem={({ item: { project: item, depth, hasChildren } }) => {
           const status = pickString(item, ['status'], 'active');
           const progress = Math.max(
             pickNumber(item, ['progress_percent'], 0),
@@ -290,6 +307,17 @@ export default function ProjectsScreen() {
           );
           const cover = projectCoverUrl(item);
           return (
+            <View>
+              {depth > 0 ? <Text style={[styles.hierarchyLabel, { color: colors.textSecondary }]}>{t('projects.nestedLevel', { defaultValue: '{{branch}} Subproject (level {{depth}})', branch: '—'.repeat(depth), depth })}</Text> : null}
+              {hasChildren && !search.trim() && filter === 'all' ? <PrimaryButton
+                label={expanded.has(pickNumber(item, ['id'])) ? t('projects.collapse', { defaultValue: 'Collapse subprojects' }) : t('projects.expand', { defaultValue: 'Expand subprojects' })}
+                variant="secondary"
+                onPress={() => setExpanded(current => {
+                  const next = new Set(current);
+                  const id = pickNumber(item, ['id']);
+                  if (next.has(id)) next.delete(id); else next.add(id);
+                  return next;
+                })} /> : null}
             <PressableProjectCard
               colors={colors}
               title={pickString(item, ['name'], 'Unnamed project')}
@@ -305,6 +333,7 @@ export default function ProjectsScreen() {
               onEdit={() => openEdit(item)}
               onDelete={() => setPendingDeleteProject(item)}
             />
+            </View>
           );
         }}
         ListEmptyComponent={
@@ -352,6 +381,8 @@ export default function ProjectsScreen() {
               <Text style={[styles.modalTitle, { color: colors.text }]}>{editingProject ? 'Edit project' : 'New project'}</Text>
               <TextField label="Name" value={form.name} onChangeText={value => setForm(current => ({ ...current, name: value }))} />
               <TextField label="Description" value={form.description} onChangeText={value => setForm(current => ({ ...current, description: value }))} multiline />
+              <ProjectParentPicker projects={projects} projectId={editingProject ? pickNumber(editingProject, ['id']) : undefined} value={form.parentId} onChange={parentId => setForm(current => ({ ...current, parentId }))} />
+              <TextField label={t('projects.targetSets', { defaultValue: 'Target complete sets (copies per printable file)' })} value={form.targetSets} onChangeText={value => setForm(current => ({ ...current, targetSets: value.replace(/[^0-9]/g, '') }))} keyboardType="number-pad" />
               <TextField label="External URL" value={form.url} onChangeText={value => setForm(current => ({ ...current, url: value }))} placeholder="https://…" autoCapitalize="none" />
               <TextField label="Tags" value={form.tags} onChangeText={value => setForm(current => ({ ...current, tags: value }))} placeholder="prototype, urgent" />
 
@@ -520,6 +551,7 @@ function ProjectsItemSeparator() {
 }
 
 const styles = StyleSheet.create({
+  hierarchyLabel: { paddingVertical: spacing.xs },
   container: { flex: 1 },
   content: {
     padding: spacing.lg,

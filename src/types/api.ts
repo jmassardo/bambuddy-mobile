@@ -1657,7 +1657,7 @@ export interface ProjectCreate {
   due_date?: string;
   priority?: string;
   budget?: number | null;
-  parent_id?: number;
+  parent_id?: number | null;
   url?: string | null;  // #1155
 }
 
@@ -1673,7 +1673,7 @@ export interface ProjectUpdate {
   due_date?: string;
   priority?: string;
   budget?: number | null;
-  parent_id?: number;
+  parent_id?: number | null;
   url?: string | null;  // #1155 — explicit null clears the URL
 }
 
@@ -4469,4 +4469,49 @@ export interface PrinterSDListing {
   path: string;
   files: { name: string; path: string; size: number; is_directory: boolean; modified?: string | null }[];
   warnings: string[];
+}
+
+// Projects / MakerWorld parity lane
+export interface Project {
+  target_sets?: number | null;
+  descendant_count?: number;
+  rollup_stats?: ProjectStats | null;
+}
+
+export interface ProjectChildPreview {
+  descendant_count?: number;
+  total_archives?: number;
+  completed_prints?: number;
+  total_print_time_hours?: number;
+  total_filament_grams?: number;
+  total_cost?: number;
+}
+
+export interface ProjectListItem {
+  target_sets?: number | null;
+  parent_id?: number | null;
+  child_count?: number;
+  tags?: string | null;
+  due_date?: string | null;
+  priority?: string;
+}
+
+export interface ProjectCreate {
+  target_sets?: number | null;
+}
+
+export interface ProjectUpdate {
+  target_sets?: number | null;
+}
+
+export interface ProjectFileProgress {
+  file_id: number;
+  completed_count: number;
+}
+
+export interface MakerworldImportRequest {
+  model_id: number;
+  instance_id: number | null;
+  profile_id: number | null;
+  folder_id: number | null;
 }
