@@ -47,6 +47,12 @@ failed submission retains the captured sanitized logs. Sessions are scoped to
 the configured server. Discarding restores logging and removes the local
 draft. Screenshots survive navigation but not process restart.
 
+Edits to reproduction steps, email and diagnostic opt-in/out are saved as they
+change during collection and while reviewing a stopped draft. Draft edits,
+logging-stop results and resumed reads are serialized so automatic expiry
+cannot overwrite newer text or reset diagnostic consent. If device storage
+rejects an edit, the screen retains it and shows an explicit retry warning.
+
 For app integration, mount `BugReportCollectionGuard` from
 `@/components/system/BugReportTools` once inside both `QueryClientProvider` and
 `AuthProvider`, above navigation. It waits for an authorized server connection,

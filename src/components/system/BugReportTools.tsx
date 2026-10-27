@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, Image, Linking, StyleSheet, Text, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { systemApi } from '@/api/system';
@@ -20,11 +19,13 @@ import { SystemHealthPanel } from './SystemHealthPanel';
 import { DiagnosticChecklist } from './DiagnosticChecklist';
 import {
   MAX_REPORT_LOG_SECONDS,
-  parseReportCollection,
-  reportSessionKey,
+  editReportCollection,
+  loadReportCollection,
+  mergeReportCollectionState,
   saveReportCollection,
   stopReportCollection,
   type ReportCollection,
+  type ReportCollectionEdits,
 } from './bugReportCollection';
 
 export function useReportCollection() {
@@ -32,10 +33,7 @@ export function useReportCollection() {
   const client = useQueryClient();
   const session = useQuery({
     queryKey: ['bugReportCollection', server],
-    queryFn: async () =>
-      parseReportCollection(
-        await AsyncStorage.getItem(reportSessionKey(server)),
-      ),
+    queryFn: () => loadReportCollection(server),
     staleTime: Infinity,
     enabled: Boolean(server),
   });
@@ -68,12 +66,10 @@ export function BugReportCollectionGuard() {
       running.current = true;
       try {
         const stopped = await stopReportCollection(server, current);
-        const latest = client.getQueryData<ReportCollection | null>([
-          'bugReportCollection',
-          server,
-        ]);
-        if (latest?.startedAt === current.startedAt)
-          client.setQueryData(['bugReportCollection', server], stopped);
+        client.setQueryData<ReportCollection | null>(
+          ['bugReportCollection', server],
+          latest => mergeReportCollectionState(latest, stopped),
+        );
         client.setQueryData(['bugReportCollectionError', server], null);
         await client.invalidateQueries({ queryKey: ['debugLoggingState'] });
       } catch (error) {
@@ -170,6 +166,37 @@ export function BugReportTools() {
     },
     onError: (error: Error) => setMessage(error.message),
   });
+  const persistEdits = (edits: ReportCollectionEdits) => {
+    const key = ['bugReportCollection', server];
+    const current = client.getQueryData<ReportCollection | null>(key);
+    if (!current) return;
+    const draft = {
+      description: current.description,
+      email: current.email,
+      includeSupportInfo: current.includeSupportInfo,
+      ...edits,
+    };
+    client.setQueryData<ReportCollection | null>(key, latest =>
+      latest?.startedAt === current.startedAt
+        ? { ...latest, ...edits }
+        : latest,
+    );
+    void editReportCollection(server, current.startedAt, draft)
+      .then(saved => {
+        client.setQueryData<ReportCollection | null>(key, latest =>
+          mergeReportCollectionState(latest, saved),
+        );
+      })
+      .catch((error: Error) =>
+        setMessage(
+          t('system.report.draftSaveError', {
+            defaultValue:
+              'Unable to save report edits: {{error}}. Keep this screen open and retry the edit before restarting the app.',
+            error: error.message,
+          }),
+        ),
+      );
+  };
   const attach = async () => {
     try {
       const result = await launchImageLibrary({
@@ -209,7 +236,10 @@ export function BugReportTools() {
       email,
       includeSupportInfo: include,
     });
-    client.setQueryData(['bugReportCollection', server], stopped);
+    client.setQueryData<ReportCollection | null>(
+      ['bugReportCollection', server],
+      latest => mergeReportCollectionState(latest, stopped),
+    );
     client.setQueryData(['bugReportCollectionError', server], null);
     return stopped;
   };
@@ -298,13 +328,19 @@ export function BugReportTools() {
         multiline
         editable={!action.isPending}
         value={description}
-        onChangeText={setDescription}
+        onChangeText={value => {
+          setDescription(value);
+          persistEdits({ description: value });
+        }}
       />
       <TextField
         label={t('system.report.email', { defaultValue: 'Email (optional)' })}
         editable={!action.isPending}
         value={email}
-        onChangeText={setEmail}
+        onChangeText={value => {
+          setEmail(value);
+          persistEdits({ email: value });
+        }}
         keyboardType="email-address"
         autoCapitalize="none"
       />
@@ -315,7 +351,10 @@ export function BugReportTools() {
         })}
         disabled={action.isPending}
         value={include}
-        onValueChange={setInclude}
+        onValueChange={value => {
+          setInclude(value);
+          persistEdits({ includeSupportInfo: value });
+        }}
       />
       <Text style={{ color: colors.textSecondary }}>
         {t('system.report.collection', {

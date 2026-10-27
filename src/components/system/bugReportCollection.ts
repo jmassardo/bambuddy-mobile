@@ -11,6 +11,9 @@ export interface ReportCollection {
   phase: 'logging' | 'stopped';
   logs?: string;
 }
+export type ReportCollectionEdits = Partial<
+  Pick<ReportCollection, 'description' | 'email' | 'includeSupportInfo'>
+>;
 
 export function reportSessionKey(server: string) {
   return `bambuddy-bug-report-session:${encodeURIComponent(server)}`;
@@ -45,13 +48,84 @@ export function parseReportCollection(
   }
 }
 
-export async function saveReportCollection(
+const collectionOperations = new Map<string, Promise<void>>();
+
+function serializeCollectionOperation<T>(
   server: string,
-  value: ReportCollection | null,
-) {
+  run: () => Promise<T>,
+): Promise<T> {
+  const operation = (
+    collectionOperations.get(server) ?? Promise.resolve()
+  ).then(run);
+  const settled = operation.then(
+    () => {},
+    () => {},
+  );
+  collectionOperations.set(server, settled);
+  void settled.then(() => {
+    if (collectionOperations.get(server) === settled)
+      collectionOperations.delete(server);
+  });
+  return operation;
+}
+
+async function readCollection(server: string) {
+  return parseReportCollection(
+    await AsyncStorage.getItem(reportSessionKey(server)),
+  );
+}
+
+async function writeCollection(server: string, value: ReportCollection | null) {
   if (value)
     await AsyncStorage.setItem(reportSessionKey(server), JSON.stringify(value));
   else await AsyncStorage.removeItem(reportSessionKey(server));
+}
+
+export function loadReportCollection(server: string) {
+  return serializeCollectionOperation(server, () => readCollection(server));
+}
+
+export function saveReportCollection(
+  server: string,
+  value: ReportCollection | null,
+) {
+  return serializeCollectionOperation(server, () =>
+    writeCollection(server, value),
+  );
+}
+
+export function editReportCollection(
+  server: string,
+  startedAt: number,
+  edits: ReportCollectionEdits,
+) {
+  return serializeCollectionOperation(server, async () => {
+    const current = await readCollection(server);
+    if (!current || current.startedAt !== startedAt) return current;
+    const updated: ReportCollection = {
+      ...current,
+      description: edits.description ?? current.description,
+      email: edits.email ?? current.email,
+      includeSupportInfo:
+        edits.includeSupportInfo ?? current.includeSupportInfo,
+    };
+    await writeCollection(server, updated);
+    return updated;
+  });
+}
+
+// Draft edits are optimistic: an older async stop/write must only advance logging state.
+export function mergeReportCollectionState(
+  current: ReportCollection | null | undefined,
+  incoming: ReportCollection | null,
+) {
+  if (!current || !incoming || current.startedAt !== incoming.startedAt)
+    return current;
+  return {
+    ...current,
+    phase: current.phase === 'stopped' ? current.phase : incoming.phase,
+    logs: incoming.phase === 'stopped' ? incoming.logs : current.logs,
+  };
 }
 
 // A failed stop never discards the original debug setting, so a reconnect can retry it.
@@ -61,22 +135,27 @@ export async function stopReportCollection(
   session: ReportCollection,
 ) {
   if (session.phase === 'stopped') return session;
-  const existing = stopping.get(server);
+  const key = `${reportSessionKey(server)}:${session.startedAt}`;
+  const existing = stopping.get(key);
   if (existing) return existing;
   const operation = (async () => {
     const result = await systemApi.stopBugReportLogging(session.wasDebug);
-    const stopped: ReportCollection = {
-      ...session,
-      phase: 'stopped',
-      logs: result.logs,
-    };
-    await saveReportCollection(server, stopped);
-    return stopped;
+    return serializeCollectionOperation(server, async () => {
+      const current = await readCollection(server);
+      const matches = current?.startedAt === session.startedAt;
+      const stopped: ReportCollection = {
+        ...(matches ? current : session),
+        phase: 'stopped',
+        logs: result.logs,
+      };
+      if (matches) await writeCollection(server, stopped);
+      return stopped;
+    });
   })();
-  stopping.set(server, operation);
+  stopping.set(key, operation);
   try {
     return await operation;
   } finally {
-    stopping.delete(server);
+    stopping.delete(key);
   }
 }

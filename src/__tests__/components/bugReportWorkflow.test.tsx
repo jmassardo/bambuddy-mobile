@@ -1,6 +1,6 @@
 import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { launchImageLibrary } from 'react-native-image-picker';
 import {
@@ -10,6 +10,8 @@ import {
 import {
   parseReportCollection,
   reportSessionKey,
+  editReportCollection,
+  loadReportCollection,
   stopReportCollection,
   type ReportCollection,
 } from '@/components/system/bugReportCollection';
@@ -128,6 +130,216 @@ describe('guided diagnostic report workflow', () => {
     );
     expect(systemApi.submitBugReport).not.toHaveBeenCalled();
     expect(await view.findByLabelText('Submit / retry report')).toBeTruthy();
+  });
+  it('resumes edited reproduction steps, email and diagnostic opt-out and submits the retained consent', async () => {
+    let view = await mount();
+    await fireEvent.changeText(
+      view.getByLabelText('Describe the problem and reproduction steps'),
+      session.description,
+    );
+    await fireEvent.press(view.getByLabelText('Start diagnostic logging'));
+    await view.findByLabelText('Stop and submit report');
+    const original = parseReportCollection(
+      stored.get(reportSessionKey(server)) ?? null,
+    )!;
+    const edited =
+      'Reproduction: open the queue, start a print, then observe the connection error.';
+    await fireEvent.changeText(
+      view.getByLabelText('Describe the problem and reproduction steps'),
+      edited,
+    );
+    await fireEvent.changeText(
+      view.getByLabelText('Email (optional)'),
+      'updated@example.test',
+    );
+    await fireEvent(
+      view.getByLabelText(
+        'Include diagnostic support information and sanitized debug logs',
+      ),
+      'valueChange',
+      false,
+    );
+    await view.unmount();
+    view = await mount();
+    await view.findByLabelText('Stop and submit report');
+    expect(
+      view.getByLabelText('Describe the problem and reproduction steps').props
+        .value,
+    ).toBe(edited);
+    expect(view.getByLabelText('Email (optional)').props.value).toBe(
+      'updated@example.test',
+    );
+    expect(
+      view.getByLabelText(
+        'Include diagnostic support information and sanitized debug logs',
+      ).props.value,
+    ).toBe(false);
+    expect(
+      parseReportCollection(stored.get(reportSessionKey(server)) ?? null),
+    ).toEqual(
+      expect.objectContaining({
+        startedAt: original.startedAt,
+        wasDebug: original.wasDebug,
+        phase: 'logging',
+        includeSupportInfo: false,
+      }),
+    );
+    expect(systemApi.submitBugReport).not.toHaveBeenCalled();
+    await fireEvent.press(view.getByLabelText('Stop and submit report'));
+    await waitFor(() =>
+      expect(systemApi.submitBugReport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: edited,
+          email: 'updated@example.test',
+          include_support_info: false,
+        }),
+      ),
+    );
+  });
+  it('preserves edits made while automatic stop is collecting logs', async () => {
+    const original = { ...session, startedAt: Date.now() - 301000 };
+    stored.set(reportSessionKey(server), JSON.stringify(original));
+    let finishStop!: (result: { logs: string }) => void;
+    jest.mocked(systemApi.stopBugReportLogging).mockReturnValueOnce(
+      new Promise(resolve => {
+        finishStop = resolve;
+      }),
+    );
+    let view = await mount();
+    await waitFor(() =>
+      expect(systemApi.stopBugReportLogging).toHaveBeenCalledTimes(1),
+    );
+    const edited =
+      'Updated reproduction steps while the automatic collection stop is in flight.';
+    try {
+      await fireEvent.changeText(
+        view.getByLabelText('Describe the problem and reproduction steps'),
+        edited,
+      );
+      await fireEvent(
+        view.getByLabelText(
+          'Include diagnostic support information and sanitized debug logs',
+        ),
+        'valueChange',
+        false,
+      );
+      await waitFor(() =>
+        expect(
+          parseReportCollection(stored.get(reportSessionKey(server)) ?? null)
+            ?.description,
+        ).toBe(edited),
+      );
+    } finally {
+      await act(async () => finishStop({ logs: 'captured before expiry' }));
+    }
+    await view.findByLabelText('Submit / retry report');
+    await view.unmount();
+    view = await mount();
+    await view.findByLabelText('Submit / retry report');
+    expect(
+      view.getByLabelText('Describe the problem and reproduction steps').props
+        .value,
+    ).toBe(edited);
+    expect(
+      view.getByLabelText(
+        'Include diagnostic support information and sanitized debug logs',
+      ).props.value,
+    ).toBe(false);
+    expect(
+      parseReportCollection(stored.get(reportSessionKey(server)) ?? null),
+    ).toEqual(
+      expect.objectContaining({
+        startedAt: original.startedAt,
+        wasDebug: original.wasDebug,
+        phase: 'stopped',
+        logs: 'captured before expiry',
+        description: edited,
+        includeSupportInfo: false,
+      }),
+    );
+    expect(systemApi.submitBugReport).not.toHaveBeenCalled();
+  });
+  it('serializes edits after an in-flight stop write and hydration waits for the latest draft', async () => {
+    const original = { ...session, startedAt: Date.now() };
+    stored.set(reportSessionKey(server), JSON.stringify(original));
+    let finishWrite: (() => void) | undefined;
+    jest
+      .mocked(AsyncStorage.setItem)
+      .mockImplementationOnce(async (key, value) => {
+        await new Promise<void>(resolve => {
+          finishWrite = resolve;
+        });
+        stored.set(key, value);
+      });
+    const stopping = stopReportCollection(server, original);
+    let edited: ReturnType<typeof editReportCollection> | undefined;
+    let resumed: ReturnType<typeof loadReportCollection> | undefined;
+    try {
+      await waitFor(() => expect(finishWrite).toEqual(expect.any(Function)));
+      edited = editReportCollection(server, original.startedAt, {
+        description: 'Latest steps queued behind automatic stop',
+        includeSupportInfo: false,
+      });
+      resumed = loadReportCollection(server);
+      expect(AsyncStorage.setItem).toHaveBeenCalledTimes(1);
+    } finally {
+      finishWrite?.();
+      await stopping;
+    }
+    await edited;
+    expect(await resumed).toEqual(
+      expect.objectContaining({
+        startedAt: original.startedAt,
+        wasDebug: original.wasDebug,
+        phase: 'stopped',
+        logs: 'sanitized reproduction trace',
+        description: 'Latest steps queued behind automatic stop',
+        email: original.email,
+        includeSupportInfo: false,
+      }),
+    );
+    expect(systemApi.submitBugReport).not.toHaveBeenCalled();
+  });
+  it('surfaces edit persistence errors without resetting consent and permits a saved retry', async () => {
+    const original = { ...session, startedAt: Date.now() };
+    stored.set(reportSessionKey(server), JSON.stringify(original));
+    jest
+      .mocked(AsyncStorage.setItem)
+      .mockRejectedValueOnce(new Error('Device disk full'));
+    const view = await mount();
+    await view.findByLabelText('Stop and submit report');
+    const consent = view.getByLabelText(
+      'Include diagnostic support information and sanitized debug logs',
+    );
+    await fireEvent(consent, 'valueChange', false);
+    expect(
+      await view.findByText(/Unable to save report edits: Device disk full/),
+    ).toBeTruthy();
+    expect(
+      view.getByLabelText(
+        'Include diagnostic support information and sanitized debug logs',
+      ).props.value,
+    ).toBe(false);
+    await fireEvent.changeText(
+      view.getByLabelText('Describe the problem and reproduction steps'),
+      'Retried draft save after freeing device storage',
+    );
+    await waitFor(() =>
+      expect(
+        parseReportCollection(stored.get(reportSessionKey(server)) ?? null)
+          ?.includeSupportInfo,
+      ).toBe(false),
+    );
+    expect(
+      parseReportCollection(stored.get(reportSessionKey(server)) ?? null),
+    ).toEqual(
+      expect.objectContaining({
+        startedAt: original.startedAt,
+        wasDebug: original.wasDebug,
+        phase: 'logging',
+      }),
+    );
+    expect(systemApi.submitBugReport).not.toHaveBeenCalled();
   });
   it('attaches/removes a screenshot and submits only after explicit user action; failed submission is retryable', async () => {
     stored.set(
