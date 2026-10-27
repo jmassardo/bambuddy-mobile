@@ -483,33 +483,17 @@ export const printersApi = {
     request<void>(`/virtual-printers/${id}`, { method: 'DELETE' }),
 
   startVirtualPrinter: async (id: number) =>
-    requestWithFallback<ApiEntity<VirtualPrinterConfig>>(
-      {
-        endpoint: `/virtual-printers/${id}/start`,
-        options: { method: 'POST' },
-      },
-      {
-        endpoint: `/virtual-printers/${id}`,
-        options: { method: 'PUT', body: JSON.stringify({ enabled: true }) },
-      },
-    ),
+    request<ApiEntity<VirtualPrinterConfig>>(`/virtual-printers/${id}`, {
+      method: 'PUT', body: JSON.stringify({ enabled: true }),
+    }),
 
   stopVirtualPrinter: async (id: number) =>
-    requestWithFallback<ApiEntity<VirtualPrinterConfig>>(
-      {
-        endpoint: `/virtual-printers/${id}/stop`,
-        options: { method: 'POST' },
-      },
-      {
-        endpoint: `/virtual-printers/${id}`,
-        options: { method: 'PUT', body: JSON.stringify({ enabled: false }) },
-      },
-    ),
+    request<ApiEntity<VirtualPrinterConfig>>(`/virtual-printers/${id}`, {
+      method: 'PUT', body: JSON.stringify({ enabled: false }),
+    }),
 
   testVirtualPrinterConnection: async (id: number) =>
-    request<Record<string, unknown>>(`/virtual-printers/${id}/test`, {
-      method: 'POST',
-    }),
+    request<Record<string, unknown>>(`/virtual-printers/${id}/diagnostic`),
 
   discoverPrinters: async (duration: number = 10) =>
     request<DiscoveryStatus>(`/discovery/start?duration=${duration}`, {

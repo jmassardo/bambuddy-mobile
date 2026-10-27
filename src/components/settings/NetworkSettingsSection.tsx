@@ -2,12 +2,15 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import { EmptyState } from '@/components/common/StateScreens';
 import { PrimaryButton, SectionCard, StatusBadge, TextField } from '@/components/common/AppUI';
-import { settingsStyles, SwitchRow, stringifyNumberField } from './shared';
+import { OptionChipsField, settingsStyles, SwitchRow, stringifyNumberField } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
 import { pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
+import { HomeAssistantSettings } from './HomeAssistantSettings';
+import { useIntegrationTranslation } from './useIntegrationTranslation';
 
 export function NetworkSettingsSection({ controller }: { controller: SettingsScreenController }) {
   const { draft } = controller.state;
+  const tr = useIntegrationTranslation();
   const { setDraft, openExternalLinkModal, setPendingDeleteExternalLink } = controller.actions;
   const externalLinks = React.useMemo(
     () =>
@@ -37,10 +40,12 @@ export function NetworkSettingsSection({ controller }: { controller: SettingsScr
     <>
       <SectionCard title="Network endpoints" subtitle="External URL plus retry and automation integrations.">
         <TextField label="External URL" value={pickString(draft, ['external_url'])} onChangeText={value => setDraft(current => ({ ...current, external_url: value }))} autoCapitalize="none" />
+        <OptionChipsField label={tr('FTP timeout (seconds)')} value={stringifyNumberField(draft.ftp_timeout, '30')} disabled={!controller.permissions.canUpdateSettings} options={[10, 15, 20, 30, 45, 60, 90, 120, 180, 300].map(value => ({ key: String(value), label: String(value) }))} onChange={value => setDraft(current => ({ ...current, ftp_timeout: Number(value) }))} />
         <SwitchRow label="FTP retry enabled" value={pickBoolean(draft, ['ftp_retry_enabled'])} onValueChange={value => setDraft(current => ({ ...current, ftp_retry_enabled: value }))} />
         <TextField label="FTP retry count" value={stringifyNumberField(draft.ftp_retry_count, '0')} onChangeText={value => setDraft(current => ({ ...current, ftp_retry_count: Number(value) || 0 }))} keyboardType="number-pad" />
         <TextField label="FTP retry delay (s)" value={stringifyNumberField(draft.ftp_retry_delay, '0')} onChangeText={value => setDraft(current => ({ ...current, ftp_retry_delay: Number(value) || 0 }))} keyboardType="number-pad" />
       </SectionCard>
+      <HomeAssistantSettings controller={controller} />
       <SectionCard title="External links" subtitle="Quick links for Grafana, Home Assistant, and other tools.">
         <PrimaryButton label="Add external link" variant="secondary" onPress={() => openExternalLinkModal()} />
         {externalLinks.length > 0 ? (

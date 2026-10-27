@@ -41,7 +41,16 @@ Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print
 - Maintenance tracking
 - Notification providers (including Bark, CallMeBot, and Home Assistant), per-event/printer routing, photo/quiet-hour/digest policies, draft and aggregate delivery tests, searchable template previews, and filterable delivery history
 - Personal email preferences remain independent of provider event subscriptions; bed-cooled alerts support a configurable 20–80 °C threshold
+- Tasmota discovery, Home Assistant entity/energy-sensor selection, MQTT measurement extraction, and authenticated REST smart plugs
+- Confirmed individual/bulk power controls, printer-linked automation, alerts and schedules
+- Virtual-printer interface/target selection, AMS mapping, CA certificate sharing and live setup diagnostics
 - Planned push notifications
+
+### Integrations
+
+Configure Home Assistant under **Settings → Network**; environment-managed URL/token values remain read-only. Save connection settings before discovering HA entities. Smart plug editors preserve separate today/lifetime energy mappings, nullable associations and zero-valued thresholds/delays. MQTT devices are monitor-only.
+
+REST connection tests use the server-supported URL, method and headers (not request bodies or measurement extraction). Prefer a status URL: testing an ON/OFF URL may change device power. Use **Virtual Printers** for named printer/interface choices, archive naming, certificate export and actionable diagnostics. The CA is public; no private key is exported.
 
 ## Requirements
 

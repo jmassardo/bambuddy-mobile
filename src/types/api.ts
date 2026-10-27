@@ -3231,6 +3231,7 @@ export interface PendingUpload {
 }
 
 export interface VirtualPrinterConfig {
+  save_ams_mapping?: boolean;
   id: number;
   name: string;
   enabled: boolean;
@@ -3275,6 +3276,7 @@ export interface VPDiagnosticCheck {
     | 'port_ftps'
     | 'port_mqtt'
     | 'port_bind'
+    | 'privileged_ports'
     | 'certificate';
   status: VPDiagnosticStatus;
   params: Record<string, string | number>;
@@ -3500,6 +3502,9 @@ export interface SliceJobState {
 // All other types
 
 export interface SmartPlug {
+  controls_printer_power: boolean;
+  rest_energy_total_path: string | null;
+  rest_energy_total_multiplier: number;
   id: number;
   name: string;
   plug_type: 'tasmota' | 'homeassistant' | 'mqtt' | 'rest';
@@ -3575,6 +3580,9 @@ export interface SmartPlug {
 }
 
 export interface SmartPlugCreate {
+  controls_printer_power?: boolean;
+  rest_energy_total_path?: string | null;
+  rest_energy_total_multiplier?: number;
   name: string;
   plug_type?: 'tasmota' | 'homeassistant' | 'mqtt' | 'rest';
   ip_address?: string | null;  // Required for Tasmota
@@ -3642,6 +3650,9 @@ export interface SmartPlugCreate {
 }
 
 export interface SmartPlugUpdate {
+  controls_printer_power?: boolean;
+  rest_energy_total_path?: string | null;
+  rest_energy_total_multiplier?: number;
   name?: string;
   plug_type?: 'tasmota' | 'homeassistant' | 'mqtt' | 'rest';
   ip_address?: string | null;
@@ -3757,7 +3768,6 @@ export interface TasmotaScanStatus {
   scanned: number;
   total: number;
 }
-
 export interface DiscoveredTasmotaDevice {
   ip_address: string;
   name: string;
