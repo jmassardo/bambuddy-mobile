@@ -5,9 +5,13 @@ import FilesScreen from '@/screens/FilesScreen';
 import { api } from '@/api/client';
 import { filesApi } from '@/api/files';
 
-const mockNavigation = {setOptions: jest.fn()};
-const mockRoute = {key: 'files', params: undefined};
-jest.mock('@react-navigation/native', () => ({useNavigation: () => mockNavigation, useRoute: () => mockRoute}));
+type LibraryDestination = {folderId?: number; fileId?: number; projectId?: number};
+const mockNavigation = {setOptions: jest.fn(), dispatch: jest.fn()};
+const mockRoute: {key: string; params?: LibraryDestination} = {key: 'files'};
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => mockNavigation, useRoute: () => mockRoute,
+  CommonActions: {setParams: (params: Record<string, number | undefined>) => ({type: 'SET_PARAMS', payload: {params}})},
+}));
 jest.mock('@/api/client', () => ({api: {
   getLibraryFiles: jest.fn(async () => [{id: 7, filename: 'widget.stl', file_type: 'stl', created_by_username: 'Alex'}, {id: 10, filename: 'another.stl', file_type: 'stl', created_by_username: 'Bea'}]),
   getLibraryFolders: jest.fn(async () => [{id: 1, name: 'Models', parent_id: null, file_count: 2, children: [{id: 2, name: 'Deep', parent_id: 1, children: []}]}]),
@@ -16,9 +20,13 @@ jest.mock('@/api/client', () => ({api: {
   getPendingUploads: jest.fn(async () => []), getLibraryFileThumbnailUrl: () => '',
   restoreLibraryItem: jest.fn(async () => {}), permanentDeleteLibraryItem: jest.fn(async () => {}),
   emptyLibraryTrash: jest.fn(async () => {}), renameLibraryItem: jest.fn(async () => ({})),
-  bulkAssignLibraryTags: jest.fn(async () => ({})),
+  bulkAssignLibraryTags: jest.fn(async () => ({})), getLibraryFilePlates: jest.fn(async () => ({plates: []})),
 }}));
-jest.mock('@/api/files', () => ({filesApi: {updateLibraryFolder: jest.fn(async () => ({}))}}));
+jest.mock('@/api/files', () => ({filesApi: {
+  updateLibraryFolder: jest.fn(async () => ({})),
+  getLibraryFolderReadme: jest.fn(async () => null),
+  getLibraryFile: jest.fn(async (id: number) => ({id, filename: 'widget.stl', file_type: 'stl'})),
+}}));
 jest.mock('@/contexts/AuthContext', () => ({useAuth: () => ({hasPermission: () => true, hasAnyPermission: () => true, authEnabled: false})}));
 jest.mock('@/contexts/ToastContext', () => ({useToast: () => ({showToast: jest.fn()})}));
 jest.mock('@/theme', () => ({useTheme: () => ({colors: new Proxy({}, {get: () => '#888888'})})}));
@@ -38,7 +46,13 @@ function TestProviders({children}: {children: React.ReactNode}) {
   const [client] = React.useState(() => new QueryClient({defaultOptions: {queries: {retry: false, gcTime: Infinity}, mutations: {retry: false, gcTime: Infinity}}}));
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockRoute.params = undefined;
+  mockNavigation.dispatch.mockImplementation((action: {type: string; payload?: {params: LibraryDestination}}) => {
+    if (action.type === 'SET_PARAMS') mockRoute.params = {...mockRoute.params, ...action.payload?.params};
+  });
+});
 
 test('trash displays envelope items and requires confirmation before permanent deletion', async () => {
   const result = await render(<FilesScreen />, {wrapper: TestProviders});
@@ -94,4 +108,34 @@ test('bulk tag Add and Remove never silently replace other selected-file tags', 
   await fireEvent.press(result.getByText('red'));
   await fireEvent.press(result.getByText('Save tags'));
   await waitFor(() => expect(api.bulkAssignLibraryTags).toHaveBeenCalledWith([7, 10], [2], 'remove'));
+});
+
+test('the same linked folder can be opened again after browsing elsewhere on the persistent Files tab', async () => {
+  mockRoute.params = {folderId: 2};
+  const result = await render(<FilesScreen />, {wrapper: TestProviders});
+  await result.findByText('Deep');
+  await fireEvent.press(result.getByText('Library'));
+  await waitFor(() => expect(result.queryByText('Deep')).toBeNull());
+
+  mockRoute.params = {folderId: 2};
+  await result.rerender(<FilesScreen />);
+  await result.findByText('Deep');
+  expect(mockNavigation.dispatch).toHaveBeenLastCalledWith({
+    type: 'SET_PARAMS', source: 'files',
+    payload: {params: {folderId: undefined, fileId: undefined, projectId: undefined}},
+  });
+});
+
+test('the same linked file can be reopened after closing its details on the persistent Files tab', async () => {
+  mockRoute.params = {fileId: 7};
+  const result = await render(<FilesScreen />, {wrapper: TestProviders});
+  await result.findByText('File details');
+  await fireEvent.press(result.getByText('Close'));
+  expect(result.queryByText('File details')).toBeNull();
+
+  mockRoute.params = {fileId: 7};
+  await result.rerender(<FilesScreen />);
+  await result.findByText('File details');
+  expect(filesApi.getLibraryFile).toHaveBeenCalledTimes(2);
+  expect(filesApi.getLibraryFile).toHaveBeenLastCalledWith(7);
 });

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { CommonActions, useNavigation, useRoute } from '@react-navigation/native';
 import type { MainTabNavigationProp } from '@/navigation/types';
 import {
   FlatList,
@@ -364,11 +364,9 @@ export default function FilesScreen() {
   );
 
   const routeParams = route.params as {folderId?: number; fileId?: number; projectId?: number} | undefined;
-  const consumedRoute = React.useRef('');
   React.useEffect(() => {
-    const key = `${route.key}:${routeParams?.folderId}:${routeParams?.fileId}:${routeParams?.projectId}`;
-    if (consumedRoute.current === key || (routeParams?.folderId != null && !foldersQuery.data)) return;
-    consumedRoute.current = key;
+    if (routeParams?.folderId == null && routeParams?.fileId == null && routeParams?.projectId == null) return;
+    if (routeParams?.folderId != null && !foldersQuery.data) return;
     if (routeParams?.projectId != null && routeParams?.folderId == null && routeParams?.fileId == null) setProjectLinkTarget(routeParams.projectId);
     if (routeParams?.folderId != null && foldersQuery.data) {
       const path = folderPath(foldersQuery.data.filter(isRecord), routeParams.folderId);
@@ -377,7 +375,11 @@ export default function FilesScreen() {
     if (routeParams?.fileId != null) {
       void filesApi.getLibraryFile(routeParams.fileId).then(file => setPreviewItem(file)).catch((error: Error) => showToast(error.message, 'error'));
     }
-  }, [route.key, routeParams?.folderId, routeParams?.fileId, routeParams?.projectId, foldersQuery.data, showToast]);
+    navigation.dispatch({
+      ...CommonActions.setParams({folderId: undefined, fileId: undefined, projectId: undefined}),
+      source: route.key,
+    });
+  }, [route.key, routeParams?.folderId, routeParams?.fileId, routeParams?.projectId, foldersQuery.data, showToast, navigation]);
 
 
   const filteredEntries = useMemo(() => {
