@@ -24,15 +24,20 @@ function validateChunk(english, translated, description) {
 }
 function validateResources({ locale, chunk } = {}) {
   const manifest = JSON.parse(fs.readFileSync(path.join(resources, 'manifest.json'), 'utf8'));
+  const deltaPath = path.join(resources, 'delta-manifest.json');
+  const delta = fs.existsSync(deltaPath) ? JSON.parse(fs.readFileSync(deltaPath, 'utf8')) : { chunks: [] };
+  const allChunks = [...manifest.chunks, ...delta.chunks];
   const selectedLocales = locale ? [locale] : manifest.locales;
-  const selectedChunks = chunk ? [chunk] : manifest.chunks;
+  const selectedChunks = chunk ? [chunk] : allChunks;
   const errors = [];
   const canonical = [];
+  const deltaCanonical = [];
   if (selectedLocales.some(value => !manifest.locales.includes(value))) return ['Unsupported locale selection'];
-  if (selectedChunks.some(value => !manifest.chunks.includes(value))) return ['Unknown chunk selection'];
-  for (const id of manifest.chunks) {
+  if (selectedChunks.some(value => !allChunks.includes(value))) return ['Unknown chunk selection'];
+  for (const id of allChunks) {
     const english = JSON.parse(fs.readFileSync(path.join(resources, 'en', `${id}.json`), 'utf8'));
-    for (const [key, value] of Object.entries(english)) canonical.push({ key, english: value, context: 'shared', placeholders: placeholders(value), chunk: id });
+    const destination = manifest.chunks.includes(id) ? canonical : deltaCanonical;
+    for (const [key, value] of Object.entries(english)) destination.push({ key, english: value, context: 'shared', placeholders: placeholders(value), chunk: id });
     if (!selectedChunks.includes(id)) continue;
     for (const language of selectedLocales) {
       const filename = path.join(resources, language, `${id}.json`);
@@ -45,6 +50,17 @@ function validateResources({ locale, chunk } = {}) {
   canonical.sort((a, b) => a.key.localeCompare(b.key));
   if (digest(JSON.stringify(canonical)) !== manifest.resourceDigest) errors.push('Frozen English inventory digest mismatch');
   if (canonical.length !== manifest.resourceCount) errors.push('Frozen English resource count mismatch');
+  if (delta.chunks.length) {
+    deltaCanonical.sort((a, b) => a.key.localeCompare(b.key));
+    if (digest(JSON.stringify(deltaCanonical)) !== delta.resourceDigest || deltaCanonical.length !== delta.resourceCount) errors.push('English delta inventory digest/count mismatch');
+  }
+  const generated = path.join(resources, 'generated.ts');
+  if (!locale && fs.existsSync(generated)) {
+    const bundled = new Set([...fs.readFileSync(generated, 'utf8').matchAll(/from '\.\/([^']+\.json)'/g)].map(match => match[1]));
+    for (const language of manifest.locales) for (const id of allChunks) {
+      if (!bundled.has(`${language}/${id}.json`)) errors.push(`Runtime bundle missing ${language}/${id}.json; regenerate scripts/generate-native-resources.js after integration.`);
+    }
+  }
   return errors;
 }
 if (require.main === module) {
