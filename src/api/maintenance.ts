@@ -4,10 +4,13 @@ import type {
   MaintenanceType,
   MaintenanceTypeCreate,
   PrinterMaintenanceOverview,
+  PrinterMaintenanceAssignment,
 } from '@/types/api';
-import { ApiError, request, requestWithFallback } from './http';
+import { ApiError, request } from './http';
 
 export const maintenanceApi = {
+  restoreDefaultMaintenanceTypes: async () =>
+    request<{ restored: number }>('/maintenance/types/restore-defaults', { method: 'POST' }),
   getMaintenanceTasks: async () => {
     const overview = await request<PrinterMaintenanceOverview[]>('/maintenance/overview');
     return overview.flatMap(item => item.maintenance_items ?? []);
@@ -83,7 +86,7 @@ export const maintenanceApi = {
       enabled?: boolean;
     },
   ) =>
-    request<MaintenanceStatus>(`/maintenance/items/${itemId}`, {
+    request<PrinterMaintenanceAssignment>(`/maintenance/items/${itemId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
@@ -95,18 +98,9 @@ export const maintenanceApi = {
     }),
 
   assignMaintenanceType: async (printerId: number, typeId: number) =>
-    requestWithFallback<MaintenanceStatus>(
-      {
-        endpoint: '/maintenance/assignments',
-        options: {
-          method: 'POST',
-          body: JSON.stringify({ printer_id: printerId, type_id: typeId }),
-        },
-      },
-      {
-        endpoint: `/maintenance/printers/${printerId}/assign/${typeId}`,
-        options: { method: 'POST' },
-      },
+    request<PrinterMaintenanceAssignment>(
+      `/maintenance/printers/${printerId}/assign/${typeId}`,
+      { method: 'POST' },
     ),
 
   removeMaintenanceItem: async (itemId: number) =>

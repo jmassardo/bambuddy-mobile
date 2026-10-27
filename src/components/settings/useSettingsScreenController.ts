@@ -195,7 +195,7 @@ export function useSettingsScreenController() {
   const kprofilesQuery = useQuery({
     queryKey: ['kprofiles'],
     queryFn: () => api.getKProfiles(),
-    enabled: section === 'kprofiles',
+    enabled: false,
   });
   const storageLocationsQuery = useQuery({
     queryKey: ['storageLocations'],

@@ -3887,6 +3887,73 @@ export interface KProfileNotesResponse {
   notes: Record<string, string>;  // setting_id -> note
 }
 
+// Profiles-maintenance parity lane: current cloud/local/device authorization contracts.
+export interface PrinterMaintenanceAssignment {
+  id: number;
+  printer_id: number;
+  maintenance_type_id: number;
+  maintenance_type: MaintenanceType;
+  custom_interval_hours: number | null;
+  enabled: boolean;
+  last_performed_at: string | null;
+  last_performed_hours: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PresetDetail {
+  setting_id?: string;
+  id?: number;
+  name: string;
+  type?: string;
+  preset_type?: string;
+  base_id?: string | null;
+  version?: string | null;
+  setting: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface PresetMutation {
+  name: string;
+  type: string;
+  base_id: string;
+  version: string;
+  setting: Record<string, unknown>;
+}
+
+export type PresetGroups = Record<'filament' | 'printer' | 'process', Array<Record<string, unknown>>>;
+
+export interface PresetImportResult {
+  success: boolean;
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+
+export interface PresetField {
+  key: string;
+  label?: string;
+  type?: string;
+  category?: string;
+  options?: unknown[];
+  [key: string]: unknown;
+}
+export type PresetFields = Record<string, unknown>;
+
+export interface OrcaDeviceAuthorization {
+  user_code: string;
+  verification_uri: string;
+  verification_uri_complete: string;
+  interval: number;
+  expires_in: number;
+}
+
+export interface OrcaDevicePoll {
+  status: 'authorization_pending' | 'slow_down' | 'access_denied' | 'expired_token' | 'complete';
+  connected: boolean;
+  email?: string | null;
+}
+
 export interface SlotPresetMapping {
   ams_id: number;
   tray_id: number;

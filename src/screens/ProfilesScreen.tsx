@@ -3,11 +3,13 @@ import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
+  Alert,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { errorCodes, isErrorWithCode, pick, types } from '@react-native-documents/picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api/client';
 import {
@@ -19,6 +21,14 @@ import {
 } from '@/components/common/AppUI';
 import { CloudProfileDetailModal } from '@/components/profiles/CloudProfileDetailModal';
 import { CloudProfileDiffModal } from '@/components/profiles/CloudProfileDiffModal';
+import { PresetEditor } from '@/components/profiles/PresetEditor';
+import { PresetFilters } from '@/components/profiles/PresetFilters';
+import { OrcaDeviceAuthorization } from '@/components/profiles/OrcaDeviceAuthorization';
+import { KProfileManager } from '@/components/profiles/KProfileManager';
+import { profileManagementApi } from '@/api/profileManagement';
+import { EMPTY_PRESET_FILTERS, filterPresets, presetRows } from '@/utils/profilePresets';
+import { useTranslation } from '@/i18n';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   EmptyState,
   ErrorState,
@@ -27,7 +37,7 @@ import {
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
-import type { CloudProfileDiffField } from '@/types/api';
+import type { CloudProfileDetail, CloudProfileDiffField } from '@/types/api';
 import {
   formatDateTime,
   pickArray,
@@ -41,21 +51,7 @@ type ProfileTab = 'cloud' | 'orca' | 'local' | 'kprofiles';
 type CloudStep = 'login' | 'code' | 'token';
 
 function normalizeProfiles(source: unknown): ApiRecord[] {
-  if (Array.isArray(source)) {
-    return source.filter(
-      (item): item is ApiRecord => typeof item === 'object' && item !== null,
-    );
-  }
-
-  if (typeof source === 'object' && source !== null) {
-    const record = source as ApiRecord;
-    const profiles = pickArray(record, ['profiles', 'items', 'results']);
-    return profiles.filter(
-      (item): item is ApiRecord => typeof item === 'object' && item !== null,
-    );
-  }
-
-  return [];
+  return presetRows(source);
 }
 
 function normalizeDiffFields(source: unknown): CloudProfileDiffField[] {
@@ -122,6 +118,8 @@ export function formatKProfileDetail(item: ApiRecord): {
 }
 
 export default function ProfilesScreen() {
+  const { t } = useTranslation();
+  const { hasPermission } = useAuth();
   const navigation = useNavigation<RootNavigationProp<'Profiles'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Profiles' });
@@ -139,8 +137,10 @@ export default function ProfilesScreen() {
   const [token, setToken] = useState('');
   const [tfaKey, setTfaKey] = useState<string | undefined>();
   const [verificationType, setVerificationType] = useState('email');
-  const [orcaEmail, setOrcaEmail] = useState('');
-  const [orcaPassword, setOrcaPassword] = useState('');
+  const [filters, setFilters] = useState({ ...EMPTY_PRESET_FILTERS });
+  const [editor, setEditor] = useState<{ profile: ApiRecord | null; duplicate: boolean } | null>(null);
+  const [importFeedback, setImportFeedback] = useState('');
+  const [importing, setImporting] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedCloudProfile, setSelectedCloudProfile] = useState<ApiRecord | null>(null);
   const [compareVisible, setCompareVisible] = useState(false);
@@ -171,27 +171,31 @@ export default function ProfilesScreen() {
   });
   const localQuery = useQuery({
     queryKey: ['localProfiles'],
-    queryFn: () => api.getLocalPresets(),
+    queryFn: profileManagementApi.localList,
     enabled: tab === 'local',
   });
   const kprofilesQuery = useQuery({
     queryKey: ['kprofiles'],
     queryFn: () => api.getKProfiles(),
-    enabled: tab === 'kprofiles',
+    enabled: false,
   });
 
   const selectedCloudSettingId =
     pickString(selectedCloudProfile, ['setting_id', 'id']) || null;
 
   const cloudProfileDetailQuery = useQuery({
-    queryKey: ['cloudProfileDetail', selectedCloudSettingId],
-    queryFn: () => {
+    queryKey: ['cloudProfileDetail', tab, selectedCloudSettingId],
+    queryFn: async (): Promise<CloudProfileDetail> => {
       if (!selectedCloudSettingId) {
         throw new Error('Cloud profile setting ID is required.');
       }
+      if (tab === 'orca' || tab === 'local') {
+        const detail = tab === 'orca' ? await profileManagementApi.orcaDetail(selectedCloudSettingId) : await profileManagementApi.localDetail(Number(selectedCloudSettingId));
+        return { ...detail, public: false, type: detail.type ?? detail.preset_type ?? '', update_time: typeof detail.updated_at === 'string' ? detail.updated_at : undefined };
+      }
       return api.getCloudProfileDetail(selectedCloudSettingId);
     },
-    enabled: detailVisible && tab === 'cloud' && Boolean(selectedCloudSettingId),
+    enabled: detailVisible && Boolean(selectedCloudSettingId),
     retry: false,
   });
 
@@ -210,7 +214,6 @@ export default function ProfilesScreen() {
       cloudProfilesQuery.refetch(),
       orcaProfilesQuery.refetch(),
       localQuery.refetch(),
-      kprofilesQuery.refetch(),
     ]);
   };
 
@@ -298,16 +301,6 @@ export default function ProfilesScreen() {
     },
   });
 
-  const orcaLoginMutation = useMutation({
-    mutationFn: () => api.orcaCloudPasswordLogin(orcaEmail.trim(), orcaPassword),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['orcaCloudStatus'] });
-      await queryClient.invalidateQueries({ queryKey: ['orcaCloudProfiles'] });
-      showToast('Orca Cloud connected.', 'success');
-    },
-    onError: (error: Error) => showToast(error.message || 'Unable to connect Orca Cloud.', 'error'),
-  });
-
   const orcaLogoutMutation = useMutation({
     mutationFn: () => api.orcaCloudLogout(),
     onSuccess: async () => {
@@ -326,7 +319,30 @@ export default function ProfilesScreen() {
       ? localQuery
       : kprofilesQuery;
 
-  const profiles = useMemo(() => normalizeProfiles(activeQuery.data), [activeQuery.data]);
+  const allProfiles = useMemo(() => normalizeProfiles(activeQuery.data), [activeQuery.data]);
+  const profiles = useMemo(() => tab === 'kprofiles' ? [] : filterPresets(allProfiles, filters), [allProfiles, filters, tab]);
+  const importPresets = async () => {
+    try {
+      const files = await pick({ type: [types.allFiles], allowMultiSelection: true });
+      setImporting(true);
+      const results: string[] = [];
+      for (const file of files) {
+        try {
+          const result = await profileManagementApi.localImport({ uri: file.uri, name: file.name ?? 'preset.json', type: file.type ?? 'application/octet-stream' });
+          results.push(t('profiles.importResult', { defaultValue: '{{name}}: {{imported}} imported, {{skipped}} skipped. {{errors}}', name: file.name ?? 'preset', imported: result.imported, skipped: result.skipped, errors: result.errors.join('; ') }));
+        } catch (error) { results.push(`${file.name}: ${String(error)}`); }
+      }
+      setImportFeedback(results.join('\n'));
+      await localQuery.refetch();
+    } catch (error) {
+      if (!(isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED)) showToast(String(error), 'error');
+    } finally { setImporting(false); }
+  };
+  const localDelete = useMutation({
+    mutationFn: (id: number) => profileManagementApi.localRemove(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['localProfiles'] }),
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
 
   const cloudProfileById = useMemo(() => {
     const map = new Map<string, ApiRecord>();
@@ -422,7 +438,7 @@ export default function ProfilesScreen() {
                 { key: 'local', label: 'Local' },
                 { key: 'kprofiles', label: 'K-Profiles' },
               ]}
-              onChange={value => setTab(value as ProfileTab)}
+              onChange={value => { setTab(value as ProfileTab); setFilters({ ...EMPTY_PRESET_FILTERS }); setDetailVisible(false); }}
             />
 
             {tab === 'cloud' ? (
@@ -643,33 +659,13 @@ export default function ProfilesScreen() {
                     variant="secondary"
                     onPress={() => void orcaLogoutMutation.mutateAsync()}
                   />
-                ) : (
-                  <View style={styles.loginWrap}>
-                    <TextField
-                      label="Email"
-                      value={orcaEmail}
-                      onChangeText={setOrcaEmail}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                    />
-                    <TextField
-                      label="Password"
-                      value={orcaPassword}
-                      onChangeText={setOrcaPassword}
-                      secureTextEntry
-                    />
-                    <PrimaryButton
-                      label={orcaLoginMutation.isPending ? 'Signing in…' : 'Sign in'}
-                      onPress={() => void orcaLoginMutation.mutateAsync()}
-                      disabled={
-                        !orcaEmail.trim() || !orcaPassword || orcaLoginMutation.isPending
-                      }
-                      loading={orcaLoginMutation.isPending}
-                    />
-                  </View>
-                )}
+                ) : <OrcaDeviceAuthorization />}
               </SectionCard>
             ) : null}
+            {tab === 'kprofiles' ? <KProfileManager /> : <PresetFilters rows={allProfiles} value={filters} onChange={setFilters} />}
+            {tab === 'cloud' && isCloudAuthenticated && hasPermission('cloud:auth') ? <PrimaryButton label={t('profiles.create', { defaultValue: 'Create preset / manage templates' })} onPress={() => setEditor({ profile: null, duplicate: false })} /> : null}
+            {tab === 'local' && hasPermission('settings:update') ? <PrimaryButton label={t('profiles.importPresets', { defaultValue: 'Import JSON, ZIP, Orca or Bambu bundles' })} loading={importing} disabled={importing} onPress={() => void importPresets()} /> : null}
+            {tab === 'local' && importFeedback ? <Text selectable style={{ color: colors.text }}>{importFeedback}</Text> : null}
           </View>
         }
         renderItem={({ item }) => {
@@ -715,7 +711,7 @@ export default function ProfilesScreen() {
                 )}
               </Text>
 
-              {tab === 'cloud' ? (
+              {tab !== 'kprofiles' ? (
                 <View style={styles.cardActions}>
                   <PrimaryButton
                     label="Details"
@@ -726,19 +722,24 @@ export default function ProfilesScreen() {
                     }}
                     disabled={!settingId}
                   />
-                  <PrimaryButton
+                  {tab === 'cloud' && hasPermission('cloud:auth') ? <>
+                    <PrimaryButton label={t('profiles.duplicate', { defaultValue: 'Duplicate' })} variant="secondary" onPress={() => setEditor({ profile: item, duplicate: true })} />
+                    {item.is_custom === true ? <PrimaryButton label={t('profiles.edit', { defaultValue: 'Edit / advanced / templates' })} variant="secondary" onPress={() => setEditor({ profile: item, duplicate: false })} /> : null}
+                  </> : null}
+                  {tab === 'local' && hasPermission('settings:update') ? <PrimaryButton label={t('common.delete')} variant="danger" disabled={localDelete.isPending} onPress={() => Alert.alert(t('profiles.deleteLocal', { defaultValue: 'Delete local preset?' }), String(item.name), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.delete'), style: 'destructive', onPress: () => localDelete.mutate(Number(item.id)) }])} /> : null}
+                  {tab === 'cloud' ? <PrimaryButton
                     label={isSelectedForCompare ? 'Selected' : 'Select to compare'}
                     variant={isSelectedForCompare ? 'primary' : 'secondary'}
                     onPress={() => toggleCompareSelection(settingId)}
                     disabled={!settingId}
-                  />
+                  /> : null}
                 </View>
               ) : null}
             </View>
           );
         }}
         ListEmptyComponent={
-          activeQuery.isLoading ? (
+          tab === 'kprofiles' ? null : activeQuery.isLoading ? (
             <LoadingScreen message="Loading profiles…" />
           ) : activeQuery.isError ? (
             <ErrorState
@@ -755,6 +756,7 @@ export default function ProfilesScreen() {
         }
       />
 
+      <PresetEditor visible={editor !== null} profile={editor?.profile ?? null} duplicate={editor?.duplicate} profiles={allProfiles} onClose={() => setEditor(null)} />
       <CloudProfileDetailModal
         visible={detailVisible}
         profileName={detailProfileName}

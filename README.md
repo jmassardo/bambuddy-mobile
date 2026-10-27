@@ -38,12 +38,15 @@ Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print
 - Spool inventory with NFC tag scanning
 - Statistics, analytics, and historical archives with photo galleries
 - Project organization for multi-part builds
-- Maintenance tracking
+- Maintenance tracking, lifetime-hour corrections, per-printer intervals, documentation and default restoration
 - Notification providers (including Bark, CallMeBot, and Home Assistant), per-event/printer routing, photo/quiet-hour/digest policies, draft and aggregate delivery tests, searchable template previews, and filterable delivery history
 - Personal email preferences remain independent of provider event subscriptions; bed-cooled alerts support a configurable 20–80 °C threshold
 - Tasmota discovery, Home Assistant entity/energy-sensor selection, MQTT measurement extraction, and authenticated REST smart plugs
 - Confirmed individual/bulk power controls, printer-linked automation, alerts and schedules
 - Virtual-printer interface/target selection, AMS mapping, CA certificate sharing and live setup diagnostics
+- Cloud/local slicer presets with metadata filters, JSON/typed editing, base comparisons and reusable on-device templates
+- Orca Cloud device approval (no Orca password collected)
+- Live printer/nozzle K-profile management, copying, notes and JSON import/export
 - Planned push notifications
 
 ### Integrations

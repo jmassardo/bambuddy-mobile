@@ -16,6 +16,9 @@ import type {
   SmartPlugTestResult,
   SmartPlugUpdate,
   UnifiedPresetsResponse,
+  PresetGroups,
+  OrcaDeviceAuthorization,
+  OrcaDevicePoll,
 } from '@/types/api';
 import { request, requestWithFallback } from './http';
 
@@ -130,48 +133,22 @@ export const profilesApi = {
     ),
 
   compareCloudProfiles: async (leftSettingId: string, rightSettingId: string) =>
-    requestWithFallback<CloudProfileDiffResult>(
-      {
-        endpoint: '/cloud/settings/compare',
-        options: {
-          method: 'POST',
-          body: JSON.stringify({
-            left_setting_id: leftSettingId,
-            right_setting_id: rightSettingId,
-          }),
-        },
-      },
-      {
-        endpoint: '/settings/cloud-profiles/compare',
-        options: {
-          method: 'POST',
-          body: JSON.stringify({
-            left_setting_id: leftSettingId,
-            right_setting_id: rightSettingId,
-          }),
-        },
-      },
-    ),
-
-  orcaCloudStartAuth: async (
-    provider: 'google' | 'apple' | 'github' = 'google',
-  ) =>
-    request<Record<string, unknown>>('/orca-cloud/auth/start', {
-      method: 'POST',
-      body: JSON.stringify({ provider }),
+    Promise.all([
+      request<CloudProfileDetail>(`/cloud/settings/${encodeURIComponent(leftSettingId)}`),
+      request<CloudProfileDetail>(`/cloud/settings/${encodeURIComponent(rightSettingId)}`),
+    ]).then(([left, right]): CloudProfileDiffResult => {
+      const keys = [...new Set([...Object.keys(left.setting), ...Object.keys(right.setting)])].sort();
+      const fields = keys.filter(key => JSON.stringify(left.setting[key]) !== JSON.stringify(right.setting[key])).map(key => ({
+        path: key, left_value: left.setting[key], right_value: right.setting[key],
+      }));
+      return { left_profile_id: leftSettingId, right_profile_id: rightSettingId, left_profile_name: left.name, right_profile_name: right.name, fields, summary: { total_fields: keys.length, changed_fields: fields.length } };
     }),
 
-  orcaCloudFinishAuth: async (callbackUrl: string) =>
-    request<Record<string, unknown>>('/orca-cloud/auth/finish', {
-      method: 'POST',
-      body: JSON.stringify({ callback_url: callbackUrl }),
-    }),
+  orcaCloudStartAuth: async () =>
+    request<OrcaDeviceAuthorization>('/orca-cloud/device/start', { method: 'POST' }),
 
-  orcaCloudPasswordLogin: async (email: string, password: string) =>
-    request<Record<string, unknown>>('/orca-cloud/auth/password', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    }),
+  orcaCloudPollAuth: async () =>
+    request<OrcaDevicePoll>('/orca-cloud/device/poll', { method: 'POST' }),
 
   orcaCloudStatus: async () => request<Record<string, unknown>>('/orca-cloud/status'),
 
@@ -183,7 +160,7 @@ export const profilesApi = {
   getOrcaCloudProfiles: async () =>
     request<Record<string, unknown>>('/orca-cloud/profiles'),
 
-  getLocalPresets: async () => request<Record<string, unknown>[]>('/local-presets/'),
+  getLocalPresets: async () => request<PresetGroups>('/local-presets/'),
 
   getKProfiles: async (printerId?: number, nozzleDiameter = '0.4') => {
     let resolvedPrinterId = printerId;

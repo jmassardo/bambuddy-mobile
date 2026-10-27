@@ -37,6 +37,9 @@ import type {
   PrinterMaintenanceOverview,
 } from '@/types/api';
 import { formatDateTime } from '@/utils/data';
+import { MaintenanceControls, RestoreMaintenanceDefaults } from '@/components/profiles/MaintenanceControls';
+import { useTranslation } from '@/i18n';
+import { maintenanceIcons, MaintenanceIcon } from '@/components/profiles/MaintenanceIcon';
 
 type FilterKey = 'all' | 'due' | 'warning';
 type MaintenanceTab = 'overview' | 'history' | 'types';
@@ -55,6 +58,8 @@ interface MaintenanceTypeFormState {
   intervalValue: string;
   intervalType: 'hours' | 'days';
   category: MaintenanceCategoryKey;
+  icon: string;
+  wikiUrl: string;
 }
 
 const MAINTENANCE_CATEGORIES: Array<{
@@ -77,6 +82,8 @@ const DEFAULT_TYPE_FORM: MaintenanceTypeFormState = {
   intervalValue: '100',
   intervalType: 'hours',
   category: 'general',
+  icon: 'Wrench',
+  wikiUrl: '',
 };
 
 function formatIntervalValue(value: number, type: 'hours' | 'days') {
@@ -141,10 +148,6 @@ function categoryLabel(category: MaintenanceCategoryKey) {
   return MAINTENANCE_CATEGORIES.find(item => item.key === category)?.label ?? 'General';
 }
 
-function categoryIcon(category: MaintenanceCategoryKey) {
-  return MAINTENANCE_CATEGORIES.find(item => item.key === category)?.icon ?? 'Wrench';
-}
-
 function ModalShell({
   visible,
   title,
@@ -191,24 +194,29 @@ function ModalShell({
   );
 }
 
-function MaintenanceTypeFormModal({
+export function MaintenanceTypeFormModal({
   visible,
   type,
   loading,
   onClose,
   onSubmit,
+  printers,
 }: {
   visible: boolean;
   type: MaintenanceType | null;
   loading: boolean;
   onClose: () => void;
-  onSubmit: (payload: MaintenanceTypeCreate) => void;
+  onSubmit: (payload: MaintenanceTypeCreate, printerIds: number[]) => void;
+  printers: PrinterMaintenanceOverview[];
 }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const [form, setForm] = useState<MaintenanceTypeFormState>(DEFAULT_TYPE_FORM);
+  const [selectedPrinters, setSelectedPrinters] = useState<number[]>([]);
 
   useEffect(() => {
     if (!visible) return;
+    setSelectedPrinters([]);
     if (type) {
       setForm({
         name: type.name,
@@ -216,14 +224,17 @@ function MaintenanceTypeFormModal({
         intervalValue: String(type.default_interval_hours ?? 100),
         intervalType: type.interval_type ?? 'hours',
         category: inferCategory(type),
+        icon: type.icon ?? '',
+        wikiUrl: type.wiki_url ?? '',
       });
       return;
     }
     setForm(DEFAULT_TYPE_FORM);
   }, [type, visible]);
 
-  const parsedInterval = Math.max(1, Number.parseFloat(form.intervalValue) || 0);
-  const canSave = form.name.trim().length > 0 && parsedInterval >= 1;
+  const parsedInterval = Number(form.intervalValue);
+  const canSave = form.name.trim().length > 0 && Number.isFinite(parsedInterval) && parsedInterval >= 1 &&
+    (!form.wikiUrl.trim() || /^https?:\/\/\S+$/i.test(form.wikiUrl.trim()));
 
   return (
     <ModalShell
@@ -246,6 +257,15 @@ function MaintenanceTypeFormModal({
           placeholder="Short instructions or context for this task"
           multiline
         />
+        <TextField label={t('maintenance.documentationUrl', { defaultValue: 'Documentation URL (https://…)' })} value={form.wikiUrl} onChangeText={wikiUrl => setForm(current => ({ ...current, wikiUrl }))} autoCapitalize="none" />
+        <TextField label={t('maintenance.icon', { defaultValue: 'Icon' })} value={form.icon} onChangeText={icon => setForm(current => ({ ...current, icon }))} />
+        <View style={styles.categoryWrap}>
+          {Object.keys(maintenanceIcons).map(icon => <PrimaryButton key={icon} label={icon} variant={form.icon === icon ? 'primary' : 'secondary'} onPress={() => setForm(current => ({ ...current, icon }))} />)}
+        </View>
+        {!type ? <View style={styles.formGroup}>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>{t('maintenance.assignInitial', { defaultValue: 'Assign to printers (optional)' })}</Text>
+          {printers.map(printer => <PrimaryButton key={printer.printer_id} label={`${selectedPrinters.includes(printer.printer_id) ? '✓ ' : ''}${printer.printer_name}`} variant="secondary" onPress={() => setSelectedPrinters(current => current.includes(printer.printer_id) ? current.filter(id => id !== printer.printer_id) : [...current, printer.printer_id])} />)}
+        </View> : null}
         <View style={styles.formGroup}>
           <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Interval type</Text>
           <InlineTabBar
@@ -307,8 +327,9 @@ function MaintenanceTypeFormModal({
               default_interval_hours: parsedInterval,
               interval_type: form.intervalType,
               category: form.category,
-              icon: categoryIcon(form.category),
-            })
+              icon: form.icon || null,
+              wiki_url: form.wikiUrl.trim() || null,
+            }, selectedPrinters)
           }
           disabled={!canSave || loading}
           loading={loading}
@@ -392,6 +413,7 @@ function AssignTypeModal({
 }
 
 export default function MaintenanceScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Maintenance'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Maintenance' });
@@ -465,12 +487,16 @@ export default function MaintenanceScreen() {
   });
 
   const createTypeMutation = useMutation({
-    mutationFn: (payload: MaintenanceTypeCreate) => api.createMaintenanceType(payload),
-    onSuccess: async () => {
+    mutationFn: async ({ payload, printerIds }: { payload: MaintenanceTypeCreate; printerIds: number[] }) => {
+      const created = await api.createMaintenanceType(payload);
+      const assignments = await Promise.allSettled(printerIds.map(printer => api.assignMaintenanceType(printer, created.id)));
+      return assignments.map((result, index) => result.status === 'rejected' ? `${printerIds[index]}: ${String(result.reason)}` : null).filter(Boolean);
+    },
+    onSuccess: async failures => {
       await invalidateMaintenance();
       setShowTypeModal(false);
       setEditingType(null);
-      showToast('Maintenance type created.', 'success');
+      showToast(failures.length ? t('maintenance.assignmentFailed', { defaultValue: 'Type created. Some assignments failed: {{errors}}', errors: failures.join('; ') }) : t('maintenance.createdAssigned', { defaultValue: 'Type created and selected printers assigned.' }), failures.length ? 'error' : 'success');
     },
     onError: (error: Error) => showToast(error.message || 'Unable to create maintenance type.', 'error'),
   });
@@ -581,6 +607,7 @@ export default function MaintenanceScreen() {
           ]}
           onChange={value => setActiveTab(value)}
         />
+        {activeTab === 'types' ? <RestoreMaintenanceDefaults /> : null}
 
         {activeTab === 'overview' ? (
           <>
@@ -614,6 +641,7 @@ export default function MaintenanceScreen() {
                   }
                 >
                   <View style={styles.printerActions}>
+                    <MaintenanceControls printer={printer} />
                     <PrimaryButton
                       label="Assign type"
                       variant="secondary"
@@ -633,6 +661,7 @@ export default function MaintenanceScreen() {
                           ]}
                         >
                           <View style={styles.taskHeader}>
+                            <MaintenanceIcon name={task.maintenance_type_icon} color={color} />
                             <View style={styles.taskText}>
                               <Text style={[styles.taskTitle, { color: colors.text }]}>{task.maintenance_type_name}</Text>
                               <Text style={[styles.taskMeta, { color }]}>{dueLabel(task)}</Text>
@@ -656,6 +685,7 @@ export default function MaintenanceScreen() {
                           </View>
 
                           <View style={styles.actions}>
+                            <MaintenanceControls printer={printer} item={task} />
                             <PrimaryButton
                               label={performMutation.isPending ? 'Performing…' : 'Perform'}
                               onPress={() => void performMutation.mutateAsync(task.id)}
@@ -736,6 +766,7 @@ export default function MaintenanceScreen() {
                     ]}
                   >
                     <View style={styles.typeHeader}>
+                      <MaintenanceIcon name={type.icon} color={colors.accent} />
                       <View style={styles.typeText}>
                         <Text style={[styles.typeTitle, { color: colors.text }]}>{type.name}</Text>
                         <Text style={[styles.typeMeta, { color: colors.textSecondary }]}> 
@@ -776,16 +807,17 @@ export default function MaintenanceScreen() {
         visible={showTypeModal}
         type={editingType}
         loading={createTypeMutation.isPending || updateTypeMutation.isPending}
+        printers={overviewQuery.data ?? []}
         onClose={() => {
           setShowTypeModal(false);
           setEditingType(null);
         }}
-        onSubmit={payload => {
+        onSubmit={(payload, printerIds) => {
           if (editingType) {
             updateTypeMutation.mutate({ id: editingType.id, payload });
             return;
           }
-          createTypeMutation.mutate(payload);
+          createTypeMutation.mutate({ payload, printerIds });
         }}
       />
 

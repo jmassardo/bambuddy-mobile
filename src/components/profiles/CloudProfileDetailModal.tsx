@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -8,7 +8,8 @@ import {
   View,
 } from 'react-native';
 import { X } from 'lucide-react-native';
-import { PrimaryButton, StatusBadge } from '@/components/common/AppUI';
+import { PrimaryButton, StatusBadge, TextField } from '@/components/common/AppUI';
+import { useTranslation } from '@/i18n';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { CloudProfileDetail } from '@/types/api';
@@ -42,9 +43,13 @@ export function CloudProfileDetailModal({
   onClose,
 }: CloudProfileDetailModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const [search, setSearch] = useState('');
+  const [raw, setRaw] = useState(false);
+  useEffect(() => { if (visible) { setSearch(''); setRaw(false); } }, [visible, profileName]);
 
   const settingEntries = detail?.setting
-    ? Object.entries(detail.setting).slice(0, 40)
+    ? Object.entries(detail.setting).filter(([key, value]) => `${key} ${JSON.stringify(value)}`.toLowerCase().includes(search.toLowerCase()))
     : [];
 
   return (
@@ -68,6 +73,8 @@ export function CloudProfileDetailModal({
             </View>
             <Pressable
               onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close', { defaultValue: 'Close' })}
               style={[
                 styles.closeButton,
                 {
@@ -93,6 +100,13 @@ export function CloudProfileDetailModal({
             </View>
           ) : detail ? (
             <ScrollView contentContainerStyle={styles.content}>
+              <TextField label={t('profiles.searchSettings', { defaultValue: 'Search all setting values' })} value={search} onChangeText={setSearch} />
+              <PrimaryButton label={raw ? t('profiles.showValues', { defaultValue: 'Show values' }) : t('profiles.showJson', { defaultValue: 'Show complete JSON' })} variant="secondary" onPress={() => setRaw(!raw)} />
+              {raw ? <Text selectable style={[styles.settingValue, { color: colors.text }]}>{JSON.stringify(detail, null, 2)}</Text> : null}
+              {Object.entries(detail).filter(([key]) => !['setting', 'name', 'type', 'version', 'base_id', 'setting_id', 'update_time'].includes(key)).map(([key, value]) => <View key={key} style={styles.metaRow}>
+                <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>{key}</Text>
+                <Text selectable style={[styles.metaValue, { color: colors.text }]}>{detailValue(value)}</Text>
+              </View>)}
               <View style={styles.metaRow}>
                 <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>
                   Type

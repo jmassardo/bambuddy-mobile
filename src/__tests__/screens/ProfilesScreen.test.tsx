@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-shadow -- Test file with React imports shadowing globals */
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import ProfilesScreen from '@/screens/ProfilesScreen';
+import ProfilesScreen, { formatKProfileDetail } from '@/screens/ProfilesScreen';
 
 const mockSetOptions = jest.fn();
 let mockKProfiles: Array<Record<string, unknown>>;
@@ -51,6 +51,15 @@ jest.mock('@tanstack/react-query', () => ({
 jest.mock('@/api/client', () => ({
   api: {},
   ApiError: class ApiError extends Error {},
+}));
+jest.mock('@react-native-documents/picker', () => ({ pick: jest.fn(), types: { allFiles: '*/*' }, errorCodes: {}, isErrorWithCode: () => false }));
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ hasPermission: () => true }) }));
+jest.mock('@/components/profiles/PresetEditor', () => ({ PresetEditor: () => null }));
+jest.mock('@/components/profiles/KProfileManager', () => ({
+  KProfileManager: () => {
+    const { Text } = require('react-native');
+    return require('react').createElement(Text, null, 'Connected printer / nozzle');
+  },
 }));
 
 jest.mock('@/components/common/AppUI', () => {
@@ -153,13 +162,13 @@ describe('ProfilesScreen', () => {
     ];
   });
 
-  it('renders K-profile calibration and placement details', async () => {
+  it('opens the context-aware K profile manager from the reachable source tab', async () => {
     const { getByText, queryByText } = await render(<ProfilesScreen />);
 
     await fireEvent.press(getByText('K-Profiles'));
 
-    expect(getByText('0.4 mm nozzle · Filament GFA00')).toBeTruthy();
-    expect(getByText('K 0.020 · N 1.0\nAMS 1 · Tray 3')).toBeTruthy();
+    expect(getByText('Connected printer / nozzle')).toBeTruthy();
+    expect(formatKProfileDetail(mockKProfiles[0])).toEqual({ subtitle: '0.4 mm nozzle · Filament GFA00', detail: 'K 0.020 · N 1.0\nAMS 1 · Tray 3' });
     expect(queryByText('No profile details available.')).toBeNull();
   });
 
@@ -176,12 +185,7 @@ describe('ProfilesScreen', () => {
         setting_id: null,
       },
     ];
-    const { getByText, queryByText } = await render(<ProfilesScreen />);
-
-    await fireEvent.press(getByText('K-Profiles'));
-
-    expect(getByText('K 0.035\nAMS 0')).toBeTruthy();
-    expect(queryByText(/undefined|null|NaN/)).toBeNull();
+    expect(formatKProfileDetail(mockKProfiles[0])).toEqual({ subtitle: '0.6 mm nozzle · Filament PVA', detail: 'K 0.035\nAMS 0' });
   });
 
   it('keeps rendering Cloud profile descriptions', async () => {
