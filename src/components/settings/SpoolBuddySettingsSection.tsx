@@ -5,9 +5,13 @@ import { PrimaryButton, SectionCard, StatusBadge } from '@/components/common/App
 import { settingsStyles } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
 import { pickBoolean, pickString, statusColor, type ApiRecord } from '@/utils/data';
+import { RemoteSpoolBuddyModal } from '@/components/spoolbuddy/RemoteSpoolBuddyPanel';
+import { useTranslation } from '@/i18n';
 
 export function SpoolBuddySettingsSection({ controller }: { controller: SettingsScreenController }) {
   const devices = (controller.queries.spoolbuddyQuery.data ?? []) as ApiRecord[];
+  const [deviceId, setDeviceId] = React.useState<string | null>(null);
+  const { t } = useTranslation();
 
   return (
     <SectionCard title="SpoolBuddy devices" subtitle="Online device status, sensors, and calibration shortcuts.">
@@ -22,12 +26,13 @@ export function SpoolBuddySettingsSection({ controller }: { controller: Settings
               <StatusBadge label={pickBoolean(device, ['online']) ? 'online' : 'offline'} color={statusColor(pickBoolean(device, ['online']) ? 'success' : 'offline', controller.colors)} />
             </View>
             <Text style={[settingsStyles.itemMeta, { color: controller.colors.textSecondary }]}>NFC: {pickBoolean(device, ['has_nfc']) ? 'yes' : 'no'} • Scale: {pickBoolean(device, ['has_scale']) ? 'yes' : 'no'}</Text>
-            <PrimaryButton label="Calibrate" variant="secondary" onPress={() => void controller.mutations.calibrateSpoolbuddyMutation.mutateAsync(pickString(device, ['device_id']))} />
+            <PrimaryButton label={t('spoolbuddy.remoteControls', { defaultValue: 'Remote controls / calibrate' })} variant="secondary" onPress={() => setDeviceId(pickString(device, ['device_id']))} />
           </View>
         ))
       ) : (
         <EmptyState icon="📡" title="No devices found" message="SpoolBuddy devices will appear here when they connect." />
       )}
+      <RemoteSpoolBuddyModal deviceId={deviceId} onClose={() => setDeviceId(null)} />
     </SectionCard>
   );
 }

@@ -4588,6 +4588,39 @@ export interface SpoolBuddyDevice {
   online: boolean;
 }
 
+// SpoolBuddy parity lane — remote device workflows.
+export type SpoolBuddySystemCommand = 'restart_browser' | 'restart_daemon' | 'reboot' | 'shutdown';
+export type SpoolBuddyDiagnostic = 'nfc' | 'scale' | 'read_tag';
+export interface SpoolBuddyDiagnosticResult {
+  diagnostic: string;
+  success: boolean;
+  output: string;
+  exit_code: number;
+}
+export interface SpoolBuddyUpdateCheck {
+  current_version: string;
+  latest_version: string | null;
+  update_available: boolean;
+}
+export interface SpoolBuddyRemoteState {
+  weight: number | null;
+  stable: boolean;
+  rawAdc: number | null;
+  tagUid: string | null;
+  trayUuid: string | null;
+  sak: number | null;
+  tagState: 'waiting' | 'matched' | 'unknown' | 'removed' | 'error';
+  spool: Partial<InventorySpool> | null;
+  online: boolean | null;
+  onlineRevision: number;
+  writeSpoolId: number | null;
+  writeStatus: 'idle' | 'queued' | 'success' | 'error' | 'cancelled';
+  message: string | null;
+  updateStatus: string | null;
+  updateMessage: string | null;
+  updateReportedAt: number | null;
+}
+
 export interface SpoolBuddyDeviceCreateRequest {
   device_id: string;
   hostname?: string | null;

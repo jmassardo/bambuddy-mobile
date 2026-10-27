@@ -18,6 +18,8 @@ import {
   TextField,
 } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { RemoteSpoolBuddyModal } from '@/components/spoolbuddy/RemoteSpoolBuddyPanel';
+import { useTranslation } from '@/i18n';
 import {
   EmptyState,
   ErrorState,
@@ -106,6 +108,8 @@ function describeLastSeen(device: ApiRecord) {
 }
 
 export default function SpoolBuddyScreen() {
+  const { t } = useTranslation();
+  const remoteControlsLabel = t('spoolbuddy.remoteControls', { defaultValue: 'Remote controls / calibrate' });
   const navigation = useNavigation<RootNavigationProp<'SpoolBuddy'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'SpoolBuddy' });
@@ -129,6 +133,7 @@ export default function SpoolBuddyScreen() {
   const [slotForm, setSlotForm] =
     React.useState<SlotAssignmentForm>(EMPTY_SLOT_FORM);
   const [selectedDeviceId, setSelectedDeviceId] = React.useState<string | null>(null);
+  const [remoteDeviceId, setRemoteDeviceId] = React.useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = React.useState<SpoolBuddySlot | null>(null);
 
   const spoolbuddyQuery = useQuery({
@@ -276,19 +281,6 @@ export default function SpoolBuddyScreen() {
     onError: (error: Error) =>
       showToast(
         error.message || 'Unable to remove SpoolBuddy device.',
-        'error',
-      ),
-  });
-
-  const calibrateSpoolBuddyMutation = useMutation({
-    mutationFn: (deviceId: string) => api.calibrateSpoolBuddy(deviceId),
-    onSuccess: async () => {
-      await invalidateDevices();
-      showToast('Calibration command sent.', 'success');
-    },
-    onError: (error: Error) =>
-      showToast(
-        error.message || 'Unable to calibrate SpoolBuddy device.',
         'error',
       ),
   });
@@ -477,7 +469,8 @@ export default function SpoolBuddyScreen() {
             setCreateModalVisible,
             openEditModal,
             setPendingDeleteDevice,
-            calibrateSpoolBuddyMutation,
+            openRemoteDevice: setRemoteDeviceId,
+            remoteControlsLabel,
             deleteSpoolBuddyMutation,
             invalidateDevices,
             handleCreateDevice,
@@ -485,12 +478,6 @@ export default function SpoolBuddyScreen() {
             createForm,
             setCreateForm,
             closeCreateModal,
-            editModalVisible,
-            editForm,
-            setEditForm,
-            closeEditModal,
-            handleSaveDevice,
-            updateSpoolBuddyMutation,
             editingDevice,
             pendingDeleteDevice,
             onDeviceSelect: (id) => {
@@ -523,7 +510,8 @@ export default function SpoolBuddyScreen() {
             invalidateSlots,
             assignmentMap,
             openEditModal,
-            calibrateSpoolBuddyMutation,
+            openRemoteDevice: setRemoteDeviceId,
+            remoteControlsLabel,
             deleteSpoolBuddyMutation,
             invalidateDevices,
             handleCreateDevice,
@@ -558,6 +546,8 @@ export default function SpoolBuddyScreen() {
           })}
         </ScrollView>
       </View>
+
+      <RemoteSpoolBuddyModal deviceId={remoteDeviceId} onClose={() => setRemoteDeviceId(null)} />
 
       {/* Create device modal */}
       <SimpleModal
@@ -816,7 +806,8 @@ function renderDevicesSection({
   setCreateModalVisible,
   openEditModal,
   setPendingDeleteDevice,
-  calibrateSpoolBuddyMutation,
+  openRemoteDevice,
+  remoteControlsLabel,
   deleteSpoolBuddyMutation: _deleteSpoolBuddyMutation,
   invalidateDevices: _invalidateDevices,
   handleCreateDevice: _handleCreateDevice,
@@ -824,12 +815,6 @@ function renderDevicesSection({
   createForm: _createForm,
   setCreateForm: _setCreateForm,
   closeCreateModal: _closeCreateModal,
-  editModalVisible,
-  editForm,
-  setEditForm,
-  closeEditModal,
-  handleSaveDevice,
-  updateSpoolBuddyMutation,
   editingDevice: _editingDevice,
   pendingDeleteDevice: _pendingDeleteDevice,
   onDeviceSelect,
@@ -840,7 +825,8 @@ function renderDevicesSection({
   setCreateModalVisible: (v: boolean) => void;
   openEditModal: (d: ApiRecord) => void;
   setPendingDeleteDevice: (d: ApiRecord | null) => void;
-  calibrateSpoolBuddyMutation: any;
+  openRemoteDevice: (id: string) => void;
+  remoteControlsLabel: string;
   deleteSpoolBuddyMutation: any;
   invalidateDevices: () => Promise<void>;
   handleCreateDevice: () => void;
@@ -848,12 +834,6 @@ function renderDevicesSection({
   createForm: CreateDeviceForm;
   setCreateForm: (f: CreateDeviceForm) => void;
   closeCreateModal: () => void;
-  editModalVisible: boolean;
-  editForm: EditDeviceForm;
-  setEditForm: React.Dispatch<React.SetStateAction<EditDeviceForm>>;
-  closeEditModal: () => void;
-  handleSaveDevice: () => void;
-  updateSpoolBuddyMutation: any;
   editingDevice: ApiRecord | null;
   pendingDeleteDevice: ApiRecord | null;
   onDeviceSelect: (id: string) => void;
@@ -991,13 +971,11 @@ function renderDevicesSection({
                     onPress={() => openEditModal(device)}
                   />
                   <PrimaryButton
-                    label="Calibrate"
+                    label={remoteControlsLabel}
                     variant="secondary"
                     onPress={() =>
-                      calibrateSpoolBuddyMutation.mutate(deviceId)
+                      openRemoteDevice(deviceId)
                     }
-                    loading={calibrateSpoolBuddyMutation.isPending}
-                    disabled={calibrateSpoolBuddyMutation.isPending}
                   />
                   <PrimaryButton
                     label="Remove"
@@ -1017,83 +995,6 @@ function renderDevicesSection({
         )}
       </SectionCard>
 
-      {/* Edit device modal inline */}
-      <SimpleModal
-        visible={editModalVisible}
-        title="Configure SpoolBuddy"
-        subtitle="Update network and display settings for this device."
-        onClose={closeEditModal}
-      >
-        <ScrollView contentContainerStyle={styles.modalBody}>
-          <TextField
-            label="Hostname"
-            value={editForm.hostname}
-            onChangeText={value =>
-              setEditForm(current => ({ ...current, hostname: value }))
-            }
-          />
-          <TextField
-            label="IP address"
-            value={editForm.ip_address}
-            onChangeText={value =>
-              setEditForm(current => ({ ...current, ip_address: value }))
-            }
-            autoCapitalize="none"
-          />
-          <TextField
-            label="Server URL"
-            value={editForm.backend_url}
-            onChangeText={value =>
-              setEditForm(current => ({ ...current, backend_url: value }))
-            }
-            autoCapitalize="none"
-          />
-          <TextField
-            label="API key (optional)"
-            value={editForm.api_key}
-            onChangeText={value =>
-              setEditForm(current => ({ ...current, api_key: value }))
-            }
-            autoCapitalize="none"
-            secureTextEntry
-          />
-          <TextField
-            label="Display brightness"
-            value={editForm.display_brightness}
-            onChangeText={value =>
-              setEditForm(current => ({
-                ...current,
-                display_brightness: value,
-              }))
-            }
-            keyboardType="number-pad"
-          />
-          <TextField
-            label="Display blank timeout (s)"
-            value={editForm.display_blank_timeout}
-            onChangeText={value =>
-              setEditForm(current => ({
-                ...current,
-                display_blank_timeout: value,
-              }))
-            }
-            keyboardType="number-pad"
-          />
-          <View style={styles.modalFooter}>
-            <PrimaryButton
-              label="Cancel"
-              variant="secondary"
-              onPress={closeEditModal}
-            />
-            <PrimaryButton
-              label={updateSpoolBuddyMutation.isPending ? 'Saving…' : 'Save'}
-              onPress={handleSaveDevice}
-              loading={updateSpoolBuddyMutation.isPending}
-              disabled={updateSpoolBuddyMutation.isPending}
-            />
-          </View>
-        </ScrollView>
-      </SimpleModal>
     </>
   );
 }
@@ -1122,7 +1023,8 @@ function renderSlotsSection({
   invalidateSlots: _invalidateSlots,
   assignmentMap,
   openEditModal,
-  calibrateSpoolBuddyMutation,
+  openRemoteDevice,
+  remoteControlsLabel,
   deleteSpoolBuddyMutation: _deleteSpoolBuddyMutation,
   invalidateDevices: _invalidateDevices,
   handleCreateDevice: _handleCreateDevice,
@@ -1163,7 +1065,8 @@ function renderSlotsSection({
   invalidateSlots: () => Promise<void>;
   assignmentMap: Map<number, SpoolBuddySlotAssignment>;
   openEditModal: (d: ApiRecord) => void;
-  calibrateSpoolBuddyMutation: any;
+  openRemoteDevice: (id: string) => void;
+  remoteControlsLabel: string;
   deleteSpoolBuddyMutation: any;
   invalidateDevices: () => Promise<void>;
   handleCreateDevice: () => void;
@@ -1443,13 +1346,11 @@ function renderSlotsSection({
             onPress={() => currentDevice && openEditModal(currentDevice)}
           />
           <PrimaryButton
-            label="Calibrate scale"
+            label={remoteControlsLabel}
             variant="secondary"
             onPress={() =>
-              selectedDeviceId && calibrateSpoolBuddyMutation.mutate(selectedDeviceId)
+              selectedDeviceId && openRemoteDevice(selectedDeviceId)
             }
-            loading={calibrateSpoolBuddyMutation.isPending}
-            disabled={calibrateSpoolBuddyMutation.isPending}
           />
           <PrimaryButton
             label="Remove device"

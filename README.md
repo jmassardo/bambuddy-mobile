@@ -46,6 +46,8 @@ Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print
   `/dev/video0`–`/dev/video99`, dedicated snapshot URL, enable state and rotation.
   Stream/snapshot tests use unsaved input and report resolution/shared captures.
 - Spool inventory with NFC tag scanning
+- Remote SpoolBuddy reader results, tag writing/replacement, scale calibration,
+  hardware diagnostics, daemon updates, SSH setup, and confirmed lifecycle controls
 - Statistics, analytics, and historical archives with photo galleries
 - Searchable settings, automatic archive retention, print/queue defaults, material drying policies, and per-model G-code snippets
 - Live Obico AI verdicts with printer diagnostics and an explicit-key API explorer
@@ -137,6 +139,21 @@ authenticated. Printer AI details distinguish unmeasured/errored monitoring from
 The API explorer reads the connected server's OpenAPI schema and executes live requests using only the
 test API key you explicitly supply (or anonymously if blank), not the signed-in session. Write operations
 require confirmation. Response status, body, duration, and copied results are available in the explorer.
+
+### Remote SpoolBuddy hardware
+
+Open **SpoolBuddy → Remote controls / calibrate**, or the same control in its
+Settings section, and select the registered unit. Reader and scale events use
+the app's authenticated WebSocket connection and are isolated by device ID.
+Unknown tags can be linked or added with a captured scale weight. Remote NFC
+jobs write OpenTag3D data using the physical SpoolBuddy reader; phone NFC remains
+UID-only. Untag removes the inventory association, not the physical tag contents.
+
+Tare waits for the device's calibration timestamp to change, polling every second
+and timing out after 15 seconds. Known-weight calibration preserves the raw ADC
+zero before tare. Restart browser, restart daemon, reboot, shutdown and updates
+require explicit remote-device confirmation. A queued command is not proof of
+execution or recovery; inspect device status and reported update progress.
 
 ## Requirements
 

@@ -20,6 +20,17 @@ const mockCreateDevice = jest.fn();
 const mockUpdateDevice = jest.fn();
 const mockDeleteDevice = jest.fn();
 const mockCalibrateDevice = jest.fn();
+jest.mock('@react-native-clipboard/clipboard', () => ({ setString: jest.fn() }));
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ hasPermission: () => true }) }));
+jest.mock('@/hooks/useWebSocket', () => ({ useWebSocket: () => ({ isConnected: true }) }));
+jest.mock('@/api/spoolbuddy', () => ({
+  spoolbuddyApi: {
+    devices: (...args: unknown[]) => mockGetDevices(...args),
+    inventoryMode: () => Promise.resolve({ enabled: false }),
+    spools: () => Promise.resolve([]),
+    checkUpdate: () => Promise.resolve({ current_version: '1.2.3', latest_version: '1.2.3', update_available: false }),
+  },
+}));
 
 const device = {
   id: 7,
@@ -248,6 +259,15 @@ describe('SpoolBuddyScreen', () => {
   afterEach(async () => {
     await cleanup();
     clearTestQueryClients();
+  });
+
+  it('opens the actual remote hardware controls for the explicitly selected device, not the phone UID scanner', async () => {
+    const screen = await renderScreen();
+    await screen.findByText('Workshop Buddy');
+    await fireEvent.press(screen.getByLabelText('Remote controls / calibrate'));
+    expect(await screen.findByText('Remote SpoolBuddy')).toBeTruthy();
+    expect(screen.getByText('Remote physical NFC reader and scale. Phone NFC can only read a UID; it does not write these tags.')).toBeTruthy();
+    expect(mockCalibrateDevice).not.toHaveBeenCalled();
   });
 
   it('renders paired devices with connection status and last-seen time', async () => {

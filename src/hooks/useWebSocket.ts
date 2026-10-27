@@ -8,6 +8,7 @@ import { api, getAuthToken } from '../api/client';
 import { useServerStore, wsUrl } from '../api/server';
 import { useToast } from '../contexts/ToastContext';
 import { useNetworkStatus } from './useNetworkStatus';
+import { publishSpoolBuddyEvent, setSpoolBuddyServer, spoolBuddySocketOpened, spoolBuddySocketClosed } from './spoolbuddyEvents';
 
 const WS_CLOSE_UNAUTHORIZED = 4401;
 const MAX_RECONNECT_ATTEMPTS = 15;
@@ -22,6 +23,7 @@ export interface WebSocketError {
 }
 
 export interface UseWebSocketOptions {
+  onlySpoolBuddy?: boolean;
   onReconnect?: (attempt: number) => void;
   onError?: (error: WebSocketError) => void;
 }
@@ -47,6 +49,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
   const [errors, setErrors] = useState<WebSocketError[]>([]);
   const { showToast } = useToast();
   const serverUrl = useServerStore((s) => s.serverUrl);
+  useEffect(() => { setSpoolBuddyServer(serverUrl); }, [serverUrl]);
   const { isConnected: connectivityConnected } = useNetworkStatus();
   const isConnectedRef = useRef(true);
   const optionsRef = useRef(options);
@@ -127,6 +130,11 @@ export function useWebSocket(options?: UseWebSocketOptions) {
 
   const handleMessage = useCallback(
     (message: WebSocketMessage) => {
+      publishSpoolBuddyEvent(message);
+      if (['spoolbuddy_online', 'spoolbuddy_offline', 'spoolbuddy_update'].includes(message.type)) {
+        debouncedInvalidate('spoolbuddyDevices');
+      }
+      if (optionsRef.current?.onlySpoolBuddy) return;
       switch (message.type) {
         case 'printer_status':
           if (message.printer_id !== undefined && message.data) {
@@ -262,6 +270,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     const ws = new WebSocket(wsUrl(serverUrl, token));
 
     ws.onopen = () => {
+      spoolBuddySocketOpened(ws);
       setIsConnected(true);
       setIsReconnecting(false);
       reconnectAttemptRef.current = 0;
@@ -317,6 +326,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     };
 
     ws.onclose = (event) => {
+      spoolBuddySocketClosed(ws);
       if (pingIntervalRef.current) {
         clearInterval(pingIntervalRef.current);
         pingIntervalRef.current = null;
