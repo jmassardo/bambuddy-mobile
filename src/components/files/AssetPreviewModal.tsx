@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { request, requestBlob } from '@/api/http';
+import { ApiError, request, requestBlob } from '@/api/http';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTranslation } from '@/i18n';
@@ -19,6 +19,8 @@ type AssetWebViewProps = React.ComponentProps<typeof WebView> & {
   onShouldStartLoadWithRequest?: (event: {url: string}) => boolean;
   onError?: (event: {nativeEvent: {description: string}}) => void;
   onMessage?: (event: {nativeEvent: {data: string}}) => void;
+  onContentProcessDidTerminate?: () => void;
+  onRenderProcessGone?: () => void;
 };
 const AssetWebView = WebView as React.ComponentType<AssetWebViewProps>;
 
@@ -71,7 +73,16 @@ export function AssetPreviewModal({ source, onClose, onPrevious, onNext, onDelet
     queryKey: ['assetPreview', source?.fileId, source?.archiveId, source?.photoFilename, mode, mode === 'gcode' ? plate : undefined, source?.archiveSource],
     queryFn: async () => {
       if (!source || !mode) throw new Error(t('library.unsupported', { defaultValue: 'This format has no content preview. Download the original to inspect it.' }));
-      const blob = await requestBlob(previewEndpoint({ ...source, mode }, plate));
+      if (source.fileId == null && source.archiveId == null) throw new Error(t('library.noAsset', {defaultValue: 'No library file or archive was supplied. Close the preview and open the asset again.'}));
+      let blob: Blob;
+      try {
+        blob = await requestBlob(previewEndpoint({ ...source, mode }, plate));
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) throw new Error(t(mode === 'gcode' ? 'library.noToolpath' : 'library.missingSource', {
+          defaultValue: mode === 'gcode' ? 'No toolpath was found for this file or plate. Choose another plate, or slice the source model first.' : 'The original asset is missing on the server. Close the preview and check the source file.',
+        }));
+        throw error;
+      }
       if (blob.size > 100 * 1024 * 1024) throw new Error(t('library.previewOversize', { defaultValue: 'This asset exceeds the 100 MB mobile preview memory limit. Download the original, or choose a smaller plate.' }));
       return blobToDataUrl(blob);
     },
@@ -92,12 +103,15 @@ export function AssetPreviewModal({ source, onClose, onPrevious, onNext, onDelet
     foreground: colors.text,
     labels: Object.fromEntries(Object.entries({
       loading: 'Loading preview…', failed: 'Preview failed. Close and retry, or download the original.',
+      loadingPdfEngine: 'Loading PDF engine…', loadingPdfDocument: 'Reading PDF pages…',
+      timeout: 'The preview engine took too long. Retry with an internet connection, choose a smaller plate, or download the original.',
       moduleFailed: 'Unable to load the preview engine. Check your internet connection and retry.',
       reset: 'Reset to fit', previous: 'Previous page', next: 'Next page',
       sheet: 'Sheet', previousRows: 'Previous rows', nextRows: 'Next rows', previousColumns: 'Previous columns', nextColumns: 'Next columns',
       rows: 'Rows', columns: 'Columns', feature: 'Feature', filament: 'Filament', height: 'Height', width: 'Width', travel: 'Show travel',
       bottom: 'Bottom layer', top: 'Top layer', allPlates: 'All plates', plate: 'Plate',
       noGeometry: 'No renderable geometry or toolpaths were found.',
+      cyclicModel: 'The 3MF contains cyclic component references and cannot be displayed.',
       plateUnavailable: 'This plate has no identifiable model build items. Choose All plates or inspect its toolpath.',
       unsupported: 'Unsupported model format.',
     }).map(([key, defaultValue]) => [key, t(`library.viewer.${key}`, { defaultValue })])),
@@ -145,10 +159,13 @@ export function AssetPreviewModal({ source, onClose, onPrevious, onNext, onDelet
         allowFileAccess={false}
         setSupportMultipleWindows={false}
         onError={event => setRenderError(event.nativeEvent.description)}
+        onContentProcessDidTerminate={() => setRenderError(t('library.viewerProcessStopped', {defaultValue: 'The preview exhausted the available WebView memory. Retry a smaller plate, or download the original.'}))}
+        onRenderProcessGone={() => setRenderError(t('library.viewerProcessStopped', {defaultValue: 'The preview exhausted the available WebView memory. Retry a smaller plate, or download the original.'}))}
         onMessage={event => {
           try {
             const message: unknown = JSON.parse(event.nativeEvent.data);
             if (!isRecord(message)) return;
+            if (message.type === 'ready') setRenderError('');
             if (message.type === 'error') setRenderError(pickString(message, ['message']));
             if (message.type === 'snapshot' && source?.fileId != null && hasAnyPermission('library:update_all', 'library:update_own') && /\.(step|stp|pdf|csv|xlsx|xls|ods)$/i.test(source.filename)) {
               const data = pickString(message, ['data']);

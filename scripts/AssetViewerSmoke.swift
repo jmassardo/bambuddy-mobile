@@ -22,7 +22,7 @@ final class Smoke: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         let config = WKWebViewConfiguration()
         config.userContentController.add(self, name: "preview")
         config.userContentController.addUserScript(WKUserScript(
-            source: "window.ReactNativeWebView={postMessage:s=>window.webkit.messageHandlers.preview.postMessage(s)};console.error=(...args)=>window.ReactNativeWebView.postMessage(JSON.stringify({type:'debug',message:args.join(' ')}));console.warn=console.error;console.log=console.error;",
+            source: "window.ReactNativeWebView={postMessage:s=>window.webkit.messageHandlers.preview.postMessage(s)};console.error=(...args)=>window.ReactNativeWebView.postMessage(JSON.stringify({type:'debug',message:args.join(' ')}));console.warn=console.error;console.log=console.error;window.requestAnimationFrame=cb=>setTimeout(()=>cb(performance.now()),16);window.cancelAnimationFrame=id=>clearTimeout(id);",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web = WKWebView(frame: NSRect(x: 0, y: 0, width: 900, height: 700), configuration: config)
         web.navigationDelegate = self
@@ -70,7 +70,7 @@ final class Smoke: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         web.callAsyncJavaScript(cases[index].check, arguments: [:], in: nil, in: .page) { result in
             switch result {
             case .success(let value): self.finish(true, String(describing: value))
-            case .failure(let error): self.finish(false, error.localizedDescription)
+            case .failure(let error): self.finish(false, "\(error.localizedDescription) \((error as NSError).userInfo)")
             }
         }
     }

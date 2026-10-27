@@ -30,7 +30,8 @@ export const viewerRuntime = String.raw`
 const cfg=window.CONFIG, bar=document.getElementById('bar'), stage=document.getElementById('stage'), status=document.getElementById('status');
 const label=(key)=>cfg.labels[key]||key;
 const send=(type,payload)=>window.ReactNativeWebView?.postMessage(JSON.stringify({type,...payload}));
-const fail=e=>{status.textContent=label('failed')+'\n'+(e?.message||e);send('error',{message:String(e?.message||e)});};
+const fail=e=>{clearTimeout(watchdog);status.textContent=label('failed')+'\n'+(e?.message||e);send('error',{message:String(e?.message||e)});};
+const watchdog=setTimeout(()=>fail(new Error(label('timeout'))),90000);
 window.addEventListener('unhandledrejection',e=>fail(e.reason));
 window.addEventListener('error',e=>fail(e.error||e.message));
 const script=url=>new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=url;s.onload=resolve;s.onerror=()=>reject(new Error(label('moduleFailed')));document.head.appendChild(s);});
@@ -39,31 +40,27 @@ function select(values,callback){const s=document.createElement('select');for(co
 function check(text,value,callback,parent=bar){const l=document.createElement('label'),i=document.createElement('input');i.type='checkbox';i.checked=value;i.onchange=()=>callback(i.checked);l.append(i,document.createTextNode(text));parent.appendChild(l);return i;}
 const bytes=Uint8Array.from(atob(cfg.data.split(',').pop()),c=>c.charCodeAt(0));
 function snapshot(canvas){try{send('snapshot',{data:canvas.toDataURL('image/png')});}catch{}}
-function ready(){status.textContent='';send('ready',{});}
+function ready(){clearTimeout(watchdog);status.textContent='';send('ready',{});}
 function downloadSnapshot(table){
   const canvas=document.createElement('canvas');canvas.width=640;canvas.height=420;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,640,420);ctx.fillStyle='#111';ctx.font='14px sans-serif';Array.from(table.rows).slice(0,18).forEach((row,i)=>ctx.fillText(Array.from(row.cells).map(c=>c.textContent).join('   ').slice(0,80),10,24+i*22));snapshot(canvas);
 }
 async function image(){
-  const img=new Image();let zoom=1,base=1;
-  const draw=()=>{img.style.width=img.naturalWidth*base*zoom+'px';img.style.height=img.naturalHeight*base*zoom+'px';};
+  const img=new Image();let zoom=1,base=1,width=0,height=0;
+  const draw=()=>{img.style.width=width*base*zoom+'px';img.style.height=height*base*zoom+'px';};
   button('+',()=>{zoom=Math.min(16,zoom*1.4);draw();});button('−',()=>{zoom=Math.max(.1,zoom/1.4);draw();});button(label('reset'),()=>{zoom=1;draw();stage.scrollTo(0,0);});
-  img.onload=()=>{base=Math.min(1,stage.clientWidth/img.naturalWidth,(innerHeight-120)/img.naturalHeight);draw();ready();};
+  img.onload=()=>{if(width)return;width=img.naturalWidth;height=img.naturalHeight;base=Math.min(1,stage.clientWidth/width,(innerHeight-120)/height);draw();ready();};
   img.onerror=()=>fail(new Error(label('failed')));img.src=cfg.data;stage.appendChild(img);
 }
 async function pdf(){
-  status.textContent=label('loading')+' (PDF engine)';
+  status.textContent=label('loadingPdfEngine');
   const pdfjs=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/pdf.min.mjs');
-  // WebKit's loadHTMLString document has no transferable worker origin.
-  // Load the PDF worker handler directly rather than leaving its cross-origin
-  // Worker initialization promise pending forever.
+  // Embedded WebViews cannot always spawn cross-origin module workers.
   globalThis.pdfjsWorker=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/pdf.worker.min.mjs');
-  send('debug',{message:'PDF engine and worker module loaded'});
-  status.textContent=label('loading')+' (PDF document)';
+  status.textContent=label('loadingPdfDocument');
   pdfjs.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/pdf.worker.min.mjs';
   const worker=new pdfjs.PDFWorker();await worker.promise;
-  send('debug',{message:'PDF worker initialized'});
-  const task=pdfjs.getDocument({data:bytes,worker});task.onProgress=progress=>send('debug',{message:'PDF bytes '+progress.loaded});
-  const doc=await task.promise;send('debug',{message:'PDF document decoded'});let page=1,zoom=1,renderTask=null,renderVersion=0;
+  const task=pdfjs.getDocument({data:bytes,worker});
+  const doc=await task.promise;let page=1,zoom=1,renderTask=null,renderVersion=0;
   const canvas=document.createElement('canvas');stage.appendChild(canvas);const counter=document.createElement('span');bar.appendChild(counter);
   async function render(){const version=++renderVersion;if(renderTask){renderTask.cancel();try{await renderTask.promise;}catch{}}
     const p=await doc.getPage(page);if(version!==renderVersion)return;const original=p.getViewport({scale:1}),fit=Math.min(1,(stage.clientWidth-16)/original.width),viewport=p.getViewport({scale:fit*zoom*devicePixelRatio});
@@ -132,26 +129,42 @@ async function scene(){
     for(const mesh of result.meshes){const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(mesh.attributes.position.array,3));if(mesh.index)geometry.setIndex(mesh.index.array);geometry.computeVertexNormals();group.add(new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:mesh.color?new THREE.Color(...mesh.color):0x60a5fa,side:THREE.DoubleSide}))); }
   }else if(lower.endsWith('.stl')){const {STLLoader}=await import('three/addons/loaders/STLLoader.js');group.add(new THREE.Mesh(new STLLoader().parse(bytes.buffer),new THREE.MeshStandardMaterial({color:0x60a5fa,side:THREE.DoubleSide})));
   }else if(lower.endsWith('.3mf')){
-    await script('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js');const original=await JSZip.loadAsync(bytes);
-    const {ThreeMFLoader}=await import('three/addons/loaders/3MFLoader.js');
-    let selected=cfg.plate||0;
-    async function drawPlate(value){selected=+value;while(group.children.length){const old=group.children[0];group.remove(old);old.traverse(child=>{child.geometry?.dispose();child.material?.dispose();});}
-      const zip=await JSZip.loadAsync(bytes);let input=bytes.buffer;
-      if(selected){
-        const mainPath=Object.keys(zip.files).find(path=>/^3d\/3dmodel\.model$/i.test(path));if(!mainPath)throw new Error(label('plateUnavailable'));
-        const parser=new DOMParser(),doc=parser.parseFromString(await zip.file(mainPath).async('string'),'application/xml'),ids=new Set();
-        const settings=zip.file('Metadata/model_settings.config');if(settings){const meta=parser.parseFromString(await settings.async('string'),'application/xml');for(const plate of meta.querySelectorAll('plate')){const id=Array.from(plate.querySelectorAll('metadata')).find(m=>['plater_id','plate_id'].includes(m.getAttribute('key')))?.getAttribute('value');if(+id!==selected)continue;for(const item of plate.querySelectorAll('model_instance metadata[key="object_id"]'))ids.add(item.getAttribute('value'));}}
-        const plate=cfg.plates?.find(p=>+p.index===selected),names=plate?.objects||[];
-        if(!ids.size)for(const obj of doc.querySelectorAll('resources > object'))if(names.includes(obj.getAttribute('name')))ids.add(obj.getAttribute('id'));
-        const items=Array.from(doc.querySelectorAll('build > item'));const matches=items.filter(item=>ids.has(item.getAttribute('objectid'))||+item.getAttribute('plate_id')===selected||+item.getAttribute('plater_id')===selected);
-        if(!matches.length)throw new Error(label('plateUnavailable'));
-        for(const item of items)if(!matches.includes(item))item.remove();
-        zip.file(mainPath,new XMLSerializer().serializeToString(doc));input=await zip.generateAsync({type:'arraybuffer'});
+    // Production 3MFs reuse local IDs in separate model parts.
+    await script('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js');
+    const zip=await JSZip.loadAsync(bytes),parser=new DOMParser(),documents=new Map(),cache=new Map(),selected=cfg.plate||0;
+    const normalize=path=>{const parts=[];for(const part of decodeURIComponent(path).replace(/\\/g,'/').split('/')){if(!part||part==='.')continue;if(part==='..')parts.pop();else parts.push(part);}return parts.join('/');};
+    const actualPath=path=>Object.keys(zip.files).find(key=>key.toLowerCase()===normalize(path).toLowerCase());
+    const pathAttribute=node=>Array.from(node.attributes).find(attribute=>attribute.localName==='path')?.value;
+    function referencedPath(node,current){const path=pathAttribute(node);if(!path)return current;return actualPath(path.startsWith('/')?path:current.slice(0,current.lastIndexOf('/')+1)+path)||actualPath(path);}
+    async function documentFor(path){if(!path||!zip.file(path))throw new Error(label('noGeometry'));if(!documents.has(path)){const doc=parser.parseFromString(await zip.file(path).async('string'),'application/xml');if(doc.querySelector('parsererror'))throw new Error(label('noGeometry'));documents.set(path,doc);}return documents.get(path);}
+    function transform(node,object){const values=(node.getAttribute('transform')||'').trim().split(/\s+/).map(Number);if(values.length===12&&values.every(Number.isFinite))object.applyMatrix4(new THREE.Matrix4().set(values[0],values[3],values[6],values[9],values[1],values[4],values[7],values[10],values[2],values[5],values[8],values[11],0,0,0,1));}
+    async function objectFor(path,id,ancestors=new Set()){
+      const key=path+':'+id;if(ancestors.has(key))throw new Error(label('cyclicModel'));if(cache.has(key))return cache.get(key).clone(true);
+      const doc=await documentFor(path),object=Array.from(doc.querySelectorAll('resources > object')).find(node=>node.getAttribute('id')===id);if(!object)throw new Error(label('noGeometry'));
+      const result=new THREE.Group();result.name=object.getAttribute('name')||id;
+      const mesh=Array.from(object.children).find(node=>node.localName==='mesh');
+      if(mesh){const positions=[],indices=[];for(const vertex of mesh.querySelectorAll('vertices > vertex'))positions.push(+vertex.getAttribute('x'),+vertex.getAttribute('y'),+vertex.getAttribute('z'));for(const triangle of mesh.querySelectorAll('triangles > triangle'))indices.push(+triangle.getAttribute('v1'),+triangle.getAttribute('v2'),+triangle.getAttribute('v3'));
+        if(!positions.length||!indices.length||positions.some(value=>!Number.isFinite(value))||indices.some(value=>!Number.isInteger(value)||value<0||value>=positions.length/3))throw new Error(label('noGeometry'));
+        const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setIndex(indices);geometry.computeVertexNormals();
+        let color='#60a5fa';const materials=Array.from(doc.querySelectorAll('resources > basematerials')).find(node=>node.getAttribute('id')===object.getAttribute('pid'));if(materials){const base=materials.querySelectorAll('base')[+(object.getAttribute('pindex')||0)];if(base?.getAttribute('displaycolor'))color=base.getAttribute('displaycolor').slice(0,7);}
+        result.add(new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color,side:THREE.DoubleSide})));
       }
-      const model=new ThreeMFLoader().parse(input);group.add(model);fit();ready();renderer.render(world,camera);
+      const next=new Set(ancestors);next.add(key);
+      for(const component of object.querySelectorAll('components > component')){const child=await objectFor(referencedPath(component,path),component.getAttribute('objectid'),next);transform(component,child);result.add(child);}
+      if(!result.children.length)throw new Error(label('noGeometry'));cache.set(key,result);return result.clone(true);
     }
-    await drawPlate(selected);
+    let mainPath=actualPath('3D/3dmodel.model');
+    const relations=zip.file('_rels/.rels');if(relations){const doc=parser.parseFromString(await relations.async('string'),'application/xml'),relation=Array.from(doc.querySelectorAll('Relationship')).find(node=>(node.getAttribute('Type')||'').endsWith('/3dmodel'));if(relation)mainPath=actualPath(relation.getAttribute('Target'))||mainPath;}
+    const main=await documentFor(mainPath),ids=new Set(),names=cfg.plates?.find(plate=>+plate.index===selected)?.objects||[],objectNames=new Map();
+    const settings=zip.file('Metadata/model_settings.config');
+    if(settings){const meta=parser.parseFromString(await settings.async('string'),'application/xml');for(const object of meta.querySelectorAll('config > object')){const name=Array.from(object.children).find(node=>node.getAttribute('key')==='name')?.getAttribute('value');if(name)objectNames.set(object.getAttribute('id'),name);}for(const plate of meta.querySelectorAll('plate')){const id=Array.from(plate.querySelectorAll('metadata')).find(node=>['plater_id','plate_id'].includes(node.getAttribute('key')))?.getAttribute('value');if(+id!==selected)continue;for(const object of plate.querySelectorAll('model_instance metadata[key="object_id"]'))ids.add(object.getAttribute('value'));}}
+    if(selected&&!ids.size)for(const object of main.querySelectorAll('resources > object'))if(names.includes(object.getAttribute('name'))||names.includes(objectNames.get(object.getAttribute('id'))))ids.add(object.getAttribute('id'));
+    const allItems=Array.from(main.querySelectorAll('build > item')),items=selected?allItems.filter(item=>ids.has(item.getAttribute('objectid'))||Array.from(item.attributes).some(attribute=>/(^|:)(plate_id|plater_id)$/.test(attribute.name)&&+attribute.value===selected)):allItems;
+    if(!items.length)throw new Error(selected?label('plateUnavailable'):label('noGeometry'));
+    for(const item of items){const object=await objectFor(referencedPath(item,mainPath),item.getAttribute('objectid'));transform(item,object);group.add(object);}
+    const units={micron:.001,millimeter:1,centimeter:10,inch:25.4,foot:304.8,meter:1000};group.scale.setScalar(units[main.documentElement.getAttribute('unit')]||1);
   }else throw new Error(label('unsupported'));
+  let meshCount=0;group.traverse(object=>{if(object.isMesh)meshCount++;});renderer.domElement.dataset.meshCount=String(meshCount);
   fit();ready();renderer.render(world,camera);snapshot(renderer.domElement);
 }
 status.textContent=label('loading');
