@@ -18,6 +18,7 @@ import {
   borderRadius,
 } from '@/theme/tokens';
 import { PrimaryButton, StatusBadge } from '@/components/common/AppUI';
+import { formatPreferredTime } from '@/utils/preferences';
 
 type ConnectionState = 'connected' | 'reconnecting' | 'disconnected';
 
@@ -123,8 +124,7 @@ export default function WebSocketStatusScreen() {
   }, [autoRefreshEnabled, connectionState, handleRefresh]);
 
   const formatErrorTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString();
+    return formatPreferredTime(new Date(timestamp), undefined, true);
   };
 
   return (

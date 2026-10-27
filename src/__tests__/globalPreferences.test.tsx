@@ -18,7 +18,7 @@ import { useServerStore } from '@/api/server';
 import { LANDING_PAGE_KEY, landingNavigationState, resolveLandingPage, useUiPreferencesStore } from '@/store/uiPreferencesStore';
 import { formatCurrency, formatDate, formatDateTime, formatTime } from '@/utils/data';
 import { formatCost } from '@/utils/formatters';
-import { formatDateInput, formatTimeInput, parseDateInput, parseServerDate, parseTimeInput, setFormattingPreferences } from '@/utils/preferences';
+import { formatDateInput, formatPreferredTime, formatTimeInput, parseDateInput, parseServerDate, parseTimeInput, setFormattingPreferences } from '@/utils/preferences';
 
 const mockAuth = { authEnabled: false, user: null as { id: number } | null, loading: false, hasPermission: jest.fn(() => true) };
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => mockAuth }));
@@ -128,6 +128,7 @@ describe('shared date, time and currency preferences', () => {
     setFormattingPreferences({ dateFormat: 'eu', timeFormat: '24h' });
     expect(formatDate(localDate)).toBe('15/01/2026');
     expect(formatTime(localDate)).toBe('14:30');
+    expect(formatPreferredTime(localDate, undefined, true)).toBe('14:30:00');
     expect(formatDateTime(localDate)).toBe('15/01/2026 14:30');
     expect(parseDateInput(formatDateInput(localDate))?.getTime()).toBe(new Date(2026, 0, 15).getTime());
     setFormattingPreferences({ dateFormat: 'iso' });

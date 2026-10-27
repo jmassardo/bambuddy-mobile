@@ -45,10 +45,11 @@ export function formatDateInput(date: Date, format = preferences.dateFormat): st
   return date.toLocaleDateString();
 }
 
-export function formatPreferredTime(value: Date, format = preferences.timeFormat): string {
+export function formatPreferredTime(value: Date, format = preferences.timeFormat, includeSeconds = false): string {
   if (Number.isNaN(value.getTime())) return '—';
   return value.toLocaleTimeString(format === 'system' ? undefined : preferences.locale, {
     hour: '2-digit', minute: '2-digit',
+    ...(includeSeconds ? { second: '2-digit' as const } : {}),
     ...(format === 'system' ? {} : { hour12: format === '12h' }),
   });
 }
