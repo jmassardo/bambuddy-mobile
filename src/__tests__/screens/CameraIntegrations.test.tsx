@@ -25,6 +25,9 @@ jest.mock('@/api/server', () => ({ useServerStore: (select: (state: { serverUrl:
 jest.mock('@/api/http', () => ({ getAuthToken: () => 'login-secret' }));
 jest.mock('@/api/cameras', () => ({ camerasApi: { tokens: jest.fn(), createToken: jest.fn(), revokeToken: jest.fn() } }));
 jest.mock('@/api/printers', () => ({ printersApi: { getPrinters: jest.fn(), getPrinterStatus: jest.fn() } }));
+jest.mock('@/components/settings/ApiExplorerSettings', () => ({
+  ApiExplorerSettings: () => null,
+}));
 jest.mock('@/components/printers/OverlayPreview', () => ({
   OverlayPreview: () => { const { Text: MockText } = require('react-native'); return <MockText>Running overlay preview</MockText>; },
 }));
@@ -176,7 +179,7 @@ it('keeps API-key settings intact and opens the dedicated camera-token managemen
     queries: { apiKeysQuery: { data: [] } },
     colors: {},
   } as unknown as SettingsScreenController;
-  const result = await render(<ApiKeysSettingsSection controller={controller} />);
+  const result = await render(<Wrapper><ApiKeysSettingsSection controller={controller} /></Wrapper>);
   expect(result.getByText('API keys')).toBeTruthy();
   expect(result.queryByText('Create camera token')).toBeNull();
   await fireEvent.press(result.getByText('Camera tokens and OBS overlays'));

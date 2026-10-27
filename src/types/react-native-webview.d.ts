@@ -27,7 +27,7 @@ declare module 'react-native-webview' {
     onOpenWindow?: () => void;
     onFileDownload?: () => void;
     onError?: () => void;
-    onHttpError?: () => void;
+    onHttpError?: (event: { nativeEvent?: { statusCode?: number } }) => void;
     onContentProcessDidTerminate?: () => void;
   }
 
