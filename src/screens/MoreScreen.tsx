@@ -12,7 +12,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { fontSize, fontWeight, spacing, borderRadius } from '@/theme/tokens';
 import { api } from '@/api/client';
-import { BUILT_IN_NAV_ITEMS, getNavigationLayout } from '@/navigation/navigationConfig';
+import { BUILT_IN_NAV_ITEMS, canAccessNavigationItem, getNavigationLayout } from '@/navigation/navigationConfig';
 import { useCustomNavStore } from '@/store/navigationStore';
 import { uiPreferencesApi } from '@/api/uiPreferences';
 import { AnnouncementsEntry } from '@/components/common/AnnouncementBanner';
@@ -72,6 +72,12 @@ export default function MoreScreen() {
   }, [navigationQuery.data, externalLinksQuery.data, customItems, canReadExternalLinks]);
 
   const canOpenRoute = React.useCallback((route: string) => {
+    const item = BUILT_IN_NAV_ITEMS.find(candidate => candidate.stackRoute === route);
+    if (item) return canAccessNavigationItem(item, {
+      hasPermission,
+      authenticatedUser: Boolean(user),
+      billingEnabled: flagsQuery.data?.billing_enabled === true,
+    });
     if (route === 'Users') return hasPermission('users:read');
     if (route === 'CameraWall' || route === 'CameraIntegrations') return hasPermission('camera:view');
     if (route === 'SlicerPipelines' || route === 'PipelineRuns') return hasPermission('pipelines:read');

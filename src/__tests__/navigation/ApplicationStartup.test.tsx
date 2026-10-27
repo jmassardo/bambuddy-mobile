@@ -23,6 +23,16 @@ const mockItems = { items: [...BUILT_IN_NAV_ITEMS], loading: false };
 const mockToastContext = React.createContext(false);
 const mockAuthContext = React.createContext(false);
 
+jest.mock('react-native/Libraries/Linking/Linking', () => ({
+  __esModule: true,
+  default: {
+    getInitialURL: jest.fn(() => Promise.resolve(mockInitialURL)),
+    addEventListener: jest.fn((_event, listener) => {
+      mockLinkListener = listener;
+      return { remove: mockRemoveLinkListener };
+    }),
+  },
+}));
 jest.mock('react-native-get-random-values', () => ({}));
 jest.mock('react-native-gesture-handler', () => ({
   GestureHandlerRootView: ({ children }: { children: React.ReactNode }) => children,
@@ -98,11 +108,6 @@ describe('application startup navigation', () => {
     mockItems.loading = false;
     mockInitialURL = null;
     mockLinkListener = undefined;
-    Object.assign(Linking, { getInitialURL: jest.fn(() => Promise.resolve(mockInitialURL)) });
-    (Linking.addEventListener as jest.Mock).mockImplementation((_event, listener) => {
-      mockLinkListener = listener;
-      return { remove: mockRemoveLinkListener };
-    });
     useUiPreferencesStore.setState({ loaded: true, landingPage: 'queue' });
   });
 

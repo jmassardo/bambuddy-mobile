@@ -8,11 +8,12 @@ describe('application entry', () => {
     expect(parseConnectAuthorizeLink(`${consent}&server=https://untrusted.test`)).toEqual({
       client_id: 'client', redirect_uri: 'myapp://callback', code_challenge: 'challenge', code_challenge_method: 'S256', state: 'state',
     });
+  });
 
-    it('handles custom-scheme consent on the native URL runtime and retains encoded callback/state data', () => {
-      const originalURL = global.URL;
+  it('handles custom-scheme consent on the native URL runtime and retains encoded callback/state data', () => {
+      const originalURL = globalThis.URL;
       try {
-        global.URL = class extends originalURL {
+        globalThis.URL = class extends originalURL {
           get hostname() { return ''; }
           get pathname() { return '/'; }
         };
@@ -21,9 +22,8 @@ describe('application entry', () => {
           redirect_uri: 'myapp://callback', state: 'a=b+c d',
         }));
       } finally {
-        global.URL = originalURL;
+        globalThis.URL = originalURL;
       }
-    });
   });
 
   it.each([

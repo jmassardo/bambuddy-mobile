@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/api/client';
 import { uiPreferencesApi } from '@/api/uiPreferences';
 import { useAuth } from '@/contexts/AuthContext';
 import { useServerStore } from '@/api/server';
@@ -9,11 +8,10 @@ export function useNavigationItems() {
   const { user, authEnabled, loading, requiresSetup, hasPermission } = useAuth();
   const serverUrl = useServerStore(state => state.serverUrl);
   const enabled = Boolean(serverUrl) && !loading && !requiresSetup && (!authEnabled || Boolean(user));
-  const canReadSettings = enabled && hasPermission('settings:read');
-  const settings = useQuery({
-    queryKey: ['settings'],
-    queryFn: api.getSettings,
-    enabled: canReadSettings,
+  const navigation = useQuery({
+    queryKey: ['navigationOrder', serverUrl],
+    queryFn: uiPreferencesApi.getNavigationOrder,
+    enabled,
   });
   const flags = useQuery({
     queryKey: ['uiFlags', serverUrl],
@@ -25,10 +23,10 @@ export function useNavigationItems() {
     authenticatedUser: Boolean(user),
     billingEnabled: flags.data?.billing_enabled === true,
   };
-  const layout = getNavigationLayout({ defaultSidebarOrder: canReadSettings ? settings.data?.default_sidebar_order : undefined });
+  const layout = getNavigationLayout({ defaultSidebarOrder: navigation.data?.default_sidebar_order });
   return {
     access,
     items: layout.orderedBuiltIns.filter(item => canAccessNavigationItem(item, access)),
-    loading: (canReadSettings && settings.isPending) || (enabled && flags.isPending),
+    loading: enabled && (navigation.isPending || flags.isPending),
   };
 }

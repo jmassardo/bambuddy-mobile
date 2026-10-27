@@ -274,4 +274,17 @@ describe('MoreScreen', () => {
     await screen.rerender(<MoreScreen />);
     expect(screen.queryByText('Finance')).toBeNull();
   });
+
+  it('hides base-resource links denied by the same access policy as their registered routes', async () => {
+    setupQueries();
+    mockPermissions.clear();
+    mockPermissions.add('projects:read');
+    const screen = await render(<MoreScreen />);
+    expect(screen.getByText('Projects')).toBeTruthy();
+    for (const title of ['Inventory', 'SpoolBuddy', 'Maintenance', 'Stats', 'Energy', 'System', 'Print Log']) {
+      expect(screen.queryByText(title)).toBeNull();
+    }
+    await fireEvent.press(screen.getByTestId('menu-item-Projects'));
+    expect(mockNavigate).toHaveBeenCalledWith('Projects');
+  });
 });
