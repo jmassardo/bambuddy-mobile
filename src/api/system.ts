@@ -1,9 +1,13 @@
 import type {
   ApiEntity,
+  ApplicationLogs,
+  BugReportRequest,
+  BugReportResponse,
   DebugLoggingState,
   InventorySpool,
   LinkedSpoolsMap,
   ObicoStatus,
+  PrinterDiagnosticResult,
   SpoolmanConfig,
   SpoolmanSyncResult,
   SpoolmanSyncStatus,
@@ -22,10 +26,13 @@ import type {
   SystemHealthResult,
   SystemInfo,
   UnlinkedSpool,
+  UpdateCheckResult,
+  UpdateStatus,
 } from '@/types/api';
 import { request, requestBlob, requestWithFallback } from './http';
 
 export const systemApi = {
+  getReportPrinterDiagnostic: (id: number) => request<PrinterDiagnosticResult>(`/printers/${id}/diagnostic`),
   getSystemInfo: async () => request<ApiEntity<SystemInfo>>('/system/info'),
 
   getSystemHealth: async () => request<ApiEntity<SystemHealthResult>>('/system/health'),
@@ -35,12 +42,16 @@ export const systemApi = {
     if (options?.refresh) params.set('refresh', 'true');
     const query = params.toString() ? `?${params}` : '';
     return requestWithFallback<ApiEntity<StorageUsageResponse>>(
-      { endpoint: `/system/storage${query}` },
       { endpoint: `/system/storage-usage${query}` },
+      { endpoint: `/system/storage${query}` },
     );
   },
 
-  getUpdateInfo: async () => request<Record<string, unknown>>('/updates/check'),
+  getUpdateInfo: async () => request<UpdateCheckResult & { compose_dir_detected?: string | null }>('/updates/check'),
+
+  applyServerUpdate: () => request<{ success: boolean; message: string }>('/updates/apply', { method: 'POST' }),
+
+  getServerUpdateStatus: () => request<UpdateStatus>('/updates/status'),
 
   getFirmwareVersions: async (model: string) =>
     request<Record<string, unknown>[]>(
@@ -89,26 +100,26 @@ export const systemApi = {
     if (params?.limit) searchParams.set('limit', String(params.limit));
     if (params?.level) searchParams.set('level', params.level);
     if (params?.search) searchParams.set('search', params.search);
-    return request<Record<string, unknown>>(
+    return request<ApplicationLogs>(
       `/support/logs${searchParams.toString() ? `?${searchParams}` : ''}`,
     );
   },
 
   clearSupportLogs: async () => request<void>('/support/logs', { method: 'DELETE' }),
 
-  submitBugReport: async (data: Record<string, unknown>) =>
-    request<Record<string, unknown>>('/bug-report/submit', {
+  submitBugReport: async (data: BugReportRequest) =>
+    request<BugReportResponse>('/bug-report/submit', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   startBugReportLogging: async () =>
-    request<Record<string, unknown>>('/bug-report/start-logging', {
+    request<{ started: boolean; was_debug: boolean }>('/bug-report/start-logging', {
       method: 'POST',
     }),
 
   stopBugReportLogging: async (wasDebug: boolean) =>
-    request<Record<string, unknown>>(`/bug-report/stop-logging?was_debug=${wasDebug}`, {
+    request<{ logs: string }>(`/bug-report/stop-logging?was_debug=${wasDebug}`, {
       method: 'POST',
     }),
 

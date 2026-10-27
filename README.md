@@ -67,6 +67,7 @@ Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print
 - Cloud/local slicer presets with metadata filters, JSON/typed editing, base comparisons and reusable on-device templates
 - Orca Cloud device approval (no Orca password collected)
 - Live printer/nozzle K-profile management, copying, notes and JSON import/export
+- Local/Git backups, selective restore, system diagnostics and guided bug reports ([guide](docs/backup-system.md))
 - Planned push notifications
 
 ### Integrations

@@ -2769,6 +2769,65 @@ export interface LocalBackupFile {
   created_at: string;
 }
 
+// Backup-system parity: immutable Git restore and diagnostic workflows.
+export type GitRestoreCategory = 'kprofiles' | 'settings' | 'spools' | 'archives';
+export interface GitBackupCommit {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+}
+export interface GitRestorePreview {
+  success: boolean;
+  message: string;
+  ref: string;
+  commit: GitBackupCommit | null;
+  metadata_version: string | null;
+  categories: Array<{
+    category: GitRestoreCategory;
+    available: boolean;
+    item_count: number;
+    detail: string | null;
+  }>;
+}
+export interface GitRestoreResult {
+  success: boolean;
+  message: string;
+  ref: string | null;
+  results: Record<string, {
+    restored: number;
+    skipped: number;
+    failed: number;
+    notes: Array<{ code: string; message: string }>;
+  }>;
+}
+export interface BackupOperationResult {
+  success: boolean;
+  message: string;
+  restart_required?: boolean;
+  diagnosis?: { message: string; detail: string };
+}
+export interface BackupPathCheck {
+  writable: boolean;
+  path: string;
+  message: string;
+  detail?: string | null;
+  remedy?: string | null;
+  warning?: string | null;
+  code?: string;
+}
+export interface ApplicationLogEntry {
+  timestamp: string;
+  level: string;
+  logger_name: string;
+  message: string;
+}
+export interface ApplicationLogs {
+  entries: ApplicationLogEntry[];
+  total_in_file: number;
+  filtered_count: number;
+}
+
 export interface ObicoDetectionEvent {
   printer_id: number;
   task_name: string;

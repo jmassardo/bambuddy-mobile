@@ -97,13 +97,8 @@ describe('api client', () => {
     {
       name: 'testGitHubBackupConnection',
       call: () => api.testGitHubBackupConnection('https://github.com/octo/repo', 'pat-secret'),
-      endpoint: '/github-backup/test',
+      endpoint: '/github-backup/test?repo_url=https%3A%2F%2Fgithub.com%2Focto%2Frepo&token=pat-secret&provider=github',
       method: 'POST',
-      body: {
-        repo_url: 'https://github.com/octo/repo',
-        token: 'pat-secret',
-        provider: 'github',
-      },
       response: { ok: true },
     },
   ])('sends the correct auth request for $name', async ({ call, endpoint, method, body, response }) => {
