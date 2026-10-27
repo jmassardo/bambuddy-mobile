@@ -71,6 +71,11 @@ function walk(directory) {
         const fallback = options && ts.isObjectLiteralExpression(options) && options.properties.find(property => ts.isPropertyAssignment(property) && property.name.getText(file) === 'defaultValue');
         if (fallback && ts.isPropertyAssignment(fallback) && ts.isStringLiteral(fallback.initializer)) {
           report(node, fallback.initializer.text, 'translation-default');
+        } else if (fallback && ts.isPropertyAssignment(fallback) && key && ts.isStringLiteral(key)) {
+          report(node, key.text, 'dynamic-translation-default');
+          visit(fallback.initializer, child => {
+            if (ts.isStringLiteral(child)) report(child, child.text, 'translation-default-branch');
+          });
         } else if (key && ts.isStringLiteral(key)) report(node, key.text, 'missing-translation-key');
       }
     });
