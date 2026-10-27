@@ -52,6 +52,10 @@ jest.mock('@/components/common/AppUI', () => {
 });
 
 jest.mock('@/components/printers/EditPrinterModal', () => ({ EditPrinterModal: () => null }));
+jest.mock('@/components/printers/PrinterSourceActions', () => {
+  const { Text } = require('react-native');
+  return { PrinterSourceActions: ({ printerId }: { printerId: number }) => <Text>Printer sources {printerId}</Text> };
+});
 jest.mock('@/components/printers/HMSErrorModal', () => ({ HMSErrorModal: () => null }));
 jest.mock('@/components/printers/MoveControlsModal', () => ({ MoveControlsModal: () => null }));
 jest.mock('@/components/printers/SkipObjectsModal', () => ({ SkipObjectsModal: () => null }));
@@ -129,6 +133,11 @@ describe('PrinterCard', () => {
     const { getByText } = await render(<PrinterCard printer={printer} status={status} />);
 
     expect(getByText('Printer Alpha')).toBeTruthy();
+  });
+
+  it.each([false, true])('keeps source actions reachable while disconnected (compact %s)', async compact => {
+    const screen = await render(<PrinterCard printer={printer} status={{ ...status, connected: false }} compact={compact} />);
+    expect(screen.getByText('Printer sources 1')).toBeTruthy();
   });
 
   it('shows the correct status indicator', async () => {

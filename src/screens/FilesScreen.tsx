@@ -40,6 +40,7 @@ import {
 } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { SliceModal } from '@/components/files/SliceModal';
+import { LibraryPipelineAction } from '@/components/files/LibraryPipelineAction';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { PrintModal } from '@/components/printers/PrintModal';
 import { useToast } from '@/contexts/ToastContext';
@@ -867,6 +868,11 @@ export default function FilesScreen() {
                   setSliceAutoArrange(false);
                   setShowSliceModal(true);
                 }}
+              />
+              <LibraryPipelineAction
+                fileId={id}
+                filename={pickString(item, ['filename', 'name'])}
+                isFolder={isFolderEntry(item)}
               />
             </View>
           );

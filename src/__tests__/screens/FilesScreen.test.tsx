@@ -8,6 +8,7 @@ import { filesApi } from '@/api/files';
 type LibraryDestination = {folderId?: number; fileId?: number; projectId?: number};
 const mockNavigation = {setOptions: jest.fn(), dispatch: jest.fn()};
 const mockRoute: {key: string; params?: LibraryDestination} = {key: 'files'};
+const mockPipeline = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => mockNavigation, useRoute: () => mockRoute,
   CommonActions: {setParams: (params: Record<string, number | undefined>) => ({type: 'SET_PARAMS', payload: {params}})},
@@ -32,6 +33,12 @@ jest.mock('@/contexts/ToastContext', () => ({useToast: () => ({showToast: jest.f
 jest.mock('@/theme', () => ({useTheme: () => ({colors: new Proxy({}, {get: () => '#888888'})})}));
 jest.mock('@/components/files/FileUploadModal', () => ({FileUploadModal: () => null}));
 jest.mock('@/components/files/SliceModal', () => ({SliceModal: () => null}));
+jest.mock('@/components/slicing/RunWithPipelineModal', () => ({
+  RunWithPipelineModal: (props: Record<string, unknown>) => {
+    mockPipeline(props);
+    return null;
+  },
+}));
 jest.mock('@/components/printers/PrintModal', () => ({PrintModal: () => null}));
 jest.mock('@/components/files/LibraryPolicy', () => ({LibraryPolicy: () => null}));
 jest.mock('@/components/files/LibraryFileDetails', () => ({LibraryFileDetails: () => null}));
@@ -67,6 +74,15 @@ test('trash displays envelope items and requires confirmation before permanent d
   await fireEvent.press(result.getAllByText('Delete')[0]);
   await fireEvent.press(result.getByText('Confirm irreversible action'));
   await waitFor(() => expect(api.permanentDeleteLibraryItem).toHaveBeenCalledWith(8));
+});
+
+test('real library file entries open the shared pipeline launcher with their source', async () => {
+  const result = await render(<FilesScreen />, {wrapper: TestProviders});
+  await result.findByText('widget.stl');
+  await fireEvent.press(result.getAllByText('Run with pipeline')[0]);
+  expect(mockPipeline).toHaveBeenLastCalledWith(expect.objectContaining({
+    visible: true, sourceType: 'file', sourceId: 10, sourceName: 'another.stl',
+  }));
 });
 
 test('selected trash subset can be restored without emptying all trash', async () => {

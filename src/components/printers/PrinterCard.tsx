@@ -12,6 +12,7 @@ import { getAuthToken, api } from '@/api/client';
 import { useServerStore } from '@/api/server';
 import { filterKnownHMSErrors } from '@/components/printers/hmsErrorCatalog';
 import { PrinterCardCompact } from '@/components/printers/PrinterCardCompact';
+import { PrinterSourceActions } from '@/components/printers/PrinterSourceActions';
 import { PrinterCardControlsSection } from '@/components/printers/PrinterCardControlsSection';
 import {
   buildPrinterCardActionIcons,
@@ -588,23 +589,26 @@ export function PrinterCard({
 
   if (compact) {
     return (
-      <PrinterCardCompact
-        printer={printer}
-        selected={selected}
-        isConnected={isConnected}
-        isPrinting={isPrinting}
-        progress={progress}
-        status={status}
-        canClearPlate={canClearPlate}
-        clearPlatePending={clearPlateMutation.isPending}
-        onClearPlate={() => Alert.alert(t('fleet.clearPlate', { defaultValue: 'Mark plate as cleared?' }), t('fleet.clearPlateWarning', { defaultValue: 'Confirm the physical plate is empty. Queued jobs may start automatically.' }), [
-          { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
-          { text: t('common.confirm', { defaultValue: 'Confirm' }), onPress: () => clearPlateMutation.mutate() },
-        ])}
-        printerImageSource={printerImageSource}
-        onPress={onPress}
-        onLongPress={onLongPress}
-      />
+      <>
+        <PrinterCardCompact
+          printer={printer}
+          selected={selected}
+          isConnected={isConnected}
+          isPrinting={isPrinting}
+          progress={progress}
+          status={status}
+          canClearPlate={canClearPlate}
+          clearPlatePending={clearPlateMutation.isPending}
+          onClearPlate={() => Alert.alert(t('fleet.clearPlate', { defaultValue: 'Mark plate as cleared?' }), t('fleet.clearPlateWarning', { defaultValue: 'Confirm the physical plate is empty. Queued jobs may start automatically.' }), [
+            { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+            { text: t('common.confirm', { defaultValue: 'Confirm' }), onPress: () => clearPlateMutation.mutate() },
+          ])}
+          printerImageSource={printerImageSource}
+          onPress={onPress}
+          onLongPress={onLongPress}
+        />
+        <PrinterSourceActions printerId={printer.id} />
+      </>
     );
   }
 
@@ -685,6 +689,8 @@ export function PrinterCard({
       />
 
       <PrinterCardTemperatureSection printer={printer} status={status} />
+
+      <PrinterSourceActions printerId={printer.id} />
 
       <PrinterCardFilamentSection
         printer={printer}

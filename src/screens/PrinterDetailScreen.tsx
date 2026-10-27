@@ -1,5 +1,7 @@
 import React from 'react';
 import { PrinterDeviceControls } from '@/components/printers/PrinterDeviceControls';
+import { PrinterSourceActions } from '@/components/printers/PrinterSourceActions';
+import { PrinterPowerIntegration } from '@/components/settings/SmartPlugPowerControls';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import {
@@ -549,6 +551,9 @@ export default function PrinterDetailScreen() {
           value={formatDateTime(pickString(printer, ['updated_at']))}
         />
       </SectionCard>
+
+      <PrinterPowerIntegration printerId={printerId} />
+      <PrinterSourceActions printerId={printerId} />
 
       <Pressable
         onPress={() => navigation.navigate('Camera', { id: String(printerId) })}
