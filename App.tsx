@@ -158,12 +158,12 @@ function AppContent() {
 }
 
 function AppErrorFallback({ resetErrorBoundary }: { resetErrorBoundary: () => void }) {
-  const { text } = useTranslation();
+  const { text, t } = useTranslation();
   const theme = useTheme();
   return (
     <View style={[styles.error, { backgroundColor: theme.colors.background }]}>
       <Text accessibilityRole="alert" style={[styles.errorTitle, { color: theme.colors.text }]}>{text('Something went wrong')}</Text>
-      <Text style={[styles.errorMessage, { color: theme.colors.textSecondary }]}>{text('An unexpected error occurred. Tap below to try again.')}</Text>
+      <Text style={[styles.errorMessage, { color: theme.colors.textSecondary }]}>{t('common.unexpectedError', { defaultValue: 'An unexpected error occurred. Tap below to try again.' })}</Text>
       <Text accessibilityRole="button" onPress={resetErrorBoundary} style={[styles.retry, { color: theme.colors.accent }]}>{text('Retry')}</Text>
     </View>
   );

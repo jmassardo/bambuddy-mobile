@@ -124,17 +124,17 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
       {hasPermission('printers:read') && <Stack.Screen
         name="PrinterDetail"
         component={PrinterDetailScreen}
-        options={{ title: text('Printer') }}
+        options={{ title: t('screen.printer', { defaultValue: 'Printer' }) }}
       />}
       {canOpen('PrintLog') && <Stack.Screen
         name="ArchiveDetail"
         component={ArchiveDetailScreen}
-        options={{ title: text('Archive') }}
+        options={{ title: t('screen.archive', { defaultValue: 'Archive' }) }}
       />}
       {canOpen('Projects') && <Stack.Screen
         name="ProjectDetail"
         component={ProjectDetailScreen}
-        options={{ title: text('Project') }}
+        options={{ title: t('screen.project', { defaultValue: 'Project' }) }}
       />}
       {hasPermission('camera:view') && <Stack.Screen
         name="Camera"
@@ -151,7 +151,7 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
       <Stack.Screen
         name="Scanner"
         component={ScannerScreen}
-        options={{ title: text('QR Scanner') }}
+        options={{ title: t('screen.qrScanner', { defaultValue: 'QR Scanner' }) }}
       />
       <Stack.Screen
         name="Settings"
@@ -221,12 +221,12 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
       <Stack.Screen
         name="ExternalLinkBrowser"
         component={ExternalLinkBrowserScreen}
-        options={{ title: text('External Link') }}
+        options={{ title: t('screen.externalLink', { defaultValue: 'External Link' }) }}
       />
       <Stack.Screen
         name="Model3DPreview"
         component={Model3DPreviewScreen}
-        options={{ title: text('3D Preview') }}
+        options={{ title: t('screen.modelPreview', { defaultValue: '3D Preview' }) }}
       />
       {canOpen('FailureAnalysis') && <Stack.Screen
         name="FailureAnalysis"
@@ -236,12 +236,12 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
       <Stack.Screen
         name="WebSocketStatus"
         component={WebSocketStatusScreen}
-        options={{ title: text('WebSocket Status') }}
+        options={{ title: t('screen.websocketStatus', { defaultValue: 'WebSocket Status' }) }}
       />
       <Stack.Screen
         name="TimelapseEditor"
         component={TimelapseEditorScreen}
-        options={{ title: text('Edit Timelapse') }}
+        options={{ title: t('screen.editTimelapse', { defaultValue: 'Edit Timelapse' }) }}
       />
       {canOpen('PrintLog') && <Stack.Screen
         name="PrintLog"
@@ -251,7 +251,7 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
       {hasPermission('inventory:view_assignments') && <Stack.Screen
         name="SpoolAssignmentHistory"
         component={SpoolAssignmentHistoryScreen}
-        options={{ title: text('Assignment History') }}
+        options={{ title: t('screen.assignmentHistory', { defaultValue: 'Assignment History' }) }}
       />}
       <Stack.Screen name="Announcements" component={AnnouncementsScreen} options={{ title: text('Announcements') }} />
       {canOpen('CameraWall') && <Stack.Screen name="CameraWall" component={CameraWallScreen} options={{ title: t('nav.camera-wall', { defaultValue: 'Camera wall' }) }} />}
@@ -259,7 +259,7 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
       {canOpen('SlicerPipelines') && <Stack.Screen name="SlicerPipelines" component={SlicerPipelinesScreen} options={{ title: t('nav.slicer-pipelines', { defaultValue: 'Slicer pipelines' }) }} />}
       {canOpen('PipelineRuns') && <Stack.Screen name="PipelineRuns" component={PipelineRunsScreen} options={{ title: t('nav.pipeline-runs', { defaultValue: 'Pipeline runs' }) }} />}
       {canOpen('Finance') && <Stack.Screen name="Finance" component={FinanceScreen} options={{ title: text('Finance'), presentation: 'modal' }} />}
-      {user && <Stack.Screen name="ConnectAuthorize" component={ConnectAuthorizeScreen} options={{ title: text('Connect') }} />}
+      {user && <Stack.Screen name="ConnectAuthorize" component={ConnectAuthorizeScreen} options={{ title: t('common.connect', { defaultValue: 'Connect' }) }} />}
     </Stack.Navigator>
   );
 }
