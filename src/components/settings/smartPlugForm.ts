@@ -48,7 +48,7 @@ const fields = [...tasmotaFields, ...mqttFields, ...restFields, ...policyFields]
 export function makePlugDraft(plug?: SmartPlug): PlugDraft {
   const draft: PlugDraft = {
     name: plug?.name ?? '', plug_type: plug?.plug_type ?? 'tasmota', printer_id: plug?.printer_id == null ? '' : String(plug.printer_id),
-    rest_method: plug?.rest_method ?? 'GET', off_delay_mode: plug?.off_delay_mode ?? 'time',
+    rest_method: plug?.rest_method || (plug?.plug_type === 'rest' ? 'POST' : 'GET'), off_delay_mode: plug?.off_delay_mode ?? 'time',
   };
   const source = plug as unknown as Record<string, unknown> | undefined;
   for (const field of fields) {
@@ -59,7 +59,9 @@ export function makePlugDraft(plug?: SmartPlug): PlugDraft {
   }
   for (const key of haFields) draft[key] = String(source?.[key] ?? '');
   for (const [key] of plugSwitches) draft[key] = typeof source?.[key] === 'boolean' ? source[key] as boolean : ['enabled', 'controls_printer_power', 'auto_on', 'auto_off', 'show_on_printer_card'].includes(key);
-  if (!draft.mqtt_power_topic) draft.mqtt_power_topic = plug?.mqtt_topic ?? '';
+  for (const key of ['mqtt_power_topic', 'mqtt_energy_topic', 'mqtt_state_topic']) {
+    if (!draft[key]) draft[key] = plug?.mqtt_topic ?? '';
+  }
   if (source?.mqtt_power_multiplier == null && plug?.mqtt_multiplier != null) draft.mqtt_power_multiplier = String(plug.mqtt_multiplier);
   return draft;
 }

@@ -74,6 +74,8 @@ Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print
 
 Configure Home Assistant under **Settings → Network**; environment-managed URL/token values remain read-only. Save connection settings before discovering HA entities. Smart plug editors preserve separate today/lifetime energy mappings, nullable associations and zero-valued thresholds/delays. MQTT devices are monitor-only.
 
+Editing a legacy MQTT plug migrates its shared topic into every applicable power, energy and state topic without replacing explicit overrides. Existing REST plugs with no stored method retain their server-default POST behavior.
+
 REST connection tests use the server-supported URL, method and headers (not request bodies or measurement extraction). Prefer a status URL: testing an ON/OFF URL may change device power. Use **Virtual Printers** for named printer/interface choices, archive naming, certificate export and actionable diagnostics. The CA is public; no private key is exported.
 
 ### Fleet management

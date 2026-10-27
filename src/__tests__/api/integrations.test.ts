@@ -24,6 +24,43 @@ describe('integration payloads', () => {
     });
   });
 
+  it.each([
+    {
+      overrides: {},
+      effective: { mqtt_power_topic: 'legacy/measurements', mqtt_energy_topic: 'legacy/measurements', mqtt_state_topic: 'legacy/measurements' },
+    },
+    {
+      overrides: { mqtt_power_topic: 'dedicated/power', mqtt_state_topic: 'dedicated/state' },
+      effective: { mqtt_power_topic: 'dedicated/power', mqtt_energy_topic: 'legacy/measurements', mqtt_state_topic: 'dedicated/state' },
+    },
+  ])('preserves every effective legacy MQTT subscription when renaming ($overrides)', ({ overrides, effective }) => {
+    const plug = {
+      name: 'Legacy meter', plug_type: 'mqtt', mqtt_topic: 'legacy/measurements',
+      mqtt_power_topic: null, mqtt_energy_topic: null, mqtt_state_topic: null,
+      mqtt_power_path: 'data.power', mqtt_energy_path: 'data.energy', mqtt_state_path: 'relay.enabled',
+      mqtt_energy_multiplier: 0.001, mqtt_state_on_value: 'true', ...overrides,
+    } as SmartPlug;
+    const draft = { ...makePlugDraft(plug), name: 'Renamed meter' };
+    const payload = buildPlugPayload(draft);
+    expect(payload).toMatchObject({
+      name: 'Renamed meter', mqtt_topic: null, ...effective,
+      mqtt_power_path: 'data.power', mqtt_energy_path: 'data.energy', mqtt_state_path: 'relay.enabled',
+      mqtt_energy_multiplier: 0.001, mqtt_state_on_value: 'true',
+    });
+    expect(buildPlugPayload(makePlugDraft({ ...plug, ...payload }))).toEqual(payload);
+  });
+
+  it.each([null, 'POST', 'GET'] as const)('preserves the effective REST method when editing %s', rest_method => {
+    const plug = {
+      name: 'REST outlet', plug_type: 'rest', rest_method,
+      rest_on_url: 'https://outlet.local/relay', rest_off_url: 'https://outlet.local/relay',
+      rest_on_body: '{"on":true}', rest_off_body: '{"on":false}',
+    } as SmartPlug;
+    expect(buildPlugPayload(makePlugDraft(plug))).toMatchObject({
+      rest_method: rest_method || 'POST', rest_on_body: '{"on":true}', rest_off_body: '{"on":false}',
+    });
+  });
+
   it('round-trips authenticated POST, bodies, all REST measurements and policies', () => {
     const draft = {
       ...makePlugDraft(), name: 'Shelly', plug_type: 'rest', rest_method: 'POST',

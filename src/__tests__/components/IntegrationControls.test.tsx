@@ -31,7 +31,7 @@ jest.mock('@/contexts/ToastContext', () => ({ useToast: () => ({ showToast: jest
 jest.mock('@/theme', () => ({ useTheme: () => ({ colors: new Proxy({}, { get: () => '#888888' }) }) }));
 
 const plug = {
-  id: 4, name: 'Printer outlet', plug_type: 'rest', enabled: true, rest_on_url: 'http://outlet/on', rest_off_url: 'http://outlet/off',
+  id: 4, name: 'Printer outlet', plug_type: 'rest', enabled: true, rest_method: 'GET', rest_on_url: 'http://outlet/on', rest_off_url: 'http://outlet/off',
   printer_id: 7, auto_off: false, auto_off_executed: false, last_state: 'ON',
 } as SmartPlug;
 
