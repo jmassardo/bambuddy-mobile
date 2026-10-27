@@ -50,7 +50,9 @@ export default function UsersScreen() {
   }, [navigation]);
 
   const { colors } = useTheme();
-  const { isAdmin, user: currentUser } = useAuth();
+  const { isAdmin, user: currentUser, hasPermission } = useAuth();
+  const canRead = hasPermission('users:read');
+  const canReadGroups = hasPermission('groups:read');
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
@@ -65,33 +67,33 @@ export default function UsersScreen() {
   const usersQuery = useQuery({
     queryKey: ['users'],
     queryFn: () => api.getUsers(),
-    enabled: isAdmin,
+    enabled: canRead,
   });
   const groupsQuery = useQuery({
     queryKey: ['groups'],
     queryFn: () => api.getGroups(),
-    enabled: isAdmin,
+    enabled: canReadGroups,
   });
   const advancedAuthQuery = useQuery({
     queryKey: ['advancedAuthStatus'],
     queryFn: () => api.getAdvancedAuthStatus(),
-    enabled: isAdmin,
+    enabled: canRead,
   });
   const ldapStatusQuery = useQuery({
     queryKey: ['ldapStatus'],
     queryFn: () => api.getLDAPStatus(),
-    enabled: isAdmin,
+    enabled: canRead,
   });
   const ldapSearchQuery = useQuery({
     queryKey: ['ldapSearch', ldapQuery],
     queryFn: () => api.searchLDAPDirectory(ldapQuery.trim()),
-    enabled: showCreate && createMode === 'ldap' && ldapQuery.trim().length >= 2,
+    enabled: isAdmin && showCreate && createMode === 'ldap' && ldapQuery.trim().length >= 2,
   });
 
   const refreshAll = async () => {
     await Promise.all([
       usersQuery.refetch(),
-      groupsQuery.refetch(),
+      ...(canReadGroups ? [groupsQuery.refetch()] : []),
       advancedAuthQuery.refetch(),
       ldapStatusQuery.refetch(),
     ]);
@@ -192,7 +194,7 @@ export default function UsersScreen() {
   });
 
   const users = useMemo(() => ((usersQuery.data ?? []) as ApiRecord[]), [usersQuery.data]);
-  const groups = useMemo(() => ((groupsQuery.data ?? []) as ApiRecord[]), [groupsQuery.data]);
+  const groups = useMemo(() => ((canReadGroups ? groupsQuery.data ?? [] : []) as ApiRecord[]), [canReadGroups, groupsQuery.data]);
   const advancedAuthEnabled = pickBoolean(advancedAuthQuery.data, ['advanced_auth_enabled'], false);
   const ldapEnabled = pickBoolean(ldapStatusQuery.data, ['ldap_enabled'], false);
   const isCreateDisabled = useMemo(() => {
@@ -230,21 +232,21 @@ export default function UsersScreen() {
     onError: (e: Error) => showToast(e.message || 'Failed to delete group.', 'error'),
   });
 
-  if (!isAdmin) {
+  if (!canRead) {
     return (
       <EmptyState
         icon="🛡"
-        title="Admin access required"
-        message="Only administrators can manage users from the mobile app."
+        title="User access required"
+        message="You need users:read permission to view user management."
       />
     );
   }
 
-  if (usersQuery.isLoading || groupsQuery.isLoading) {
+  if (usersQuery.isLoading || (canReadGroups && groupsQuery.isLoading)) {
     return <LoadingScreen message="Loading users…" />;
   }
 
-  if (usersQuery.isError || groupsQuery.isError) {
+  if (usersQuery.isError || (canReadGroups && groupsQuery.isError)) {
     return (
       <ErrorState
         message="Unable to load users."
@@ -290,15 +292,15 @@ export default function UsersScreen() {
               </View>
 
               <View style={styles.actions}>
-                <PrimaryButton label="Edit" variant="secondary" onPress={() => openEdit(item)} />
-                {pickNumber(item, ['id']) !== pickNumber(currentUser, ['id']) ? (
+                {hasPermission('users:update') ? <PrimaryButton label="Edit" variant="secondary" onPress={() => openEdit(item)} /> : null}
+                {isAdmin && pickNumber(item, ['id']) !== pickNumber(currentUser, ['id']) ? (
                   <PrimaryButton
                     label={resetPasswordMutation.isPending ? 'Resetting…' : 'Reset password'}
                     variant="secondary"
                     onPress={() => void resetPasswordMutation.mutateAsync(pickNumber(item, ['id']))}
                   />
                 ) : null}
-                {pickNumber(item, ['id']) !== pickNumber(currentUser, ['id']) ? (
+                {hasPermission('users:delete') && pickNumber(item, ['id']) !== pickNumber(currentUser, ['id']) ? (
                   <PrimaryButton
                     label="Delete"
                     variant="danger"
@@ -311,10 +313,11 @@ export default function UsersScreen() {
         }}
         ListEmptyComponent={<EmptyState icon="👥" title="No users" message="Create the first user to get started." />}
         ListFooterComponent={
-          <View style={[styles.groupsSection, { borderTopColor: colors.borderSubtle }]}>
+          canReadGroups ? <View style={[styles.groupsSection, { borderTopColor: colors.borderSubtle }]}>
             <View style={styles.groupsSectionHeader}>
               <Text style={[styles.groupsSectionTitle, { color: colors.text }]}>Groups</Text>
               <Pressable
+                disabled={!hasPermission('groups:create')}
                 onPress={() => { setEditGroupId(null); setShowGroupEdit(true); }}
                 style={[styles.groupAddBtn, { backgroundColor: colors.accent }]}
                 accessibilityLabel="Create group"
@@ -337,10 +340,10 @@ export default function UsersScreen() {
                     </Text>
                   </View>
                   <View style={styles.groupActions}>
-                    <Pressable onPress={() => { setEditGroupId(gId); setShowGroupEdit(true); }} style={styles.groupActionBtn} accessibilityLabel="Edit group" accessibilityRole="button">
+                    <Pressable disabled={!hasPermission('groups:update')} onPress={() => { setEditGroupId(gId); setShowGroupEdit(true); }} style={styles.groupActionBtn} accessibilityLabel="Edit group" accessibilityRole="button">
                       <Edit2 size={14} color={colors.textSecondary} />
                     </Pressable>
-                    {!isSystem && (
+                    {!isSystem && hasPermission('groups:delete') && (
                       <Pressable onPress={() => setDeleteGroupId(gId)} style={styles.groupActionBtn} accessibilityLabel="Delete group" accessibilityRole="button">
                         <Trash2 size={14} color={colors.error} />
                       </Pressable>
@@ -351,7 +354,7 @@ export default function UsersScreen() {
             }) : (
               <Text style={[styles.groupMeta, { color: colors.textSecondary }]}>No groups configured.</Text>
             )}
-          </View>
+          </View> : null
         }
       />
 
@@ -382,14 +385,14 @@ export default function UsersScreen() {
         ]}
       />
 
-      <FloatingActionButton icon="plus" label="Create user" onPress={() => setShowCreate(true)} />
+      {hasPermission('users:create') ? <FloatingActionButton icon="plus" label="Create user" onPress={() => setShowCreate(true)} /> : null}
 
       <Modal visible={showCreate} animationType="slide" transparent>
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
             <ScrollView contentContainerStyle={styles.modalContent}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Create user</Text>
-              {ldapEnabled ? (
+              {ldapEnabled && isAdmin ? (
                 <InlineTabBar
                   value={createMode}
                   tabs={[

@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { api, setAuthToken } from '@/api/client';
+import { api } from '@/api/client';
 import { useAuth, type UserResponse } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -21,7 +21,12 @@ import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { LoadingScreen } from '@/components/common/StateScreens';
 import { useServerStore } from '@/api/server';
-import type { LoginResponse, OIDCProvider } from '@/types/api';
+import type { LoginResponse } from '@/types/api';
+import { authApi } from '@/api/auth';
+import { SwitchRow } from '@/components/settings/shared';
+import { createOidcState, oidcCallbackBase } from '@/utils/authSecurity';
+import { OIDCAuthorizationBrowser } from '@/components/common/OIDCAuthorizationBrowser';
+import { useTranslation } from '@/i18n';
 
 function parseOidcCallback(url: string) {
   try {
@@ -64,6 +69,7 @@ function parseOidcCallback(url: string) {
 }
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Login'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Login', headerShown: false });
@@ -78,6 +84,11 @@ export default function LoginScreen() {
   const [preAuthToken, setPreAuthToken] = useState<string | null>(null);
   const [availableMethods, setAvailableMethods] = useState<string[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [remember, setRemember] = useState(true);
+  const [emailDelivered, setEmailDelivered] = useState(false);
+  const autoStarted = React.useRef(false);
+  const [authorizationUrl, setAuthorizationUrl] = useState<string | null>(null);
+  const [callbackServer, setCallbackServer] = useState<string | null>(null);
 
   const serverHostname = useMemo(() => {
     if (!serverUrl) return undefined;
@@ -118,6 +129,18 @@ export default function LoginScreen() {
     queryKey: ['oidcProviders'],
     queryFn: () => api.getOIDCProviders(),
   });
+  const policyQuery = useQuery({
+    queryKey: ['advancedAuthStatus'],
+    queryFn: authApi.getAdvancedAuthStatus,
+  });
+  const emailMutation = useMutation({
+    mutationFn: async () => {
+      if (!preAuthToken) throw new Error('Sign in again to request a verification code.');
+      return authApi.sendEmailOTP(preAuthToken);
+    },
+    onSuccess: response => { if (response.pre_auth_token) setPreAuthToken(response.pre_auth_token); setEmailDelivered(true); setError(''); showToast('Verification code sent.', 'success'); },
+    onError: (e: Error) => setError(e.message),
+  });
 
   const finalizeLogin = async (response: LoginResponse) => {
     const loginResponse = response as LoginResponse & {
@@ -132,13 +155,13 @@ export default function LoginScreen() {
       setSelectedMethod(methods.length === 1 ? methods[0] : null);
       setStep('2fa');
       setCode('');
+      setEmailDelivered(false);
       showToast('Enter your 2FA code to continue.', 'info');
       return;
     }
 
     if (loginResponse.access_token && loginResponse.user) {
-      await setAuthToken(loginResponse.access_token);
-      loginWithToken(loginResponse.access_token, loginResponse.user as unknown as UserResponse);
+      await loginWithToken(loginResponse.access_token, loginResponse.user as unknown as UserResponse, remember);
       showToast('Signed in successfully.', 'success');
       return;
     }
@@ -169,7 +192,9 @@ export default function LoginScreen() {
 
       const expectedState = pendingOidcState.current;
       if (!expectedState || !state || state !== expectedState) {
+        setAuthorizationUrl(null);
         pendingOidcState.current = null;
+        setAuthorizationUrl(null);
         console.warn('Rejected OIDC callback with missing or mismatched state.');
         setError('OIDC login failed. Please try again.');
         showToast('OIDC login failed.', 'error');
@@ -184,7 +209,7 @@ export default function LoginScreen() {
       }
       if (token) {
         setError('');
-        await oidcExchangeRef.current(token);
+        await oidcExchangeRef.current(token).catch(() => {});
       }
     };
 
@@ -207,11 +232,10 @@ export default function LoginScreen() {
           code,
           method: selectedMethod ?? undefined,
         });
-        await setAuthToken(response.access_token);
-        loginWithToken(response.access_token, response.user as unknown as UserResponse);
+        await loginWithToken(response.access_token, response.user as unknown as UserResponse, remember);
         return response;
       }
-      return login(username.trim(), password);
+      return login(username.trim(), password, remember);
     },
     onSuccess: result => {
       if ('requires_2fa' in result && result.requires_2fa) {
@@ -220,6 +244,7 @@ export default function LoginScreen() {
         setAvailableMethods(methods);
         setSelectedMethod(methods.length === 1 ? methods[0] : null);
         setCode('');
+        setEmailDelivered(false);
         setStep('2fa');
         showToast('Enter your 2FA code to continue.', 'info');
         return;
@@ -267,23 +292,16 @@ export default function LoginScreen() {
 
   const oidcStartMutation = useMutation({
     mutationFn: async (providerId: number) => {
-      const bytes = new Uint8Array(24);
-      crypto.getRandomValues(bytes);
-      const state = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+      const state = createOidcState();
       pendingOidcState.current = state;
-      return api.getOIDCAuthorizeUrl(providerId, state);
+      const response = await api.getOIDCAuthorizeUrl(providerId, state);
+      if (!serverUrl) throw new Error('Configure a server before signing in.');
+      return { ...response, callbackServer: oidcCallbackBase(response.auth_url, serverUrl) };
     },
     onSuccess: async data => {
       setError('');
-      try {
-        await Linking.openURL(data.auth_url);
-      } catch (err) {
-        pendingOidcState.current = null;
-        const message =
-          err instanceof Error ? err.message : 'Unable to start SSO login.';
-        setError(message);
-        showToast(message, 'error');
-      }
+      setCallbackServer(data.callbackServer);
+      setAuthorizationUrl(data.auth_url);
     },
     onError: (mutationError: Error) => {
       pendingOidcState.current = null;
@@ -292,11 +310,21 @@ export default function LoginScreen() {
     },
   });
 
+  const startOidc = oidcStartMutation.mutate;
+  useEffect(() => {
+    const id = policyQuery.data?.autologin_provider_id;
+    if (!loading && id && step === 'credentials' && !autoStarted.current &&
+        oidcProvidersQuery.data?.some(p => p.id === id)) {
+      autoStarted.current = true;
+      startOidc(id);
+    }
+  }, [loading, policyQuery.data, oidcProvidersQuery.data, startOidc, step]);
+
   if (loading) {
     return <LoadingScreen message="Checking authentication…" />;
   }
 
-  const oidcProviders = (oidcProvidersQuery.data ?? []) as OIDCProvider[];
+  const oidcProviders = oidcProvidersQuery.data ?? [];
   const oidcBusy = oidcStartMutation.isPending || oidcExchangeMutation.isPending;
 
   return (
@@ -304,6 +332,17 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.container, { backgroundColor: colors.background }]}
     >
+      {authorizationUrl && callbackServer ? <OIDCAuthorizationBrowser
+        authorizationUrl={authorizationUrl}
+        serverUrl={callbackServer}
+        onToken={token => {
+          setAuthorizationUrl(null);
+          pendingOidcState.current = null;
+          oidcExchangeMutation.mutate(token);
+        }}
+        onError={message => { setAuthorizationUrl(null); pendingOidcState.current = null; setError(message); }}
+        onCancel={() => { setAuthorizationUrl(null); pendingOidcState.current = null; setError('Single sign-on cancelled. Choose a provider or another available sign-in method.'); }}
+      /> : null}
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View
           style={[
@@ -326,7 +365,7 @@ export default function LoginScreen() {
                   : 'Sign in to manage your printers, queue, and library.'}
           </Text>
 
-          {step === 'credentials' && (
+          {step === 'credentials' && policyQuery.data?.local_login_enabled === true && (
             <>
               <TextField
                 label="Username"
@@ -380,9 +419,11 @@ export default function LoginScreen() {
                       return (
                         <Pressable
                           key={method}
+                          disabled={submitMutation.isPending || emailMutation.isPending}
                           onPress={() => {
                             setSelectedMethod(method);
                             setCode('');
+                            setError('');
                           }}
                           style={[
                             styles.methodChip,
@@ -408,22 +449,29 @@ export default function LoginScreen() {
               ) : null}
 
               <TextField
-                label={selectedMethod === 'email' ? 'Email Code' : '2FA Code'}
+                label={selectedMethod === 'email' ? 'Email Code' : selectedMethod === 'backup' ? 'Backup Code' : '2FA Code'}
                 value={code}
                 onChangeText={setCode}
-                keyboardType="number-pad"
+                keyboardType={selectedMethod === 'backup' ? 'default' : 'number-pad'}
+                autoCorrect={false}
                 autoCapitalize="none"
                 placeholder={
-                  selectedMethod === 'email'
+                  selectedMethod === 'backup' ? 'Enter a complete backup code' : selectedMethod === 'email'
                     ? 'Enter the email verification code'
                     : 'Enter the authenticator app code'
                 }
               />
               <Text style={[styles.methodHint, { color: colors.textSecondary }]}>
-                {selectedMethod === 'email'
+                {selectedMethod === 'backup' ? 'Use one unused backup code, including all letters and digits.' : selectedMethod === 'email'
                   ? 'Use the code sent to your email address.'
                   : 'Use the current code from your authenticator app.'}
               </Text>
+              {selectedMethod === 'email' ? <PrimaryButton
+                label={emailMutation.isPending ? t('auth.sending', { defaultValue: 'Sending…' }) : emailDelivered ? t('auth.resendEmailCode', { defaultValue: 'Resend email code' }) : t('auth.sendEmailCode', { defaultValue: 'Send email code' })}
+                onPress={() => emailMutation.mutate()} disabled={emailMutation.isPending}
+              /> : null}
+              <PrimaryButton label={t('auth.backToSignIn', { defaultValue: 'Back to sign in' })} variant="secondary" disabled={submitMutation.isPending || emailMutation.isPending}
+                onPress={() => { setPreAuthToken(null); setCode(''); setPassword(''); setSelectedMethod(null); setAvailableMethods([]); setEmailDelivered(false); setError(''); setStep('credentials'); }} />
             </>
           )}
 
@@ -480,10 +528,14 @@ export default function LoginScreen() {
 
           {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
 
-          {step === 'credentials' && (
+          {step === 'credentials' || step === '2fa' ? <SwitchRow label={t('auth.rememberMe', { defaultValue: 'Remember me' })} description={t('auth.rememberMeHint', { defaultValue: 'Off: keep the session only until the app process closes. On: save securely in Keychain/Keystore.' })} value={remember} onValueChange={setRemember} disabled={submitMutation.isPending || oidcBusy} /> : null}
+          {step === 'credentials' && policyQuery.isLoading ? <Text style={{ color: colors.textSecondary }}>{t('auth.loadingPolicy', { defaultValue: 'Loading login policy…' })}</Text> : null}
+          {step === 'credentials' && policyQuery.data?.local_login_enabled === false ? <Text style={{ color: colors.textSecondary }}>{t('auth.localLoginDisabled', { defaultValue: 'Local sign-in is disabled. Choose a single sign-on provider below.' })}</Text> : null}
+          {step === 'credentials' && policyQuery.isError ? <PrimaryButton label={t('auth.retryPolicy', { defaultValue: 'Retry login policy' })} variant="secondary" onPress={() => void policyQuery.refetch()} /> : null}
+          {step === 'credentials' && policyQuery.data?.local_login_enabled === true && (
             <PrimaryButton
               label={submitMutation.isPending ? 'Signing in…' : 'Login'}
-              onPress={() => void submitMutation.mutateAsync()}
+              onPress={() => submitMutation.mutate()}
               loading={submitMutation.isPending}
               disabled={username.trim().length === 0 || password.length === 0 || oidcBusy}
             />
@@ -492,10 +544,11 @@ export default function LoginScreen() {
           {step === '2fa' && (
             <PrimaryButton
               label={submitMutation.isPending ? 'Verifying…' : 'Verify Code'}
-              onPress={() => void submitMutation.mutateAsync()}
+              onPress={() => submitMutation.mutate()}
               loading={submitMutation.isPending}
               disabled={
                 code.trim().length === 0 ||
+                emailMutation.isPending ||
                 (availableMethods.length > 1 && selectedMethod == null)
               }
             />
@@ -504,7 +557,7 @@ export default function LoginScreen() {
           {step === 'forgot' && (
             <PrimaryButton
               label={forgotMutation.isPending ? 'Sending…' : 'Send Reset Link'}
-              onPress={() => void forgotMutation.mutateAsync()}
+              onPress={() => forgotMutation.mutate()}
               loading={forgotMutation.isPending}
               disabled={forgotEmail.trim().length === 0}
             />
@@ -513,7 +566,7 @@ export default function LoginScreen() {
           {step === 'reset' && (
             <PrimaryButton
               label={resetMutation.isPending ? 'Resetting…' : 'Reset Password'}
-              onPress={() => void resetMutation.mutateAsync()}
+              onPress={() => resetMutation.mutate()}
               loading={resetMutation.isPending}
               disabled={!resetToken.trim() || !newPassword || !confirmPassword}
             />
@@ -528,12 +581,12 @@ export default function LoginScreen() {
                   label={oidcBusy ? 'Redirecting…' : `Sign in with ${provider.name}`}
                   variant="secondary"
                   onPress={() => {
-                    void oidcStartMutation.mutateAsync(provider.id);
+                    oidcStartMutation.mutate(provider.id);
                   }}
                   disabled={oidcBusy}
                 />
               ))}
-              <Text style={[styles.oidcHint, { color: colors.textTertiary }]}>The app expects an OIDC callback to the bambuddy:// deep link.</Text>
+              <Text style={[styles.oidcHint, { color: colors.textTertiary }]}>{t('auth.oidcBrowserHint', { defaultValue: 'Sign in inside the secure authorization window. Cancel to choose another sign-in method.' })}</Text>
             </View>
           ) : null}
         </View>

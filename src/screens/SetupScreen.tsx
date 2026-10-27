@@ -9,52 +9,54 @@ import {
   View,
 } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
-import { api, setAuthToken } from '@/api/client';
-import { useAuth, type UserResponse } from '@/contexts/AuthContext';
+import { authApi } from '@/api/auth';
+import { useAuth } from '@/contexts/AuthContext';
+import { SwitchRow } from '@/components/settings/shared';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
+import { useTranslation } from '@/i18n';
 
 export default function SetupScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Setup'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'Setup' });
   }, [navigation]);
   const { colors } = useTheme();
-  const { requiresSetup, loginWithToken } = useAuth();
+  const { requiresSetup, authEnabled, refreshAuth } = useAuth();
   const { showToast } = useToast();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
+  const [enableAuth, setEnableAuth] = useState(true);
 
   useEffect(() => {
     if (!requiresSetup) {
-      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+      navigation.reset({ index: 0, routes: authEnabled ? [{ name: 'Login' }] : [{ name: 'Main', params: { screen: 'Dashboard' } }] });
     }
-  }, [requiresSetup, navigation]);
+  }, [requiresSetup, authEnabled, navigation]);
 
   const setupMutation = useMutation({
     mutationFn: async () => {
       setError('');
-      if (password !== confirm) {
+      if (enableAuth && password !== confirm) {
         throw new Error('Passwords do not match.');
       }
-      const response = await api.setupAuth({
-        username: username.trim(),
-        password,
+      const response = await authApi.setupAuth({
+        auth_enabled: enableAuth,
+        ...(enableAuth ? { admin_username: username.trim(), admin_password: password } : {}),
       });
-      await setAuthToken(response.access_token);
-      const currentUser = (await api.getCurrentUser()) as UserResponse;
-      loginWithToken(response.access_token, currentUser);
+      await refreshAuth();
       return response;
     },
     onSuccess: () => {
       showToast('Setup complete. Welcome to Bambuddy!', 'success');
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Main', params: { screen: 'Dashboard' } }],
+        routes: enableAuth ? [{ name: 'Login' }] : [{ name: 'Main', params: { screen: 'Dashboard' } }],
       });
     },
     onError: (mutationError: Error) =>
@@ -76,8 +78,10 @@ export default function SetupScreen() {
           Welcome to Bambuddy
         </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Create the first administrator account to finish setup.
+          {t('auth.setupHint', { defaultValue: 'Enable authentication to protect this server, or continue without it on a trusted network.' })}
         </Text>
+        <SwitchRow label={t('auth.enableAuthentication', { defaultValue: 'Enable authentication' })} value={enableAuth} onValueChange={setEnableAuth} disabled={setupMutation.isPending} />
+        {enableAuth ? <>
         <TextField
           label="Admin username"
           value={username}
@@ -96,17 +100,18 @@ export default function SetupScreen() {
           onChangeText={setConfirm}
           secureTextEntry
         />
+        </> : null}
         {error ? (
           <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
         ) : null}
         <PrimaryButton
           label={setupMutation.isPending ? 'Setting up…' : 'Complete setup'}
-          onPress={() => void setupMutation.mutateAsync()}
+          onPress={() => setupMutation.mutate()}
           loading={setupMutation.isPending}
           disabled={
-            username.trim().length === 0 ||
+            enableAuth && (username.trim().length === 0 ||
             password.length === 0 ||
-            confirm.length === 0
+            confirm.length === 0)
           }
         />
       </View>

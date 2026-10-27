@@ -319,6 +319,9 @@ export interface OIDCProvider {
   // #1589: when true, the LoginPage redirects unauthenticated visitors
   // straight to this provider on mount. At most one provider may carry this.
   is_autologin: boolean;
+  group_claim?: string;
+  group_mapping?: Record<string, string>;
+  is_env_managed?: boolean;
 }
 
 export interface OIDCProviderCreate {
@@ -335,6 +338,48 @@ export interface OIDCProviderCreate {
   icon_url?: string | null;
   default_group_id?: number | null;
   is_autologin?: boolean;  // #1589
+  group_claim?: string;
+  group_mapping?: Record<string, string>;
+}
+
+// Auth-users parity: scoped credentials and connected-app consent.
+export type ApiKeyScope =
+  | 'can_queue' | 'can_control_printer' | 'can_read_status'
+  | 'can_manage_library' | 'can_manage_inventory' | 'can_manage_maintenance'
+  | 'can_manage_archives' | 'can_manage_projects' | 'can_access_cloud'
+  | 'can_update_energy_cost' | 'can_send_notifications';
+export type ScopedApiKeyCreate = Record<ApiKeyScope, boolean> & { name: string };
+export interface ScopedApiKey extends ScopedApiKeyCreate {
+  id: number;
+  key_prefix: string;
+  user_id: number | null;
+  enabled: boolean;
+  last_used: string | null;
+  created_at: string;
+  expires_at: string | null;
+  printer_ids: number[] | null;
+}
+export interface ConnectedApp {
+  id: number;
+  name: string;
+  client_id: string;
+  redirect_uri: string;
+  enabled: boolean;
+  created_at: string;
+  last_used_at: string | null;
+}
+export interface ConnectedAppSecret extends ConnectedApp { client_secret: string }
+export interface ConnectAuthorizeParams {
+  client_id: string;
+  redirect_uri: string;
+  code_challenge: string;
+  code_challenge_method: 'S256';
+  state?: string;
+}
+export interface ConnectAuthorizeInfo {
+  app_name: string;
+  username: string;
+  already_granted: boolean;
 }
 
 export interface OIDCLink {

@@ -273,6 +273,30 @@ self-hosted Bambuddy instance that has no TLS certificate. The local-networking
 exception lets those setups work out of the box without compromising security for
 traffic that leaves the local network.
 
+### Account and integration security
+
+- Setup can enable authentication with a first administrator or continue without
+  authentication on a trusted network. Administrators can disable it after
+  confirmation in **Settings → Users & security**.
+- **Remember me** saves sessions in Keychain/Keystore. Turning it off removes
+  previously saved credentials and keeps the new session in memory only, until
+  the app process closes. Login supports email-code delivery/resending and
+  alphanumeric backup codes.
+- Local users can change their own passwords; successful changes require signing
+  in again. LDAP passwords remain directory-managed. Delegated user-management
+  permissions control which account/group actions appear.
+- SSO uses native cryptographic randomness (`react-native-get-random-values`,
+  imported at app startup). The authorization window follows the server's OIDC
+  flow without JavaScript credential/token injection. It only exchanges tokens
+  from the server-advertised login callback after observing the expected OIDC
+  state. Cancel returns to the available sign-in methods.
+- Scoped API keys and connected-app secrets are shown once. Copy or share an
+  enrollment QR only with trusted recipients, then dismiss the secret. Connected
+  apps receive identity/group/permission information after consent, **not** an
+  API token or printer-control access.
+- The encryption panel reports server-side OIDC/TOTP encryption health without
+  retrieving key material. Back up server-generated encryption keys securely.
+
 ## Testing
 
 ```sh

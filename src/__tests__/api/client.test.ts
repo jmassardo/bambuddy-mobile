@@ -1,4 +1,4 @@
-import { ApiError, api, setAuthToken, request, DEFAULT_TIMEOUT_MS } from '@/api/client';
+import { ApiError, api, getAuthToken, loadAuthToken, setAuthToken, request, DEFAULT_TIMEOUT_MS } from '@/api/client';
 import { useServerStore } from '@/api/server';
 import * as Keychain from 'react-native-keychain';
 
@@ -402,6 +402,25 @@ describe('api client', () => {
       'server-token',
       { service: 'bambuddy-auth-token:https://bambuddy.test' },
     );
+  });
+
+  it('keeps session-only tokens in memory and removes previously remembered credentials', async () => {
+    const keychain = Keychain as jest.Mocked<typeof Keychain>;
+    keychain.setGenericPassword.mockClear();
+    keychain.resetGenericPassword.mockClear();
+    mockFetch.mockResolvedValue(createResponse({ token: 'media-token' }));
+    await setAuthToken('session-only-token', false);
+    expect(keychain.setGenericPassword).not.toHaveBeenCalled();
+    expect(keychain.resetGenericPassword).toHaveBeenCalledWith({ service: 'bambuddy-auth-token:https://bambuddy.test' });
+    expect(getAuthToken()).toBe('session-only-token');
+    expect(await loadAuthToken()).toBe('session-only-token');
+  });
+
+  it('does not silently claim session-only sign-in when saved credentials cannot be removed', async () => {
+    const keychain = Keychain as jest.Mocked<typeof Keychain>;
+    keychain.resetGenericPassword.mockRejectedValueOnce(new Error('Keychain unavailable'));
+    await expect(setAuthToken('session-only-token', false)).rejects.toThrow('Unable to remove previously saved credentials');
+    expect(getAuthToken()).toBeNull();
   });
 });
 

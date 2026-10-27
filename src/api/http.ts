@@ -314,7 +314,7 @@ export async function loadAuthToken(): Promise<string | null> {
   return authToken;
 }
 
-export async function setAuthToken(token: string | null): Promise<void> {
+export async function setAuthToken(token: string | null, persist = true): Promise<void> {
   const serverUrl = getCurrentServerUrl();
   const service = getAuthTokenService(serverUrl);
   authToken = token;
@@ -323,13 +323,17 @@ export async function setAuthToken(token: string | null): Promise<void> {
   tokenLoaded = true;
   try {
     if (service) {
-      if (token) {
+      if (token && persist) {
         await Keychain.setGenericPassword(service, token, { service });
       } else {
         await Keychain.resetGenericPassword({ service });
       }
     }
   } catch {
+    if (token && !persist) {
+      authToken = null;
+      throw new Error('Unable to remove previously saved credentials. Sign out and retry session-only sign-in.');
+    }
     if (token) {
       console.warn('Keychain persistence failed; token is memory-only this session');
     }

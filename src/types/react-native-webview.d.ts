@@ -13,7 +13,7 @@ declare module 'react-native-webview' {
     mediaPlaybackRequiresUserAction?: boolean;
     domStorageEnabled?: boolean;
     scrollEnabled?: boolean;
-    onShouldStartLoadWithRequest?: (request: { url: string }) => boolean;
+    onShouldStartLoadWithRequest?: (request: { url: string; isTopFrame?: boolean }) => boolean;
     onMessage?: (event: { nativeEvent: { data: string } }) => void;
     injectedJavaScriptBeforeContentLoaded?: string;
     injectedJavaScriptBeforeContentLoadedForMainFrameOnly?: boolean;
@@ -29,6 +29,10 @@ declare module 'react-native-webview' {
     onError?: () => void;
     onHttpError?: (event: { nativeEvent?: { statusCode?: number } }) => void;
     onContentProcessDidTerminate?: () => void;
+    onNavigationStateChange?: (navigation: { url: string }) => void;
+    mixedContentMode?: 'never' | 'always' | 'compatibility';
+    thirdPartyCookiesEnabled?: boolean;
+    startInLoadingState?: boolean;
   }
 
   export interface WebViewHandle {

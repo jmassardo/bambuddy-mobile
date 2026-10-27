@@ -3,18 +3,25 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
-import { InlineTabBar, PrimaryButton, SectionCard, StatusBadge, TextField } from '@/components/common/AppUI';
-import { EmptyState } from '@/components/common/StateScreens';
+import { InlineTabBar, PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
 import { SMTP_SECURITY_OPTIONS } from './constants';
 import { OptionChipsField, settingsStyles, SwitchRow, stringifyNumberField } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
+import { AccountSecurityControls, EncryptionStatusPanel } from './AccountSecurityControls';
+import { ScopedApiKeysManager } from './ScopedApiKeysManager';
+import { ConnectedAppsManager } from './ConnectedAppsManager';
+import { OIDCProvidersManager } from './OIDCProvidersManager';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/i18n';
 
 export function UsersSecuritySection({ controller }: { controller: SettingsScreenController }) {
+  const { t } = useTranslation();
+  const { hasPermission } = useAuth();
   const navigation = useNavigation<RootNavigationProp<'Settings'>>();
   const { userPanel, draft, smtpForm, smtpTestEmail, ldapForm, backupCodes, emailSetupToken, emailSetupCode } = controller.state;
   const { setUserPanel, setDraft, setSmtpForm, setSmtpTestEmail, setLdapForm, setShowTOTPRegen, setShowTOTPDisable, setShowTOTPSetup, setShowDisableEmail2FA, setEmailSetupToken, setEmailSetupCode } = controller.actions;
   const { advancedAuth, ldapStatus, twoFAStatus, securityRows } = controller.derived;
-  const { oidcProvidersQuery, oidcLinksQuery } = controller.queries;
+  const { oidcLinksQuery } = controller.queries;
   const {
     toggleAdvancedAuthMutation,
     saveSMTPMutation,
@@ -22,7 +29,6 @@ export function UsersSecuritySection({ controller }: { controller: SettingsScree
     toggleLDAPMutation,
     saveLDAPMutation,
     testLDAPMutation,
-    updateOIDCProviderMutation,
     enableEmailOTPRequestMutation,
     confirmEnableEmailOTPMutation,
     unlinkOIDCLinkMutation,
@@ -30,6 +36,8 @@ export function UsersSecuritySection({ controller }: { controller: SettingsScree
 
   return (
     <>
+      <AccountSecurityControls />
+      <EncryptionStatusPanel />
       <SectionCard title="Users & security" subtitle="Authentication, SMTP, LDAP, OIDC, and 2FA for the current account.">
         <InlineTabBar
           value={userPanel}
@@ -42,7 +50,7 @@ export function UsersSecuritySection({ controller }: { controller: SettingsScree
           ]}
           onChange={value => setUserPanel(value as typeof userPanel)}
         />
-        {!controller.isAdmin && userPanel !== 'twofa' ? <Text style={[settingsStyles.helper, { color: controller.colors.warning }]}>Admin rights are required to change shared authentication settings.</Text> : null}
+        {!hasPermission('settings:update') && userPanel !== 'twofa' ? <Text style={[settingsStyles.helper, { color: controller.colors.warning }]}>{t('auth.sharedSettingsPermission', { defaultValue: 'Shared authentication settings require settings:update permission.' })}</Text> : null}
       </SectionCard>
 
       {userPanel === 'auth' ? (
@@ -52,8 +60,10 @@ export function UsersSecuritySection({ controller }: { controller: SettingsScree
             <SwitchRow label="Local login enabled" description="Allow username/password logins alongside SSO." value={Boolean(draft.local_login_enabled ?? advancedAuth?.local_login_enabled ?? true)} onValueChange={value => setDraft(current => ({ ...current, local_login_enabled: value }))} disabled={!controller.permissions.canManageSecurity} />
             <TextField label="Session max hours" value={stringifyNumberField(draft.session_max_hours, '24')} onChangeText={value => setDraft(current => ({ ...current, session_max_hours: Number(value) || 24 }))} keyboardType="number-pad" editable={controller.permissions.canManageSecurity} />
             <SwitchRow label="User email notifications" description="Enable email delivery for user-level events." value={Boolean(draft.user_notifications_enabled ?? true)} onValueChange={value => setDraft(current => ({ ...current, user_notifications_enabled: value }))} disabled={!controller.permissions.canManageSecurity} />
-            <PrimaryButton label="Open user management" variant="secondary" onPress={() => navigation.navigate('Users')} />
+            {hasPermission('users:read') ? <PrimaryButton label="Open user management" variant="secondary" onPress={() => navigation.navigate('Users')} /> : null}
           </SectionCard>
+          <ScopedApiKeysManager />
+          <ConnectedAppsManager />
           <SectionCard title="Security status" subtitle="Current security posture and recent account activity.">
             {securityRows.map(row => (
               <View key={row.label} style={settingsStyles.summaryRow}>
@@ -122,26 +132,7 @@ export function UsersSecuritySection({ controller }: { controller: SettingsScree
       ) : null}
 
       {userPanel === 'oidc' ? (
-        <>
-          <SectionCard title="OIDC providers" subtitle="Configured single sign-on providers and their client credentials.">
-            <PrimaryButton label="Add provider" variant="secondary" onPress={() => controller.actions.openProviderModal()} disabled={!controller.permissions.canManageSecurity} />
-          </SectionCard>
-          {(oidcProvidersQuery.data ?? []).length > 0 ? (
-            oidcProvidersQuery.data?.map(provider => (
-              <SectionCard key={provider.id} title={provider.name} subtitle={provider.issuer_url} right={<StatusBadge label={provider.is_enabled ? 'enabled' : 'disabled'} color={provider.is_enabled ? controller.colors.success : controller.colors.textTertiary} />}>
-                <Text style={[settingsStyles.helper, { color: controller.colors.textSecondary }]}>Client ID: {provider.client_id}</Text>
-                <Text style={[settingsStyles.helper, { color: controller.colors.textSecondary }]}>Scope: {provider.scopes}</Text>
-                <SwitchRow label="Enabled" value={provider.is_enabled} onValueChange={value => void updateOIDCProviderMutation.mutateAsync({ id: provider.id, payload: { is_enabled: value } })} disabled={!controller.permissions.canManageSecurity || updateOIDCProviderMutation.isPending} />
-                <View style={settingsStyles.actions}>
-                  <PrimaryButton label="Edit" variant="secondary" onPress={() => controller.actions.openProviderModal(provider)} disabled={!controller.permissions.canManageSecurity} />
-                  <PrimaryButton label="Delete" variant="danger" onPress={() => controller.actions.setProviderDeleteTarget(provider)} disabled={!controller.permissions.canManageSecurity} />
-                </View>
-              </SectionCard>
-            ))
-          ) : (
-            <EmptyState icon="🌐" title="No OIDC providers" message="Add an issuer to configure mobile-visible SSO settings." />
-          )}
-        </>
+        <OIDCProvidersManager />
       ) : null}
 
       {userPanel === 'twofa' ? (
