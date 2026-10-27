@@ -4,17 +4,27 @@ import type { RootStackParamList } from './types';
 
 export function parseConnectAuthorizeLink(url: string): RootStackParamList['ConnectAuthorize'] | null {
   try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'bambuddy:' || parsed.hostname !== 'connect' || parsed.pathname !== '/authorize') return null;
+    // React Native's URL shim only parses HTTP(S) hostnames and paths.
+    const match = /^bambuddy:\/\/connect\/authorize\?([^#]*)(?:#.*)?$/.exec(url);
+    if (!match) return null;
+    const params = new Map<string, string[]>();
+    for (const pair of match[1].split('&')) {
+      if (!pair) continue;
+      const separator = pair.indexOf('=');
+      const decode = (value: string) => decodeURIComponent(value.replace(/\+/g, ' '));
+      const key = decode(separator < 0 ? pair : pair.slice(0, separator));
+      const value = decode(separator < 0 ? '' : pair.slice(separator + 1));
+      params.set(key, [...(params.get(key) ?? []), value]);
+    }
     const get = (name: string) => {
-      const values = parsed.searchParams.getAll(name);
+      const values = params.get(name) ?? [];
       return values.length === 1 ? values[0] : null;
     };
     const client_id = get('client_id');
     const redirect_uri = get('redirect_uri');
     const code_challenge = get('code_challenge');
     if (!client_id?.trim() || !redirect_uri?.trim() || !code_challenge?.trim() || get('code_challenge_method') !== 'S256') return null;
-    if (parsed.searchParams.getAll('state').length > 1) return null;
+    if ((params.get('state')?.length ?? 0) > 1) return null;
     const state = get('state');
     return { client_id, redirect_uri, code_challenge, code_challenge_method: 'S256', ...(state !== null ? { state } : {}) };
   } catch {
