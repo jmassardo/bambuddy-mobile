@@ -36,7 +36,7 @@ import type {
   MaintenanceTypeCreate,
   PrinterMaintenanceOverview,
 } from '@/types/api';
-import { formatDateTime } from '@/utils/data';
+import { formatDate, formatDateTime } from '@/utils/data';
 import { MaintenanceControls, RestoreMaintenanceDefaults } from '@/components/profiles/MaintenanceControls';
 import { useTranslation } from '@/i18n';
 import { maintenanceIcons, MaintenanceIcon } from '@/components/profiles/MaintenanceIcon';
@@ -117,11 +117,11 @@ function dueLabel(item: MaintenanceStatus) {
   return 'On schedule';
 }
 
-function nextDueLabel(item: MaintenanceStatus) {
+export function nextDueLabel(item: MaintenanceStatus) {
   if (item.interval_type === 'days') {
     const anchor = item.last_performed_at ? new Date(item.last_performed_at) : new Date();
     const next = new Date(anchor.getTime() + item.interval_hours * 24 * 60 * 60 * 1000);
-    return Number.isNaN(next.getTime()) ? '—' : next.toLocaleDateString();
+    return Number.isNaN(next.getTime()) ? '—' : formatDate(next.getTime());
   }
   const targetHours = item.current_hours + item.hours_until_due;
   if (!Number.isFinite(targetHours)) return '—';

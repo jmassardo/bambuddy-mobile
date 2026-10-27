@@ -15,7 +15,11 @@ import {
   MaintenanceControls,
   RestoreMaintenanceDefaults,
 } from '@/components/profiles/MaintenanceControls';
-import { MaintenanceTypeFormModal } from '@/screens/MaintenanceScreen';
+import {
+  MaintenanceTypeFormModal,
+  nextDueLabel,
+} from '@/screens/MaintenanceScreen';
+import * as displayData from '@/utils/data';
 import { pickProfileJson, shareProfileJson } from '@/utils/profileFiles';
 import type {
   KProfile,
@@ -171,6 +175,22 @@ beforeEach(() => {
 afterEach(() => {
   clients.splice(0).forEach(client => client.clear());
   jest.useRealTimers();
+});
+
+it('formats calendar due dates through the shared preference-aware date helper', () => {
+  const formatter = jest
+    .spyOn(displayData, 'formatDate')
+    .mockReturnValue('localized due date');
+  expect(
+    nextDueLabel({
+      ...item,
+      interval_type: 'days',
+      interval_hours: 2,
+      last_performed_at: '2026-01-01T12:00:00Z',
+    }),
+  ).toBe('localized due date');
+  expect(formatter).toHaveBeenCalledWith(Date.parse('2026-01-03T12:00:00Z'));
+  formatter.mockRestore();
 });
 
 it('corrects lifetime hours without recording completion and validates nonnegative values', async () => {
@@ -509,14 +529,10 @@ it('exports the selected nozzle and bulk deletion requires identity-aware confir
 });
 
 it('previews native JSON imports and creates new slots instead of reusing exported identities', async () => {
-  jest
-    .mocked(pickProfileJson)
-    .mockResolvedValue({
-      nozzle_diameter: '0.4',
-      profiles: [
-        { ...kProfile, nozzle_diameter: '0.4', nozzle_id: 'HH00-0.4' },
-      ],
-    });
+  jest.mocked(pickProfileJson).mockResolvedValue({
+    nozzle_diameter: '0.4',
+    profiles: [{ ...kProfile, nozzle_diameter: '0.4', nozzle_id: 'HH00-0.4' }],
+  });
   const screen = await mount(<KProfileManager />);
   await screen.findByText('PLA calibration');
   await fireEvent.press(screen.getByText('Import K profile JSON'));
