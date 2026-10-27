@@ -11,6 +11,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTranslation } from '@/i18n';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
+import { presetTemplateOverrides } from '@/utils/profilePresets';
 
 interface Template {
   id: string;
@@ -108,7 +109,7 @@ export function PresetTemplates({
                   name: name.trim(),
                   description,
                   type,
-                  settings,
+                  settings: presetTemplateOverrides(settings),
                   showInModal: true,
                 },
               ];
@@ -184,7 +185,12 @@ export function PresetTemplates({
               label={t('profiles.templates.apply', {
                 defaultValue: 'Apply template',
               })}
-              onPress={() => onApply(template.settings, template.type)}
+              onPress={() =>
+                onApply(
+                  presetTemplateOverrides(template.settings),
+                  template.type,
+                )
+              }
             />
             <PrimaryButton
               label={t('common.edit', { defaultValue: 'Edit' })}

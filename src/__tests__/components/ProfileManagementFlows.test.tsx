@@ -366,6 +366,7 @@ it('edits raw settings without losing unknown values and rejects invalid JSON be
         temperature: ['220'],
         unknown: { retain: true },
         custom: null,
+        filament_settings_id: '"Owned"',
       },
     }),
   );
@@ -403,6 +404,195 @@ it('creates a duplicated process preset with print type and selected base, retai
   );
 });
 
+it('duplicates custom presets using their built-in base and excludes custom base choices', async () => {
+  mockApi.detail.mockImplementation(async id => ({
+    name: id === 'GFSA00' ? 'Built-in PLA' : 'Custom PLA',
+    type: 'filament',
+    base_id: id === 'GFSA00' ? null : 'GFSA00',
+    setting: { temperature: ['215'] },
+  }));
+  const screen = await mount(
+    <PresetEditor
+      visible
+      duplicate
+      profile={{ setting_id: 'PFUS-source', type: 'filament', is_custom: true }}
+      profiles={[
+        {
+          setting_id: 'GFSA00',
+          type: 'filament',
+          name: 'Built-in PLA',
+          is_custom: false,
+        },
+        {
+          setting_id: 'PFUS-other',
+          type: 'filament',
+          name: 'Other custom PLA',
+        },
+        {
+          setting_id: 'custom-marked',
+          type: 'filament',
+          name: 'Explicit custom PLA',
+          is_custom: true,
+        },
+      ]}
+      onClose={jest.fn()}
+    />,
+  );
+  await screen.findByDisplayValue('Custom PLA (copy)');
+  expect(screen.getByLabelText('Base preset ID').props.value).toBe('GFSA00');
+  expect(screen.queryByRole('button', { name: 'Other custom PLA' })).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: 'Explicit custom PLA' }),
+  ).toBeNull();
+  await fireEvent.press(screen.getByText('Save'));
+  await waitFor(() =>
+    expect(mockApi.create).toHaveBeenCalledWith(
+      expect.objectContaining({ base_id: 'GFSA00' }),
+    ),
+  );
+});
+
+it.each([
+  ['filament', 'filament_settings_id'],
+  ['process', 'print_settings_id'],
+  ['printer', 'printer_settings_id'],
+])(
+  'synchronizes %s embedded names when renaming through raw editing',
+  async (presetType, settingsId) => {
+    mockApi.detail.mockResolvedValue({
+      name: 'Old name',
+      type: presetType,
+      setting: { [settingsId]: '"Old name"', unknown: { retain: true } },
+    });
+    const screen = await mount(
+      <PresetEditor
+        visible
+        profile={{ setting_id: 'owned', type: presetType, is_custom: true }}
+        profiles={[]}
+        onClose={jest.fn()}
+      />,
+    );
+    await screen.findByDisplayValue('Old name');
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'Renamed preset');
+    await fireEvent.press(screen.getByText('JSON'));
+    await fireEvent.press(screen.getByText('Save'));
+    await waitFor(() =>
+      expect(mockApi.update).toHaveBeenCalledWith('owned', {
+        name: 'Renamed preset',
+        setting: {
+          [settingsId]: '"Renamed preset"',
+          unknown: { retain: true },
+        },
+      }),
+    );
+  },
+);
+
+it('stores template overrides without source identity or inheritance metadata', async () => {
+  const screen = await mount(
+    <PresetTemplates
+      type="filament"
+      settings={{
+        inherits: 'Source base',
+        base_id: 'GFSA00',
+        setting_id: 'PFUS-source',
+        name: 'Source name',
+        type: 'printer',
+        filament_id: 'source-filament',
+        filament_settings_id: '"Source name"',
+        print_settings_id: '"Source process"',
+        printer_settings_id: '"Source printer"',
+        temperature: ['225'],
+        unknown: { retain: true },
+      }}
+      onApply={jest.fn()}
+    />,
+  );
+  await waitFor(() => expect(AsyncStorage.getItem).toHaveBeenCalled());
+  await fireEvent.changeText(
+    screen.getByLabelText('Template name'),
+    'Reusable overrides',
+  );
+  await fireEvent.press(screen.getByText('Save current changes as template'));
+  await screen.findByText('Reusable overrides · filament');
+  const stored = JSON.parse(
+    jest.mocked(AsyncStorage.setItem).mock.calls[0][1],
+  ) as Array<{ settings: Record<string, unknown> }>;
+  expect(stored[0].settings).toEqual({
+    temperature: ['225'],
+    unknown: { retain: true },
+  });
+});
+
+it('applies legacy templates without replacing destination preset identity or base', async () => {
+  jest.mocked(AsyncStorage.getItem).mockResolvedValue(
+    JSON.stringify([
+      {
+        id: 'legacy',
+        name: 'Legacy source template',
+        type: 'filament',
+        description: '',
+        showInModal: true,
+        settings: {
+          inherits: 'Source base',
+          base_id: 'GFSA00',
+          setting_id: 'PFUS-source',
+          name: 'Source name',
+          type: 'printer',
+          filament_id: 'source-filament',
+          filament_settings_id: '"Source name"',
+          print_settings_id: '"Source process"',
+          printer_settings_id: '"Source printer"',
+          temperature: ['225'],
+          custom_override: false,
+        },
+      },
+    ]),
+  );
+  mockApi.detail.mockResolvedValue({
+    name: 'Destination name',
+    type: 'filament',
+    base_id: 'GFSB00',
+    setting: {
+      inherits: 'Destination base',
+      filament_settings_id: '"Destination name"',
+      filament_id: 'destination-filament',
+      unknown: { retain: true },
+    },
+  });
+  const screen = await mount(
+    <PresetEditor
+      visible
+      profile={{
+        setting_id: 'PFUS-destination',
+        type: 'filament',
+        is_custom: true,
+      }}
+      profiles={[]}
+      onClose={jest.fn()}
+    />,
+  );
+  await screen.findByDisplayValue('Destination name');
+  await fireEvent.press(screen.getByText('Templates'));
+  await screen.findByText('Legacy source template · filament');
+  await fireEvent.press(screen.getByText('Apply template'));
+  expect(screen.getByLabelText('Name').props.value).toBe('Destination name');
+  expect(screen.getByLabelText('Base preset ID').props.value).toBe('GFSB00');
+  await fireEvent.press(screen.getByText('Save'));
+  await waitFor(() =>
+    expect(mockApi.update).toHaveBeenCalledWith('PFUS-destination', {
+      name: 'Destination name',
+      setting: {
+        inherits: 'Destination base',
+        filament_settings_id: '"Destination name"',
+        filament_id: 'destination-filament',
+        unknown: { retain: true },
+        temperature: ['225'],
+        custom_override: false,
+      },
+    }),
+  );
+});
 it('validates typed preset fields before save and preserves numeric-string arrays', async () => {
   const screen = await mount(
     <PresetEditor
@@ -424,7 +614,11 @@ it('validates typed preset fields before save and preserves numeric-string array
     expect(mockApi.update).toHaveBeenCalledWith(
       'owned',
       expect.objectContaining({
-        setting: { temperature: ['230'], unknown: { retain: true } },
+        setting: {
+          temperature: ['230'],
+          unknown: { retain: true },
+          filament_settings_id: '"Owned"',
+        },
       }),
     ),
   );

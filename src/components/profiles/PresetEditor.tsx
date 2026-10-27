@@ -22,6 +22,7 @@ import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type { PresetField } from '@/types/api';
 import {
+  isCustomCloudPreset,
   parsePresetJson,
   presetDiff,
   resolvePresetInheritance,
@@ -181,13 +182,17 @@ export function PresetEditor({
         'print',
       ),
     );
-    setBaseId(duplicate ? id : data?.base_id ?? '');
+    setBaseId(
+      duplicate
+        ? data?.base_id || (isCustomCloudPreset(profile) ? '' : id)
+        : data?.base_id ?? '',
+    );
     setSettings(data?.setting ?? {});
     setRaw(JSON.stringify(data?.setting ?? {}, null, 2));
     setMode('fields');
     setRawError('');
     setFieldErrors({});
-  }, [visible, id, detail.data, duplicate, profile?.type]);
+  }, [visible, id, detail.data, duplicate, profile]);
   const definitionList = useMemo(
     () =>
       Array.isArray(fields.data?.fields)
@@ -228,6 +233,16 @@ export function PresetEditor({
             defaultValue: 'Preset name is required.',
           }),
         );
+      const settingsId =
+        type === 'filament'
+          ? 'filament_settings_id'
+          : type === 'print'
+          ? 'print_settings_id'
+          : 'printer_settings_id';
+      const namedSetting = {
+        ...setting,
+        [settingsId]: `"${name.trim()}"`,
+      };
       if (!id || duplicate) {
         if (!baseId.trim())
           throw new Error(
@@ -235,21 +250,18 @@ export function PresetEditor({
               defaultValue: 'Select or enter a base preset ID.',
             }),
           );
-        const settingsId =
-          type === 'filament'
-            ? 'filament_settings_id'
-            : type === 'print'
-            ? 'print_settings_id'
-            : 'printer_settings_id';
         return profileManagementApi.create({
           name: name.trim(),
           type,
           base_id: baseId,
           version: detail.data?.version ?? '2.0.0.0',
-          setting: { ...setting, [settingsId]: JSON.stringify(name.trim()) },
+          setting: namedSetting,
         });
       }
-      return profileManagementApi.update(id, { name: name.trim(), setting });
+      return profileManagementApi.update(id, {
+        name: name.trim(),
+        setting: namedSetting,
+      });
     },
     onSuccess: async () => {
       await Promise.all([
@@ -348,6 +360,7 @@ export function PresetEditor({
           {profiles
             .filter(
               row =>
+                !isCustomCloudPreset(row) &&
                 String(row.type).replace(/^process$/, 'print') === type &&
                 String(row.setting_id) !== id,
             )

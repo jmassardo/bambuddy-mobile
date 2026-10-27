@@ -1,5 +1,33 @@
 import type { PresetDetail, PresetField } from '@/types/api';
 
+export function isCustomCloudPreset(
+  profile: Record<string, unknown> | null,
+): boolean {
+  return (
+    profile?.is_custom === true ||
+    /^(P[FPM]US|PF\d|PP\d)/.test(String(profile?.setting_id ?? ''))
+  );
+}
+
+export function presetTemplateOverrides(
+  setting: Record<string, unknown>,
+): Record<string, unknown> {
+  const metadata = new Set([
+    'inherits',
+    'base_id',
+    'setting_id',
+    'name',
+    'type',
+    'filament_id',
+    'filament_settings_id',
+    'print_settings_id',
+    'printer_settings_id',
+  ]);
+  return Object.fromEntries(
+    Object.entries(setting).filter(([key]) => !metadata.has(key)),
+  );
+}
+
 export function presetRows(source: unknown): Record<string, unknown>[] {
   if (Array.isArray(source))
     return source.filter(
