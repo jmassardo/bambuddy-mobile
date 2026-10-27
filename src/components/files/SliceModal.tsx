@@ -1,582 +1,154 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { Scissors, X } from 'lucide-react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Image, StyleSheet } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
-import { useToast } from '@/contexts/ToastContext';
-import { useTheme } from '@/theme';
-import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
-import type {
-  PresetRef,
-  PresetSource,
-  UnifiedPreset,
-} from '@/types/api';
+import { Box, Choice, Copy, Sheet, Toggle } from '@/components/slicing/Controls';
+import { ProcessSettingsEditor, serializeIntentional } from '@/components/slicing/ProcessSettingsEditor';
+import { slicingApi, type SliceSourceProps, type SourceFilament } from '@/api/slicing';
+import { buildMediaUrl } from '@/api/http';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
+import { useSliceJobTracker } from '@/contexts/SliceJobTrackerContext';
+import { BED_TYPES, buildSliceRequest, parseRef, refValue } from '@/utils/sliceConfiguration';
+import { findPreset, findPresetByName, pickDefault, pickFilamentForSlot, pickProcessDefault, SLICE_MODAL_TIER_ORDER } from '@/utils/slicePresetPicker';
+import { buildCompatibilityIndex, EMPTY_COMPATIBILITY_INDEX, presetCompatibility } from '@/utils/slicerPrinterMatch';
+import type { PresetRef } from '@/types/api';
+import type { SettingValue } from '@/types/slicerSettings';
+import { useTranslation } from '@/i18n';
 
-type SliceSourceType = 'file' | 'archive';
-
-interface SliceModalProps {
-  visible: boolean;
-  onClose: () => void;
-  sourceType: SliceSourceType;
-  sourceId: number;
-  sourceName: string;
-}
-
-function ModalShell({
-  visible,
-  onClose,
-  title,
-  subtitle,
-  children,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  title: string;
-  subtitle: string;
-  children: React.ReactNode;
-}) {
-  const { colors } = useTheme();
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <Pressable style={[styles.backdrop, { backgroundColor: 'rgba(0,0,0,0.5)' }]} onPress={onClose}>
-        <Pressable
-          style={[styles.card, { backgroundColor: colors.surface }]}
-          onPress={(e) => e.stopPropagation()}
-        >
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <View style={styles.headerTitleWrap}>
-              <View style={[styles.iconWrap, { backgroundColor: `${colors.accent}20` }]}>
-                <Scissors size={18} color={colors.accentLight} strokeWidth={2} />
-              </View>
-              <View style={styles.headerTextWrap}>
-                <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>{subtitle}</Text>
-              </View>
-            </View>
-            <Pressable onPress={onClose} style={styles.closeButton} accessibilityLabel="Close" accessibilityRole="button">
-              <X size={20} color={colors.textSecondary} strokeWidth={2} />
-            </Pressable>
-          </View>
-          {children}
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
-function ToggleRow({
-  label,
-  description,
-  value,
-  onValueChange,
-}: {
-  label: string;
-  description: string;
-  value: boolean;
-  onValueChange: (value: boolean) => void;
-}) {
-  const { colors } = useTheme();
-
-  return (
-    <View style={[styles.optionCard, { borderColor: colors.border }]}>
-      <View style={[styles.toggleRow, { borderBottomColor: colors.borderSubtle }]}>
-        <View style={styles.toggleCopy}>
-          <Text style={[styles.toggleLabel, { color: colors.text }]}>{label}</Text>
-          <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>{description}</Text>
-        </View>
-        <Switch value={value} onValueChange={onValueChange} />
-      </View>
-    </View>
-  );
-}
-
-function Switch({ value, onValueChange }: { value: boolean; onValueChange: (v: boolean) => void }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={() => onValueChange(!value)}
-      style={[
-        styles.switchBg,
-        { backgroundColor: value ? colors.accent : colors.surfaceElevated, borderWidth: 1, borderColor: value ? colors.accent : colors.border },
-      ]}
-      accessibilityLabel={value ? 'Disable' : 'Enable'}
-      accessibilityRole="switch"
-      accessibilityState={{ checked: value }}
-    >
-      <View style={[styles.switchKnob, { backgroundColor: value ? colors.textInverse : colors.textSecondary, left: value ? 2 : undefined, right: value ? undefined : 2 }]} />
-    </Pressable>
-  );
-}
-
-export function SliceModal({
-  visible,
-  onClose,
-  sourceType,
-  sourceId,
-  sourceName,
-}: SliceModalProps) {
-  const { colors } = useTheme();
+export type SliceModalProps = SliceSourceProps & {
+  visible: boolean; onClose: () => void; defaultAutoArrange?: boolean;
+};
+export function SliceModal(props: SliceModalProps) {
+  const { visible, onClose, defaultAutoArrange = false } = props;
+  const { t } = useTranslation();
+  const label = (text: string) => t(`slice.${text}`, { defaultValue: text });
+  const { hasPermission } = useAuth();
   const { showToast } = useToast();
-  const queryClient = useQueryClient();
-
-  const [profile, setProfile] = useState('');
-  const [plate, setPlate] = useState('');
-  const [enableSupports, setEnableSupports] = useState(true);
-  const [extraJson, setExtraJson] = useState('');
-  const [selectedFilaments, setSelectedFilaments] = useState<Record<number, PresetRef>>({});
-
-  const presetsQuery = useQuery({
-    queryKey: ['slicerPresets', 'slice-modal', sourceType, sourceId],
-    queryFn: () => api.getSlicerPresets(),
-    enabled: visible,
+  const { trackJob } = useSliceJobTracker();
+  const client = useQueryClient();
+  const [printer, setPrinter] = useState<PresetRef | null>(null);
+  const [process, setProcess] = useState<PresetRef | null>(null);
+  const [filaments, setFilaments] = useState<(PresetRef | null)[]>([]);
+  const [colours, setColours] = useState<(string | null)[]>([]);
+  const [plate, setPlate] = useState<number | null>(null);
+  const [all, setAll] = useState(false);
+  const [bed, setBed] = useState<string | null>(null);
+  const [embedded, setEmbedded] = useState(false);
+  const [orient, setOrient] = useState(false);
+  const [arrange, setArrange] = useState(defaultAutoArrange);
+  const [showOther, setShowOther] = useState(false);
+  const [overrides, setOverrides] = useState<Record<string, SettingValue>>({});
+  const [sourceKeys, setSourceKeys] = useState<string[]>([]);
+  const [valid, setValid] = useState(true);
+  const [saveName, setSaveName] = useState<string | null>(null);
+  const explicitSlots = useRef(new Set<number>());
+  const initialised = useRef('');
+  const presets = useQuery({ queryKey: ['slicerPresets'], queryFn: () => slicingApi.presets(), enabled: visible });
+  const plates = useQuery({ queryKey: ['slicePlates', props.sourceType, props.sourceId], queryFn: () => slicingApi.plates(props), enabled: visible });
+  const models = useQuery({ queryKey: ['slicerPrinterModels'], queryFn: slicingApi.models, enabled: visible });
+  const index = useMemo(() => models.data ? buildCompatibilityIndex(models.data) : EMPTY_COMPATIBILITY_INDEX, [models.data]);
+  const multi = !!plates.data?.is_multi_plate && plates.data.plates.length > 1;
+  const requestId = useMemo(() => `${props.sourceType}-${props.sourceId}-${plate ?? 1}-${Date.now()}-${Math.random().toString(36).slice(2)}`, [props.sourceType, props.sourceId, plate]);
+  const requirements = useQuery({
+    queryKey: ['sliceFilamentReqs', props.sourceType, props.sourceId, plate ?? 1],
+    queryFn: () => slicingApi.requirements(props, plate ?? 1, requestId),
+    enabled: visible && plates.isSuccess && (!multi || plate !== null),
   });
-
-  const profileHints = useMemo(() => {
-    const data = presetsQuery.data;
-    if (!data || typeof data !== 'object') return [];
-
-    const values = new Set<string>();
-    const visit = (value: unknown) => {
-      if (!value) return;
-      if (Array.isArray(value)) {
-        value.forEach(visit);
-        return;
-      }
-      if (typeof value !== 'object') return;
-      for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-        if (typeof nested === 'string' && /profile|preset|name/i.test(key)) values.add(nested);
-        else visit(nested);
-      }
-    };
-
-    visit(data);
-    return Array.from(values).filter(Boolean).slice(0, 6);
-  }, [presetsQuery.data]);
-
-  const filamentPresets = useMemo(() => {
-    const data = presetsQuery.data;
-    if (!data || typeof data !== 'object') return [];
-    const tiers: PresetSource[] = ['local', 'orca_cloud', 'cloud', 'standard'];
-    const result: UnifiedPreset[] = [];
-    for (const tier of tiers) {
-      const slot = (data as unknown as Record<string, unknown>)[tier];
-      if (slot && typeof slot === 'object' && 'filament' in slot) {
-        const items = (slot as Record<string, unknown>).filament as UnifiedPreset[] | undefined;
-        if (Array.isArray(items)) {
-          result.push(...items);
-        }
-      }
-    }
-    return result;
-  }, [presetsQuery.data]);
-
+  const preview = useQuery({
+    queryKey: ['slicePreview', requestId], queryFn: () => slicingApi.previewProgress(requestId),
+    enabled: visible && requirements.isFetching, refetchInterval: 1000, retry: false,
+  });
+  const pipelines = useQuery({ queryKey: ['slicer-pipelines'], queryFn: slicingApi.pipelines, enabled: visible && hasPermission('pipelines:read') });
+  const slots = useMemo<SourceFilament[]>(() => {
+    const result = requirements.data?.filaments;
+    const base = result?.length ? result : [{ slot_id: 1, type: '', color: '' }];
+    return all ? base.map(s => ({ ...s, used_in_plate: true })) : base;
+  }, [requirements.data, all]);
+  const selectedPrinter = presets.data ? findPreset(presets.data, printer, 'printer') : null;
+  const presetValues = useQuery({ queryKey: ['slicerPresetValues', process], queryFn: () => slicingApi.presetValues(process!), enabled: visible && !!process });
+  const canEmbed = !!(plates.data?.embedded_printer && plates.data?.embedded_process && selectedPrinter &&
+    selectedPrinter.name.replace(/^#\s*/, '').trim().toLowerCase() === plates.data.embedded_printer.replace(/^#\s*/, '').trim().toLowerCase());
   useEffect(() => {
-    if (!visible) return;
-    setProfile(profileHints[0] ?? '');
-    setPlate('');
-    setEnableSupports(true);
-    setExtraJson('');
-    setSelectedFilaments({});
-  }, [profileHints, visible]);
-
-  const sliceMutation = useMutation({
-    mutationFn: async () => {
-      if (sourceType === 'file') {
-        return api.sliceFile(sourceId, {
-          profile: profile.trim() || undefined,
-          plate: plate.trim() || undefined,
-          supports: enableSupports,
-          extra: extraJson.trim()
-            ? (() => {
-                try {
-                  const parsed = JSON.parse(extraJson);
-                  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
-                } catch {
-                  // ignore
-                }
-                throw new Error('Additional slice options must be a JSON object.');
-              })()
-            : undefined,
-        });
-      }
-      return api.sliceArchive(sourceId);
-    },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['libraryFiles'] }),
-        queryClient.invalidateQueries({ queryKey: ['archives'] }),
-        queryClient.invalidateQueries({ queryKey: ['libraryFilePlates'] }),
-      ]);
-      showToast('Slicing started. It may take a few minutes.', 'success');
-      onClose();
-    },
-    onError: (error: Error) => {
-      showToast(error.message || 'Unable to slice this file.', 'error');
-    },
+    if (!visible) { initialised.current = ''; return; }
+    const identity = `${props.sourceType}:${props.sourceId}`;
+    if (initialised.current === identity) return;
+    setPrinter(null); setProcess(null); setFilaments([]); setColours([]); setPlate(null); setAll(false); setBed(null); setEmbedded(false);
+    setOrient(false); setArrange(defaultAutoArrange); setOverrides({}); setSourceKeys([]); setValid(true); setSaveName(null);
+    explicitSlots.current.clear(); initialised.current = identity;
+  }, [visible, props.sourceId, props.sourceType, defaultAutoArrange]);
+  useEffect(() => {
+    if (!visible || !presets.data || !plates.isSuccess) return;
+    const nextPrinter = printer ?? findPresetByName(presets.data, 'printer', plates.data?.embedded_printer ?? '') ?? pickDefault(presets.data, 'printer');
+    if (!printer) setPrinter(nextPrinter);
+    if (!process) setProcess(pickProcessDefault(presets.data, findPreset(presets.data, nextPrinter, 'printer')?.name ?? '', index, plates.data?.embedded_process));
+  }, [visible, presets.data, plates.isSuccess, plates.data, printer, process, index]);
+  useEffect(() => {
+    if (!visible || !presets.data || !requirements.isSuccess) return;
+    setFilaments(previous => slots.map((slot, i) => explicitSlots.current.has(i) && previous[i] ? previous[i] :
+      pickFilamentForSlot(presets.data!, slot, selectedPrinter?.name ?? '', index)));
+  }, [visible, presets.data, requirements.isSuccess, slots, selectedPrinter?.name, index]);
+  useEffect(() => { if (!canEmbed) setEmbedded(false); }, [canEmbed]);
+  const options = (slot: 'printer' | 'process' | 'filament') => presets.data ? SLICE_MODAL_TIER_ORDER.flatMap(tier => presets.data![tier][slot])
+    .filter(p => slot === 'printer' || showOther || presetCompatibility(p, slot, selectedPrinter?.name ?? '', index) !== 'mismatch')
+    .map(p => ({ value: refValue(p), label: `[${p.source}] ${p.name}` })) : [];
+  const body = () => buildSliceRequest({ printer, process, filaments, slots, colours, plate: all ? 0 : multi ? plate : null,
+    bed, embedded, canEmbed, orient, arrange, sourceKeys, hasDesignOverrides: !!plates.data?.design_overrides?.length,
+    overrides: serializeIntentional(overrides, presetValues.data?.values ?? {}) });
+  const slice = useMutation({
+    mutationFn: () => slicingApi.slice(props, body()),
+    onSuccess: job => { trackJob(job.job_id, props); onClose(); },
+    onError: (e: Error) => showToast(e.message, 'error'),
   });
-
-  return (
-    <ModalShell
-      visible={visible}
-      onClose={onClose}
-      title="Slice file"
-      subtitle={sourceName}
-    >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.section}>
-          <TextField
-            label="Profile"
-            value={profile}
-            onChangeText={setProfile}
-            placeholder="Slicer profile name (e.g., Standard 0.2mm)"
-          />
-          {profileHints.length > 0 ? (
-            <View style={styles.hintRow}>
-              {profileHints.map((hint) => (
-                <Pressable
-                  key={hint}
-                  onPress={() => setProfile(hint)}
-                  style={[
-                    styles.hintChip,
-                    {
-                      backgroundColor: colors.surfaceElevated,
-                      borderColor: profile === hint ? colors.accent : colors.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.hintChipText,
-                      { color: profile === hint ? colors.accentLight : colors.textSecondary },
-                    ]}
-                  >
-                    {hint}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-
-          <TextField
-            label="Plate"
-            value={plate}
-            onChangeText={setPlate}
-            placeholder="Plate name or index (optional)"
-          />
-
-          <View style={styles.optionCard}>
-            <Text style={[styles.optionLabel, { color: colors.text }]} numberOfLines={1}>
-              Multi-color filaments
-            </Text>
-            <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
-              {filamentPresets.length > 0
-                ? `Select AMS slots for ${filamentPresets.length} filament${filamentPresets.length === 1 ? '' : 's'}. Leave empty to use defaults.`
-                : 'No filament presets available. Slicer will use defaults.'}
-            </Text>
-            {filamentPresets.length > 0 && (
-              <View style={styles.filamentGrid}>
-                {filamentPresets.map((preset, index) => (
-                  <FilamentSlotPicker
-                    key={`${preset.id}-${index}`}
-                    slotIndex={index}
-                    slotCount={filamentPresets.length}
-                    value={selectedFilaments[index]}
-                    availablePresets={filamentPresets}
-                    onValueChange={(presetRef) => {
-                      setSelectedFilaments((prev) => ({ ...prev, [index]: presetRef }));
-                    }}
-                  />
-                ))}
-              </View>
-            )}
-          </View>
-
-          <ToggleRow
-            label="Generate supports"
-            description="Include supports when slicing."
-            value={enableSupports}
-            onValueChange={setEnableSupports}
-          />
-
-          <TextField
-            label="Additional options"
-            value={extraJson}
-            onChangeText={setExtraJson}
-            placeholder='{"layer_height":"0.2","infill":15}'
-            autoCapitalize="none"
-            multiline
-          />
-        </View>
-      </ScrollView>
-
-      <View style={[styles.footer, { borderTopColor: colors.borderSubtle }]}>
-        <PrimaryButton label="Cancel" variant="secondary" onPress={onClose} />
-        <PrimaryButton
-          label={sliceMutation.isPending ? 'Starting…' : 'Slice'}
-          onPress={() => sliceMutation.mutateAsync()}
-          loading={sliceMutation.isPending}
-        />
-      </View>
-    </ModalShell>
-  );
+  const save = useMutation({
+    mutationFn: () => { const config = body(); return slicingApi.create({ name: saveName!.trim(), printer_preset: config.printer_preset!, process_preset: config.process_preset!, filament_presets: config.filament_presets!, bed_type: bed }); },
+    onSuccess: () => { client.invalidateQueries({ queryKey: ['slicer-pipelines'] }); setSaveName(null); showToast(label('Pipeline saved'), 'success'); },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  });
+  const refresh = useMutation({ mutationFn: () => slicingApi.presets(true), onSuccess: data => { client.setQueryData(['slicerPresets'], data); client.invalidateQueries({ queryKey: ['slicerPresetValues'] }); } });
+  const ready = requirements.isSuccess && !!printer && !!process && filaments.length === slots.length && filaments.every(Boolean) && valid;
+  return <Sheet visible={visible} title={`${label('Slice file')}: ${props.sourceName}`} onClose={onClose}>
+    {[presets, plates, requirements].map((q, i) => q.isError ? <Box key={i}><Copy>{q.error.message}</Copy><PrimaryButton label={label('Retry')} onPress={() => q.refetch()} /></Box> : null)}
+    {presets.data && <Copy>{`Bambu Cloud: ${presets.data.cloud_status} · Orca Cloud: ${presets.data.orca_cloud_status}`}</Copy>}
+    <PrimaryButton label={label('Refresh presets')} loading={refresh.isPending} onPress={() => refresh.mutate()} />
+    {refresh.isError && <Copy>{refresh.error.message}</Copy>}
+    {multi && <><Choice label={label('Plate')} value={String(plate ?? '')} onChange={v => { setPlate(Number(v)); setColours([]); setFilaments([]); explicitSlots.current.clear(); }} options={plates.data!.plates.map(p => ({ value: String(p.index), label: `${p.index}: ${p.name ?? p.objects.join(', ')}` }))} />
+      {plates.data!.plates.map(p => <Box key={p.index}>
+        {p.thumbnail_url && <Image accessibilityLabel={p.name ?? label('Plate preview')} source={{ uri: buildMediaUrl(p.thumbnail_url.replace(/^\/api\/v1/, '')) }} style={localStyles.thumbnail} />}
+        <PrimaryButton label={`${label('Select plate')} ${p.index}: ${p.name ?? p.objects.join(', ')}${p.index === plate ? ' ✓' : ''}`} variant="secondary" onPress={() => { setPlate(p.index); setColours([]); setFilaments([]); explicitSlots.current.clear(); }} />
+      </Box>)}
+      <Toggle label={label('Slice all plates')} value={all} disabled={plate === null} onChange={setAll} /></>}
+    <Choice label={label('Printer preset')} value={refValue(printer)} options={options('printer')} onChange={v => { setPrinter(parseRef(v)); setProcess(null); }} />
+    <Toggle label={label('Use file built-in settings')} value={embedded} disabled={!canEmbed} onChange={setEmbedded} />
+    {!canEmbed && <Copy>{label('Built-in settings require the source printer and process and a matching target printer.')}</Copy>}
+    <Choice label={label('Process preset')} value={refValue(process)} options={options('process')} disabled={embedded} onChange={v => setProcess(parseRef(v))} />
+    <Toggle label={label('Show other / incompatible presets')} value={showOther} onChange={setShowOther} />
+    {requirements.isFetching && <Copy>{preview.data ? `${preview.data.stage} ${preview.data.total_percent}%` : label('Analyzing source filaments… This first preview may take a few minutes.')}</Copy>}
+    {requirements.isSuccess && slots.map((slot, i) => <Box key={slot.slot_id}>
+      <Copy>{`${label('Slot')} ${slot.slot_id} · ${slot.type} ${slot.color}${slot.used_in_plate === false ? ` · ${label('unused on this plate')}` : ''}`}</Copy>
+      <Choice label={`${label('Filament preset')} ${slot.slot_id}`} value={refValue(filaments[i])} options={options('filament')} disabled={embedded || slot.used_in_plate === false} onChange={v => { explicitSlots.current.add(i); setFilaments(previous => slots.map((_, n) => n === i ? parseRef(v) : previous[n] ?? null)); }} />
+      <TextField label={label('Colour (#RRGGBB or #RRGGBBAA)')} value={colours[i] ?? slot.color ?? ''} editable={!embedded && slot.used_in_plate !== false}
+        onChangeText={v => setColours(previous => slots.map((_, n) => n === i ? v : previous[n] ?? null))} autoCapitalize="none" />
+      <PrimaryButton label={label('Reset colour')} disabled={embedded} variant="secondary" onPress={() => setColours(previous => previous.map((v, n) => n === i ? null : v))} />
+    </Box>)}
+    <Choice label={label('Bed type')} value={bed ?? ''} disabled={embedded} onChange={v => setBed(v || null)} options={[{ value: '', label: label('Preset default') }, ...BED_TYPES.map(v => ({ value: v, label: v }))]} />
+    <Toggle label={label('Auto orient')} value={orient} onChange={setOrient} />
+    <Toggle label={label('Auto arrange')} value={arrange} onChange={setArrange} />
+    {pipelines.data && <Choice label={label('Apply pipeline')} value="" options={pipelines.data.pipelines.map(p => ({ value: String(p.id), label: p.name }))} onChange={v => {
+      const pipeline = pipelines.data!.pipelines.find(p => p.id === Number(v))!;
+      setPrinter(pipeline.printer_preset); setProcess(pipeline.process_preset); setBed(pipeline.bed_type);
+      setFilaments(slots.map((_, i) => pipeline.filament_presets[i] ?? pipeline.filament_presets[0] ?? null));
+      slots.forEach((_, i) => explicitSlots.current.add(i));
+    }} />}
+    {hasPermission('pipelines:write') && (saveName === null ? <PrimaryButton label={label('Save current selections as pipeline')} disabled={!ready || embedded} onPress={() => setSaveName('')} /> :
+      <Box><TextField label={label('Pipeline name')} value={saveName} onChangeText={setSaveName} />
+        <PrimaryButton label={label('Save pipeline')} disabled={!saveName.trim() || save.isPending} onPress={() => save.mutate()} />
+        <PrimaryButton label={label('Cancel')} variant="secondary" onPress={() => setSaveName(null)} /></Box>)}
+    <ProcessSettingsEditor values={overrides} onChange={setOverrides} presetValues={presetValues.data?.values} resolved={presetValues.data?.resolved ?? false}
+      reason={presetValues.data?.reason ?? presetValues.error?.message} source={plates.data?.design_overrides}
+      sourceKeys={embedded ? (plates.data?.design_overrides ?? []).map(s => s.key) : sourceKeys} onSourceKeys={setSourceKeys} disabled={embedded} onValidityChange={setValid}
+      filamentChoices={filaments.map((f, i) => ({ value: String(i + 1), label: `${i + 1}: ${presets.data ? findPreset(presets.data, f, 'filament')?.name ?? label('Unselected') : ''}` }))} />
+    <PrimaryButton label={all ? label('Slice all plates') : label('Slice')} disabled={!ready || slice.isPending} loading={slice.isPending} onPress={() => slice.mutate()} />
+  </Sheet>;
 }
-
-function FilamentSlotPicker({
-  slotIndex,
-  slotCount,
-  value,
-  availablePresets,
-  onValueChange,
-}: {
-  slotIndex: number;
-  slotCount: number;
-  value: PresetRef | undefined;
-  availablePresets: UnifiedPreset[];
-  onValueChange: (presetRef: PresetRef) => void;
-}) {
-  const { colors } = useTheme();
-  const selectedPreset = availablePresets.find(
-    (p) => p.id === value?.id && p.source === value?.source,
-  );
-
-  return (
-    <View style={[styles.filamentSlot, { borderColor: colors.border }]}>
-      <Text style={[styles.filamentSlotLabel, { color: colors.textSecondary }]}>
-        Slot {slotIndex + 1}{slotCount > 1 ? ` of ${slotCount}` : ''}
-      </Text>
-      {selectedPreset ? (
-        <View style={styles.filamentSlotValue}>
-          <View
-            style={[
-              styles.filamentColorDot,
-              selectedPreset.filament_colour
-                ? { backgroundColor: selectedPreset.filament_colour }
-                : { backgroundColor: colors.surfaceElevated },
-              { borderColor: colors.border },
-            ]}
-          />
-          <Text style={[styles.filamentSlotName, { color: colors.text }]} numberOfLines={1}>
-            {selectedPreset.name}
-          </Text>
-          <Pressable onPress={() => onValueChange({ source: 'local', id: '' })} style={styles.filamentSlotRemove} accessibilityLabel="Remove filament" accessibilityRole="button">
-            <X size={14} color={colors.textSecondary} strokeWidth={2} />
-          </Pressable>
-        </View>
-      ) : (
-        <Text style={[styles.filamentSlotEmpty, { color: colors.textSecondary }]}>
-          {availablePresets.length > 0 ? 'Tap to select…' : 'No presets available'}
-        </Text>
-      )}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    padding: spacing.lg,
-  },
-  card: {
-    borderWidth: 1,
-    borderRadius: borderRadius['2xl'],
-    maxHeight: '92%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    flex: 1,
-  },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTextWrap: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  title: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
-  },
-  subtitle: {
-    fontSize: fontSize.sm,
-  },
-  closeButton: {
-    padding: spacing.xs,
-  },
-  content: {
-    padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  section: {
-    gap: spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-  },
-  sectionSubtitle: {
-    fontSize: fontSize.sm,
-    lineHeight: 20,
-  },
-  selectionGrid: {
-    gap: spacing.sm,
-  },
-  selectionCard: {
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  selectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  selectionTitle: {
-    flex: 1,
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-  },
-  selectionMeta: {
-    fontSize: fontSize.sm,
-    lineHeight: 20,
-  },
-  loadingInline: {
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-  },
-  emptyHint: {
-    fontSize: fontSize.sm,
-    lineHeight: 20,
-  },
-  optionCard: {
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    overflow: 'hidden',
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  optionLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-  },
-  optionDescription: {
-    fontSize: fontSize.xs,
-    lineHeight: 18,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  toggleCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  toggleLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-  },
-  toggleDescription: {
-    fontSize: fontSize.xs,
-    lineHeight: 18,
-  },
-  footer: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  hintRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  hintChip: {
-    borderWidth: 1,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  hintChipText: {
-    fontSize: fontSize.xs,
-  },
-  switchBg: {
-    width: 44,
-    height: 26,
-    borderRadius: 13,
-    justifyContent: 'center',
-    padding: 2,
-  },
-  switchKnob: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-  },
-  filamentGrid: {
-    gap: spacing.sm,
-  },
-  filamentSlot: {
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.sm,
-    minHeight: 40,
-    justifyContent: 'center',
-  },
-  filamentSlotLabel: {
-    fontSize: fontSize.xs,
-    marginBottom: 4,
-  },
-  filamentSlotValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  filamentColorDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1,
-  },
-  filamentSlotName: {
-    flex: 1,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-  },
-  filamentSlotRemove: {
-    padding: 2,
-  },
-  filamentSlotEmpty: {
-    fontSize: fontSize.sm,
-  },
-});
+const localStyles = StyleSheet.create({ thumbnail: { width: '100%', height: 180, resizeMode: 'contain' } });

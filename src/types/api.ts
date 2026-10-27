@@ -2427,6 +2427,7 @@ export interface AppSettings {
   // Per-install sidecar URLs. Empty string falls back to the env defaults.
   orcaslicer_api_url: string;
   bambu_studio_api_url: string;
+  slicer_stall_timeout_minutes?: number;
   // Prometheus metrics
   prometheus_enabled: boolean;
   prometheus_token: string;
@@ -3274,6 +3275,12 @@ export interface SliceRequest {
   // backend validator promotes a singular into a one-element list when this
   // is omitted, so legacy single-color clients keep working unchanged.
   filament_presets?: PresetRef[];
+  filament_colours?: string[];
+  use_embedded_settings?: boolean;
+  process_overrides?: Record<string, string | string[]>;
+  design_overrides?: string[];
+  auto_orient?: boolean;
+  auto_arrange?: boolean;
   plate?: number;
   export_3mf?: boolean;
   // Build-plate override (#1337). When omitted, the slicer uses the process
@@ -3676,6 +3683,7 @@ export interface SliceResponse {
   filament_used_g: number;
   filament_used_mm: number;
   used_embedded_settings: boolean;
+  external_write_fallback?: string | null;
 }
 
 export interface SliceArchiveResponse {
@@ -3728,6 +3736,43 @@ export interface SliceJobState {
   result?: SliceResponse | SliceArchiveResponse;
   error_status?: number;
   error_detail?: string;
+}
+
+// Slicing-pipelines lane: source metadata and flattened preset values.
+export interface SliceSourceProps {
+  sourceType: 'file' | 'archive';
+  sourceId: number;
+  sourceName: string;
+}
+export interface DesignOverride {
+  key: string;
+  value: import('./slicerSettings').SettingValue;
+  printer_coupled: boolean;
+  preset_defining: boolean;
+}
+export interface SourceFilament {
+  slot_id: number;
+  type: string;
+  color: string;
+  used_in_plate?: boolean;
+}
+export interface SourcePlates {
+  plates: Array<{
+    index: number;
+    name: string | null;
+    thumbnail_url: string | null;
+    objects: string[];
+    filaments: SourceFilament[];
+  }>;
+  is_multi_plate: boolean;
+  embedded_printer?: string | null;
+  embedded_process?: string | null;
+  design_overrides?: DesignOverride[];
+}
+export interface PresetValues {
+  resolved: boolean;
+  values: Record<string, import('./slicerSettings').SettingValue>;
+  reason: 'ok' | 'sidecar_outdated' | 'sidecar_unavailable' | 'not_configured' | 'preset_unresolved';
 }
 
 // All other types
