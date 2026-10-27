@@ -279,6 +279,8 @@ export function ControlButton({
         disabled && styles.disabledAction,
       ]}
       accessibilityLabel={label}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
     >
       {icon}
       {!iconOnly ? (

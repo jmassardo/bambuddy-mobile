@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 import { StatusBadge } from '@/components/common/AppUI';
 import { InfoPill } from '@/components/printers/PrinterCardPrimitives';
+import { FirmwareBadge } from '@/components/printers/FirmwareBadge';
 import { useTheme } from '@/theme';
 import { styles } from '@/components/printers/PrinterCard.styles';
 import type { PrinterCardHeaderProps } from '@/components/printers/PrinterCard.types';
@@ -36,6 +37,7 @@ export function PrinterCardHeader({
   onQueuePress,
   onMaintenancePress,
   onShowHmsModal,
+  onFirmwarePress,
 }: PrinterCardHeaderProps) {
   const { colors } = useTheme();
   const isConnected = status?.connected ?? false;
@@ -196,9 +198,7 @@ export function PrinterCardHeader({
             icon={<Wrench size={12} color={colors.success} strokeWidth={2} />}
           />
         )}
-        {status?.firmware_version ? (
-          <InfoPill label={status.firmware_version} color={colors.textSecondary} />
-        ) : null}
+        <FirmwareBadge printerId={printer.id} currentVersion={status?.firmware_version} onPress={onFirmwarePress} />
         {status && DOOR_SENSOR_MODELS.has(printer.model ?? '') ? (
           <InfoPill
             label={status.door_open ? 'Door open' : 'Door closed'}

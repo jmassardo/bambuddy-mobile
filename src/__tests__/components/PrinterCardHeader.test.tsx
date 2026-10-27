@@ -1,6 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { PrinterCardHeader } from '@/components/printers/PrinterCardHeader';
+jest.mock('@/components/printers/FirmwareBadge', () => ({ FirmwareBadge: () => null }));
 
 const colors = {
   border: '#444444',

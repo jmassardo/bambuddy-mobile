@@ -6,6 +6,8 @@ const mockNavigate = jest.fn();
 const mockSetOptions = jest.fn();
 const mockUseQuery = jest.fn();
 const mockInvalidateQueries = jest.fn();
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ hasPermission: () => true }) }));
+jest.mock('@/components/printers/EditPrinterModal', () => ({ EditPrinterModal: () => null }));
 
 const baseStatus = {
   state: 'IDLE',

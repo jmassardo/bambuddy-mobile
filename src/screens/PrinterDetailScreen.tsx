@@ -3,6 +3,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -10,7 +11,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -22,9 +22,11 @@ import {
   Edit2,
   Home,
   MoveVertical,
-  X,
 } from 'lucide-react-native';
 import { api, ApiError } from '@/api/client';
+import { EditPrinterModal } from '@/components/printers/EditPrinterModal';
+import { MQTTConsole } from '@/components/printers/MQTTConsole';
+import { useTranslation } from '@/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -160,14 +162,12 @@ export default function PrinterDetailScreen() {
   const printerId = Number(id);
   const queryClient = useQueryClient();
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const { hasPermission } = useAuth();
   const hasEditPermission = hasPermission('printers:update');
   const [showDebugModal, setShowDebugModal] = React.useState(false);
   const [showEditModal, setShowEditModal] = React.useState(false);
-  const [editName, setEditName] = React.useState('');
-  const [editLocation, setEditLocation] = React.useState('');
-  const [editNotes, setEditNotes] = React.useState('');
   const [jogStepSize, setJogStepSize] = React.useState<(typeof JOG_STEP_SIZES)[number]>(
     1,
   );
@@ -242,37 +242,9 @@ export default function PrinterDetailScreen() {
     [printerQuery.data],
   );
 
-  const syncEditFields = React.useCallback(() => {
-    if (!printerQuery.data) return;
-    const data = printerQuery.data as ApiRecord;
-    setEditName(String(data.name ?? '') || '');
-    setEditLocation(String(data.location ?? '') || '');
-    setEditNotes(String(data.notes ?? '') || '');
-  }, [printerQuery.data]);
-
   const showEdit = () => {
-    syncEditFields();
     setShowEditModal(true);
   };
-
-  const profileMutation = useMutation({
-    mutationFn: async (data: { name: string; location: string | null; notes: string | null }) =>
-      api.updatePrinter(printerId, {
-        name: data.name.trim(),
-        location: data.location ? data.location.trim() : null,
-        notes: data.notes ? data.notes.trim() : null,
-      }),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['printers'] }),
-        queryClient.invalidateQueries({ queryKey: ['printer', printerId] }),
-        queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] }),
-      ]);
-      showToast('Printer profile updated.', 'success');
-      setShowEditModal(false);
-    },
-    onError: () => showToast('Failed to update printer profile.', 'error'),
-  });
 
   const invalidatePrinterStatus = React.useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] });
@@ -298,6 +270,15 @@ export default function PrinterDetailScreen() {
     },
     onError: () => showToast('Printer command failed.', 'error'),
   });
+
+  const confirmPrintAction = (action: 'pause' | 'resume' | 'stop') => Alert.alert(
+    t('fleet.confirmAction', { defaultValue: '{{action}} print?', action }),
+    t('fleet.confirmDetailAction', { defaultValue: '{{printer}} — {{job}}. Stopping cannot be resumed.', printer: printerQuery.data?.name ?? String(printerId), job: statusQuery.data?.subtask_name ?? statusQuery.data?.current_print ?? t('fleet.activeJob', { defaultValue: 'Active print' }) }),
+    [
+      { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+      { text: t('common.confirm', { defaultValue: 'Confirm' }), style: action === 'stop' ? 'destructive' : 'default', onPress: () => actionMutation.mutate(action) },
+    ],
+  );
 
   const speedMutation = useMutation({
     mutationFn: (mode: number) => api.setPrintSpeed(printerId, mode),
@@ -518,21 +499,17 @@ export default function PrinterDetailScreen() {
         right={
           <Pressable
             onPress={showEdit}
-            disabled={!hasEditPermission || profileMutation.isPending}
+            disabled={!hasEditPermission}
             style={[
               styles.editButton,
               {
                 backgroundColor: colors.accentBg,
                 borderColor: colors.accent,
-                opacity: !hasEditPermission || profileMutation.isPending ? 0.5 : 1,
+                opacity: !hasEditPermission ? 0.5 : 1,
               },
             ]}
           >
-            {profileMutation.isPending ? (
-              <ActivityIndicator size="small" color={colors.accent} />
-            ) : (
-              <Edit2 size={16} color={colors.accent} strokeWidth={2} />
-            )}
+            <Edit2 size={16} color={colors.accent} strokeWidth={2} />
           </Pressable>
         }
       >
@@ -624,15 +601,17 @@ export default function PrinterDetailScreen() {
       </SectionCard>
 
       <SectionCard title="Controls" subtitle="Quick printer commands.">
+        {actionMutation.isPending ? <Text accessibilityLiveRegion="polite" style={{ color: colors.textSecondary }}>{t('fleet.actionPending', { defaultValue: 'Sending {{action}} to {{printer}}…', action: actionMutation.variables, printer: printerQuery.data?.name ?? String(printerId) })}</Text> : null}
         <View style={styles.buttonRow}>
           <View style={styles.buttonCell}>
             <PrimaryButton
               label={state.toLowerCase().includes('pause') ? 'Resume' : 'Pause'}
               onPress={() =>
-                void actionMutation.mutateAsync(
+                confirmPrintAction(
                   state.toLowerCase().includes('pause') ? 'resume' : 'pause',
                 )
               }
+              disabled={!hasPermission('printers:control') || !statusQuery.data?.connected || !['RUNNING', 'PAUSE'].includes(statusQuery.data?.state ?? '') || actionMutation.isPending}
               variant="secondary"
               loading={actionMutation.isPending}
             />
@@ -640,7 +619,8 @@ export default function PrinterDetailScreen() {
           <View style={styles.buttonCell}>
             <PrimaryButton
               label="Stop"
-              onPress={() => void actionMutation.mutateAsync('stop')}
+              onPress={() => confirmPrintAction('stop')}
+              disabled={!hasPermission('printers:control') || !statusQuery.data?.connected || !['RUNNING', 'PAUSE'].includes(statusQuery.data?.state ?? '') || actionMutation.isPending}
               variant="danger"
               loading={actionMutation.isPending}
             />
@@ -1079,6 +1059,7 @@ export default function PrinterDetailScreen() {
               </View>
             </View>
             <ScrollView contentContainerStyle={styles.modalBody}>
+              {showDebugModal ? <MQTTConsole printerId={printerId} /> : null}
               <SectionCard title="Connection debug info" subtitle="Live MQTT and connection metadata.">
                 {mqttLogsQuery.isLoading ? (
                   <ActivityIndicator color={colors.accent} />
@@ -1223,74 +1204,7 @@ export default function PrinterDetailScreen() {
         </View>
       </Modal>
 
-      {/* Edit Profile Modal */}
-      <Modal visible={showEditModal} transparent animationType="fade" onRequestClose={() => setShowEditModal(false)}>
-        <View style={[styles.editModalOverlay, { backgroundColor: colors.overlay }]}> 
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowEditModal(false)} />
-          <View style={[styles.editModalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
-            <View style={styles.editModalHeader}>
-              <View style={styles.editModalHeaderText}>
-                <Text style={[styles.editModalTitle, { color: colors.text }]}>Edit printer profile</Text>
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                  Update name, location, and notes.
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => setShowEditModal(false)}
-                style={[styles.editModalClose, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-              >
-                <X size={18} color={colors.text} strokeWidth={2} />
-              </Pressable>
-            </View>
-
-            <View style={{ gap: spacing.md }}>
-              <View style={styles.editField}>
-                <Text style={[styles.editLabel, { color: colors.textSecondary }]}>Name</Text>
-                <TextInput
-                  value={editName}
-                  onChangeText={setEditName}
-                  placeholder="Printer name"
-                  placeholderTextColor={colors.inputPlaceholder}
-                  style={[styles.editInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
-                />
-              </View>
-
-              <View style={styles.editField}>
-                <Text style={[styles.editLabel, { color: colors.textSecondary }]}>Location</Text>
-                <TextInput
-                  value={editLocation}
-                  onChangeText={setEditLocation}
-                  placeholder="Workshop, Office, Rack A…"
-                  placeholderTextColor={colors.inputPlaceholder}
-                  style={[styles.editInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
-                />
-              </View>
-
-              <View style={styles.editField}>
-                <Text style={[styles.editLabel, { color: colors.textSecondary }]}>Notes</Text>
-                <TextInput
-                  value={editNotes}
-                  onChangeText={setEditNotes}
-                  placeholder="Maintenance info, nozzle details, quirks…"
-                  placeholderTextColor={colors.inputPlaceholder}
-                  multiline
-                  style={[styles.editInputMultiline, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
-                />
-              </View>
-            </View>
-
-            <View style={styles.editModalActions}>
-              <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowEditModal(false)} />
-              <PrimaryButton
-                label={profileMutation.isPending ? 'Saving…' : 'Save'}
-                onPress={() => profileMutation.mutate({ name: editName, location: editLocation, notes: editNotes })}
-                disabled={!editName.trim() || profileMutation.isPending}
-                loading={profileMutation.isPending}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <EditPrinterModal visible={showEditModal} printer={printerQuery.data ?? null} onClose={() => setShowEditModal(false)} />
     </ScrollView>
   );
 }

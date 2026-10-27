@@ -7,6 +7,7 @@ import { MoveControlsModal } from '@/components/printers/MoveControlsModal';
 import { SkipObjectsModal } from '@/components/printers/SkipObjectsModal';
 import { TrayDetailModal } from '@/components/printers/TrayDetailModal';
 import { useTheme } from '@/theme';
+import { useTranslation } from '@/i18n';
 import type { HMSError, MaintenanceStatus, Printer } from '@/types/api';
 import type { SelectedTray } from '@/components/printers/PrinterCard.types';
 
@@ -78,6 +79,7 @@ export function PrinterCardDialogs({
   onCloseMoreSheet,
 }: PrinterCardDialogsProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const maintenanceTitle = maintenanceModeTarget
     ? 'Disable maintenance mode'
     : 'Enable maintenance mode';
@@ -149,7 +151,7 @@ export function PrinterCardDialogs({
       <ActionSheetModal
         visible={deleteSheetVisible}
         title="Delete printer"
-        subtitle={`Delete ${printer.name}? This cannot be undone.`}
+        subtitle={t('fleet.deleteExplanation', { defaultValue: 'Delete {{printer}}? Choose whether to keep its archives or permanently delete them too. Cancellation changes nothing.', printer: printer.name })}
         onClose={onCloseDeleteSheet}
         actions={deleteActions}
       />

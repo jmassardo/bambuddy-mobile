@@ -52,6 +52,14 @@ Configure Home Assistant under **Settings → Network**; environment-managed URL
 
 REST connection tests use the server-supported URL, method and headers (not request bodies or measurement extraction). Prefer a status URL: testing an ON/OFF URL may change device power. Use **Virtual Printers** for named printer/interface choices, archive naming, certificate export and actionable diagnostics. The CA is public; no private key is exported.
 
+### Fleet management
+
+The dashboard combines status, location, search, and offline visibility filters, with reversible ETA sorting and a live next-finisher summary. Long-press a printer or use the selection helpers for confirmed, state-aware bulk operations; results list sent, skipped, and failed printers.
+
+Printer options include connection/profile editing (blank replacement access code preserves the existing secret), MQTT reconnect, device status republish, an interactive MQTT capture console, and explicit archive retention when deleting a printer. Ordinary refresh reloads server data; republish requests a fresh report from the device. Discovery supports SSDP and custom IPv4 CIDR scanning, including routed subnets on non-Docker servers.
+
+The firmware badge opens available versions, release notes, and SD-card prerequisite checks. Firmware upload requires the server's firmware-update permission and **does not install the update**: apply the uploaded file from the printer's Settings → Firmware menu. Printer controls and plate clearance require their corresponding server permissions; clearing a plate may release waiting queue jobs.
+
 ## Requirements
 
 - A self-hosted Bambuddy server instance

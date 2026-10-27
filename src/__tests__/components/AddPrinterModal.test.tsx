@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-shadow -- Test file with React/Text imports shadowing globals */
 import React from 'react';
-import { Text, TextInput } from 'react-native';
+import { Switch, Text, TextInput } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactTestRenderer, { act, type ReactTestInstance } from 'react-test-renderer';
 import { AddPrinterModal } from '@/components/printers/AddPrinterModal';
 
@@ -8,6 +9,9 @@ const mockDiagnoseConnection = jest.fn();
 const mockGetDiscoveryInfo = jest.fn();
 const mockStopDiscovery = jest.fn();
 const mockStopSubnetScan = jest.fn();
+const mockStartSubnetScan = jest.fn();
+const mockGetSubnetScanStatus = jest.fn();
+const mockGetDiscoveredPrinters = jest.fn();
 
 jest.mock('react-native/Libraries/Modal/Modal', () => {
   const React = require('react');
@@ -33,6 +37,9 @@ jest.mock('@/api/client', () => ({
     getDiscoveryInfo: (...args: unknown[]) => mockGetDiscoveryInfo(...args),
     stopDiscovery: (...args: unknown[]) => mockStopDiscovery(...args),
     stopSubnetScan: (...args: unknown[]) => mockStopSubnetScan(...args),
+    startSubnetScan: (...args: unknown[]) => mockStartSubnetScan(...args),
+    getSubnetScanStatus: (...args: unknown[]) => mockGetSubnetScanStatus(...args),
+    getDiscoveredPrinters: (...args: unknown[]) => mockGetDiscoveredPrinters(...args),
   },
 }));
 
@@ -79,6 +86,9 @@ describe('AddPrinterModal', () => {
     mockGetDiscoveryInfo.mockResolvedValue({ is_docker: false, subnets: [] });
     mockStopDiscovery.mockResolvedValue(undefined);
     mockStopSubnetScan.mockResolvedValue(undefined);
+    mockStartSubnetScan.mockResolvedValue({});
+    mockGetSubnetScanStatus.mockResolvedValue({ running: false, scanned: 254, total: 254 });
+    mockGetDiscoveredPrinters.mockResolvedValue([]);
   });
 
   function renderModal() {
@@ -109,6 +119,21 @@ describe('AddPrinterModal', () => {
     expect(findInput(renderer, '01P00A000000000')).toBeTruthy();
     expect(findInput(renderer, 'From printer settings')).toBeTruthy();
     expect(findInput(renderer, 'e.g. Garage, Print Farm')).toBeTruthy();
+  });
+
+  it.each([false, true])('scans a recalled custom CIDR even with detected subnets (Docker=%s)', async isDocker => {
+    mockGetDiscoveryInfo.mockResolvedValue({ is_docker: isDocker, subnets: ['192.168.1.0/24'] });
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue('10.20.0.0/24');
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    await act(async () => { renderer = ReactTestRenderer.create(<AddPrinterModal visible onAdd={onAdd} onClose={onClose} existingSerials={[]} />); });
+    await act(async () => {
+      renderer.root.findAllByType(Switch).find(node => node.props.accessibilityLabel === 'Scan custom CIDR (instead of SSDP)')?.props.onValueChange(true);
+    });
+    expect(findInput(renderer, '192.168.1.0/24')?.props.value).toBe('10.20.0.0/24');
+    await act(async () => { await findPressableForText(renderer, 'Scan subnet').props.onPress(); });
+    expect(mockStartSubnetScan).toHaveBeenCalledWith('10.20.0.0/24');
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith('printer-custom-cidr', '10.20.0.0/24');
+    act(() => renderer.unmount());
   });
 
   it('keeps the submit button disabled until all required fields are present', async () => {

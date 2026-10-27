@@ -1,19 +1,25 @@
 /* eslint-disable @typescript-eslint/no-shadow -- Test file with React imports shadowing globals */
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { PrinterCard } from '@/components/printers/PrinterCard';
+import { api } from '@/api/client';
 
 const mockNavigate = jest.fn();
 const mockInvalidateQueries = jest.fn();
 const mockSetQueryData = jest.fn();
 const mockShowToast = jest.fn();
+let mockCanControl = false;
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate, setOptions: jest.fn() }),
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useMutation: () => ({ mutate: jest.fn(), mutateAsync: jest.fn(), isPending: false }),
+  useMutation: (options: { mutationFn: (value: unknown) => Promise<unknown>; onSuccess?: (value: unknown, variables: unknown) => void; onError?: (error: unknown) => void }) => ({
+    mutate: (variables: unknown) => Promise.resolve().then(() => options.mutationFn(variables)).then(value => options.onSuccess?.(value, variables)).catch(error => options.onError?.(error)),
+    isPending: false,
+  }),
   useQuery: () => ({ data: undefined, isLoading: false }),
   useQueryClient: () => ({
     invalidateQueries: mockInvalidateQueries,
@@ -24,8 +30,9 @@ jest.mock('@tanstack/react-query', () => ({
 jest.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {},
   getAuthToken: () => null,
-  api: {},
+  api: { pausePrint: jest.fn(), resumePrint: jest.fn(), stopPrint: jest.fn(), deletePrinter: jest.fn(), connectPrinter: jest.fn(), refreshPrinterStatus: jest.fn() },
 }));
+jest.mock('@/api/printerFleet', () => ({ printerFleetApi: {} }));
 
 jest.mock('@/api/server', () => ({
   useServerStore: (selector: (state: { serverUrl: string }) => unknown) =>
@@ -45,11 +52,11 @@ jest.mock('@/components/printers/HMSErrorModal', () => ({ HMSErrorModal: () => n
 jest.mock('@/components/printers/MoveControlsModal', () => ({ MoveControlsModal: () => null }));
 jest.mock('@/components/printers/SkipObjectsModal', () => ({ SkipObjectsModal: () => null }));
 jest.mock('@/components/printers/TrayDetailModal', () => ({ TrayDetailModal: () => null }));
-jest.mock('@/components/printers/hmsErrorCatalog', () => ({ filterKnownHMSErrors: () => [] }));
+jest.mock('@/components/printers/hmsErrorCatalog', () => ({ filterKnownHMSErrors: (errors: unknown[]) => errors }));
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
-    hasPermission: () => false,
+    hasPermission: () => mockCanControl,
   }),
 }));
 
@@ -70,6 +77,11 @@ jest.mock('@/theme', () => ({
 }));
 
 describe('PrinterCard', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCanControl = false;
+  });
+  afterEach(() => jest.restoreAllMocks());
   const printer = {
     id: 1,
     name: 'Printer Alpha',
@@ -139,5 +151,62 @@ describe('PrinterCard', () => {
 
     expect(getByText('80% remaining')).toBeTruthy();
     expect(getByText('25% remaining')).toBeTruthy();
+  });
+
+  it('confirms physical print stop and does not send anything on cancellation', async () => {
+    mockCanControl = true;
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const screen = await render(<PrinterCard printer={printer} status={status} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Stop' }));
+    expect(api.stopPrint).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledWith('stop print?', expect.stringContaining('cannot be resumed'), expect.any(Array));
+    const buttons = alert.mock.calls[0][2]!;
+    await act(async () => buttons[buttons.length - 1].onPress?.());
+    await waitFor(() => expect(api.stopPrint).toHaveBeenCalledWith(1));
+  });
+
+  it('offers archive retention explicitly and calls a real reconnect/republish instead of HTTP reload', async () => {
+    mockCanControl = true;
+    jest.mocked(api.connectPrinter).mockResolvedValue({ connected: true });
+    const screen = await render(<PrinterCard printer={printer} status={status} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'More options' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Reconnect MQTT transport' }));
+    await waitFor(() => expect(api.connectPrinter).toHaveBeenCalledWith(1));
+    await fireEvent.press(screen.getByRole('button', { name: 'Force device status republish' }));
+    await waitFor(() => expect(api.refreshPrinterStatus).toHaveBeenCalledWith(1));
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
+    expect(api.deletePrinter).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete printer · keep archives' }));
+    await waitFor(() => expect(api.deletePrinter).toHaveBeenCalledWith(1, false));
+  });
+
+  it('shows compact ETA/layers and only offers plate clearance with permission', async () => {
+    const compactStatus = { ...status, state: 'FINISH', awaiting_plate_clear: true, remaining_time: 12, layer_num: 3, total_layers: 20 };
+    const screen = await render(<PrinterCard printer={printer} status={compactStatus} compact />);
+    expect(screen.getByText('Plate awaiting clearance')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Mark plate as cleared?' })).toBeNull();
+    await screen.rerender(<PrinterCard printer={printer} status={{ ...compactStatus, state: 'PAUSE' }} compact />);
+    expect(screen.getByText('Paused')).toBeTruthy();
+    expect(screen.getByText(/12 min · ETA .* · Layer 3\/20/)).toBeTruthy();
+  });
+
+  it('requires a separate destructive confirmation before deleting archives with a printer', async () => {
+    mockCanControl = true;
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const screen = await render(<PrinterCard printer={printer} status={status} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'More options' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete printer AND archives' }));
+    expect(api.deletePrinter).not.toHaveBeenCalled();
+    const buttons = alert.mock.calls[0][2]!;
+    await act(async () => buttons[buttons.length - 1].onPress?.());
+    await waitFor(() => expect(api.deletePrinter).toHaveBeenCalledWith(1, true));
+  });
+
+  it('keeps paused and dirty-plate context visible alongside compact HMS alerts', async () => {
+    const screen = await render(<PrinterCard printer={printer} status={{ ...status, state: 'PAUSE', awaiting_plate_clear: true, hms_errors: [{ code: '0300_8004', attr: 0, severity: 1, module: 0 }] }} compact />);
+    expect(screen.getByText('1 HMS alerts')).toBeTruthy();
+    expect(screen.getByText('Paused')).toBeTruthy();
+    expect(screen.getByText('Plate awaiting clearance')).toBeTruthy();
   });
 });

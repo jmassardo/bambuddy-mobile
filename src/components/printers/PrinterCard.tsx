@@ -1,5 +1,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
+import { FirmwareModal } from './FirmwareModal';
+import { FleetModal } from './FleetModal';
+import { MQTTConsole } from './MQTTConsole';
+import { NextQueueJob } from './NextQueueJob';
+import { useTranslation } from '@/i18n';
 import { useNavigation } from '@react-navigation/native';
 import type { MainTabNavigationProp } from '@/navigation/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -49,6 +54,7 @@ export function PrinterCard({
   printer,
   status,
   queueCount = 0,
+  nextQueueJob,
   maintenance,
   spoolAssignments,
   loading = false,
@@ -67,6 +73,7 @@ export function PrinterCard({
 }: PrinterCardProps) {
   const navigation = useNavigation<MainTabNavigationProp>();
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -83,6 +90,8 @@ export function PrinterCard({
   const [maintenanceModeTarget, setMaintenanceModeTarget] =
     useState<boolean | null>(null);
   const [deleteSheetVisible, setDeleteSheetVisible] = useState(false);
+  const [firmwareVisible, setFirmwareVisible] = useState(false);
+  const [mqttVisible, setMqttVisible] = useState(false);
   const [selectedMaintenanceItem, setSelectedMaintenanceItem] =
     useState<MaintenanceStatus | null>(null);
   const [selectedTray, setSelectedTray] = useState<SelectedTray | null>(null);
@@ -110,13 +119,14 @@ export function PrinterCard({
   const maintenanceCount =
     (maintenance?.dueCount ?? 0) + (maintenance?.warningCount ?? 0);
   const canCamera = hasPermission('camera:view') && !!onCameraPress;
-  const canPrintControl = isPrinting && hasPermission('printers:control');
+  const canPrintControl = isConnected && isPrinting && printer.is_active !== false && hasPermission('printers:control');
   const canControlPrinter = isConnected && hasPermission('printers:control');
   const canBrowse = !!onPrintPress;
   const canEditPrinter = hasPermission('printers:update');
   const canDeletePrinter = hasPermission('printers:delete');
   const canSkipObjects = hasPermission('printers:control');
   const canClearPlate =
+    isConnected &&
     Boolean(status?.awaiting_plate_clear) &&
     !isPrinting &&
     hasPermission('printers:clear_plate');
@@ -211,6 +221,30 @@ export function PrinterCard({
     onError: error =>
       showToast(getErrorMessage(error, 'Printer command failed.'), 'error'),
   });
+  const confirmPrintAction = (action: 'pause' | 'resume' | 'stop') => {
+    Alert.alert(
+      t('fleet.confirmAction', { defaultValue: '{{action}} print?', action }),
+      t('fleet.confirmPrintContext', { defaultValue: '{{printer}} — {{job}}. {{consequence}}', printer: printer.name, job: currentPrintName || t('fleet.activeJob', { defaultValue: 'Active print' }), consequence: action === 'stop' ? t('fleet.stopConsequence', { defaultValue: 'This stops the physical printer; this print cannot be resumed.' }) : '' }),
+      [
+        { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+        { text: t('common.confirm', { defaultValue: 'Confirm' }), style: action === 'stop' ? 'destructive' : 'default', onPress: () => actionMutation.mutate(action) },
+      ],
+    );
+  };
+  const transportMutation = useMutation({
+    mutationFn: async (command: 'reconnect' | 'republish') => {
+      if (command === 'reconnect') {
+        const result = await api.connectPrinter(printer.id);
+        if (!result.connected) throw new Error(t('fleet.reconnectFailed', { defaultValue: 'Printer transport could not connect.' }));
+      }
+      else await api.refreshPrinterStatus(printer.id);
+    },
+    onSuccess: async (_, command) => {
+      await invalidatePrinterQueries();
+      showToast(t('fleet.transportSent', { defaultValue: '{{command}} requested for {{printer}}.', command, printer: printer.name }), 'success');
+    },
+    onError: error => showToast(getErrorMessage(error, t('fleet.transportFailed', { defaultValue: 'Printer transport command failed.' })), 'error'),
+  });
 
   const lightMutation = useMutation({
     mutationFn: async () => api.setChamberLight(printer.id, !status?.chamber_light),
@@ -281,7 +315,7 @@ export function PrinterCard({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async () => api.deletePrinter(printer.id),
+    mutationFn: async (deleteArchives: boolean) => api.deletePrinter(printer.id, deleteArchives),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['printers'] }),
@@ -398,18 +432,31 @@ export function PrinterCard({
         onPress: () => setDeleteSheetVisible(false),
       },
       {
-        label: 'Delete',
+        label: t('fleet.deleteKeepArchives', { defaultValue: 'Delete printer · keep archives' }),
         icon: actionIcons.delete,
         onPress: () => {
           setDeleteSheetVisible(false);
-          deleteMutation.mutate();
+          deleteMutation.mutate(false);
         },
         destructive: true,
         disabled: deleteMutation.isPending,
         loading: deleteMutation.isPending,
       },
+      {
+        label: t('fleet.deleteWithArchives', { defaultValue: 'Delete printer AND archives' }),
+        icon: actionIcons.delete,
+        destructive: true,
+        disabled: deleteMutation.isPending,
+        loading: deleteMutation.isPending,
+        onPress: () => {
+          Alert.alert(t('fleet.deleteWithArchives', { defaultValue: 'Delete printer AND archives' }), t('fleet.archiveDeletionWarning', { defaultValue: 'All associated archives will be permanently deleted. This cannot be undone.' }), [
+            { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+            { text: t('common.delete', { defaultValue: 'Delete' }), style: 'destructive', onPress: () => { setDeleteSheetVisible(false); deleteMutation.mutate(true); } },
+          ]);
+        },
+      },
     ],
-    [actionIcons.cancel, actionIcons.delete, deleteMutation],
+    [actionIcons.cancel, actionIcons.delete, deleteMutation, t],
   );
 
   const maintenanceItemActions = useMemo<ActionSheetAction[]>(
@@ -469,6 +516,28 @@ export function PrinterCard({
   const moreActions = useMemo<ActionSheetAction[]>(
     () => [
       {
+        label: t('fleet.reconnect', { defaultValue: 'Reconnect MQTT transport' }),
+        disabled: !hasPermission('printers:control') || transportMutation.isPending,
+        loading: transportMutation.isPending && transportMutation.variables === 'reconnect',
+        onPress: () => transportMutation.mutate('reconnect'),
+      },
+      {
+        label: t('fleet.republish', { defaultValue: 'Force device status republish' }),
+        disabled: !isConnected || !hasPermission('printers:read') || transportMutation.isPending,
+        loading: transportMutation.isPending && transportMutation.variables === 'republish',
+        onPress: () => transportMutation.mutate('republish'),
+      },
+      {
+        label: t('fleet.firmware', { defaultValue: 'Printer firmware' }),
+        disabled: !hasPermission('firmware:read'),
+        onPress: () => { setMoreSheetVisible(false); setFirmwareVisible(true); },
+      },
+      {
+        label: t('fleet.mqtt', { defaultValue: 'MQTT console' }),
+        disabled: !hasPermission('printers:read'),
+        onPress: () => { setMoreSheetVisible(false); setMqttVisible(true); },
+      },
+      {
         label: 'Edit',
         onPress: () => {
           setMoreSheetVisible(false);
@@ -511,6 +580,10 @@ export function PrinterCard({
       deleteMutation,
       maintenanceMutation,
       printer.is_active,
+      t,
+      hasPermission,
+      transportMutation,
+      isConnected,
     ],
   );
 
@@ -522,6 +595,13 @@ export function PrinterCard({
         isConnected={isConnected}
         isPrinting={isPrinting}
         progress={progress}
+        status={status}
+        canClearPlate={canClearPlate}
+        clearPlatePending={clearPlateMutation.isPending}
+        onClearPlate={() => Alert.alert(t('fleet.clearPlate', { defaultValue: 'Mark plate as cleared?' }), t('fleet.clearPlateWarning', { defaultValue: 'Confirm the physical plate is empty. Queued jobs may start automatically.' }), [
+          { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+          { text: t('common.confirm', { defaultValue: 'Confirm' }), onPress: () => clearPlateMutation.mutate() },
+        ])}
         printerImageSource={printerImageSource}
         onPress={onPress}
         onLongPress={onLongPress}
@@ -540,6 +620,7 @@ export function PrinterCard({
       ]}
     >
       <PrinterCardHeader
+        onFirmwarePress={hasPermission('firmware:read') ? () => setFirmwareVisible(true) : undefined}
         printer={printer}
         status={status}
         badgeLabel={badgeLabel}
@@ -554,6 +635,10 @@ export function PrinterCard({
         onMaintenancePress={onMaintenancePress}
         onShowHmsModal={() => setShowHmsModal(true)}
       />
+      {nextQueueJob ? <NextQueueJob item={nextQueueJob} additionalCount={Math.max(queueCount - 1, 0)} onPress={onQueuePress} /> : null}
+      {firmwareVisible ? <FirmwareModal printerId={printer.id} onClose={() => setFirmwareVisible(false)} /> : null}
+      {mqttVisible ? <FleetModal title={t('fleet.mqtt', { defaultValue: 'MQTT console' })} onClose={() => setMqttVisible(false)}><MQTTConsole printerId={printer.id} /></FleetModal> : null}
+      {actionMutation.isPending ? <Text accessibilityLiveRegion="polite" style={{ color: colors.textSecondary }}>{t('fleet.actionPending', { defaultValue: 'Sending {{action}} to {{printer}}…', action: actionMutation.variables, printer: printer.name })}</Text> : null}
 
       <PrinterCardStatusSection
         status={status}
@@ -591,10 +676,13 @@ export function PrinterCard({
         }}
         onShowSkipObjects={() => setSkipObjectsVisible(true)}
         onTogglePause={() =>
-          actionMutation.mutate(isPaused ? 'resume' : 'pause')
+          confirmPrintAction(isPaused ? 'resume' : 'pause')
         }
-        onStop={() => actionMutation.mutate('stop')}
-        onClearPlate={() => clearPlateMutation.mutate()}
+        onStop={() => confirmPrintAction('stop')}
+        onClearPlate={() => Alert.alert(t('fleet.clearPlate', { defaultValue: 'Mark plate as cleared?' }), t('fleet.clearPlateWarning', { defaultValue: 'Confirm the physical plate is empty. Queued jobs may start automatically.' }), [
+          { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+          { text: t('common.confirm', { defaultValue: 'Confirm' }), onPress: () => clearPlateMutation.mutate() },
+        ])}
       />
 
       <PrinterCardTemperatureSection printer={printer} status={status} />

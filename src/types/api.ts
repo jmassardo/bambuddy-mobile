@@ -658,6 +658,49 @@ export interface PrinterStatus {
   supports_chamber_heater?: boolean;
 }
 
+// Printer fleet parity: firmware management and MQTT console.
+export interface FleetFirmwareInfo {
+  printer_id: number;
+  current_version: string | null;
+  latest_version: string | null;
+  update_available: boolean;
+  release_notes: string | null;
+  available_versions: {
+    version: string;
+    file_available: boolean;
+    release_notes: string | null;
+    release_time: string | null;
+  }[];
+}
+
+export interface FleetFirmwarePrepare {
+  can_proceed: boolean;
+  sd_card_present: boolean;
+  sd_card_free_space: number;
+  firmware_size: number;
+  space_sufficient: boolean;
+  errors: string[];
+}
+
+export interface FleetFirmwareStatus {
+  status: 'idle' | 'preparing' | 'downloading' | 'uploading' | 'complete' | 'error';
+  progress: number;
+  message: string;
+  error: string | null;
+  firmware_filename: string | null;
+  firmware_version: string | null;
+}
+
+export interface FleetMQTTLogs {
+  logging_enabled: boolean;
+  logs: {
+    timestamp: string;
+    topic: string;
+    direction: 'in' | 'out';
+    payload: Record<string, unknown>;
+  }[];
+}
+
 export interface PrinterUpdate {
   name?: string;
   serial_number?: string;

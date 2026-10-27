@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Alert,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  Switch,
   View,
 } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +19,8 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { Printer } from '@/types/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/i18n';
 
 interface EditPrinterModalProps {
   visible: boolean;
@@ -36,11 +40,18 @@ export function EditPrinterModal({
   onClose,
 }: EditPrinterModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const { hasPermission } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
+  const [ipAddress, setIpAddress] = useState('');
+  const [accessCode, setAccessCode] = useState('');
+  const [model, setModel] = useState('');
+  const [autoArchive, setAutoArchive] = useState(true);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     if (!printer) return;
@@ -48,15 +59,24 @@ export function EditPrinterModal({
     setName(printer.name);
     setLocation(printer.location ?? '');
     setNotes(editablePrinter.notes ?? '');
-  }, [printer]);
+    setIpAddress(printer.ip_address);
+    setAccessCode('');
+    setModel(printer.model ?? '');
+    setAutoArchive(printer.auto_archive);
+  }, [printer, visible]);
 
   const saveMutation = useMutation({
     mutationFn: () => {
       if (!printer) throw new Error('Printer unavailable');
+      if (!hasPermission('printers:update')) throw new Error(t('fleet.editDenied', { defaultValue: 'Printer update permission required.' }));
       return api.updatePrinter(printer.id, {
         name: name.trim(),
         location: location.trim() || null,
         notes: notes.trim() || null,
+        ip_address: ipAddress.trim(),
+        ...(accessCode.trim() ? { access_code: accessCode.trim() } : {}),
+        model: model.trim(),
+        auto_archive: autoArchive,
       });
     },
     onSuccess: async () => {
@@ -72,6 +92,39 @@ export function EditPrinterModal({
     onError: error =>
       showToast(getErrorMessage(error, 'Unable to update printer.'), 'error'),
   });
+
+  const preflight = async () => {
+    if (!printer) return;
+    setChecking(true);
+    try {
+      const result = await api.diagnoseConnection({
+        ip_address: ipAddress.trim(),
+        serial_number: printer.serial_number,
+        ...(accessCode.trim() ? { access_code: accessCode.trim() } : {}),
+      });
+      const checks = result.checks;
+      if (checks?.some(check => check.status === 'fail')) {
+        Alert.alert(
+          t('fleet.preflightFailed', { defaultValue: 'Connection checks failed' }),
+          checks.filter(check => check.status === 'fail').map(check => `${check.id}: ${Object.values(check.params).join(' · ')}`).join('\n'),
+          [
+            { text: t('common.back', { defaultValue: 'Back' }), style: 'cancel' },
+            { text: t('fleet.saveAnyway', { defaultValue: 'Save anyway' }), onPress: () => saveMutation.mutate() },
+          ],
+        );
+        return;
+      }
+    } catch (error) {
+      Alert.alert(t('fleet.preflightFailed', { defaultValue: 'Connection checks failed' }), getErrorMessage(error, t('fleet.diagnosticUnavailable', { defaultValue: 'Diagnostic unavailable. Save without checking?' })), [
+        { text: t('common.back', { defaultValue: 'Back' }), style: 'cancel' },
+        { text: t('fleet.saveAnyway', { defaultValue: 'Save anyway' }), onPress: () => saveMutation.mutate() },
+      ]);
+      return;
+    } finally {
+      setChecking(false);
+    }
+    saveMutation.mutate();
+  };
 
   if (!printer) return null;
 
@@ -100,7 +153,7 @@ export function EditPrinterModal({
                   Edit printer
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                  Update name, location, and notes.
+                  {t('fleet.editSubtitle', { defaultValue: 'Update connection, model, archiving, and profile.' })}
                 </Text>
               </View>
               <Pressable
@@ -115,6 +168,13 @@ export function EditPrinterModal({
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
+              <TextField label={t('fleet.ip', { defaultValue: 'IP / hostname' })} value={ipAddress} onChangeText={setIpAddress} autoCapitalize="none" />
+              <TextField label={t('fleet.replacementCode', { defaultValue: 'Replacement access code (blank keeps existing)' })} value={accessCode} onChangeText={setAccessCode} secureTextEntry autoCapitalize="none" />
+              <TextField label={t('fleet.model', { defaultValue: 'Model' })} value={model} onChangeText={setModel} />
+              <View style={styles.toggle}>
+                <Text style={{ color: colors.text }}>{t('fleet.autoArchive', { defaultValue: 'Automatically archive prints' })}</Text>
+                <Switch value={autoArchive} onValueChange={setAutoArchive} accessibilityLabel={t('fleet.autoArchive', { defaultValue: 'Automatically archive prints' })} />
+              </View>
               <TextField
                 label="Name"
                 value={name}
@@ -139,10 +199,10 @@ export function EditPrinterModal({
             <View style={styles.actions}>
               <PrimaryButton label="Cancel" variant="secondary" onPress={onClose} />
               <PrimaryButton
-                label={saveMutation.isPending ? 'Saving…' : 'Save'}
-                onPress={() => saveMutation.mutate()}
-                disabled={!name.trim() || saveMutation.isPending}
-                loading={saveMutation.isPending}
+                label={checking ? t('fleet.checking', { defaultValue: 'Checking connection…' }) : saveMutation.isPending ? 'Saving…' : 'Save'}
+                onPress={() => { void preflight(); }}
+                disabled={!name.trim() || !ipAddress.trim() || checking || saveMutation.isPending || !hasPermission('printers:update')}
+                loading={checking || saveMutation.isPending}
               />
             </View>
           </View>
@@ -153,6 +213,7 @@ export function EditPrinterModal({
 }
 
 const styles = StyleSheet.create({
+  toggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
   backdrop: {
     flex: 1,
     justifyContent: 'center',

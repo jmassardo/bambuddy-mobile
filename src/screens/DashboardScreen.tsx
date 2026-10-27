@@ -4,11 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MainTabNavigationProp } from '@/navigation/types';
 import {
   FlatList,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  Switch,
   View,
 } from 'react-native';
 import {
@@ -36,6 +38,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useTheme } from '@/theme';
+import { useTranslation } from '@/i18n';
+import { FleetModal } from '@/components/printers/FleetModal';
+import { countFleetStates, isBulkApplicable, type FleetBulkAction } from '@/utils/printerFleet';
 import { borderRadius, fontSize, spacing } from '@/theme/tokens';
 import type {
   MaintenanceStatus,
@@ -48,6 +53,7 @@ const FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'printing', label: 'Printing' },
   { key: 'paused', label: 'Paused' },
+  { key: 'finished', label: 'Finished' },
   { key: 'idle', label: 'Idle' },
   { key: 'issues', label: 'Issues' },
   { key: 'offline', label: 'Offline' },
@@ -55,10 +61,11 @@ const FILTERS = [
 
 type FilterMode = (typeof FILTERS)[number]['key'];
 type PrinterMode = Exclude<FilterMode, 'all'>;
-export type PrinterSortMode = 'name' | 'status' | 'lastActivity' | 'location' | 'model' | 'connected';
+export type PrinterSortMode = 'name' | 'status' | 'lastActivity' | 'location' | 'model' | 'connected' | 'eta';
 export type PrinterSortSecondaryMode = 'name' | 'status' | 'lastActivity' | 'none';
 
 const SORT_OPTIONS: Array<{ key: PrinterSortMode; label: string; icon: string; description: string }> = [
+  { key: 'eta', label: 'ETA', icon: '◷', description: 'Sort by time remaining' },
   { key: 'status', label: 'Status', icon: '●', description: 'Sort by printer status' },
   { key: 'connected', label: 'Active', icon: '⚡', description: 'Recently active first' },
   { key: 'lastActivity', label: 'Recent', icon: '↻', description: 'Sort by last activity' },
@@ -80,6 +87,7 @@ const STATUS_SORT_RANK: Record<PrinterMode, number> = {
   issues: 0,
   printing: 1,
   paused: 2,
+  finished: 3,
   idle: 3,
   offline: 4,
 };
@@ -136,7 +144,7 @@ function collectLoadedFilaments(status?: PrinterStatus) {
   return filaments;
 }
 
-function queueItemMatchesPrinter(
+export function queueItemMatchesPrinter(
   printer: Printer,
   status: PrinterStatus | undefined,
   item: PrintQueueItem,
@@ -180,7 +188,12 @@ function queueItemMatchesPrinter(
     if (forcedOverrides.length > 0) {
       const hasAllForced = forcedOverrides.every(override => {
         const color = override.color.replace('#', '').toLowerCase().slice(0, 6);
-        return loadedFilaments.has(`${override.type.toUpperCase()}:${color}`);
+        const idx = (override as typeof override & { tray_info_idx?: string | null }).tray_info_idx;
+        if (!idx) return loadedFilaments.has(`${override.type.toUpperCase()}:${color}`);
+        const trays = [...(status?.ams.flatMap(ams => ams.tray) ?? []), ...(status?.vt_tray ?? [])];
+        return trays.some(tray => tray.tray_type?.toUpperCase() === override.type.toUpperCase() &&
+          tray.tray_color?.replace('#', '').toLowerCase().slice(0, 6) === color &&
+          (!tray.tray_info_idx || tray.tray_info_idx === idx));
       });
       if (!hasAllForced) return false;
     }
@@ -209,6 +222,7 @@ function classifyPrinter(
   if (status.state === 'RUNNING') return 'printing';
   if (status.state === 'PAUSE') return 'paused';
   if (status.state === 'FAILED') return 'issues';
+  if (status.state === 'FINISH') return 'finished';
   return 'idle';
 }
 
@@ -285,6 +299,18 @@ export function comparePrinters(
   if (sortBy === 'connected') return applySecondary(compareConnected());
   if (sortBy === 'location') return applySecondary(compareLocation());
   if (sortBy === 'model') return applySecondary(compareModel());
+  if (sortBy === 'eta') {
+    const eta = (printer: Printer) => {
+      const status = statusByPrinter.get(printer.id);
+      if (!status?.connected) return { tier: 3, minutes: 0 };
+      if (status.state !== 'RUNNING') return { tier: 2, minutes: 0 };
+      if (status.remaining_time == null || status.remaining_time <= 0) return { tier: 1, minutes: 0 };
+      return { tier: 0, minutes: status.remaining_time };
+    };
+    const a = eta(first);
+    const b = eta(second);
+    return applySecondary(a.tier - b.tier || a.minutes - b.minutes) || compareNames();
+  }
 
   return applySecondary(compareStatus());
 }
@@ -296,12 +322,17 @@ export default function PrintersDashboardScreen() {
   }, [navigation]);
 
   const { colors } = useTheme();
-  const { hasAnyPermission } = useAuth();
+  const { hasAnyPermission, hasPermission } = useAuth();
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const { isConnected: wsConnected } = useWebSocket();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
+  const [locationFilter, setLocationFilter] = useState<string | null>(null);
+  const [hideOffline, setHideOffline] = useState(false);
+  const [descending, setDescending] = useState(false);
+  const [choices, setChoices] = useState<{ title: string; options: { label: string; select: () => void }[] } | null>(null);
   const [sortBy, setSortBy] = useState<PrinterSortMode>('status');
   const [sortSecondary, setSortSecondary] = useState<PrinterSortSecondaryMode>('name');
   const [viewMode, setViewMode] = useState<'normal' | 'compact'>('normal');
@@ -325,7 +356,7 @@ export default function PrintersDashboardScreen() {
       try {
         const storedSort = await AsyncStorage.getItem(PRINTER_SORT_STORAGE_KEY);
         const storedSecondary = await AsyncStorage.getItem(PRINTER_SORT_SECONDARY_KEY);
-        if (!cancelled && (storedSort === 'name' || storedSort === 'status' || storedSort === 'lastActivity' || storedSort === 'location' || storedSort === 'model' || storedSort === 'connected')) {
+        if (!cancelled && (storedSort === 'name' || storedSort === 'status' || storedSort === 'lastActivity' || storedSort === 'location' || storedSort === 'model' || storedSort === 'connected' || storedSort === 'eta')) {
           setSortBy(storedSort);
         }
         if (!cancelled && (storedSecondary === 'name' || storedSecondary === 'status' || storedSecondary === 'lastActivity' || storedSecondary === 'none')) {
@@ -438,6 +469,17 @@ export default function PrintersDashboardScreen() {
 
     return map;
   }, [printers, queueQuery.data, statusByPrinter]);
+  const nextJobs = useMemo(() => new Map(printers.map(printer => [
+    printer.id,
+    (queueQuery.data ?? []).filter(item => queueItemMatchesPrinter(printer, statusByPrinter.get(printer.id), item))
+      .sort((a, b) => a.position - b.position || a.id - b.id)[0],
+  ])), [printers, queueQuery.data, statusByPrinter]);
+  const locations = useMemo(() => [...new Set(printers.map(printer => printer.location ?? ''))].sort(), [printers]);
+  const fleetCounts = countFleetStates(printers.map(printer => statusByPrinter.get(printer.id)));
+  const nextFinisher = printers.filter(printer => {
+    const status = statusByPrinter.get(printer.id);
+    return status?.connected && status.state === 'RUNNING' && status.remaining_time != null && status.remaining_time > 0;
+  }).sort((a, b) => (statusByPrinter.get(a.id)?.remaining_time ?? Infinity) - (statusByPrinter.get(b.id)?.remaining_time ?? Infinity))[0];
 
   const filteredPrinters = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -455,12 +497,16 @@ export default function PrintersDashboardScreen() {
             .toLowerCase()
             .includes(term);
 
-        if (!matchesSearch) return false;
+        if (!matchesSearch || (hideOffline && !status?.connected) || (locationFilter !== null && (printer.location ?? '') !== locationFilter)) return false;
         if (filter === 'all') return true;
+        if (filter === 'printing') return !!status?.connected && status.state === 'RUNNING';
+        if (filter === 'paused') return !!status?.connected && status.state === 'PAUSE';
+        if (filter === 'finished') return !!status?.connected && status.state === 'FINISH';
+        if (filter === 'offline') return !status?.connected;
         return mode === filter;
       })
       .sort((first, second) =>
-        comparePrinters(
+        (descending ? -1 : 1) * comparePrinters(
           first,
           second,
           sortBy,
@@ -469,26 +515,7 @@ export default function PrintersDashboardScreen() {
           sortSecondary,
         ),
       );
-  }, [filter, maintenanceByPrinter, printers, search, sortBy, sortSecondary, statusByPrinter]);
-
-  // TODO: summary stats for future dashboard summary widget
-  // const summary = useMemo(() => {
-  //   return printers.reduce(
-  //     (acc, printer) => {
-  //       const status = statusByPrinter.get(printer.id);
-  //       const maintenance = maintenanceByPrinter.get(printer.id);
-  //       const mode = classifyPrinter(printer, status, maintenance);
-  //       acc.total += 1;
-  //       if (mode === 'printing') acc.printing += 1;
-  //       if (mode === 'paused') acc.paused += 1;
-  //       if (mode === 'idle') acc.idle += 1;
-  //       if (mode === 'issues') acc.issues += 1;
-  //       if (mode === 'offline') acc.offline += 1;
-  //       return acc;
-  //     },
-  //     { total: 0, printing: 0, paused: 0, idle: 0, issues: 0, offline: 0 },
-  //   );
-  // }, [maintenanceByPrinter, printers, statusByPrinter]);
+  }, [filter, hideOffline, locationFilter, descending, maintenanceByPrinter, printers, search, sortBy, sortSecondary, statusByPrinter]);
 
   const handleRefresh = async () => {
     await Promise.all([
@@ -520,20 +547,30 @@ export default function PrintersDashboardScreen() {
       showToast('Unable to save the secondary sort preference.', 'warning');
     });
   };
+  const applicableSelected = (action: FleetBulkAction) => selectedPrinterIds.filter(id =>
+    printers.find(printer => printer.id === id)?.is_active !== false &&
+    isBulkApplicable(action, statusByPrinter.get(id)),
+  );
 
   const bulkActionMutation = useMutation({
     mutationFn: async (
-      action: 'pause' | 'resume' | 'stop' | 'light-on' | 'light-off',
+      action: FleetBulkAction,
     ) => {
       if (selectedPrinterIds.length === 0) {
         throw new Error('Select one or more printers first.');
       }
 
+      const permission = action === 'clear-plate' ? 'printers:clear_plate' : 'printers:control';
+      if (!hasPermission(permission)) throw new Error(t('fleet.bulkDenied', { defaultValue: 'Permission required: {{permission}}', permission }));
+      const applicable = applicableSelected(action);
+      if (!applicable.length) throw new Error(t('fleet.noneApplicable', { defaultValue: 'No selected printer is applicable to this action.' }));
       const results = await Promise.allSettled(
-        selectedPrinterIds.map(printerId => {
+        applicable.map(printerId => {
           if (action === 'pause') return api.pausePrint(printerId);
           if (action === 'resume') return api.resumePrint(printerId);
           if (action === 'stop') return api.stopPrint(printerId);
+          if (action === 'clear-hms') return api.clearHMSErrors(printerId);
+          if (action === 'clear-plate') return api.clearPlate(printerId);
           return api.setChamberLight(printerId, action === 'light-on');
         }),
       );
@@ -541,19 +578,20 @@ export default function PrintersDashboardScreen() {
       const successCount = results.filter(result => result.status === 'fulfilled').length;
       const failureCount = results.length - successCount;
 
-      if (successCount === 0) {
-        throw new Error('The selected printer action failed for every printer.');
-      }
-
-      return { action, successCount, failureCount };
+      return { action, successCount, failureCount, report: selectedPrinterIds.map(id => {
+        const index = applicable.indexOf(id);
+        const result = results[index];
+        return `${printers.find(printer => printer.id === id)?.name ?? id}: ${index < 0 ? t('fleet.skipped', { defaultValue: 'Skipped (not applicable)' }) : result.status === 'fulfilled' ? t('fleet.sent', { defaultValue: 'Command sent' }) : String(result.reason instanceof Error ? result.reason.message : result.reason)}`;
+      }).join('\n') };
     },
-    onSuccess: async ({ action, successCount, failureCount }) => {
+    onSuccess: async ({ action, successCount, failureCount, report }) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['printers'] }),
         queryClient.invalidateQueries({ queryKey: ['printerStatus'] }),
         queryClient.invalidateQueries({ queryKey: ['queue'] }),
       ]);
       setSelectedPrinterIds([]);
+      Alert.alert(t('fleet.bulkResults', { defaultValue: 'Per-printer results' }), report);
       const actionLabel =
         action === 'pause'
           ? 'Pause'
@@ -561,7 +599,7 @@ export default function PrintersDashboardScreen() {
             ? 'Resume'
             : action === 'stop'
               ? 'Stop'
-              : action === 'light-on'
+              : action === 'clear-hms' ? 'Clear HMS' : action === 'clear-plate' ? 'Clear plate' : action === 'light-on'
                 ? 'LED on'
                 : 'LED off';
       showToast(
@@ -573,6 +611,14 @@ export default function PrintersDashboardScreen() {
       showToast(error.message || 'Bulk printer action failed.', 'error');
     },
   });
+  const confirmBulk = (action: FleetBulkAction) => Alert.alert(
+    t('fleet.bulkConfirm', { defaultValue: 'Confirm {{action}} for selected printers?', action }),
+    t('fleet.bulkWarning', { defaultValue: '{{count}} applicable of {{total}} selected. Others will be skipped. Clearing plates may start queued jobs; stopping cannot be resumed.', count: applicableSelected(action).length, total: selectedPrinterIds.length }),
+    [
+      { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+      { text: t('common.confirm', { defaultValue: 'Confirm' }), style: action === 'stop' ? 'destructive' : 'default', onPress: () => bulkActionMutation.mutate(action) },
+    ],
+  );
 
   if (printersQuery.isLoading) {
     return <LoadingScreen message="Loading printer fleet…" />;
@@ -631,6 +677,7 @@ export default function PrintersDashboardScreen() {
                 printer={item}
                 status={status}
                 queueCount={queueCounts.get(item.id) ?? 0}
+                nextQueueJob={nextJobs.get(item.id)}
                 maintenance={maintenance}
                 spoolAssignments={assignmentsQuery.data}
                 snapshotSeed={`${snapshotSeed}-${item.id}-${status?.state ?? 'idle'}-${status?.progress ?? 0}`}
@@ -669,6 +716,13 @@ export default function PrintersDashboardScreen() {
         }}
         ListHeaderComponent={
           <View style={styles.header}>
+            <Text style={{ color: colors.text }}>{FILTERS.filter(item => item.key !== 'all').map(item => `${t(`fleet.state.${item.key}`, { defaultValue: item.label })}: ${fleetCounts[item.key as keyof typeof fleetCounts] ?? 0}`).join(' · ')}{fleetCounts.loading ? ` · ${t('fleet.loadingCount', { defaultValue: '{{count}} loading', count: fleetCounts.loading })}` : ''}</Text>
+            {nextFinisher ? <Text style={{ color: colors.textSecondary }}>{t('fleet.nextFinisher', { defaultValue: 'Next finisher: {{name}} · {{minutes}} min · {{eta}}', name: nextFinisher.name, minutes: statusByPrinter.get(nextFinisher.id)?.remaining_time ?? '—', eta: new Date(Date.now() + (statusByPrinter.get(nextFinisher.id)?.remaining_time ?? 0) * 60000).toLocaleTimeString() })}</Text> : null}
+            <ScrollView horizontal contentContainerStyle={styles.bulkActions}>
+              <PrimaryButton label={t('fleet.selectAll', { defaultValue: 'Select all visible' })} variant="secondary" onPress={() => setSelectedPrinterIds(filteredPrinters.map(printer => printer.id))} />
+              <PrimaryButton label={t('fleet.selectState', { defaultValue: 'Select by state' })} variant="secondary" onPress={() => setChoices({ title: t('fleet.selectState', { defaultValue: 'Select by state' }), options: FILTERS.filter(item => item.key !== 'all').map(item => ({ label: t(`fleet.state.${item.key}`, { defaultValue: item.label }), select: () => setSelectedPrinterIds(printers.filter(printer => classifyPrinter(printer, statusByPrinter.get(printer.id), maintenanceByPrinter.get(printer.id)) === item.key).map(printer => printer.id)) })) })} />
+              <PrimaryButton label={t('fleet.selectLocation', { defaultValue: 'Select by location' })} variant="secondary" onPress={() => setChoices({ title: t('fleet.selectLocation', { defaultValue: 'Select by location' }), options: locations.map(location => ({ label: location || t('fleet.noLocation', { defaultValue: 'No location' }), select: () => setSelectedPrinterIds(printers.filter(printer => (printer.location ?? '') === location).map(printer => printer.id)) })) })} />
+            </ScrollView>
             {selectionMode ? (
               <View
                 style={[
@@ -694,33 +748,35 @@ export default function PrintersDashboardScreen() {
                   <PrimaryButton
                     label="Pause all"
                     variant="secondary"
-                    onPress={() => void bulkActionMutation.mutateAsync('pause')}
-                    disabled={bulkActionMutation.isPending}
+                    onPress={() => confirmBulk('pause')}
+                    disabled={bulkActionMutation.isPending || !hasPermission('printers:control')}
                   />
                   <PrimaryButton
                     label="Resume all"
                     variant="secondary"
-                    onPress={() => void bulkActionMutation.mutateAsync('resume')}
-                    disabled={bulkActionMutation.isPending}
+                    onPress={() => confirmBulk('resume')}
+                    disabled={bulkActionMutation.isPending || !hasPermission('printers:control')}
                   />
                   <PrimaryButton
                     label="Stop all"
                     variant="danger"
-                    onPress={() => void bulkActionMutation.mutateAsync('stop')}
-                    disabled={bulkActionMutation.isPending}
+                    onPress={() => confirmBulk('stop')}
+                    disabled={bulkActionMutation.isPending || !hasPermission('printers:control')}
                   />
                   <PrimaryButton
                     label="LED on"
                     variant="secondary"
-                    onPress={() => void bulkActionMutation.mutateAsync('light-on')}
-                    disabled={bulkActionMutation.isPending}
+                    onPress={() => confirmBulk('light-on')}
+                    disabled={bulkActionMutation.isPending || !hasPermission('printers:control')}
                   />
                   <PrimaryButton
                     label="LED off"
                     variant="secondary"
-                    onPress={() => void bulkActionMutation.mutateAsync('light-off')}
-                    disabled={bulkActionMutation.isPending}
+                    onPress={() => confirmBulk('light-off')}
+                    disabled={bulkActionMutation.isPending || !hasPermission('printers:control')}
                   />
+                  <PrimaryButton label={t('fleet.clearHms', { defaultValue: 'Clear selected HMS' })} variant="secondary" onPress={() => confirmBulk('clear-hms')} disabled={bulkActionMutation.isPending || !hasPermission('printers:control')} />
+                  <PrimaryButton label={t('fleet.clearPlates', { defaultValue: 'Clear selected plates' })} variant="secondary" onPress={() => confirmBulk('clear-plate')} disabled={bulkActionMutation.isPending || !hasPermission('printers:clear_plate')} />
                 </ScrollView>
               </View>
             ) : null}
@@ -776,9 +832,19 @@ export default function PrintersDashboardScreen() {
 
             <InlineTabBar
               value={filter}
-              tabs={FILTERS.map(item => ({ key: item.key, label: item.label }))}
+              tabs={FILTERS.map(item => ({ key: item.key, label: t(`fleet.state.${item.key}`, { defaultValue: item.label }) }))}
               onChange={setFilter}
             />
+            <View style={styles.bulkActions}>
+              <Text style={{ color: colors.text }}>{t('fleet.hideOffline', { defaultValue: 'Hide offline' })}</Text>
+              <Switch value={hideOffline} onValueChange={setHideOffline} accessibilityLabel={t('fleet.hideOffline', { defaultValue: 'Hide offline' })} />
+              <PrimaryButton label={locationFilter === null ? t('fleet.allLocations', { defaultValue: 'All locations' }) : locationFilter || t('fleet.noLocation', { defaultValue: 'No location' })} variant="secondary" onPress={() => setChoices({ title: t('fleet.locationFilter', { defaultValue: 'Filter location' }), options: [
+                { label: t('fleet.allLocations', { defaultValue: 'All locations' }), select: () => setLocationFilter(null) },
+                ...locations.map(location => ({ label: location || t('fleet.noLocation', { defaultValue: 'No location' }), select: () => setLocationFilter(location) })),
+              ] })} />
+              <PrimaryButton label={descending ? t('fleet.descending', { defaultValue: 'Descending ↓' }) : t('fleet.ascending', { defaultValue: 'Ascending ↑' })} variant="secondary" onPress={() => setDescending(!descending)} />
+            </View>
+            {choices ? <FleetModal title={choices.title} onClose={() => setChoices(null)}>{choices.options.map(option => <PrimaryButton key={option.label} label={option.label} variant="secondary" onPress={() => { option.select(); setChoices(null); }} />)}</FleetModal> : null}
             <View style={styles.sortRow}>
               <Text style={[styles.sortLabel, { color: colors.textSecondary }]}>Sort</Text>
               <View
@@ -799,7 +865,7 @@ export default function PrintersDashboardScreen() {
                         selected && { backgroundColor: colors.accentBg },
                       ]}
                       accessibilityRole="button"
-                      accessibilityLabel={option.description}
+                      accessibilityLabel={t(`fleet.sortDescription.${option.key}`, { defaultValue: option.description })}
                       accessibilityState={{ selected }}
                     >
                       <Text
@@ -808,7 +874,7 @@ export default function PrintersDashboardScreen() {
                           { color: selected ? colors.accentLight : colors.textSecondary },
                         ]}
                       >
-                        {option.label}
+                        {t(`fleet.sort.${option.key}`, { defaultValue: option.label })}
                       </Text>
                     </Pressable>
                   );

@@ -21,6 +21,8 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '@/theme';
 import { api } from '@/api/client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from '@/i18n';
 import type { DiscoveredPrinter, PrinterDiagnosticResult, DiagnosticCheck } from '@/types/api';
 
 const PRINTER_MODELS = [
@@ -61,6 +63,9 @@ interface Props {
 
 export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Props) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const [useCustomSubnet, setUseCustomSubnet] = useState(false);
+  const [customSubnet, setCustomSubnet] = useState('');
 
   // Form state
   const [name, setName] = useState('');
@@ -96,6 +101,8 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
   useEffect(() => {
     if (!visible) return;
     const loadDiscoveryInfo = async () => {
+      const last = await AsyncStorage.getItem('printer-custom-cidr').catch(() => null);
+      if (last) setCustomSubnet(last);
       try {
         const info = await api.getDiscoveryInfo();
         setIsDocker(info.is_docker);
@@ -112,6 +119,8 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
   // Reset form on close
   useEffect(() => {
     if (!visible) {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
       setName('');
       setSerialNumber('');
       setIpAddress('');
@@ -149,9 +158,16 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
     setScanProgress({ scanned: 0, total: 0 });
 
     try {
-      if (isDocker && subnet) {
+      if (useCustomSubnet || (isDocker && subnet)) {
+        const scanSubnet = useCustomSubnet ? customSubnet.trim() : subnet;
+        if (!/^(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(scanSubnet) ||
+            Number(scanSubnet.split('/')[1]) > 32 ||
+            scanSubnet.split('/')[0].split('.').some(part => Number(part) > 255)) {
+          throw new Error(t('fleet.invalidCIDR', { defaultValue: 'Enter a valid IPv4 CIDR, e.g. 192.168.1.0/24.' }));
+        }
+        if (useCustomSubnet) await AsyncStorage.setItem('printer-custom-cidr', scanSubnet);
         // Subnet scan for Docker
-        await api.startSubnetScan?.(subnet);
+        await api.startSubnetScan?.(scanSubnet);
         pollRef.current = setInterval(async () => {
           try {
             const status = await api.getSubnetScanStatus?.();
@@ -163,7 +179,13 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
               setDiscovering(false);
               setHasScanned(true);
             }
-          } catch {}
+          } catch (error) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            setDiscoveryError(error instanceof Error ? error.message : t('fleet.scanFailed', { defaultValue: 'Subnet scan failed.' }));
+            setDiscovering(false);
+            setHasScanned(true);
+            void api.stopSubnetScan().catch(() => {});
+          }
         }, 500);
       } else {
         // SSDP discovery
@@ -280,6 +302,12 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             {/* Discovery Section */}
             <View style={[styles.section, { borderBottomColor: colors.borderSubtle }]}>
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('fleet.customCIDR', { defaultValue: 'Scan custom CIDR (instead of SSDP)' })}</Text>
+                <Switch value={useCustomSubnet} onValueChange={setUseCustomSubnet} disabled={discovering} accessibilityLabel={t('fleet.customCIDR', { defaultValue: 'Scan custom CIDR (instead of SSDP)' })} />
+                {useCustomSubnet ? <TextInput value={customSubnet} onChangeText={setCustomSubnet} editable={!discovering} autoCapitalize="none" placeholder="192.168.1.0/24" style={[styles.input, { color: colors.text, borderColor: colors.border }]} /> : null}
+                {isDocker ? <Pressable disabled={discovering} onPress={() => { setIsDocker(false); setUseCustomSubnet(false); }}><Text style={{ color: colors.accent }}>{t('fleet.ssdp', { defaultValue: 'Use SSDP discovery instead' })}</Text></Pressable> : null}
+              </View>
               {detectedSubnets.length > 0 && (
                 <View style={styles.field}>
                   <Text style={[styles.label, { color: colors.textSecondary }]}>Subnet</Text>
@@ -335,7 +363,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                   <>
                     <Search size={16} color={colors.accent} />
                     <Text style={[styles.discoveryBtnText, { color: colors.text }]}>
-                      {isDocker ? 'Scan subnet' : 'Discover on network'}
+                      {isDocker || useCustomSubnet ? t('fleet.scanSubnet', { defaultValue: 'Scan subnet' }) : 'Discover on network'}
                     </Text>
                   </>
                 )}

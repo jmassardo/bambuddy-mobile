@@ -34,7 +34,8 @@ export const printersApi = {
       body: JSON.stringify(data),
     }),
 
-  deletePrinter: async (id: number) => request<void>(`/printers/${id}`, { method: 'DELETE' }),
+  deletePrinter: async (id: number, deleteArchives = true) =>
+    request<void>(`/printers/${id}?delete_archives=${deleteArchives}`, { method: 'DELETE' }),
 
   getPrinterStatus: async (id: number) =>
     request<PrinterStatus>(`/printers/${id}/status`),
@@ -45,7 +46,7 @@ export const printersApi = {
     }),
 
   connectPrinter: async (id: number) =>
-    request<void>(`/printers/${id}/connect`, { method: 'POST' }),
+    request<{ connected: boolean }>(`/printers/${id}/connect`, { method: 'POST' }),
 
   disconnectPrinter: async (id: number) =>
     request<void>(`/printers/${id}/disconnect`, { method: 'POST' }),
