@@ -385,6 +385,41 @@ it('queues, fails, retries, cancels and completes remote write jobs without conf
   expect(screen.getByText('Job: success')).toBeTruthy();
 });
 
+it('ends a matching physically written job when its inventory link fails and retries only the link', async () => {
+  mocks.inventoryMode.mockResolvedValue({ enabled: true });
+  const screen = await setup();
+  await fireEvent.press(screen.getByLabelText('#10 PLA'));
+  await fireEvent.press(screen.getByLabelText('Write tag on remote device'));
+  await confirm(screen);
+  const failure = {
+    spool_id: 10,
+    tag_uid: '04010203040506',
+    message: 'Spoolman link failed',
+  };
+  await event('spoolbuddy_tag_link_failed', {
+    ...failure,
+    device_id: 'reader-b',
+  });
+  await event('spoolbuddy_tag_link_failed', { ...failure, spool_id: 11 });
+  expect(screen.getByText('Job: queued')).toBeTruthy();
+  await event('spoolbuddy_tag_link_failed', failure);
+  expect(
+    screen.getByText(/Physical write succeeded; inventory link failed/),
+  ).toBeTruthy();
+  expect(screen.queryByLabelText('Cancel queued write')).toBeNull();
+  expect(screen.queryByLabelText('Retry remote write')).toBeNull();
+  expect(screen.getByLabelText('Restart daemon')).not.toBeDisabled();
+  await fireEvent.press(screen.getByLabelText('Retry inventory link'));
+  await confirm(screen);
+  expect(mocks.link).toHaveBeenCalledWith(true, 10, {
+    tag_uid: '04010203040506',
+  });
+  expect(mocks.write).toHaveBeenCalledTimes(1);
+  expect(
+    screen.getByText(/Job: success — Inventory link repaired/),
+  ).toBeTruthy();
+});
+
 it('offers replacement writing and inventory-only untag, and creates a spool before a separate write action', async () => {
   const screen = await setup();
   await fireEvent.press(screen.getByLabelText('Replace existing tag'));
@@ -587,19 +622,83 @@ it('polls tare acknowledgement and calibrates using the captured zero and valida
   );
 });
 
-it('recognizes daemon registration after update even when the offline interval was shorter than device polling', async () => {
+it('does not mistake periodic online presence during installation for update recovery', async () => {
   const screen = await setup();
   await fireEvent.press(screen.getByLabelText('Apply device update'));
   await confirm(screen);
   await event('spoolbuddy_update', { update_status: 'updating' });
-  mocks.devices.mockResolvedValue([
-    { ...device, firmware_version: '1.1', update_status: 'complete' },
-  ]);
   await event('spoolbuddy_online');
+  await event('spoolbuddy_online');
+  expect(
+    screen.queryByText(/Remote device reconnected after update/),
+  ).toBeNull();
+  expect(
+    screen.queryByText(/Update completed\. Remote device reports version/),
+  ).toBeNull();
+  expect(
+    screen.getByText(
+      /Waiting for remote reconnect; completion is not inferred from dispatch/,
+    ),
+  ).toBeTruthy();
+  expect(screen.getByLabelText('Apply device update')).toBeDisabled();
+});
+
+it('recognizes a genuine offline-online transition even between device polls', async () => {
+  const screen = await setup();
+  await fireEvent.press(screen.getByLabelText('Apply device update'));
+  await confirm(screen);
+  await event('spoolbuddy_update', { update_status: 'updating' });
+  await act(async () => {
+    publishSpoolBuddyEvent({
+      type: 'spoolbuddy_offline',
+      data: { device_id: 'reader-a' },
+    });
+    publishSpoolBuddyEvent({
+      type: 'spoolbuddy_online',
+      data: { device_id: 'reader-a' },
+    });
+  });
   expect(
     await screen.findByText(/Remote device reconnected after update/),
   ).toBeTruthy();
-  await screen.findByText(/Current: 1.1/);
+});
+
+it('requires completed update and the expected device version when no disconnect was observed', async () => {
+  const screen = await setup();
+  await fireEvent.press(screen.getByLabelText('Apply device update'));
+  await confirm(screen);
+  mocks.devices.mockResolvedValue([{ ...device, update_status: 'complete' }]);
+  await act(async () => {
+    await screen.client.invalidateQueries({ queryKey: ['spoolbuddyDevices'] });
+  });
+  await screen.findByText(/Current: 1.0[\s\S]*Update: complete/);
+  expect(
+    screen.queryByText(/Update completed\. Remote device reports version/),
+  ).toBeNull();
+  expect(
+    screen.getByText(
+      /Waiting for remote reconnect; completion is not inferred from dispatch/,
+    ),
+  ).toBeTruthy();
+  mocks.devices.mockResolvedValue([
+    { ...device, firmware_version: '1.1', update_status: 'complete' },
+  ]);
+  await act(async () => {
+    await screen.client.invalidateQueries({ queryKey: ['spoolbuddyDevices'] });
+  });
+  expect(
+    await screen.findByText(
+      'Update completed. Remote device reports version 1.1.',
+    ),
+  ).toBeTruthy();
+  expect(
+    screen.queryByText(/Remote device reconnected after update/),
+  ).toBeNull();
+  expect(
+    screen.queryByText(
+      /Waiting for remote reconnect; completion is not inferred from dispatch/,
+    ),
+  ).toBeNull();
 });
 
 it('blocks unsupported/offline hardware and permission-restricted operations', async () => {

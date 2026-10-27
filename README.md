@@ -156,12 +156,17 @@ the app's authenticated WebSocket connection and are isolated by device ID.
 Unknown tags can be linked or added with a captured scale weight. Remote NFC
 jobs write OpenTag3D data using the physical SpoolBuddy reader; phone NFC remains
 UID-only. Untag removes the inventory association, not the physical tag contents.
+If a physical write succeeds but its Spoolman link fails, the job ends with a
+distinct result; retry the inventory link without rewriting the NFC tag.
 
 Tare waits for the device's calibration timestamp to change, polling every second
 and timing out after 15 seconds. Known-weight calibration preserves the raw ADC
 zero before tare. Restart browser, restart daemon, reboot, shutdown and updates
 require explicit remote-device confirmation. A queued command is not proof of
 execution or recovery; inspect device status and reported update progress.
+Periodic online heartbeats are not update recovery. Recovery requires an observed
+offline-to-online transition, or a completed update with the expected device
+version verified from refreshed device state.
 
 Project **Batch Print**, **Slice**, and **Run Pipeline** actions first select an
 actual linked library file or project archive. Printing uses the shared configured

@@ -11,8 +11,9 @@ const empty: SpoolBuddyRemoteState = {
   tagState: 'waiting',
   spool: null,
   online: null,
-  onlineRevision: 0,
+  reconnectRevision: 0,
   writeSpoolId: null,
+  writeTagUid: null,
   writeStatus: 'idle',
   message: null,
   updateStatus: null,
@@ -136,7 +137,8 @@ export function publishSpoolBuddyEvent(message: {
       });
       break;
     case 'spoolbuddy_tag_written':
-    case 'spoolbuddy_tag_write_failed': {
+    case 'spoolbuddy_tag_write_failed':
+    case 'spoolbuddy_tag_link_failed': {
       const state = states.get(id);
       if (
         !state ||
@@ -146,7 +148,12 @@ export function publishSpoolBuddyEvent(message: {
         return;
       setSpoolBuddyState(id, {
         writeStatus:
-          message.type === 'spoolbuddy_tag_written' ? 'success' : 'error',
+          message.type === 'spoolbuddy_tag_written'
+            ? 'success'
+            : message.type === 'spoolbuddy_tag_link_failed'
+            ? 'link_failed'
+            : 'error',
+        writeTagUid: typeof data.tag_uid === 'string' ? data.tag_uid : null,
         message: typeof data.message === 'string' ? data.message : null,
       });
       break;
@@ -157,12 +164,15 @@ export function publishSpoolBuddyEvent(message: {
         message: typeof data.message === 'string' ? data.message : null,
       });
       break;
-    case 'spoolbuddy_online':
+    case 'spoolbuddy_online': {
+      const previous = getSpoolBuddyRemoteState(id);
       setSpoolBuddyState(id, {
         online: true,
-        onlineRevision: getSpoolBuddyRemoteState(id).onlineRevision + 1,
+        reconnectRevision:
+          previous.reconnectRevision + (previous.online === false ? 1 : 0),
       });
       break;
+    }
     case 'spoolbuddy_offline':
       setSpoolBuddyState(id, {
         online: false,

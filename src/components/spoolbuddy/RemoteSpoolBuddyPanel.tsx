@@ -257,29 +257,62 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
     }
     if (updateStatus === 'complete' || updateStatus === 'error')
       setUpdateQueued(false);
+    if (updateStatus === 'error') setUpdateReconnect(false);
   }, [updateStatus]);
   const observedOffline = React.useRef(false);
-  const updateOnlineBaseline = React.useRef(remote.onlineRevision);
+  const updateReconnectBaseline = React.useRef(remote.reconnectRevision);
+  const updateExpectedVersion = React.useRef<string | null>(null);
+  const updateStartedAt = React.useRef(0);
   React.useEffect(() => {
-    if (updateReconnect && !online) observedOffline.current = true;
-    if (
-      updateReconnect &&
-      ((online && observedOffline.current) ||
-        remote.onlineRevision > updateOnlineBaseline.current)
-    ) {
+    if (!updateReconnect) return;
+    if (!online) observedOffline.current = true;
+    const reconnected =
+      (online && observedOffline.current) ||
+      (remote.online === true &&
+        remote.reconnectRevision > updateReconnectBaseline.current);
+    const expectedVersion =
+      updateExpectedVersion.current ?? update.data?.latest_version;
+    const completionReportedAt =
+      remote.updateStatus === 'complete' ? remote.updateReportedAt ?? 0 : 0;
+    const completedAndVerified =
+      online &&
+      updateStatus === 'complete' &&
+      expectedVersion &&
+      device?.firmware_version === expectedVersion &&
+      devices.dataUpdatedAt >=
+        Math.max(updateStartedAt.current, completionReportedAt);
+    if (reconnected || completedAndVerified) {
       observedOffline.current = false;
-      updateOnlineBaseline.current = remote.onlineRevision;
+      updateReconnectBaseline.current = remote.reconnectRevision;
       setUpdateReconnect(false);
       setFeedback(
-        t('spoolbuddy.updateReconnected', {
-          defaultValue:
-            'Remote device reconnected after update. Verify the reported version below.',
-        }),
+        reconnected
+          ? t('spoolbuddy.updateReconnected', {
+              defaultValue:
+                'Remote device reconnected after update. Verify the reported version below.',
+            })
+          : t('spoolbuddy.updateVersionVerified', {
+              defaultValue:
+                'Update completed. Remote device reports version {{version}}.',
+              version: expectedVersion ?? '',
+            }),
       );
       void update.refetch();
       void devices.refetch();
     }
-  }, [online, updateReconnect, remote.onlineRevision, update, devices, t]);
+  }, [
+    online,
+    updateReconnect,
+    remote.online,
+    remote.reconnectRevision,
+    remote.updateStatus,
+    remote.updateReportedAt,
+    updateStatus,
+    device?.firmware_version,
+    update,
+    devices,
+    t,
+  ]);
   React.useEffect(() => {
     if (!updateQueued) return;
     const timer = setTimeout(() => {
@@ -308,6 +341,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
     setSpoolBuddyState(deviceId, {
       writeStatus: 'queued',
       writeSpoolId: spoolId,
+      writeTagUid: null,
       message: null,
     });
     try {
@@ -614,7 +648,13 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
         <Text accessibilityLiveRegion="polite" style={textStyle}>
           {t('spoolbuddy.jobStatus', {
             defaultValue: 'Job: {{status}}{{message}}',
-            status: tr(`job.${remote.writeStatus}`, remote.writeStatus),
+            status:
+              remote.writeStatus === 'link_failed'
+                ? tr(
+                    'physicalWriteLinkFailed',
+                    'Physical write succeeded; inventory link failed',
+                  )
+                : tr(`job.${remote.writeStatus}`, remote.writeStatus),
             message: remote.message ? ` — ${remote.message}` : '',
           })}
         </Text>
@@ -796,6 +836,41 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
             }
           />
         ) : null}
+        {remote.writeStatus === 'link_failed' &&
+        remote.writeSpoolId != null &&
+        remote.writeTagUid ? (
+          <PrimaryButton
+            label={tr('retryInventoryLink', 'Retry inventory link')}
+            disabled={!canEdit || locked || !modeQuery.isSuccess || !spoolman}
+            onPress={() => {
+              const spoolId = remote.writeSpoolId!;
+              const tagUid = remote.writeTagUid!;
+              confirm(
+                tr(
+                  'confirmRetryInventoryLink',
+                  'Retry the inventory link only?',
+                ),
+                t('spoolbuddy.retryInventoryLinkDetails', {
+                  defaultValue:
+                    'The physical NFC write succeeded. Link tag {{tag}} to spool #{{id}} without rewriting it.',
+                  tag: tagUid,
+                  id: spoolId,
+                }),
+                async () => {
+                  await spoolbuddyApi.link(true, spoolId, { tag_uid: tagUid });
+                  setSpoolBuddyState(deviceId, {
+                    writeStatus: 'success',
+                    message: tr(
+                      'inventoryLinkRepaired',
+                      'Inventory link repaired. The physical NFC tag was not rewritten.',
+                    ),
+                  });
+                  await refreshSpools();
+                },
+              );
+            }}
+          />
+        ) : null}
         {remote.writeStatus === 'error' && remote.writeSpoolId != null ? (
           <PrimaryButton
             label={tr('retryWrite', 'Retry remote write')}
@@ -967,7 +1042,9 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
             hasScale: reported(device?.has_scale),
             scaleOk: reported(device?.scale_ok),
             uptime: reported(device?.uptime_s),
-            lastSeen: device?.last_seen ? formatDateTime(device.last_seen) : reported(null),
+            lastSeen: device?.last_seen
+              ? formatDateTime(device.last_seen)
+              : reported(null),
             telemetry: device?.system_stats
               ? JSON.stringify(device.system_stats, null, 2)
               : reported(null),
@@ -1137,7 +1214,11 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                 'The server will SSH into this remote device, install its matching release and restart the daemon. The device may disconnect.',
               ),
               async () => {
-                updateOnlineBaseline.current = remote.onlineRevision;
+                observedOffline.current = false;
+                updateReconnectBaseline.current = remote.reconnectRevision;
+                updateExpectedVersion.current =
+                  update.data?.latest_version ?? null;
+                updateStartedAt.current = Date.now();
                 await spoolbuddyApi.update(deviceId);
                 setSpoolBuddyState(deviceId, {
                   updateStatus: null,

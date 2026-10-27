@@ -4726,9 +4726,10 @@ export interface SpoolBuddyRemoteState {
   tagState: 'waiting' | 'matched' | 'unknown' | 'removed' | 'error';
   spool: Partial<InventorySpool> | null;
   online: boolean | null;
-  onlineRevision: number;
+  reconnectRevision: number;
   writeSpoolId: number | null;
-  writeStatus: 'idle' | 'queued' | 'success' | 'error' | 'cancelled';
+  writeTagUid: string | null;
+  writeStatus: 'idle' | 'queued' | 'success' | 'error' | 'link_failed' | 'cancelled';
   message: string | null;
   updateStatus: string | null;
   updateMessage: string | null;
