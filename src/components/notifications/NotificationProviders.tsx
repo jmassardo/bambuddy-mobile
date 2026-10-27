@@ -11,7 +11,7 @@ import { useTheme } from '@/theme';
 import { borderRadius, spacing } from '@/theme/tokens';
 import type { NotificationProvider, NotificationProviderCreate } from '@/types/api';
 import {
-  buildProviderPayload, defaultConfigForKind, emptyProviderForm, formFromProvider,
+  buildProviderPayload, changeProviderKind, emptyProviderForm, formFromProvider,
   PROVIDER_OPTIONS, validateProviderForm,
 } from '@/utils/notificationProvider';
 import { NotificationToggle, ProviderConfigFields, ProviderDeliveryFields } from './ProviderEditorFields';
@@ -118,10 +118,7 @@ export function NotificationProviders() {
                 {PROVIDER_OPTIONS.map(option => <Button key={option.key} title={t(`notifications.provider.${option.key}`, { defaultValue: option.label })} size="sm"
                   variant={form.kind === option.key ? 'primary' : 'secondary'} onPress={() => {
                     draftTest.reset();
-                    setForm(current => ({
-                      ...current, kind: option.key,
-                      config: { ...defaultConfigForKind(option.key), ...current.config },
-                    }));
+                    setForm(current => changeProviderKind(current, option.key));
                   }} />)}
               </View>
               <NotificationToggle label={t('common.enabled', { defaultValue: 'Enabled' })} value={form.enabled}

@@ -10,7 +10,7 @@ import NotificationsScreen from '@/screens/NotificationsScreen';
 import { settingsApi } from '@/api/settings';
 import { notificationsApi } from '@/api/notifications';
 import { api } from '@/api/client';
-import { buildProviderPayload, emptyProviderForm } from '@/utils/notificationProvider';
+import { buildProviderPayload, emptyProviderForm, PROVIDER_EVENTS } from '@/utils/notificationProvider';
 import type { NotificationProvider } from '@/types/api';
 
 let mockPermissions = true;
@@ -169,6 +169,56 @@ it('does not save invalid Home Assistant JSON, and retains the draft on delivery
   await fireEvent.press(ui.getByText('Test draft without saving'));
   expect(await ui.findByText('Network failed')).toBeTruthy();
   expect(ui.getByLabelText('Custom service data (JSON object)').props.value).toBe('{"priority":"high"}');
+});
+
+it('keeps transport drafts and original unknown config isolated when switching provider families', async () => {
+  const initial = {
+    ...buildProviderPayload(emptyProviderForm('ntfy')), id: 8, name: 'Alerts', enabled: true,
+    config: { server: 'https://ntfy.sh', topic: 'farm', auth_token: 'ntfy-secret', future: { retained: true } },
+  } as unknown as NotificationProvider;
+  settings.getNotificationProviders.mockResolvedValue([initial] as never);
+  const ui = await renderWithClient(<NotificationProviders />);
+  await fireEvent.press(await ui.findByText('Edit'));
+  await fireEvent.changeText(ui.getByLabelText('Server URL'), 'https://private.ntfy.example');
+  await fireEvent.press(ui.getByText('Bark'));
+  expect(ui.getByLabelText('Server URL').props.value).toBe('https://api.day.app');
+  await fireEvent.changeText(ui.getByLabelText('Device key *'), 'bark-device');
+  await fireEvent.changeText(ui.getByLabelText('Server URL'), 'https://private.bark.example');
+  await fireEvent.press(ui.getByText('ntfy'));
+  expect(ui.getByLabelText('Server URL').props.value).toBe('https://private.ntfy.example');
+  expect(ui.getByLabelText('Topic *').props.value).toBe('farm');
+  await fireEvent.press(ui.getByText('Test draft without saving'));
+  await waitFor(() => expect(notifications.testDraft).toHaveBeenLastCalledWith({
+    provider_type: 'ntfy', attach_photo: true,
+    config: expect.objectContaining({ future: { retained: true }, auth_token: 'ntfy-secret' }),
+  }, expect.anything()));
+  await fireEvent.press(ui.getByText('Bark'));
+  expect(ui.getByLabelText('Server URL').props.value).toBe('https://private.bark.example');
+  expect(ui.getByLabelText('Device key *').props.value).toBe('bark-device');
+  await fireEvent.press(ui.getByText('Save'));
+  await waitFor(() => expect(settings.updateNotificationProvider).toHaveBeenCalledWith(8, expect.objectContaining({
+    provider_type: 'bark', config: expect.objectContaining({ server: 'https://private.bark.example', device_key: 'bark-device' }),
+  })));
+  const payload = settings.updateNotificationProvider.mock.calls[0][1];
+  expect(payload.config).not.toHaveProperty('future');
+  expect(payload.config).not.toHaveProperty('auth_token');
+  expect(payload.config).not.toHaveProperty('topic');
+});
+
+it('edits the effective priority of a stored bare ntfy alias instead of retaining a shadowing old value', async () => {
+  const initial = {
+    ...buildProviderPayload(emptyProviderForm('ntfy')), id: 8, name: 'Alerts', enabled: true,
+    ...Object.fromEntries(PROVIDER_EVENTS.map(([key]) => [key, key === 'on_print_failed'])),
+    config: { topic: 'farm', event_priorities: { print_failed: 5, future_event: 2 } },
+  } as unknown as NotificationProvider;
+  settings.getNotificationProviders.mockResolvedValue([initial] as never);
+  const ui = await renderWithClient(<NotificationProviders />);
+  await fireEvent.press(await ui.findByText('Edit'));
+  await fireEvent.press(ui.getByRole('button', { name: '1' }));
+  await fireEvent.press(ui.getByText('Save'));
+  await waitFor(() => expect(settings.updateNotificationProvider).toHaveBeenCalledWith(8, expect.objectContaining({
+    config: expect.objectContaining({ event_priorities: { on_print_failed: 1, future_event: 2 } }),
+  })));
 });
 
 it.each([

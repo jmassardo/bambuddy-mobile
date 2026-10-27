@@ -108,12 +108,18 @@ export const PROVIDER_EVENTS = [
   ['on_app_message', 'Connected app message', false],
 ] as const;
 export type ProviderEvent = typeof PROVIDER_EVENTS[number][0];
+type ProviderTransportDraft = {
+  config: Record<string, string>;
+  originalConfig: Record<string, unknown>;
+  eventPriorities: Record<string, number>;
+};
 export type ProviderFormState = {
   name: string;
   enabled: boolean;
   kind: ProviderKind;
   config: Record<string, string>;
   originalConfig: Record<string, unknown>;
+  transportDrafts: Partial<Record<ProviderKind, ProviderTransportDraft>>;
   events: Record<ProviderEvent, boolean>;
   eventPriorities: Record<string, number>;
   attach_photo: boolean;
@@ -132,13 +138,39 @@ export function defaultConfigForKind(kind: ProviderKind): Record<string, string>
 
 export function emptyProviderForm(kind: ProviderKind = 'email'): ProviderFormState {
   return {
-    name: '', enabled: true, kind, config: defaultConfigForKind(kind), originalConfig: {},
+    name: '', enabled: true, kind, config: defaultConfigForKind(kind), originalConfig: {}, transportDrafts: {},
     events: Object.fromEntries(PROVIDER_EVENTS.map(([key, , value]) => [key, value])) as Record<ProviderEvent, boolean>,
     eventPriorities: {}, attach_photo: true,
     quiet_hours_enabled: false, quiet_hours_start: '22:00', quiet_hours_end: '08:00',
     daily_digest_enabled: false, daily_digest_time: '09:00', printer_id: null,
     telegram_verdict_mode: 'buttons',
   };
+}
+
+export function changeProviderKind(form: ProviderFormState, kind: ProviderKind): ProviderFormState {
+  if (kind === form.kind) return form;
+  const transportDrafts = {
+    ...form.transportDrafts,
+    [form.kind]: { config: form.config, originalConfig: form.originalConfig, eventPriorities: form.eventPriorities },
+  };
+  const transport = transportDrafts[kind] ?? { config: defaultConfigForKind(kind), originalConfig: {}, eventPriorities: {} };
+  return {
+    ...form, kind, transportDrafts, config: { ...transport.config },
+    originalConfig: { ...transport.originalConfig }, eventPriorities: { ...transport.eventPriorities },
+  };
+}
+
+function normalizeEventPriorities(priorities: Record<string, number>, preferBare: boolean): Record<string, number> {
+  const normalized = { ...priorities };
+  for (const [key] of PROVIDER_EVENTS) {
+    const bare = key.slice(3);
+    // Match the sender's bare-key precedence on load; edited canonical keys win on save.
+    const priority = preferBare ? priorities[bare] ?? priorities[key] : priorities[key] ?? priorities[bare];
+    delete normalized[bare];
+    if (priority != null) normalized[key] = priority;
+    else delete normalized[key];
+  }
+  return normalized;
 }
 
 export function kindFromProvider(provider: NotificationProvider): ProviderKind {
@@ -161,7 +193,7 @@ export function formFromProvider(provider: NotificationProvider): ProviderFormSt
     },
     events: Object.fromEntries(PROVIDER_EVENTS.map(([key, , fallback]) => [key, source[key] ?? fallback])) as Record<ProviderEvent, boolean>,
     eventPriorities: typeof provider.config.event_priorities === 'object' && provider.config.event_priorities !== null
-      ? { ...provider.config.event_priorities as Record<string, number> } : {},
+      ? normalizeEventPriorities(provider.config.event_priorities as Record<string, number>, true) : {},
     attach_photo: provider.attach_photo ?? true,
     quiet_hours_enabled: provider.quiet_hours_enabled,
     quiet_hours_start: provider.quiet_hours_start ?? '22:00',
@@ -203,7 +235,7 @@ export function buildProviderPayload(form: ProviderFormState): NotificationProvi
     config.retry = Number(form.config.retry || 60);
     config.expire = Number(form.config.expire || 3600);
   }
-  if (form.kind === 'ntfy') config.event_priorities = { ...form.eventPriorities };
+  if (form.kind === 'ntfy') config.event_priorities = normalizeEventPriorities(form.eventPriorities, false);
   return {
     name: form.name.trim(), enabled: form.enabled, provider_type: providerType, config,
     ...form.events, attach_photo: form.attach_photo,

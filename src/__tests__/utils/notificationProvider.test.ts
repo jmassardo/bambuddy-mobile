@@ -1,6 +1,6 @@
 import type { NotificationProvider } from '@/types/api';
 import {
-  buildProviderPayload, emptyProviderForm, formFromProvider, PROVIDER_EVENTS, validateProviderForm,
+  buildProviderPayload, changeProviderKind, emptyProviderForm, formFromProvider, PROVIDER_EVENTS, validateProviderForm,
 } from '@/utils/notificationProvider';
 
 function provider(overrides: Partial<NotificationProvider> = {}): NotificationProvider {
@@ -47,6 +47,21 @@ describe('notification provider editing and serialization', () => {
     expect(validateProviderForm(form)).toMatch(/not supported/);
   });
 
+  it('does not move another family’s unknown priority configuration into a newly selected ntfy transport', () => {
+    const form = formFromProvider(provider({
+      provider_type: 'webhook',
+      config: { webhook_url: 'https://hooks.example', event_priorities: { custom_event: 4 }, future: { value: true } },
+    }));
+    const ntfy = changeProviderKind(form, 'ntfy');
+    expect(ntfy.eventPriorities).toEqual({});
+    expect(buildProviderPayload(ntfy).config).not.toHaveProperty('future');
+    expect(buildProviderPayload(ntfy).config).not.toHaveProperty('webhook_url');
+    const restored = changeProviderKind(ntfy, 'generic_webhook');
+    expect(buildProviderPayload(restored).config).toMatchObject({
+      event_priorities: { custom_event: 4 }, future: { value: true }, webhook_url: 'https://hooks.example',
+    });
+  });
+
   it('preserves every event and printer scope while changing credentials, independently of personal email', () => {
     const events = Object.fromEntries(PROVIDER_EVENTS.map(([key], index) => [key, index % 2 === 0]));
     const form = formFromProvider(provider({ ...events, printer_id: 42 }));
@@ -82,6 +97,21 @@ describe('notification provider editing and serialization', () => {
     form.quiet_hours_start = '00:00';
     form.eventPriorities.on_print_complete = 6;
     expect(validateProviderForm(form)).toMatch(/priorities/);
+  });
+
+  it('loads bare ntfy aliases with sender precedence, then saves edited canonical priorities without stale aliases', () => {
+    const form = formFromProvider(provider({
+      config: {
+        topic: 'farm',
+        event_priorities: { print_failed: 5, on_print_failed: 2, print_complete: 4, future_event: 1, on_future_event: 3 },
+      },
+    }));
+    expect(form.eventPriorities).toEqual({ on_print_failed: 5, on_print_complete: 4, future_event: 1, on_future_event: 3 });
+    form.eventPriorities.on_print_failed = 1;
+    form.eventPriorities.print_failed = 5;
+    expect(buildProviderPayload(form).config.event_priorities).toEqual({
+      on_print_failed: 1, on_print_complete: 4, future_event: 1, on_future_event: 3,
+    });
   });
 
   it('validates HA JSON objects, plain Telegram topic integers, and emergency required parameters', () => {
