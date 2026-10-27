@@ -26,7 +26,7 @@ declare module 'react-native-webview' {
     allowsLinkPreview?: boolean;
     onOpenWindow?: () => void;
     onFileDownload?: () => void;
-    onError?: () => void;
+    onError?: (event: { nativeEvent: { description: string } }) => void;
     onHttpError?: (event: { nativeEvent?: { statusCode?: number } }) => void;
     onContentProcessDidTerminate?: () => void;
     onNavigationStateChange?: (navigation: { url: string }) => void;
