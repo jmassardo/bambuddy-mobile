@@ -29,6 +29,7 @@ import {
 } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { SliceModal } from '@/components/files/SliceModal';
+import { RunWithPipelineModal } from '@/components/slicing/RunWithPipelineModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { useToast } from '@/contexts/ToastContext';
 import { useArchiveFiltersStore } from '@/store/archiveFiltersStore';
@@ -53,6 +54,7 @@ import { ArchiveDeleteDialog, ArchiveIngestionPanel, ArchivePhotoGallery, Confir
 import { browseArchives } from '@/utils/archiveWorkflows';
 import { useTranslation } from '@/i18n';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMediaToken } from '@/hooks/useStreamToken';
 import { PrintModal } from '@/components/printers/PrintModal';
 
 type ArchiveViewMode = 'list' | 'grid';
@@ -147,11 +149,13 @@ export default function ArchivesScreen() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const { token: mediaToken } = useMediaToken();
   const { user, hasPermission } = useAuth();
   const [browse, setBrowse] = useState(initialBrowseOptions);
   const [batchIds, setBatchIds] = useState<number[]>([]);
   const [deletingIds, setDeletingIds] = useState<number[]>([]);
   const [launchId, setLaunchId] = useState<number | null>(null);
+  const [pipelineArchive, setPipelineArchive] = useState<Archive | null>(null);
   const [outcomeId, setOutcomeId] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
@@ -252,7 +256,7 @@ export default function ArchivesScreen() {
       return { previous };
     },
     onSuccess: updated => {
-      queryClient.setQueryData<Archive[]>(['archives'], current => current?.map(item => item.id === updated.id ? updated : item));
+      queryClient.setQueryData<Archive[]>(['archives'], current => current?.map(item => item.id === updated.id ? { ...item, is_favorite: updated.is_favorite } : item));
       showToast(t('archives.favoriteUpdated', { defaultValue: 'Favorite updated.' }), 'success');
     },
     onError: (error: Error, _id, context) => {
@@ -444,6 +448,7 @@ export default function ArchivesScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}> 
       <FlatList
+        extraData={mediaToken}
         key={viewMode}
         data={filteredArchives.slice(page * pageSize, (page + 1) * pageSize)}
         keyExtractor={item => String(item.id)}
@@ -465,6 +470,7 @@ export default function ArchivesScreen() {
               }}
               onReprint={() => setLaunchId(item.id)}
               onFavorite={canUpdate(item) ? () => favoriteMutation.mutate(item.id) : undefined}
+              onPipeline={hasPermission('pipelines:run') ? () => setPipelineArchive(item) : undefined}
               onOutcome={canUpdate(item) && item.status === 'completed' && item.confirm_requested && item.user_verdict == null ? () => setOutcomeId(item.id) : undefined}
               onTimelapse={() => {
                 if (!item.timelapse_path) {
@@ -694,6 +700,7 @@ export default function ArchivesScreen() {
       {deletingIds.length ? <ArchiveDeleteDialog archives={archives.filter(item => deletingIds.includes(item.id) && canDelete(item))} onClose={() => setDeletingIds([])} onDeleted={() => setSelectedIds([])} /> : null}
       {launchId !== null ? <PrintModal visible onClose={() => setLaunchId(null)} {...{ initialArchiveId: launchId, initialMode: 'asap' as const }} /> : null}
       {outcomeId !== null ? <ConfirmOutcomeDialog archiveId={outcomeId} onClose={() => setOutcomeId(null)} onReprint={setLaunchId} /> : null}
+      {pipelineArchive ? <RunWithPipelineModal visible onClose={() => setPipelineArchive(null)} sourceType="archive" sourceId={pipelineArchive.id} sourceName={pipelineArchive.print_name || pipelineArchive.filename} /> : null}
 
       <SimpleModal
         visible={showExportModal}

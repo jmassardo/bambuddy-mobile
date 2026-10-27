@@ -263,7 +263,7 @@ export function EditArchiveModal({
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!archive) throw new Error('Archive unavailable');
-      const quantities = validateArchiveQuantities(quantity, filamentGrams);
+      const quantities = validateArchiveQuantities(quantity, filamentGrams, t);
       return api.updateArchive(archive.id, {
         print_name: printName.trim() || null,
         printer_id: printerId,

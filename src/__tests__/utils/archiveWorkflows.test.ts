@@ -2,6 +2,7 @@ import {
   browseArchives,
   mergeArchiveTags,
   validateArchiveQuantities,
+  isIsoArchiveDay,
 } from '@/utils/archiveWorkflows';
 import { timelapseRange } from '@/utils/timelapseEditor';
 import type { Archive } from '@/types/api';
@@ -32,6 +33,17 @@ const archive = (patch: Partial<Archive>) =>
   } as Archive);
 
 describe('archive collection workflows', () => {
+  it('accepts exact calendar bounds and rejects incomplete or impossible dates', () => {
+    expect(isIsoArchiveDay('2024-02-29')).toBe(true);
+    for (const date of [
+      '2',
+      '2026-1',
+      '2026-02-29',
+      '2026-02-31',
+      '0000-01-01',
+    ])
+      expect(isIsoArchiveDay(date)).toBe(false);
+  });
   it('adds and removes tags without destroying unrelated tags on different archives', () => {
     expect(mergeArchiveTags('customer, PLA', 'new,PLA', 'add')).toBe(
       'customer, PLA, new',

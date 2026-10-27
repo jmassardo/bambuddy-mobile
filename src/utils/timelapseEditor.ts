@@ -1,8 +1,11 @@
+import type { Translate } from '@/i18n';
+
 export function timelapseRange(
   start: string,
   end: string,
   duration: number,
   speed: number,
+  t?: Translate,
 ) {
   const trimStart = Number(start);
   const trimEnd = Number(end);
@@ -14,11 +17,18 @@ export function timelapseRange(
     trimEnd > duration
   ) {
     throw new Error(
-      'Choose a start and end within the video, with end after start.',
+      t?.('archives.invalidTrim', {
+        defaultValue:
+          'Choose a start and end within the video, with end after start.',
+      }) ?? 'Choose a start and end within the video, with end after start.',
     );
   }
-  if (speed < 0.25 || speed > 4)
-    throw new Error('Speed must be between 0.25 and 4.');
+  if (!Number.isFinite(speed) || speed < 0.25 || speed > 4)
+    throw new Error(
+      t?.('archives.invalidSpeed', {
+        defaultValue: 'Speed must be between 0.25 and 4.',
+      }) ?? 'Speed must be between 0.25 and 4.',
+    );
   return {
     trimStart,
     trimEnd,

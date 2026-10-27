@@ -6,8 +6,16 @@ import {
   ArchiveDeleteDialog,
   ArchiveIngestionPanel,
   ConfirmOutcomeDialog,
+  ArchivePhotoGallery,
 } from '@/components/archives/ArchiveWorkflowUI';
-import { ArchiveBatchDialog } from '@/components/archives/ArchiveBrowseControls';
+import {
+  ArchiveBatchDialog,
+  ArchiveTagCatalog,
+} from '@/components/archives/ArchiveBrowseControls';
+import {
+  ArchiveDetailTools,
+  EmbeddedArchiveProjectPage,
+} from '@/components/archives/ArchiveDetailTools';
 import { EditArchiveModal } from '@/components/archives/EditArchiveModal';
 import { archiveWorkflows } from '@/api/archiveWorkflows';
 import { api } from '@/api/client';
@@ -35,6 +43,12 @@ jest.mock('@react-native-documents/picker', () => ({
   isErrorWithCode: () => false,
   errorCodes: { OPERATION_CANCELED: 'cancelled' },
 }));
+jest.mock('react-native-webview', () => ({
+  WebView: require('react-native').View,
+}));
+jest.mock('@react-native-clipboard/clipboard', () => ({
+  setString: jest.fn(),
+}));
 jest.mock('@/api/client', () => ({
   api: {
     getArchive: jest.fn(),
@@ -57,6 +71,13 @@ jest.mock('@/api/archiveWorkflows', () => ({
     acceptAll: jest.fn(),
     discardAll: jest.fn(),
     favorite: jest.fn(),
+    renameTag: jest.fn(),
+    deleteTag: jest.fn(),
+    attach: jest.fn(),
+    plates: jest.fn(),
+    folders: jest.fn(),
+    projectPage: jest.fn(),
+    saveProjectPage: jest.fn(),
   },
 }));
 
@@ -96,6 +117,8 @@ beforeEach(() => {
   jest.mocked(api.getPrinters).mockResolvedValue([]);
   jest.mocked(api.getTags).mockResolvedValue([]);
   jest.mocked(archiveWorkflows.pending).mockResolvedValue([]);
+  jest.mocked(archiveWorkflows.plates).mockResolvedValue({ plates: [] });
+  jest.mocked(archiveWorkflows.folders).mockResolvedValue([]);
   jest.mocked(archiveWorkflows.discardAll).mockResolvedValue({ discarded: 1 });
   jest
     .mocked(archiveWorkflows.impact)
@@ -172,17 +195,15 @@ it('shows deletion impact, preserves statistics by default and blocks printing a
 });
 
 it('submits pending metadata only upon acceptance and refreshes the staging query', async () => {
-  jest
-    .mocked(archiveWorkflows.pending)
-    .mockResolvedValue([
-      {
-        id: 4,
-        filename: 'incoming.3mf',
-        uploaded_at: '2026-10-27',
-        tags: 'original',
-        notes: 'old note',
-      },
-    ]);
+  jest.mocked(archiveWorkflows.pending).mockResolvedValue([
+    {
+      id: 4,
+      filename: 'incoming.3mf',
+      uploaded_at: '2026-10-27',
+      tags: 'original',
+      notes: 'old note',
+    },
+  ]);
   const result = await wrap(<ArchiveIngestionPanel />);
   await waitFor(() => expect(result.getByText('incoming.3mf')).toBeTruthy());
   await fireEvent.press(result.getByText('Tags, notes and project'));
@@ -330,4 +351,93 @@ it('changes or clears a completed quality verdict without changing its machine s
       }),
     ),
   );
+});
+
+it('navigates through actual gallery photos rather than filenames alone', async () => {
+  const result = await wrap(
+    <ArchivePhotoGallery
+      archive={{ ...sample, photos: ['first.jpg', 'second.jpg'] }}
+      onClose={jest.fn()}
+    />,
+  );
+  expect(result.getByLabelText('first.jpg')).toBeTruthy();
+  await fireEvent.press(result.getByText('Next'));
+  expect(result.getByLabelText('second.jpg')).toBeTruthy();
+  await fireEvent.press(result.getByText('Previous'));
+  expect(result.getByLabelText('first.jpg')).toBeTruthy();
+});
+
+it('renames catalog tags globally and reports affected archives', async () => {
+  jest.mocked(api.getTags).mockResolvedValue([{ name: 'old', count: 4 }]);
+  jest.mocked(archiveWorkflows.renameTag).mockResolvedValue({ affected: 4 });
+  const result = await wrap(<ArchiveTagCatalog onClose={jest.fn()} />);
+  await waitFor(() => expect(result.getByText('old (4)')).toBeTruthy());
+  await fireEvent.press(result.getByText('Edit'));
+  await fireEvent.changeText(result.getByLabelText('New tag name'), 'new');
+  await fireEvent.press(result.getByText('Save'));
+  await waitFor(() =>
+    expect(archiveWorkflows.renameTag).toHaveBeenCalledWith('old', 'new'),
+  );
+  await waitFor(() =>
+    expect(mockToast).toHaveBeenCalledWith('4 archives updated', 'success'),
+  );
+});
+
+it('uploads a real picked source document without replacing the sliced archive', async () => {
+  jest
+    .mocked(pick)
+    .mockResolvedValue([
+      {
+        uri: 'file:///design.3mf',
+        name: 'design.3mf',
+        type: 'application/octet-stream',
+      },
+    ] as unknown as Awaited<ReturnType<typeof pick>>);
+  const result = await wrap(
+    <ArchiveDetailTools
+      archive={sample}
+      onOutcome={jest.fn()}
+      onProjectPage={jest.fn()}
+      onNavigate={jest.fn()}
+    />,
+  );
+  await fireEvent.press(result.getByText('Attach source'));
+  await waitFor(() =>
+    expect(archiveWorkflows.attach).toHaveBeenCalledWith(9, 'source', {
+      uri: 'file:///design.3mf',
+      name: 'design.3mf',
+      type: 'application/octet-stream',
+    }),
+  );
+  expect(api.uploadArchive).not.toHaveBeenCalled();
+});
+
+it('persists embedded project metadata while retaining rich descriptions and ignoring response-only fields', async () => {
+  jest
+    .mocked(archiveWorkflows.projectPage)
+    .mockResolvedValue({
+      title: 'Embedded',
+      description: '<p><strong>Rich text</strong></p>',
+      profile_description: '<p>Profile</p>',
+      model_pictures: [],
+    });
+  const result = await wrap(
+    <EmbeddedArchiveProjectPage archive={sample} onClose={jest.fn()} />,
+  );
+  await waitFor(() => expect(result.getByText('Embedded')).toBeTruthy());
+  await fireEvent.press(result.getByText('Edit'));
+  await fireEvent.changeText(result.getByLabelText('title'), 'Revised');
+  await fireEvent.press(result.getByText('Save'));
+  await waitFor(() =>
+    expect(archiveWorkflows.saveProjectPage).toHaveBeenCalledWith(
+      9,
+      expect.objectContaining({
+        title: 'Revised',
+        description: '<p><strong>Rich text</strong></p>',
+      }),
+    ),
+  );
+  expect(
+    jest.mocked(archiveWorkflows.saveProjectPage).mock.calls[0][1],
+  ).not.toHaveProperty('model_pictures');
 });

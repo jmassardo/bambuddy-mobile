@@ -1,4 +1,5 @@
 import type { Archive } from '@/types/api';
+import type { Translate } from '@/i18n';
 import { parseServerDate } from '@/utils/preferences';
 
 export function mergeArchiveTags(
@@ -162,7 +163,11 @@ export function localArchiveDay(date: Date) {
   )}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-export function validateArchiveQuantities(quantity: string, grams: string) {
+export function validateArchiveQuantities(
+  quantity: string,
+  grams: string,
+  t?: Translate,
+) {
   const count = Number(quantity);
   const filament = grams.trim() === '' ? null : Number(grams);
   if (
@@ -171,13 +176,30 @@ export function validateArchiveQuantities(quantity: string, grams: string) {
     count < 0 ||
     count > 10000
   )
-    throw new Error('Quantity must be a whole number from 0 to 10,000.');
+    throw new Error(
+      t?.('archives.invalidQuantity', {
+        defaultValue: 'Quantity must be a whole number from 0 to 10,000.',
+      }) ?? 'Quantity must be a whole number from 0 to 10,000.',
+    );
   if (
     filament !== null &&
     (!Number.isFinite(filament) || filament < 0 || filament > 100000)
   )
     throw new Error(
-      'Filament must be from 0 to 100,000 grams, or empty to clear.',
+      t?.('archives.invalidFilament', {
+        defaultValue:
+          'Filament must be from 0 to 100,000 grams, or empty to clear.',
+      }) ?? 'Filament must be from 0 to 100,000 grams, or empty to clear.',
     );
   return { quantity: count, filament_used_grams: filament };
+}
+
+export function isIsoArchiveDay(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number(value.slice(0, 4)) < 1)
+    return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return (
+    Number.isFinite(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
 }

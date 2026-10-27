@@ -45,7 +45,7 @@ export function ArchiveBrowseControls({
   options: ArchiveBrowseOptions;
   onChange: (options: ArchiveBrowseOptions) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { colors } = useTheme();
   const [calendar, setCalendar] = useState(false);
   const [month, setMonth] = useState(
@@ -235,7 +235,7 @@ export function ArchiveBrowseControls({
               }
             />
             <Text style={{ color: colors.text }}>
-              {month.toLocaleDateString(undefined, {
+              {month.toLocaleDateString(language, {
                 month: 'long',
                 year: 'numeric',
               })}
@@ -329,7 +329,11 @@ export function ArchiveBatchDialog({
         if (operation.type === 'favorite') {
           const updated = await archiveWorkflows.favorite(archive.id);
           queryClient.setQueryData<Archive[]>(['archives'], current =>
-            current?.map(item => (item.id === updated.id ? updated : item)),
+            current?.map(item =>
+              item.id === updated.id
+                ? { ...item, is_favorite: updated.is_favorite }
+                : item,
+            ),
           );
         } else
           await api.updateArchive(

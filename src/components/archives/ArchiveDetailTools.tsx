@@ -51,7 +51,15 @@ export function EmbeddedArchiveProjectPage({
     if (query.data) setDraft(query.data);
   }, [query.data]);
   const save = useMutation({
-    mutationFn: () => archiveWorkflows.saveProjectPage(archive.id, draft),
+    mutationFn: () =>
+      archiveWorkflows.saveProjectPage(archive.id, {
+        title: draft.title,
+        designer: draft.designer,
+        license: draft.license,
+        description: draft.description,
+        profile_title: draft.profile_title,
+        profile_description: draft.profile_description,
+      }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ['archiveProjectPage', archive.id],
@@ -247,6 +255,8 @@ export function ArchiveDetailTools({
           : kind === 'f3d'
           ? ['.f3d']
           : ['.mp4', '.avi', '.mkv'],
+        false,
+        t,
       );
       if (file) await archiveWorkflows.attach(archive.id, kind, file);
     });

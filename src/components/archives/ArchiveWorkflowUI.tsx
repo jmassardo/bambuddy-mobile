@@ -20,7 +20,8 @@ import { archiveWorkflows } from '@/api/archiveWorkflows';
 import { requestBlob, type UploadableFile } from '@/api/http';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+import { useTranslation, type Translate } from '@/i18n';
+import { useMediaToken } from '@/hooks/useStreamToken';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import {
@@ -45,6 +46,7 @@ const Chip = WorkflowChip;
 export async function pickArchiveDocuments(
   extensions: string[],
   multiple = false,
+  t?: Translate,
 ): Promise<UploadableFile[]> {
   try {
     const files = await pick({
@@ -57,7 +59,11 @@ export async function pickArchiveDocuments(
         !extensions.some(extension => name.toLowerCase().endsWith(extension))
       ) {
         throw new Error(
-          `Unsupported file: ${name}. Choose ${extensions.join(', ')}.`,
+          t?.('archives.unsupportedFile', {
+            defaultValue: 'Unsupported file: {{name}}. Choose {{extensions}}.',
+            name,
+            extensions: extensions.join(', '),
+          }) ?? `Unsupported file: ${name}. Choose ${extensions.join(', ')}.`,
         );
       }
       return {
@@ -133,6 +139,7 @@ export function ConfirmOutcomeDialog({
   onReprint: (archiveId: number) => void;
 }) {
   const { t } = useTranslation();
+  const media = useMediaToken();
   const { colors } = useTheme();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -175,6 +182,7 @@ export function ConfirmOutcomeDialog({
       </Text>
       {archive ? (
         <Image
+          key={media.token ?? 'public'}
           source={{
             uri: archive.photos?.[0]
               ? api.getArchivePhotoUrl(archiveId, archive.photos[0])
@@ -460,7 +468,7 @@ export function ArchiveIngestionPanel() {
   };
   const mutation = useMutation({
     mutationFn: async () => {
-      const files = await pickArchiveDocuments(['.3mf'], true);
+      const files = await pickArchiveDocuments(['.3mf'], true, t);
       setResults([]);
       for (const file of files) {
         try {
@@ -590,6 +598,7 @@ export function ArchivePhotoGallery({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const media = useMediaToken();
   const { showToast } = useToast();
   const [index, setIndex] = useState(
     Math.max(0, archive.photos?.indexOf(initialPhoto ?? '') ?? 0),
@@ -622,6 +631,7 @@ export function ArchivePhotoGallery({
     >
       {photo ? (
         <Image
+          key={`${photo}-${media.token ?? 'public'}`}
           source={{ uri: api.getArchivePhotoUrl(archive.id, photo) }}
           style={styles.photo}
           resizeMode="contain"

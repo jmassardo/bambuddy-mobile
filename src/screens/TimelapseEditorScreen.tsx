@@ -74,7 +74,7 @@ export default function TimelapseEditorScreen() {
   const range = useMemo(() => {
     try {
       return {
-        value: timelapseRange(start, end, info.data?.duration ?? 0, speed),
+        value: timelapseRange(start, end, info.data?.duration ?? 0, speed, t),
         error: null,
       };
     } catch (error) {
@@ -83,7 +83,7 @@ export default function TimelapseEditorScreen() {
         error: error instanceof Error ? error.message : String(error),
       };
     }
-  }, [start, end, info.data?.duration, speed]);
+  }, [start, end, info.data?.duration, speed, t]);
   const preview = useMemo(() => {
     if (!isReady || !range.value) return null;
     return timelapsePreviewHtml({
@@ -112,13 +112,11 @@ export default function TimelapseEditorScreen() {
   ]);
   const chooseAudio = useMutation({
     mutationFn: async () => {
-      const [file] = await pickArchiveDocuments([
-        '.mp3',
-        '.wav',
-        '.m4a',
-        '.aac',
-        '.ogg',
-      ]);
+      const [file] = await pickArchiveDocuments(
+        ['.mp3', '.wav', '.m4a', '.aac', '.ogg'],
+        false,
+        t,
+      );
       if (!file) return;
       const response = await fetch(file.uri);
       const previewData = await blobToDataUrl(await response.blob());
@@ -130,7 +128,13 @@ export default function TimelapseEditorScreen() {
   });
   const process = useMutation({
     mutationFn: async () => {
-      if (!range.value) throw new Error(range.error ?? 'Invalid trim range');
+      if (!range.value)
+        throw new Error(
+          range.error ??
+            t('archives.invalidTrimRange', {
+              defaultValue: 'Invalid trim range',
+            }),
+        );
       const response = await archiveWorkflows.processTimelapse(
         archiveId,
         range.value,

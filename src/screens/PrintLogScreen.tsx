@@ -35,6 +35,7 @@ import {
   formatWeight,
 } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
+import { isIsoArchiveDay } from '@/utils/archiveWorkflows';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import type { PrintLogEntry } from '@/types/api';
 
@@ -150,8 +151,8 @@ export default function PrintLogScreen() {
   const [editStatus, setEditStatus] = useState('completed');
   const [editReason, setEditReason] = useState('');
   const dateValid =
-    (!from || Number.isFinite(Date.parse(from))) &&
-    (!to || Number.isFinite(Date.parse(to))) &&
+    (!from || isIsoArchiveDay(from)) &&
+    (!to || isIsoArchiveDay(to)) &&
     (!from || !to || from <= to);
   const parameters = useMemo(
     () => ({

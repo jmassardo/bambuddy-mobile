@@ -53,6 +53,7 @@ interface ArchiveCardProps {
   onSlice?: () => void;
   onFavorite?: () => void;
   onOutcome?: () => void;
+  onPipeline?: () => void;
 }
 
 function statusColor(status: string, colors: ReturnType<typeof useTheme>['colors']) {
@@ -124,6 +125,7 @@ export function ArchiveCard({
   onSlice,
   onFavorite,
   onOutcome,
+  onPipeline,
 }: ArchiveCardProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -352,6 +354,7 @@ export function ArchiveCard({
             <ArchiveAction label={archive.is_favorite ? t('archives.unfavorite', { defaultValue: 'Unfavorite' }) : t('archives.favorite', { defaultValue: 'Favorite' })} icon="star" color={colors.warning} onPress={onFavorite} />
             <ArchiveAction label="Reprint" icon="printer" color={colors.accent} onPress={onReprint} />
             <ArchiveAction label="Slice" icon="scissors" color={colors.highlight} onPress={onSlice} />
+            <ArchiveAction label={t('archives.pipeline', { defaultValue: 'Pipeline' })} icon="scissors" color={colors.highlight} onPress={onPipeline} />
             <ArchiveAction label="Time" icon="video" color={colors.info} onPress={onTimelapse} />
             <ArchiveAction label="Photos" icon="camera" color={colors.warning} onPress={onPhotos} />
             <ArchiveAction label="QR" icon="qr-code" color={colors.textSecondary} onPress={onQRCode} />

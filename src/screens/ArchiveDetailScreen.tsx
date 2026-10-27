@@ -41,6 +41,9 @@ import { useTranslation } from '@/i18n';
 import { PrintLogModal } from '@/components/archives/PrintLogModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { SliceModal } from '@/components/files/SliceModal';
+import { RunWithPipelineModal } from '@/components/slicing/RunWithPipelineModal';
+import { AssetPreviewModal, type AssetPreviewSource } from '@/components/files/AssetPreviewModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -89,6 +92,7 @@ export default function ArchiveDetailScreen() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const { hasPermission } = useAuth();
   const [outcomeVisible, setOutcomeVisible] = useState(false);
   const [launchMode, setLaunchMode] = useState<'asap' | 'queue' | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -100,7 +104,8 @@ export default function ArchiveDetailScreen() {
     null,
   );
   const [showTimelapseFullscreen, setShowTimelapseFullscreen] = useState(false);
-  const [preview3dArchiveId, setPreview3dArchiveId] = useState<number | null>(null);
+  const [assetPreview, setAssetPreview] = useState<AssetPreviewSource | null>(null);
+  const [pipelineVisible, setPipelineVisible] = useState(false);
   const [timelapseError, setTimelapseError] = useState(false);
   const [timelapseRetrySeed, setTimelapseRetrySeed] = useState(0);
   const [thumbnailError, setThumbnailError] = useState(false);
@@ -197,20 +202,6 @@ export default function ArchiveDetailScreen() {
         : undefined,
     });
   }, [archive, authorization.update, colors.text, navigation]);
-
-  React.useEffect(() => {
-    if (preview3dArchiveId != null && archive) {
-      const source3mfPath = pickString(archive as unknown as ApiRecord, ['source_3mf_path']) as string | undefined;
-      if (source3mfPath) {
-        rootNavigation.navigate('Model3DPreview', {
-          archiveId,
-          filename: source3mfPath.split('/').pop() || archive.filename,
-          source3mfPath,
-        });
-      }
-      setPreview3dArchiveId(null);
-    }
-  }, [preview3dArchiveId, archive, archiveId, rootNavigation]);
 
   const invalidateArchiveQueries = async () => {
     await Promise.all([
@@ -477,15 +468,21 @@ export default function ArchiveDetailScreen() {
               loading={shareFileMutation.isPending}
             />
           </View>
-          {pickString(archive as unknown as ApiRecord, ['source_3mf_path']) ? (
+          {archive.source_3mf_path || archive.filename.toLowerCase().endsWith('.3mf') ? (
             <View style={styles.actionCell}>
               <PrimaryButton
                 label="3D Preview"
                 variant="secondary"
-                onPress={() => setPreview3dArchiveId(archiveId)}
+                onPress={() => setAssetPreview({ archiveId, filename: archive.source_3mf_path?.split('/').pop() || archive.filename, mode: 'model', archiveSource: Boolean(archive.source_3mf_path) })}
               />
             </View>
           ) : null}
+          <View style={styles.actionCell}>
+            <PrimaryButton label={t('archives.toolpaths', { defaultValue: 'Inspect toolpaths' })} variant="secondary" onPress={() => setAssetPreview({ archiveId, filename: archive.filename, mode: 'gcode', archiveSource: false })} />
+          </View>
+          {hasPermission('pipelines:run') ? <View style={styles.actionCell}>
+            <PrimaryButton label={t('archives.runPipeline', { defaultValue: 'Run with pipeline' })} variant="secondary" onPress={() => setPipelineVisible(true)} />
+          </View> : null}
           <View style={styles.actionCell}>
             <PrimaryButton
               label="Slice"
@@ -828,6 +825,8 @@ export default function ArchiveDetailScreen() {
       {showProjectPageModal ? <EmbeddedArchiveProjectPage archive={archive} onClose={() => setShowProjectPageModal(false)} /> : null}
       {outcomeVisible ? <ConfirmOutcomeDialog archiveId={archiveId} onClose={() => setOutcomeVisible(false)} onReprint={() => setLaunchMode('asap')} /> : null}
       {launchMode ? <PrintModal visible onClose={() => setLaunchMode(null)} {...{ initialArchiveId: archiveId, initialMode: launchMode }} /> : null}
+      {assetPreview ? <AssetPreviewModal source={assetPreview} onClose={() => setAssetPreview(null)} /> : null}
+      {pipelineVisible ? <RunWithPipelineModal visible onClose={() => setPipelineVisible(false)} sourceType="archive" sourceId={archiveId} sourceName={archive.print_name || archive.filename} /> : null}
       <Modal
         visible={fullscreenPhoto !== null}
         transparent
