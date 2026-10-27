@@ -5050,3 +5050,15 @@ export interface AnnouncementList {
   visible: boolean;
   announcements: Announcement[];
 }
+
+// Inventory parity lane: backend-driven management and label composition.
+export type InventoryRecord = Record<string, unknown>;
+export interface InventoryLabelOptions {
+  spool_ids: number[];
+  template: string;
+  fields: string[];
+  monochrome: boolean;
+  starting_position: number;
+  format: 'pdf' | 'png';
+  dpi: 203 | 300 | 600;
+}

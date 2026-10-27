@@ -20,6 +20,7 @@ import { pickString, pickNumber } from '@/utils/data';
 import { fontSize } from '@/theme/tokens';
 
 export type NfcInventoryScanModalProps = {
+  spoolman?: boolean;
   visible: boolean;
   onClose: () => void;
   onAdd: (uid: string) => void;
@@ -64,6 +65,7 @@ export function NfcInventoryScanModal({
   onEdit,
   onAssign,
   _toast,
+  spoolman = false,
 }: NfcInventoryScanModalProps) {
   const { colors } = useTheme();
   const nfc = useNfc();
@@ -111,7 +113,7 @@ export function NfcInventoryScanModal({
 
       if (result.status === 'success') {
         setPhase({ phase: 'lookup', uid: result.uid });
-        const lookupResult = await inventoryApi.lookupSpoolByUid(result.uid);
+        const lookupResult = await inventoryApi.lookupSpoolByUid(result.uid, spoolman);
         if (!isMountedRef.current || sessionToken !== scanSessionRef.current) return;
 
         if (lookupResult.kind === 'found') {
@@ -135,7 +137,7 @@ export function NfcInventoryScanModal({
     } finally {
       isProcessingRef.current = false;
     }
-  }, [nfc]);
+  }, [nfc, spoolman]);
 
   const handleCancelScan = useCallback(() => {
     scanSessionRef.current += 1;

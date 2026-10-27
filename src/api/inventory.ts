@@ -309,9 +309,9 @@ export const inventoryApi = {
    * Fetches all spools (including archived), matches by tag_uid, and returns
    * a typed result indicating not_found, found, duplicate_matches, or lookup_error.
    */
-  lookupSpoolByUid: async (canonicalUid: string): Promise<InventoryUidLookupResult> => {
+  lookupSpoolByUid: async (canonicalUid: string, spoolman = false): Promise<InventoryUidLookupResult> => {
     try {
-      const spools = await request<InventorySpool[]>('/inventory/spools?include_archived=true');
+      const spools = await request<InventorySpool[]>(`${spoolman ? '/spoolman/inventory' : '/inventory'}/spools?include_archived=true`);
       const match: InventorySpool | undefined = inventoryApi.matchSpoolByUid(spools, canonicalUid);
       if (!match) {
         return { kind: 'not_found', uid: canonicalUid };

@@ -10,6 +10,7 @@ import {
 import { X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
+import { inventoryBackend } from '@/api/inventoryManagement';
 import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { EmptyState } from '@/components/common/StateScreens';
@@ -25,6 +26,7 @@ interface LocationsModalProps {
   onClose: () => void;
   selectedSpoolIds?: number[];
   onAssigned?: (locationName: string) => void;
+  spoolman?: boolean;
 }
 
 export function LocationsModal({
@@ -32,6 +34,7 @@ export function LocationsModal({
   onClose,
   selectedSpoolIds = [],
   onAssigned,
+  spoolman = false,
 }: LocationsModalProps) {
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -107,7 +110,10 @@ export function LocationsModal({
 
   const assignMutation = useMutation({
     mutationFn: (locationName: string) =>
-      api.bulkUpdateSpools(selectedSpoolIds, { storage_location: locationName }),
+      inventoryBackend(spoolman).bulk('bulk-update', selectedSpoolIds, {
+        location_id: locations.find(location => location.name === locationName)?.id ?? null,
+        storage_location: locationName,
+      }),
     onSuccess: async (_data, locationName) => {
       await invalidate();
       showToast(`Assigned ${selectedSpoolIds.length} spool${selectedSpoolIds.length === 1 ? '' : 's'} to ${locationName}.`, 'success');

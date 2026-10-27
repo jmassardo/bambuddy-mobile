@@ -45,7 +45,9 @@ Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print
 - External camera settings edit each printer directly, including USB
   `/dev/video0`–`/dev/video99`, dedicated snapshot URL, enable state and rotation.
   Stream/snapshot tests use unsaved input and report resolution/shared captures.
-- Spool inventory with NFC tag scanning
+- Spool inventory with NFC scanning, combined stock/AMS/purchasing filters, sorting and similar-spool grouping
+- Native spool/core/color/supplier management, selective bulk edits, CSV preview, composed PDF/PNG labels and scale reconciliation
+- SKU replenishment forecasts and shopping-list receipts, location environmental sensors, per-printer presets/K associations, and configured Spoolman inventory/sync policy
 - Remote SpoolBuddy reader results, tag writing/replacement, scale calibration,
   hardware diagnostics, daemon updates, SSH setup, and confirmed lifecycle controls
 - Statistics, analytics, and historical archives with photo galleries
