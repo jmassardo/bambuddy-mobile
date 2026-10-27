@@ -22,6 +22,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { useTranslation } from '@/i18n';
+import { formatDateTime } from '@/utils/data';
 import type {
   InventorySpool,
   SpoolBuddyDiagnostic,
@@ -966,7 +967,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
             hasScale: reported(device?.has_scale),
             scaleOk: reported(device?.scale_ok),
             uptime: reported(device?.uptime_s),
-            lastSeen: reported(device?.last_seen),
+            lastSeen: device?.last_seen ? formatDateTime(device.last_seen) : reported(null),
             telemetry: device?.system_stats
               ? JSON.stringify(device.system_stats, null, 2)
               : reported(null),

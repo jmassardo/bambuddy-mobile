@@ -37,6 +37,7 @@ import {
 } from '@/theme/tokens';
 import {
   formatDuration,
+  formatDateTime,
   pickBoolean,
   pickNumber,
   pickString,
@@ -104,7 +105,7 @@ function describeLastSeen(device: ApiRecord) {
   if (!lastSeen) return 'never';
 
   const date = new Date(lastSeen);
-  return Number.isNaN(date.getTime()) ? 'never' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? 'never' : formatDateTime(lastSeen);
 }
 
 export default function SpoolBuddyScreen() {
@@ -1247,7 +1248,7 @@ function renderSlotsSection({
 
                 {slot.last_read_at && (
                   <Text style={[styles.deviceMeta, { color: colors.textSecondary }]}>
-                    Last read: {new Date(slot.last_read_at).toLocaleString()}
+                    Last read: {formatDateTime(slot.last_read_at)}
                   </Text>
                 )}
 
@@ -1593,7 +1594,7 @@ function renderUsageSection({
                     : ' • (unassigned)'}
                 </Text>
                 <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
-                  {new Date(record.recorded_at).toLocaleString()}
+                  {formatDateTime(record.recorded_at)}
                 </Text>
               </View>
               <View style={styles.rowRight}>
