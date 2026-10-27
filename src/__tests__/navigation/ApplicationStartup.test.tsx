@@ -18,6 +18,7 @@ let mockLinkListener: ((event: { url: string }) => void) | undefined;
 let mockInitialURL: string | null = null;
 const mockRemoveLinkListener = jest.fn();
 const mockLoadServerUrl = jest.fn();
+const mockPushRender = jest.fn();
 const mockItems = { items: [...BUILT_IN_NAV_ITEMS], loading: false };
 const mockToastContext = React.createContext(false);
 const mockAuthContext = React.createContext(false);
@@ -55,6 +56,7 @@ jest.mock('@/contexts/ToastContext', () => ({
 jest.mock('@/contexts/PushNotificationContext', () => ({
   PushNotificationProvider: ({ children }: { children: React.ReactNode }) => {
     if (!require('react').useContext(mockToastContext)) throw new Error('Push notifications require ToastProvider');
+    mockPushRender();
     return children;
   },
 }));
@@ -107,11 +109,13 @@ describe('application startup navigation', () => {
   it('applies the saved landing once on sign-in without resetting browsing or preference edits', async () => {
     const view = await render(<App />);
     expect(mockResetRoot).not.toHaveBeenCalled();
+    expect(mockPushRender).not.toHaveBeenCalled();
     mockAuth.user = { id: 1 };
     await view.rerender(<App />);
     await waitFor(() => expect(mockResetRoot).toHaveBeenCalledWith({
       index: 0, routes: [{ name: 'Main', params: { screen: 'Queue' } }],
     }));
+    expect(mockPushRender).toHaveBeenCalled();
     await act(() => useUiPreferencesStore.setState({ landingPage: 'files' }));
     await view.rerender(<App />);
     expect(mockResetRoot).toHaveBeenCalledTimes(1);

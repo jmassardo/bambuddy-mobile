@@ -57,7 +57,7 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
   const serverUrl = useServerStore((s) => s.serverUrl);
   const serverLoading = useServerStore((s) => s.loading);
   const theme = useTheme();
-  const { text } = useTranslation();
+  const { text, t } = useTranslation();
   const { access } = useNavigationItems();
   const canOpen = (route: keyof RootStackParamList) => {
     const item = BUILT_IN_NAV_ITEMS.find(candidate => candidate.stackRoute === route);
@@ -191,7 +191,7 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
       {canOpen('Stats') && <Stack.Screen
         name="Stats"
         component={StatsScreen}
-        options={{ title: text('Statistics') }}
+        options={{ title: t('nav.stats', { defaultValue: 'Statistics' }) }}
       />}
       {canOpen('System') && <Stack.Screen
         name="System"
@@ -254,10 +254,10 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
         options={{ title: text('Assignment History') }}
       />}
       <Stack.Screen name="Announcements" component={AnnouncementsScreen} options={{ title: text('Announcements') }} />
-      {canOpen('CameraWall') && <Stack.Screen name="CameraWall" component={CameraWallScreen} options={{ title: text('Camera Wall') }} />}
-      {canOpen('CameraIntegrations') && <Stack.Screen name="CameraIntegrations" component={CameraIntegrationsScreen} options={{ title: text('Camera Integrations') }} />}
-      {canOpen('SlicerPipelines') && <Stack.Screen name="SlicerPipelines" component={SlicerPipelinesScreen} options={{ title: text('Slicer Pipelines') }} />}
-      {canOpen('PipelineRuns') && <Stack.Screen name="PipelineRuns" component={PipelineRunsScreen} options={{ title: text('Pipeline Runs') }} />}
+      {canOpen('CameraWall') && <Stack.Screen name="CameraWall" component={CameraWallScreen} options={{ title: t('nav.camera-wall', { defaultValue: 'Camera wall' }) }} />}
+      {canOpen('CameraIntegrations') && <Stack.Screen name="CameraIntegrations" component={CameraIntegrationsScreen} options={{ title: t('nav.camera-integrations', { defaultValue: 'Camera integrations' }) }} />}
+      {canOpen('SlicerPipelines') && <Stack.Screen name="SlicerPipelines" component={SlicerPipelinesScreen} options={{ title: t('nav.slicer-pipelines', { defaultValue: 'Slicer pipelines' }) }} />}
+      {canOpen('PipelineRuns') && <Stack.Screen name="PipelineRuns" component={PipelineRunsScreen} options={{ title: t('nav.pipeline-runs', { defaultValue: 'Pipeline runs' }) }} />}
       {canOpen('Finance') && <Stack.Screen name="Finance" component={FinanceScreen} options={{ title: text('Finance'), presentation: 'modal' }} />}
       {user && <Stack.Screen name="ConnectAuthorize" component={ConnectAuthorizeScreen} options={{ title: text('Connect') }} />}
     </Stack.Navigator>

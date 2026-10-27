@@ -144,13 +144,15 @@ function AppContent() {
         barStyle="light-content"
         backgroundColor={theme.colors.background}
       />
-      {authenticated ? <>
-        <AnnouncementBanner onReadMore={id => {
-          if (navigationRef.isReady()) navigationRef.navigate('Announcements', { id });
-        }} />
-        <SliceJobStatusBanner />
-      </> : null}
-      <RootNavigator entryReady={entryReady} />
+      {authenticated ? (
+        <PushNotificationProvider>
+          <AnnouncementBanner onReadMore={id => {
+            if (navigationRef.isReady()) navigationRef.navigate('Announcements', { id });
+          }} />
+          <SliceJobStatusBanner />
+          <RootNavigator entryReady={entryReady} />
+        </PushNotificationProvider>
+      ) : <RootNavigator entryReady={entryReady} />}
     </NavigationContainer>
   );
 }
@@ -192,13 +194,11 @@ export default function App() {
                 >
                   <ToastProvider>
                     <AuthProvider>
-                      <PushNotificationProvider>
                         <ServerPreferencesSync />
                         <BugReportCollectionGuard />
                         <SliceJobTrackerProvider>
                           <AppContent />
                         </SliceJobTrackerProvider>
-                      </PushNotificationProvider>
                     </AuthProvider>
                   </ToastProvider>
                 </ErrorBoundary>
