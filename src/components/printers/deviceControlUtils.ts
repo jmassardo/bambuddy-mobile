@@ -1,5 +1,11 @@
 import type { AMSUnit, PrinterStatus, UnifiedPreset } from '@/types/api';
 
+export function deviceSlotTrayId(amsId: number, trayId: number): number {
+  // Configuration and stored slot bindings use local external positions;
+  // filament transport uses global 254/255 addresses instead.
+  return amsId === 255 && (trayId === 254 || trayId === 255) ? trayId - 254 : trayId;
+}
+
 export function physicalTrayId(amsId: number, trayId: number): number {
   if (amsId === 255) return trayId;
   if (amsId >= 128 && amsId <= 135) return amsId;

@@ -93,6 +93,8 @@ friendly names, backup groups, and capability-aware drying with delayed schedule
 Tray sheets can reread device RFID, configure material/color/K profiles, assign
 local or Spoolman inventory, and route filament to a hotend when an FTS is fitted.
 AMS-HT unload uses the printer-wide fallback, with an explicit warning.
+External spool transport keeps global tray IDs 254/255; device configuration,
+reset and saved slot associations use local positions 0/1.
 Unknown capabilities and backup state are not treated as disabled device settings.
 Screen-only drying must be controlled at the printer.
 

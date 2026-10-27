@@ -9,14 +9,15 @@ import { useTranslation } from '@/i18n';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type { AMSTray, KProfile, UnifiedPreset } from '@/types/api';
-import { presetIdentity, requireInteger } from './deviceControlUtils';
+import { deviceSlotTrayId, presetIdentity, requireInteger } from './deviceControlUtils';
 
-export function ConfigureDeviceSlot({ printerId, amsId, trayId, tray, preset, onSaved }: {
+export function ConfigureDeviceSlot({ printerId, amsId, trayId: addressedTrayId, tray, preset, onSaved }: {
   printerId: number; amsId: number; trayId: number; tray: AMSTray; preset: UnifiedPreset; onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
+  const trayId = deviceSlotTrayId(amsId, addressedTrayId);
   const client = useQueryClient();
   const [color, setColor] = useState((tray.tray_color || '').slice(0, 6));
   const [material, setMaterial] = useState(preset.filament_type || '');

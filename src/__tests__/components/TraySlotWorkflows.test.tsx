@@ -17,7 +17,7 @@ jest.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     getPrinterStatus: jest.fn(), getAssignments: jest.fn(), getSpoolmanStatus: jest.fn(),
-    getSlotPresets: jest.fn(), refreshAmsSlot: jest.fn(), getSpools: jest.fn(), assignSpool: jest.fn(),
+    getSlotPresets: jest.fn(), refreshAmsSlot: jest.fn(), getSpools: jest.fn(), assignSpool: jest.fn(), unassignSpool: jest.fn(),
   },
 }));
 jest.mock('@/api/printerControls', () => ({
@@ -44,6 +44,7 @@ beforeEach(() => {
   jest.mocked(api.getSpoolmanStatus).mockResolvedValue({ enabled: false } as Awaited<ReturnType<typeof api.getSpoolmanStatus>>);
   jest.mocked(api.getSpools).mockResolvedValue([spool]);
   jest.mocked(api.assignSpool).mockResolvedValue({ pending_config: true } as SpoolAssignment);
+  jest.mocked(api.unassignSpool).mockResolvedValue(undefined);
   jest.mocked(device.load).mockResolvedValue(undefined);
   jest.mocked(device.unload).mockResolvedValue(undefined);
   jest.mocked(api.refreshAmsSlot).mockResolvedValue(undefined);
@@ -112,4 +113,27 @@ it('assigns a direct Spoolman spool without importing it into local inventory', 
   await act(async () => alert.mock.calls.at(-1)?.[2]?.at(-1)?.onPress?.());
   await waitFor(() => expect(device.assignSpoolman).toHaveBeenCalledWith(7, 128, 0, 3));
   expect(api.assignSpool).not.toHaveBeenCalled();
+});
+
+it.each([[254, 0], [255, 1]])('external tray %i keeps bindings in local slot %i and transport global', async (globalTrayId, localTrayId) => {
+  jest.mocked(api.getSlotPresets).mockResolvedValue({
+    [255 * 4 + localTrayId]: { ams_id: 255, tray_id: localTrayId, preset_id: 'builtin_GFL99', preset_name: 'External profile' },
+  });
+  jest.mocked(api.getAssignments).mockResolvedValue([{
+    printer_id: 7, ams_id: 255, tray_id: localTrayId, spool_id: 3,
+    spool: { ...spool, brand: 'External brand', material: 'PLA' },
+  } as SpoolAssignment]);
+  const screen = await mount(<TrayDetailModal visible printerId={7} tray={{ ...tray, id: globalTrayId }}
+    context={{ ...context, amsId: 255, trayId: globalTrayId, isExternal: true }}
+    isPrinting={false} onClose={jest.fn()} />);
+  await waitFor(() => expect(screen.getByText('External profile')).toBeTruthy());
+  expect(screen.getByText('External brand • PLA')).toBeTruthy();
+  await waitFor(() => expect(screen.getByText('Load filament')).toBeEnabled());
+  await fireEvent.press(screen.getByText('Load filament'));
+  await waitFor(() => expect(device.load).toHaveBeenCalledWith(7, globalTrayId, undefined));
+  await fireEvent.press(screen.getByText('Unload filament'));
+  await act(async () => alert.mock.calls.at(-1)?.[2]?.at(-1)?.onPress?.());
+  await waitFor(() => expect(device.unload).toHaveBeenCalledWith(7, globalTrayId));
+  await fireEvent.press(screen.getByText('Unassign inventory spool'));
+  await waitFor(() => expect(api.unassignSpool).toHaveBeenCalledWith(7, 255, localTrayId));
 });

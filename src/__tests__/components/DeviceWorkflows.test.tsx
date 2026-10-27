@@ -19,7 +19,7 @@ jest.mock('@/api/client', () => ({
 }));
 jest.mock('@/api/printerControls', () => ({
   printerControlsApi: {
-    scheduled: jest.fn(), schedule: jest.fn(), configure: jest.fn(), saveMapping: jest.fn(),
+    scheduled: jest.fn(), schedule: jest.fn(), configure: jest.fn(), saveMapping: jest.fn(), resetSlot: jest.fn(),
   },
 }));
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ hasPermission: () => true }) }));
@@ -50,6 +50,7 @@ beforeEach(() => {
   jest.mocked(api.getKProfiles).mockResolvedValue({ profiles: [], nozzle_diameter: '0.4' });
   jest.mocked(device.configure).mockResolvedValue({ tray_info_idx: 'P1234567' });
   jest.mocked(device.saveMapping).mockResolvedValue(undefined);
+  jest.mocked(device.resetSlot).mockResolvedValue(undefined);
   jest.mocked(device.schedule).mockResolvedValue({ id: 1 } as Awaited<ReturnType<typeof device.schedule>>);
 });
 
@@ -145,4 +146,21 @@ it('does not claim complete slot configuration when saving the association fails
   await waitFor(() => expect(screen.getByText('Mapping unavailable')).toBeTruthy());
   expect(saved).not.toHaveBeenCalled();
   expect(screen.getByText(/Device configured, but saving its profile association failed/)).toBeTruthy();
+});
+
+it.each([[254, 0], [255, 1]])('configures, maps and resets global external tray %i as local slot %i', async (globalTrayId, localTrayId) => {
+  const saved = jest.fn();
+  const screen = await mount(<ConfigureDeviceSlot printerId={7} amsId={255} trayId={globalTrayId}
+    tray={{ tray_color: '112233FF', nozzle_temp_min: 190, nozzle_temp_max: 230 } as AMSTray}
+    preset={{ id: 'builtin_GFL99', name: 'Generic PLA', source: 'standard', filament_type: 'PLA' }} onSaved={saved} />);
+  await waitFor(() => expect(screen.getByDisplayValue('0.4')).toBeTruthy());
+  await fireEvent.press(screen.getByText('Configure printer and save profile association'));
+  await confirmAlert();
+  await waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
+  expect(device.configure).toHaveBeenCalledWith(7, 255, localTrayId, expect.objectContaining({ tray_type: 'PLA' }));
+  expect(device.saveMapping).toHaveBeenCalledWith(7, 255, localTrayId, 'builtin_GFL99', 'Generic PLA', 'builtin', 'P1234567');
+  await fireEvent.press(screen.getByText('Reset slot to generic defaults'));
+  await confirmAlert();
+  await waitFor(() => expect(device.resetSlot).toHaveBeenCalledWith(7, 255, localTrayId));
+  await waitFor(() => expect(saved).toHaveBeenCalledTimes(2));
 });

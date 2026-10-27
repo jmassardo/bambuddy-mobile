@@ -23,7 +23,7 @@ import { AssignSpoolModal } from '@/components/printers/AssignSpoolModal';
 import { LinkSpoolModal } from '@/components/printers/LinkSpoolModal';
 import { ConfigureDeviceSlot } from '@/components/printers/ConfigureDeviceSlot';
 import { printerControlsApi as device } from '@/api/printerControls';
-import { dryingCapabilities, dryingReasonText, physicalTrayId, requireInteger, unloadTrayId } from './deviceControlUtils';
+import { deviceSlotTrayId, dryingCapabilities, dryingReasonText, physicalTrayId, requireInteger, unloadTrayId } from './deviceControlUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/i18n';
 import { api, ApiError } from '@/api/client';
@@ -69,7 +69,7 @@ function parseFilamentColor(value: string | null | undefined) {
 
 function slotPresetKey(amsId: number, trayId: number) {
   if (amsId >= 128 && amsId <= 135) return amsId;
-  return amsId * 4 + trayId;
+  return amsId * 4 + deviceSlotTrayId(amsId, trayId);
 }
 
 function flattenFilamentPresets(
@@ -250,7 +250,7 @@ export function TrayDetailModal({
   const unassignSpoolMutation = useMutation({
     mutationFn: () => {
       if (!context) throw new Error('Tray context unavailable');
-      return api.unassignSpool(printerId, context.amsId, context.trayId);
+      return api.unassignSpool(printerId, context.amsId, deviceSlotTrayId(context.amsId, context.trayId));
     },
     onSuccess: async () => {
       await Promise.all([
@@ -280,7 +280,7 @@ export function TrayDetailModal({
     // Inventory spool fill (label_weight - weight_used)
     const assignment = context
       ? assignmentsQuery.data?.find(
-          a => a.printer_id === printerId && a.ams_id === context.amsId && a.tray_id === context.trayId,
+          a => a.printer_id === printerId && a.ams_id === context.amsId && a.tray_id === deviceSlotTrayId(context.amsId, context.trayId),
         )
       : undefined;
     const sp = assignment?.spool;
@@ -360,7 +360,7 @@ export function TrayDetailModal({
         (assignment: SpoolAssignment) =>
           assignment.printer_id === printerId &&
           assignment.ams_id === context?.amsId &&
-          assignment.tray_id === context?.trayId,
+          assignment.tray_id === deviceSlotTrayId(context?.amsId ?? -1, context?.trayId ?? -1),
       ) ?? null,
     [assignmentsQuery.data, context?.amsId, context?.trayId, printerId],
   );
@@ -495,7 +495,7 @@ export function TrayDetailModal({
                 </Text>
                 <ScrollView showsVerticalScrollIndicator={false}>
                   {selectedPreset ? <ConfigureDeviceSlot key={`${selectedPreset.source}-${selectedPreset.id}`} printerId={printerId}
-                    amsId={context.amsId} trayId={context.trayId} tray={tray} preset={selectedPreset}
+                    amsId={context.amsId} trayId={deviceSlotTrayId(context.amsId, context.trayId)} tray={tray} preset={selectedPreset}
                     onSaved={() => { setConfiguring(false); setSelectedPreset(null); }} /> : null}
                   {slicerPresetsQuery.isLoading ? (
                     <View style={styles.loadingState}>
@@ -884,7 +884,7 @@ export function TrayDetailModal({
         visible={showAssignSpoolModal}
         printerId={printerId}
         amsId={context.amsId}
-        trayId={context.trayId}
+        trayId={deviceSlotTrayId(context.amsId, context.trayId)}
         slotLabel={slotLabel}
         materialHint={tray.tray_type}
         colorHint={tray.tray_color}
@@ -896,7 +896,7 @@ export function TrayDetailModal({
         visible={showLinkSpoolModal}
         printerId={printerId}
         amsId={context.amsId}
-        trayId={context.trayId}
+        trayId={deviceSlotTrayId(context.amsId, context.trayId)}
         slotLabel={slotLabel}
         spoolTag={spoolTag}
         materialHint={tray.tray_type}
