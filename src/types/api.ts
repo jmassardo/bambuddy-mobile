@@ -485,12 +485,23 @@ export interface LongLivedCameraToken {
   id: number;
   user_id: number;
   name: string;
-  scope: 'camera_stream';
+  scope: CameraTokenScope;
   lookup_prefix: string;
   created_at: string;
   expires_at: string;
   last_used_at: string | null;
   token: string | null;
+}
+
+// Camera parity lane — printer camera management and integration contracts.
+export type CameraTokenScope = 'camera_stream' | 'camwall' | 'overlay';
+export type CameraIntegrationToken = LongLivedCameraToken;
+
+export interface ExternalCameraConnectionResult {
+  success: boolean;
+  error?: string;
+  resolution?: string;
+  coalesced?: boolean;
 }
 
 export interface Printer {

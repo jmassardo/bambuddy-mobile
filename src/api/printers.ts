@@ -92,20 +92,23 @@ export const printersApi = {
 
   getPlateDetectionStatus: async (printerId: number) =>
     request<PlateDetectionStatus>(
-      `/printers/${printerId}/plate-detection/status`,
+      `/printers/${printerId}/camera/plate-detection/status`,
     ),
 
   calibratePlateDetection: async (
     printerId: number,
-    data?: Record<string, unknown>,
-  ) =>
-    request<CalibrationResult>(
-      `/printers/${printerId}/plate-detection/calibrate`,
+    options?: { label?: string; useExternal?: boolean },
+  ) => {
+    const params = new URLSearchParams();
+    if (options?.label) params.set('label', options.label);
+    if (options?.useExternal !== undefined) params.set('use_external', String(options.useExternal));
+    return request<CalibrationResult>(
+      `/printers/${printerId}/camera/plate-detection/calibrate?${params.toString()}`,
       {
         method: 'POST',
-        body: JSON.stringify(data ?? {}),
       },
-    ),
+    );
+  },
 
   setPrintSpeed: async (printerId: number, mode: number) =>
     requestWithFallback<void>(

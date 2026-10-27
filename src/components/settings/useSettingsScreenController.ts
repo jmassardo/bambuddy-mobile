@@ -168,11 +168,14 @@ export function useSettingsScreenController() {
   const cameraTokensQuery = useQuery({
     queryKey: ['cameraTokens'],
     queryFn: () => (isAdmin ? api.listAllLongLivedCameraTokens() : api.listMyLongLivedCameraTokens()),
+    enabled: false,
   });
   const externalLinksQuery = useQuery({ queryKey: ['externalLinks'], queryFn: api.getExternalLinks });
   const externalCamerasQuery = useQuery({
     queryKey: ['externalCameras'],
     queryFn: api.getExternalCameras,
+    // Current servers configure external cameras on printers, not camera records.
+    enabled: false,
   });
   const printersQuery = useQuery({
     queryKey: ['printers', 'settings'],
@@ -328,9 +331,7 @@ export function useSettingsScreenController() {
       smartPlugsQuery.refetch(),
       providersQuery.refetch(),
       apiKeysQuery.refetch(),
-      cameraTokensQuery.refetch(),
       externalLinksQuery.refetch(),
-      externalCamerasQuery.refetch(),
       printersQuery.refetch(),
       virtualPrinterListQuery.refetch(),
       spoolbuddyQuery.refetch(),

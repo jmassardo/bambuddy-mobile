@@ -35,6 +35,16 @@ Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print
 - File browsing, upload, and organization for 3MF/STL assets
 - Full printer controls for pause, resume, stop, speed, lights, and calibration
 - Live MJPEG camera streaming
+- Explicit snapshot mode and refresh from Camera actions, plus plate analysis,
+  labelled reference management and bounded detection-area editing.
+- Fleet camera wall with persisted live-stream cap, snapshot interval and status
+  overlays; non-visible/background cameras release their streams.
+- Camera integrations build OBS overlay URLs and manage separate video, wall and
+  overlay tokens. Secrets and integration links can be copied/shared when created;
+  token values are not persisted by the app. Revocation requires confirmation.
+- External camera settings edit each printer directly, including USB
+  `/dev/video0`–`/dev/video99`, dedicated snapshot URL, enable state and rotation.
+  Stream/snapshot tests use unsaved input and report resolution/shared captures.
 - Spool inventory with NFC tag scanning
 - Statistics, analytics, and historical archives with photo galleries
 - Calendar/custom-date reports with saved dashboard layouts, estimate accuracy, records, material/color/habit exploration, and purchasing summaries

@@ -15,6 +15,20 @@ declare module 'react-native-webview' {
     scrollEnabled?: boolean;
     onShouldStartLoadWithRequest?: (request: { url: string }) => boolean;
     onMessage?: (event: { nativeEvent: { data: string } }) => void;
+    injectedJavaScriptBeforeContentLoaded?: string;
+    injectedJavaScriptBeforeContentLoadedForMainFrameOnly?: boolean;
+    incognito?: boolean;
+    sharedCookiesEnabled?: boolean;
+    useSharedProcessPool?: boolean;
+    javaScriptCanOpenWindowsAutomatically?: boolean;
+    allowFileAccessFromFileURLs?: boolean;
+    allowUniversalAccessFromFileURLs?: boolean;
+    allowsLinkPreview?: boolean;
+    onOpenWindow?: () => void;
+    onFileDownload?: () => void;
+    onError?: () => void;
+    onHttpError?: () => void;
+    onContentProcessDidTerminate?: () => void;
   }
 
   export interface WebViewHandle {

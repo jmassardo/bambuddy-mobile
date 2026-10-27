@@ -64,6 +64,11 @@ import { useMediaToken } from '@/hooks/useStreamToken';
 import { useStreamRetry, type RetryState } from '@/hooks/useStreamRetry';
 import { useStreamHealth, type StreamHealthStatus } from '@/hooks/useStreamHealth';
 import { WebView } from 'react-native-webview';
+import { camerasApi } from '@/api/cameras';
+import { CameraSnapshot } from '@/components/printers/CameraSnapshot';
+import { PlateManagement } from '@/components/printers/PlateManagement';
+import { SkipObjectsModal } from '@/components/printers/SkipObjectsModal';
+import { useTranslation } from '@/i18n';
 
 interface CameraWebViewProps {
   key?: string;
@@ -656,6 +661,7 @@ function clampTranslationOffset(value: number, axisSize: number, scale: number) 
 }
 
 export default function CameraScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Camera'>>();
   const route = useRoute<RootRouteProp<'Camera'>>();
   const isFocused = useIsFocused();
@@ -669,25 +675,28 @@ export default function CameraScreen() {
   const insets = useSafeAreaInsets();
   const { token: mediaToken, isReady: mediaTokenReady } = useMediaToken();
   const [streamRetryCount, setStreamRetryCount] = useState(0);
+  const [playbackMode, setPlaybackMode] = useState<'live' | 'snapshot'>('live');
   const streamRetry = useStreamRetry({
     maxRetries: STREAM_RETRY_MAX_RETRIES,
     initialDelayMs: STREAM_RETRY_INITIAL_DELAY_MS,
     maxDelayMs: STREAM_RETRY_MAX_DELAY_MS,
-    enabled: true,
+    enabled: playbackMode === 'live',
   });
   const streamHealth = useStreamHealth({
     staleThresholdMs: STREAM_STALE_THRESHOLD_MS,
     degradedThresholdMs: STREAM_DEGRADED_THRESHOLD_MS,
-    autoRefreshEnabled: true,
+    autoRefreshEnabled: playbackMode === 'live',
   });
+  const { refresh: refreshStreamHealth, recordFrame: recordStreamFrame } = streamHealth;
+  const { retry: retryStream, recover: recoverStream, reset: resetStreamRetry } = streamRetry;
   const [fitMode, setFitMode] = useState<'cover' | 'contain'>('contain');
   const [streamSeed, setStreamSeed] = useState(() => Date.now());
   const [streamLoading, setStreamLoading] = useState(true);
   const [streamError, setStreamError] = useState(false);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
+  const [showSkipObjects, setShowSkipObjects] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [plateDetectionEnabled, setPlateDetectionEnabled] = useState(false);
-  const [plateSensitivity, setPlateSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
   const [webAuthToken, setWebAuthToken] = useState<string | null>(null);
   const webAuthTokenRef = useRef<string | null>(null);
   const [webRendererEligible, setWebRendererEligible] = useState(false);
@@ -896,8 +905,14 @@ export default function CameraScreen() {
     setStreamError(false);
     setStreamLoading(true);
     clearStreamTimeout();
+    resetStreamRetry();
     resetZoom();
-  }, [clearStreamTimeout, printerId, resetZoom]);
+  }, [clearStreamTimeout, printerId, resetZoom, resetStreamRetry]);
+
+  const recordStreamFailure = useCallback(() => {
+    setStreamRetryCount(current => current + 1);
+    retryStream();
+  }, [retryStream]);
 
   const armStreamTimeout = useCallback(() => {
     clearStreamTimeout();
@@ -908,8 +923,9 @@ export default function CameraScreen() {
           streamTimeoutRef.current = null;
           setStreamLoading(false);
           setStreamError(true);
+          recordStreamFailure();
           iosRetryCount.current = 0;
-          streamHealth.refresh();
+          refreshStreamHealth();
           resetZoom();
         }, IOS_INITIAL_STREAM_TIMEOUT_MS);
         return;
@@ -919,7 +935,8 @@ export default function CameraScreen() {
           streamTimeoutRef.current = null;
           setStreamLoading(false);
           setStreamError(true);
-          streamHealth.refresh();
+          recordStreamFailure();
+          refreshStreamHealth();
           resetZoom();
         }, IOS_RETRY_STREAM_TIMEOUT_MS);
         return;
@@ -929,10 +946,11 @@ export default function CameraScreen() {
       streamTimeoutRef.current = null;
       setStreamLoading(false);
       setStreamError(true);
-      streamHealth.refresh();
+      recordStreamFailure();
+      refreshStreamHealth();
       resetZoom();
     }, CAMERA_STREAM_TIMEOUT_MS);
-  }, [clearStreamTimeout, resetZoom, streamHealth]);
+  }, [clearStreamTimeout, resetZoom, refreshStreamHealth, recordStreamFailure]);
 
   const handleStreamLoadStart = useCallback(() => {
     setStreamLoading(true);
@@ -943,17 +961,18 @@ export default function CameraScreen() {
   const handleStreamLoadSuccess = useCallback(() => {
     clearStreamTimeout();
     setStreamLoading(false);
-    streamRetry.recover();
-    streamHealth.recordFrame();
-  }, [clearStreamTimeout, streamRetry, streamHealth]);
+    recoverStream();
+    recordStreamFrame();
+  }, [clearStreamTimeout, recoverStream, recordStreamFrame]);
 
   const handleStreamLoadError = useCallback(() => {
     clearStreamTimeout();
     setStreamLoading(false);
     setStreamError(true);
-    streamHealth.refresh();
+    recordStreamFailure();
+    refreshStreamHealth();
     resetZoom();
-  }, [clearStreamTimeout, streamHealth, resetZoom]);
+  }, [clearStreamTimeout, refreshStreamHealth, resetZoom, recordStreamFailure]);
 
   useEffect(() => clearStreamTimeout, [clearStreamTimeout]);
 
@@ -990,7 +1009,7 @@ export default function CameraScreen() {
 
   const plateStatusQuery = useQuery({
     queryKey: ['plateDetectionStatus', printerId],
-    queryFn: () => api.getPlateDetectionStatus(printerId),
+    queryFn: () => camerasApi.plateStatus(printerId),
     enabled: validPrinterId && plateDetectionEnabled,
     retry: false,
     refetchInterval: plateDetectionEnabled ? 15_000 : false,
@@ -1029,27 +1048,9 @@ export default function CameraScreen() {
       showToast(getErrorMessage(error, 'Unable to update plate detection.'), 'error'),
   });
 
-  const calibratePlateMutation = useMutation({
-    mutationFn: () =>
-      api.calibratePlateDetection(printerId, {
-        sensitivity: plateSensitivity,
-      }),
-    onSuccess: async result => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['plateDetectionStatus', printerId] }),
-        queryClient.invalidateQueries({ queryKey: ['printer', printerId] }),
-      ]);
-      showToast(result.message || 'Plate detection calibration started.', 'success');
-    },
-    onError: error =>
-      showToast(
-        getErrorMessage(error, 'Unable to calibrate plate detection.'),
-        'error',
-      ),
-  });
-
   const refreshCamera = useCallback(async () => {
     clearStreamTimeout();
+    resetStreamRetry();
     setStreamError(false);
     setStreamLoading(true);
     setWebCameraErrorStatus(null);
@@ -1063,7 +1064,7 @@ export default function CameraScreen() {
       queryClient.invalidateQueries({ queryKey: ['plateDetectionStatus', printerId] }),
       queryClient.invalidateQueries({ queryKey: ['camera-stream-token'] }),
     ]);
-  }, [clearStreamTimeout, printerId, queryClient, resetZoom, synchronizeWebAuthToken]);
+  }, [clearStreamTimeout, printerId, queryClient, resetZoom, synchronizeWebAuthToken, resetStreamRetry]);
 
   const printer = printerQuery.data ?? null;
 
@@ -1214,28 +1215,23 @@ export default function CameraScreen() {
   ]);
   const cameraUnavailableReason = !validPrinterId
     ? 'Missing printer id.'
-    : !status?.connected
+    : playbackMode === 'snapshot'
+      ? null
+    : !status?.connected && !printer?.external_camera_enabled
       ? 'Printer is offline.'
-      : !status?.ipcam
+      : !status?.ipcam && !printer?.external_camera_enabled
         ? 'Camera is unavailable for this printer.'
         : null;
 
   useEffect(() => {
-    if (streamError && validPrinterId && !cameraUnavailableReason && streamRetry.currentState !== 'failed') {
-      setStreamRetryCount(prev => prev + 1);
-      streamRetry.retry();
-    }
-  }, [streamError, validPrinterId, cameraUnavailableReason, streamRetry]);
-
-  useEffect(() => {
-    if (streamRetry.currentState === 'retrying') {
+    if (playbackMode === 'live' && streamRetry.currentState === 'retrying' && streamRetry.retryCount > 0) {
       clearStreamTimeout();
       setStreamError(false);
       setStreamLoading(true);
       setStreamSeed(current => Math.max(Date.now(), current + 1));
       armStreamTimeout();
     }
-  }, [streamRetry.currentState, clearStreamTimeout, armStreamTimeout]);
+  }, [playbackMode, streamRetry.currentState, streamRetry.retryCount, clearStreamTimeout, armStreamTimeout]);
 
   useEffect(() => {
     if (streamRetry.currentState === 'recovered') {
@@ -1250,12 +1246,12 @@ export default function CameraScreen() {
   }, [streamRetry.currentState, streamError]);
 
   useEffect(() => {
-    if (streamUrl && !cameraUnavailableReason && streamLoading && !streamError && streamTimeoutRef.current == null) {
+    if (playbackMode === 'live' && streamUrl && !cameraUnavailableReason && streamLoading && !streamError && streamTimeoutRef.current == null) {
       iosInitialLoad.current = false;
       iosRetryCount.current = 0;
       armStreamTimeout();
     }
-  }, [armStreamTimeout, cameraUnavailableReason, streamError, streamLoading, streamUrl]);
+  }, [playbackMode, armStreamTimeout, cameraUnavailableReason, streamError, streamLoading, streamUrl]);
 
   const plateRoi = printer?.plate_detection_roi ?? DEFAULT_PLATE_ROI;
   const plateStatus = plateStatusQuery.data;
@@ -1350,6 +1346,10 @@ export default function CameraScreen() {
           printer ? 'Diagnose' : undefined,
           printer ? openActions : undefined,
         )
+      ) : playbackMode === 'snapshot' ? (
+        <View style={styles.streamViewport}>
+          <CameraSnapshot printerId={printerId} refreshSeed={streamSeed} rotation={printer?.camera_rotation} resizeMode={fitMode} active={isFocused && appState === 'active' && (!authEnabled || Boolean(user))} />
+        </View>
       ) : Platform.OS === 'ios' && (!webCamera || (authEnabled && webAuthToken == null)) ? (
         renderState(
           'Camera unavailable',
@@ -1740,6 +1740,25 @@ export default function CameraScreen() {
         printer={printer}
         reduceMotionEnabled={reduceMotionEnabled}
       >
+        <PrimaryButton label={t('camera.skipObjects', { defaultValue: 'Skip objects' })}
+          disabled={!hasPermission('printers:control') || !['RUNNING', 'PAUSE'].includes(status?.state ?? '')}
+          onPress={() => { setShowDiagnostic(false); setShowSkipObjects(true); }} />
+        <PrimaryButton label={playbackMode === 'live'
+          ? t('camera.switchSnapshot', { defaultValue: 'Switch to snapshot mode' })
+          : t('camera.switchLive', { defaultValue: 'Switch to live stream' })}
+          onPress={() => {
+            clearStreamTimeout();
+            resetStreamRetry();
+            setPlaybackMode(current => current === 'live' ? 'snapshot' : 'live');
+            setStreamLoading(true);
+            setStreamError(false);
+            setShowDiagnostic(false);
+          }} />
+        <PrimaryButton label={playbackMode === 'snapshot'
+          ? t('camera.refreshSnapshot', { defaultValue: 'Refresh snapshot' })
+          : t('camera.refreshLive', { defaultValue: 'Restart live stream' })}
+          onPress={() => void refreshCamera()} />
+        {printer && plateAvailable ? <PlateManagement printer={printer} /> : null}
         {plateAvailable ? (
           <View
             style={[
@@ -1766,56 +1785,16 @@ export default function CameraScreen() {
             />
             <View style={styles.plateStatsRow}>
               <Text style={[styles.plateMeta, { color: colors.textSecondary }]}> 
-                Sensitivity
-              </Text>
-              <View style={styles.sensitivityRow}>
-                {(['low', 'medium', 'high'] as const).map(level => {
-                  const active = plateSensitivity === level;
-                  return (
-                    <Pressable
-                      key={level}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${level} plate detection sensitivity`}
-                      accessibilityState={{ selected: active }}
-                      onPress={() => setPlateSensitivity(level)}
-                      style={[
-                        styles.sensitivityChip,
-                        {
-                          backgroundColor: active ? colors.accentBg : colors.surfaceHover,
-                          borderColor: active ? colors.accent : colors.border,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.sensitivityChipText,
-                          { color: active ? colors.accentLight : colors.textSecondary },
-                        ]}
-                      >
-                        {level.charAt(0).toUpperCase() + level.slice(1)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-            <View style={styles.plateStatsRow}>
-              <Text style={[styles.plateMeta, { color: colors.textSecondary }]}> 
                 References
               </Text>
               <Text style={[styles.plateMeta, { color: colors.text }]}> 
                 {plateStatus?.reference_count ?? 0}/{plateStatus?.max_references ?? 0}
               </Text>
             </View>
-            <PrimaryButton
-              label={calibratePlateMutation.isPending ? 'Calibrating…' : 'Calibrate overlay'}
-              variant="secondary"
-              onPress={() => void calibratePlateMutation.mutateAsync()}
-              loading={calibratePlateMutation.isPending}
-            />
           </View>
         ) : null}
       </DiagnosticSheet>
+      {showSkipObjects ? <SkipObjectsModal visible printerId={printerId} onClose={() => setShowSkipObjects(false)} /> : null}
     </View>
   );
 }
@@ -2002,23 +1981,6 @@ const styles = StyleSheet.create({
   },
   plateMeta: {
     fontSize: fontSize.sm,
-  },
-  sensitivityRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-    flex: 1,
-  },
-  sensitivityChip: {
-    borderWidth: 1,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  sensitivityChipText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
   },
   loadingOverlay: {
     position: 'absolute',
