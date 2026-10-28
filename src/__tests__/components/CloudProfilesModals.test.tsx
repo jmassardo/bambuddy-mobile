@@ -40,6 +40,7 @@ jest.mock('@/components/common/AppUI', () => {
       React.createElement(Text, null, label),
     StatusBadge: ({ label }: { label: string }) =>
       React.createElement(View, null, React.createElement(Text, null, label)),
+    TextField: ({ label }: { label: string }) => React.createElement(Text, null, label),
   };
 });
 

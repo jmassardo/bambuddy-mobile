@@ -1,4 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
+
+import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
@@ -13,7 +16,7 @@ import {
   View,
 } from 'react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { api, setAuthToken } from '@/api/client';
+import { api } from '@/api/client';
 import { useAuth, type UserResponse } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -21,7 +24,11 @@ import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { LoadingScreen } from '@/components/common/StateScreens';
 import { useServerStore } from '@/api/server';
-import type { LoginResponse, OIDCProvider } from '@/types/api';
+import type { LoginResponse } from '@/types/api';
+import { authApi } from '@/api/auth';
+import { SwitchRow } from '@/components/settings/shared';
+import { createOidcState, oidcCallbackBase } from '@/utils/authSecurity';
+import { OIDCAuthorizationBrowser } from '@/components/common/OIDCAuthorizationBrowser';
 
 function parseOidcCallback(url: string) {
   try {
@@ -44,7 +51,7 @@ function parseOidcCallback(url: string) {
     if (!isAppScheme && !isServerOrigin) {
       return {
         token: null,
-        error: 'unexpected_callback_origin',
+        get error() { return translateNative('native.e36b24108481f24d'); },
         state: params.get('state'),
       };
     }
@@ -57,17 +64,19 @@ function parseOidcCallback(url: string) {
   } catch {
     return {
       token: null,
-      error: 'invalid_callback_url',
+      get error() { return translateNative('native.89c9ea76be501ae1'); },
       state: null,
     };
   }
 }
 
 export default function LoginScreen() {
+  const titleLocale = useNativeLocale();
+  const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Login'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Login', headerShown: false });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('native.62a155bdfe8d655f'), headerShown: false });
+  }, [navigation, titleLocale]);
   const { colors } = useTheme();
   const { login, loginWithToken, user, loading, requiresSetup } = useAuth();
   const { showToast } = useToast();
@@ -78,8 +87,13 @@ export default function LoginScreen() {
   const [preAuthToken, setPreAuthToken] = useState<string | null>(null);
   const [availableMethods, setAvailableMethods] = useState<string[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [remember, setRemember] = useState(true);
+  const [emailDelivered, setEmailDelivered] = useState(false);
+  const autoStarted = React.useRef(false);
+  const [authorizationUrl, setAuthorizationUrl] = useState<string | null>(null);
+  const [callbackServer, setCallbackServer] = useState<string | null>(null);
 
-  const serverHostname = useMemo(() => {
+  const serverHostname = useLocalizedMemo(() => {
     if (!serverUrl) return undefined;
     try {
       return new URL(serverUrl).hostname;
@@ -87,7 +101,7 @@ export default function LoginScreen() {
       return undefined;
     }
   }, [serverUrl]);
-  const [error, setError] = useState('');
+  const [error, setError] = useNativeMessageState('');
   const [step, setStep] = useState<'credentials' | '2fa' | 'forgot' | 'reset'>('credentials');
   const [forgotEmail, setForgotEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
@@ -118,6 +132,26 @@ export default function LoginScreen() {
     queryKey: ['oidcProviders'],
     queryFn: () => api.getOIDCProviders(),
   });
+  const policyQuery = useQuery({
+    queryKey: ['advancedAuthStatus'],
+    queryFn: authApi.getAdvancedAuthStatus,
+  });
+  const ldapStatusQuery = useQuery({
+    queryKey: ['ldapStatus'],
+    queryFn: authApi.getLDAPStatus,
+  });
+  const localLoginEnabled = policyQuery.data?.local_login_enabled === true;
+  const ldapLoginEnabled = ldapStatusQuery.data?.ldap_enabled === true;
+  const credentialsEnabled = localLoginEnabled || ldapLoginEnabled;
+  const credentialsPolicyPending = !credentialsEnabled && (policyQuery.isPending || ldapStatusQuery.isPending);
+  const emailMutation = useMutation({
+    mutationFn: async () => {
+      if (!preAuthToken) throw new Error(translateNative('native.974f3faf99939c0e'));
+      return authApi.sendEmailOTP(preAuthToken);
+    },
+    onSuccess: response => { if (response.pre_auth_token) setPreAuthToken(response.pre_auth_token); setEmailDelivered(true); setError(''); showToast(nativeMessage('native.a95023ecfddfa1a7'), 'success'); },
+    onError: (e: Error) => setError(e.message),
+  });
 
   const finalizeLogin = async (response: LoginResponse) => {
     const loginResponse = response as LoginResponse & {
@@ -132,18 +166,18 @@ export default function LoginScreen() {
       setSelectedMethod(methods.length === 1 ? methods[0] : null);
       setStep('2fa');
       setCode('');
-      showToast('Enter your 2FA code to continue.', 'info');
+      setEmailDelivered(false);
+      showToast(nativeMessage('native.870eebb01f7654c7'), 'info');
       return;
     }
 
     if (loginResponse.access_token && loginResponse.user) {
-      await setAuthToken(loginResponse.access_token);
-      loginWithToken(loginResponse.access_token, loginResponse.user as unknown as UserResponse);
-      showToast('Signed in successfully.', 'success');
+      await loginWithToken(loginResponse.access_token, loginResponse.user as unknown as UserResponse, remember);
+      showToast(nativeMessage('native.644f5f4a64728210'), 'success');
       return;
     }
 
-    throw new Error('OIDC login did not return a valid Bambuddy session.');
+    throw new Error(translateNative('native.a773f83633c5b27d'));
   };
 
   const oidcExchangeMutation = useMutation({
@@ -152,8 +186,8 @@ export default function LoginScreen() {
       await finalizeLogin(response);
     },
     onError: (exchangeError: Error) => {
-      setError(exchangeError.message || 'OIDC login failed.');
-      showToast(exchangeError.message || 'OIDC login failed.', 'error');
+      setError(exchangeError.message || nativeMessage('native.597e1bc3968499f1'));
+      showToast(exchangeError.message || nativeMessage('native.597e1bc3968499f1'), 'error');
     },
   });
 
@@ -169,22 +203,24 @@ export default function LoginScreen() {
 
       const expectedState = pendingOidcState.current;
       if (!expectedState || !state || state !== expectedState) {
+        setAuthorizationUrl(null);
         pendingOidcState.current = null;
+        setAuthorizationUrl(null);
         console.warn('Rejected OIDC callback with missing or mismatched state.');
-        setError('OIDC login failed. Please try again.');
-        showToast('OIDC login failed.', 'error');
+        setError(nativeMessage('native.f4e1f0f1250143f7'));
+        showToast(nativeMessage('native.597e1bc3968499f1'), 'error');
         return;
       }
 
       pendingOidcState.current = null;
       if (oidcError) {
-        setError(`OIDC login failed: ${oidcError.replace(/_/g, ' ')}`);
-        showToast('OIDC login failed.', 'error');
+        setError(nativeMessage('native.86eb9787f80f365c', () => ({ value0: String(oidcError.replace(/_/g, ' ')) })));
+        showToast(nativeMessage('native.597e1bc3968499f1'), 'error');
         return;
       }
       if (token) {
         setError('');
-        await oidcExchangeRef.current(token);
+        await oidcExchangeRef.current(token).catch(() => {});
       }
     };
 
@@ -196,7 +232,7 @@ export default function LoginScreen() {
       }
     })();
     return () => subscription.remove();
-  }, [showToast]);
+  }, [showToast, setError]);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -207,11 +243,10 @@ export default function LoginScreen() {
           code,
           method: selectedMethod ?? undefined,
         });
-        await setAuthToken(response.access_token);
-        loginWithToken(response.access_token, response.user as unknown as UserResponse);
+        await loginWithToken(response.access_token, response.user as unknown as UserResponse, remember);
         return response;
       }
-      return login(username.trim(), password);
+      return login(username.trim(), password, remember);
     },
     onSuccess: result => {
       if ('requires_2fa' in result && result.requires_2fa) {
@@ -220,14 +255,15 @@ export default function LoginScreen() {
         setAvailableMethods(methods);
         setSelectedMethod(methods.length === 1 ? methods[0] : null);
         setCode('');
+        setEmailDelivered(false);
         setStep('2fa');
-        showToast('Enter your 2FA code to continue.', 'info');
+        showToast(nativeMessage('native.870eebb01f7654c7'), 'info');
         return;
       }
-      showToast('Signed in successfully.', 'success');
+      showToast(nativeMessage('native.644f5f4a64728210'), 'success');
     },
     onError: (mutationError: Error) => {
-      setError(mutationError.message || 'Login failed.');
+      setError(mutationError.message || nativeMessage('native.833aba5d6ce7de4d'));
     },
   });
 
@@ -237,11 +273,11 @@ export default function LoginScreen() {
       await api.forgotPassword({ email: forgotEmail.trim() });
     },
     onSuccess: () => {
-      showToast('If that email exists, a reset link has been sent.', 'success');
+      showToast(nativeMessage('native.1ad99375097ad21d'), 'success');
       setStep('reset');
     },
     onError: (e: Error) => {
-      setError(e.message || 'Failed to send reset email.');
+      setError(e.message || nativeMessage('native.b471f98264033a7c'));
     },
   });
 
@@ -249,54 +285,57 @@ export default function LoginScreen() {
     mutationFn: async () => {
       setError('');
       if (newPassword !== confirmPassword) {
-        throw new Error('Passwords do not match.');
+        throw new Error(translateNative('native.4bf243cf9137809e'));
       }
       await api.forgotPasswordConfirm(resetToken.trim(), newPassword);
     },
     onSuccess: () => {
-      showToast('Password reset successfully. Please log in.', 'success');
+      showToast(nativeMessage('native.29cb7a0bcd54895b'), 'success');
       setStep('credentials');
       setResetToken('');
       setNewPassword('');
       setConfirmPassword('');
     },
     onError: (e: Error) => {
-      setError(e.message || 'Failed to reset password.');
+      setError(e.message || nativeMessage('native.f55811d824e4d957'));
     },
   });
 
   const oidcStartMutation = useMutation({
     mutationFn: async (providerId: number) => {
-      const bytes = new Uint8Array(24);
-      crypto.getRandomValues(bytes);
-      const state = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+      const state = createOidcState();
       pendingOidcState.current = state;
-      return api.getOIDCAuthorizeUrl(providerId, state);
+      const response = await api.getOIDCAuthorizeUrl(providerId, state);
+      if (!serverUrl) throw new Error(translateNative('native.519f204cd211c4cb'));
+      return { ...response, callbackServer: oidcCallbackBase(response.auth_url, serverUrl) };
     },
     onSuccess: async data => {
       setError('');
-      try {
-        await Linking.openURL(data.auth_url);
-      } catch (err) {
-        pendingOidcState.current = null;
-        const message =
-          err instanceof Error ? err.message : 'Unable to start SSO login.';
-        setError(message);
-        showToast(message, 'error');
-      }
+      setCallbackServer(data.callbackServer);
+      setAuthorizationUrl(data.auth_url);
     },
     onError: (mutationError: Error) => {
       pendingOidcState.current = null;
-      setError(mutationError.message || 'Unable to start SSO login.');
-      showToast(mutationError.message || 'Unable to start SSO login.', 'error');
+      setError(mutationError.message || nativeMessage('native.99c00110ba289e73'));
+      showToast(mutationError.message || nativeMessage('native.99c00110ba289e73'), 'error');
     },
   });
 
+  const startOidc = oidcStartMutation.mutate;
+  useEffect(() => {
+    const id = policyQuery.data?.autologin_provider_id;
+    if (!loading && id && step === 'credentials' && !autoStarted.current &&
+        oidcProvidersQuery.data?.some(p => p.id === id)) {
+      autoStarted.current = true;
+      startOidc(id);
+    }
+  }, [loading, policyQuery.data, oidcProvidersQuery.data, startOidc, step]);
+
   if (loading) {
-    return <LoadingScreen message="Checking authentication…" />;
+    return <LoadingScreen message={translateNative('native.d041a71daf02b592')} />;
   }
 
-  const oidcProviders = (oidcProvidersQuery.data ?? []) as OIDCProvider[];
+  const oidcProviders = oidcProvidersQuery.data ?? [];
   const oidcBusy = oidcStartMutation.isPending || oidcExchangeMutation.isPending;
 
   return (
@@ -304,6 +343,17 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.container, { backgroundColor: colors.background }]}
     >
+      {authorizationUrl && callbackServer ? <OIDCAuthorizationBrowser
+        authorizationUrl={authorizationUrl}
+        serverUrl={callbackServer}
+        onToken={token => {
+          setAuthorizationUrl(null);
+          pendingOidcState.current = null;
+          oidcExchangeMutation.mutate(token);
+        }}
+        onError={message => { setAuthorizationUrl(null); pendingOidcState.current = null; setError(message); }}
+        onCancel={() => { setAuthorizationUrl(null); pendingOidcState.current = null; setError(nativeMessage('native.4a766b4e99a17bfb')); }}
+      /> : null}
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View
           style={[
@@ -318,18 +368,18 @@ export default function LoginScreen() {
           />
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {step === 'forgot'
-              ? 'Enter your email to receive a password reset link.'
+              ? translateNative('native.957d9b50dbb848d3')
               : step === 'reset'
-                ? 'Enter the reset code from your email and a new password.'
+                ? translateNative('native.5ccf879c7e8219d2')
                 : oidcBusy
-                  ? 'Completing secure sign-in…'
-                  : 'Sign in to manage your printers, queue, and library.'}
+                  ? translateNative('native.595d910db8026f25')
+                  : translateNative('native.c657b68c31e11c85')}
           </Text>
 
-          {step === 'credentials' && (
+          {step === 'credentials' && credentialsEnabled && (
             <>
               <TextField
-                label="Username"
+                label={translateNative('native.f503af8b2bf430e6')}
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
@@ -337,7 +387,7 @@ export default function LoginScreen() {
                 textContentType="username"
               />
               <TextField
-                label="Password"
+                label={translateNative('native.08c9c68cc706272f')}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
@@ -346,14 +396,14 @@ export default function LoginScreen() {
                 textContentType="password"
                 userName={serverHostname}
               />
-              <Pressable
+              {localLoginEnabled ? <Pressable
                 onPress={() => {
                   setError('');
                   setStep('forgot');
                 }}
               >
-                <Text style={[styles.link, { color: colors.accent }]}>Forgot password?</Text>
-              </Pressable>
+                <Text style={[styles.link, { color: colors.accent }]}>{translateNative('native.b47b4b42ad4c4632')}</Text>
+              </Pressable> : null}
             </>
           )}
 
@@ -362,8 +412,7 @@ export default function LoginScreen() {
               {availableMethods.length > 1 ? (
                 <View style={styles.methodSection}>
                   <Text style={[styles.methodTitle, { color: colors.textSecondary }]}>
-                    Verification method
-                  </Text>
+                    {translateNative('native.87ef9c17760bbff8')}</Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -373,16 +422,18 @@ export default function LoginScreen() {
                       const active = selectedMethod === method;
                       const label =
                         method === 'email'
-                          ? 'Email code'
+                          ? translateNative('native.2bb21b2ac53816a9')
                           : method === 'totp'
-                            ? 'Authenticator app'
+                            ? translateNative('native.3b9f4be797fa8236')
                             : method.toUpperCase();
                       return (
                         <Pressable
                           key={method}
+                          disabled={submitMutation.isPending || emailMutation.isPending}
                           onPress={() => {
                             setSelectedMethod(method);
                             setCode('');
+                            setError('');
                           }}
                           style={[
                             styles.methodChip,
@@ -408,29 +459,36 @@ export default function LoginScreen() {
               ) : null}
 
               <TextField
-                label={selectedMethod === 'email' ? 'Email Code' : '2FA Code'}
+                label={selectedMethod === 'email' ? translateNative('native.dcea23edb648a9a8') : selectedMethod === 'backup' ? translateNative('native.ff24fc18f7c9ee3a') : translateNative('native.746c42b71473bb1b')}
                 value={code}
                 onChangeText={setCode}
-                keyboardType="number-pad"
+                keyboardType={selectedMethod === 'backup' ? 'default' : 'number-pad'}
+                autoCorrect={false}
                 autoCapitalize="none"
                 placeholder={
-                  selectedMethod === 'email'
-                    ? 'Enter the email verification code'
-                    : 'Enter the authenticator app code'
+                  selectedMethod === 'backup' ? translateNative('native.ac5fe0934034cd48') : selectedMethod === 'email'
+                    ? translateNative('native.a75fb04b4a9cfde4')
+                    : translateNative('native.e8765941bc8ea846')
                 }
               />
               <Text style={[styles.methodHint, { color: colors.textSecondary }]}>
-                {selectedMethod === 'email'
-                  ? 'Use the code sent to your email address.'
-                  : 'Use the current code from your authenticator app.'}
+                {selectedMethod === 'backup' ? translateNative('native.ab1eeb760ef8e8e0') : selectedMethod === 'email'
+                  ? translateNative('native.98c251e2007b3112')
+                  : translateNative('native.f1b547673323a2d1')}
               </Text>
+              {selectedMethod === 'email' ? <PrimaryButton
+                label={emailMutation.isPending ? t('auth.sending', { defaultValue: 'Sending…' }) : emailDelivered ? t('auth.resendEmailCode', { defaultValue: 'Resend email code' }) : t('auth.sendEmailCode', { defaultValue: 'Send email code' })}
+                onPress={() => emailMutation.mutate()} disabled={emailMutation.isPending}
+              /> : null}
+              <PrimaryButton label={t('auth.backToSignIn', { defaultValue: 'Back to sign in' })} variant="secondary" disabled={submitMutation.isPending || emailMutation.isPending}
+                onPress={() => { setPreAuthToken(null); setCode(''); setPassword(''); setSelectedMethod(null); setAvailableMethods([]); setEmailDelivered(false); setError(''); setStep('credentials'); }} />
             </>
           )}
 
           {step === 'forgot' && (
             <>
               <TextField
-                label="Email"
+                label={translateNative('native.6d96e259f012a733')}
                 value={forgotEmail}
                 onChangeText={setForgotEmail}
                 autoCapitalize="none"
@@ -442,7 +500,7 @@ export default function LoginScreen() {
                   setStep('credentials');
                 }}
               >
-                <Text style={[styles.link, { color: colors.accent }]}>Back to login</Text>
+                <Text style={[styles.link, { color: colors.accent }]}>{translateNative('native.00c52488a6d2c291')}</Text>
               </Pressable>
             </>
           )}
@@ -450,19 +508,19 @@ export default function LoginScreen() {
           {step === 'reset' && (
             <>
               <TextField
-                label="Reset Code"
+                label={translateNative('native.6b5d0655a8286c57')}
                 value={resetToken}
                 onChangeText={setResetToken}
                 autoCapitalize="none"
               />
               <TextField
-                label="New Password"
+                label={translateNative('native.17ade512aa8e8ded')}
                 value={newPassword}
                 onChangeText={setNewPassword}
                 secureTextEntry
               />
               <TextField
-                label="Confirm Password"
+                label={translateNative('native.f200fa588492348e')}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
@@ -473,17 +531,23 @@ export default function LoginScreen() {
                   setStep('credentials');
                 }}
               >
-                <Text style={[styles.link, { color: colors.accent }]}>Back to login</Text>
+                <Text style={[styles.link, { color: colors.accent }]}>{translateNative('native.00c52488a6d2c291')}</Text>
               </Pressable>
             </>
           )}
 
           {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
 
-          {step === 'credentials' && (
+          {step === 'credentials' || step === '2fa' ? <SwitchRow label={t('auth.rememberMe', { defaultValue: 'Remember me' })} description={t('auth.rememberMeHint', { defaultValue: 'Off: keep the session only until the app process closes. On: save securely in Keychain/Keystore.' })} value={remember} onValueChange={setRemember} disabled={submitMutation.isPending || oidcBusy} /> : null}
+          {step === 'credentials' && credentialsPolicyPending ? <Text style={{ color: colors.textSecondary }}>{t('auth.loadingPolicy', { defaultValue: 'Loading login policy…' })}</Text> : null}
+          {step === 'credentials' && policyQuery.data?.local_login_enabled === false && ldapStatusQuery.data?.ldap_enabled === false ? <Text style={{ color: colors.textSecondary }}>{t('auth.localLoginDisabled', { defaultValue: 'Local sign-in is disabled. Choose a single sign-on provider below.' })}</Text> : null}
+          {step === 'credentials' && !localLoginEnabled && ldapLoginEnabled ? <Text style={{ color: colors.textSecondary }}>{t('auth.directoryLoginHint', { defaultValue: 'Sign in with your directory account.' })}</Text> : null}
+          {step === 'credentials' && policyQuery.isError ? <PrimaryButton label={t('auth.retryPolicy', { defaultValue: 'Retry login policy' })} variant="secondary" onPress={() => void policyQuery.refetch()} /> : null}
+          {step === 'credentials' && ldapStatusQuery.isError ? <PrimaryButton label={t('auth.retryDirectoryStatus', { defaultValue: 'Retry directory sign-in status' })} variant="secondary" onPress={() => void ldapStatusQuery.refetch()} /> : null}
+          {step === 'credentials' && credentialsEnabled && (
             <PrimaryButton
-              label={submitMutation.isPending ? 'Signing in…' : 'Login'}
-              onPress={() => void submitMutation.mutateAsync()}
+              label={submitMutation.isPending ? translateNative('native.1aeddc7b0b18d572') : translateNative('native.62a155bdfe8d655f')}
+              onPress={() => submitMutation.mutate()}
               loading={submitMutation.isPending}
               disabled={username.trim().length === 0 || password.length === 0 || oidcBusy}
             />
@@ -491,11 +555,12 @@ export default function LoginScreen() {
 
           {step === '2fa' && (
             <PrimaryButton
-              label={submitMutation.isPending ? 'Verifying…' : 'Verify Code'}
-              onPress={() => void submitMutation.mutateAsync()}
+              label={submitMutation.isPending ? translateNative('native.5c1bf88a5cba056e') : translateNative('native.55178b88e5e360a1')}
+              onPress={() => submitMutation.mutate()}
               loading={submitMutation.isPending}
               disabled={
                 code.trim().length === 0 ||
+                emailMutation.isPending ||
                 (availableMethods.length > 1 && selectedMethod == null)
               }
             />
@@ -503,8 +568,8 @@ export default function LoginScreen() {
 
           {step === 'forgot' && (
             <PrimaryButton
-              label={forgotMutation.isPending ? 'Sending…' : 'Send Reset Link'}
-              onPress={() => void forgotMutation.mutateAsync()}
+              label={forgotMutation.isPending ? translateNative('native.503088c268f2c987') : translateNative('native.4ef306e469bd08dc')}
+              onPress={() => forgotMutation.mutate()}
               loading={forgotMutation.isPending}
               disabled={forgotEmail.trim().length === 0}
             />
@@ -512,8 +577,8 @@ export default function LoginScreen() {
 
           {step === 'reset' && (
             <PrimaryButton
-              label={resetMutation.isPending ? 'Resetting…' : 'Reset Password'}
-              onPress={() => void resetMutation.mutateAsync()}
+              label={resetMutation.isPending ? translateNative('native.cc1642fca0298ffc') : translateNative('native.539cd2a37d713bd6')}
+              onPress={() => resetMutation.mutate()}
               loading={resetMutation.isPending}
               disabled={!resetToken.trim() || !newPassword || !confirmPassword}
             />
@@ -521,19 +586,19 @@ export default function LoginScreen() {
 
           {step === 'credentials' && oidcProviders.length > 0 ? (
             <View style={[styles.oidcSection, { borderTopColor: colors.borderSubtle }]}> 
-              <Text style={[styles.oidcTitle, { color: colors.textSecondary }]}>Single sign-on</Text>
+              <Text style={[styles.oidcTitle, { color: colors.textSecondary }]}>{translateNative('native.463822ad64bcc7bb')}</Text>
               {oidcProviders.map(provider => (
                 <PrimaryButton
                   key={provider.id}
-                  label={oidcBusy ? 'Redirecting…' : `Sign in with ${provider.name}`}
+                  label={oidcBusy ? translateNative('native.f45864aaf71ade00') : translateNative('native.245449ff754e7ef0', { value0: String(provider.name) })}
                   variant="secondary"
                   onPress={() => {
-                    void oidcStartMutation.mutateAsync(provider.id);
+                    oidcStartMutation.mutate(provider.id);
                   }}
                   disabled={oidcBusy}
                 />
               ))}
-              <Text style={[styles.oidcHint, { color: colors.textTertiary }]}>The app expects an OIDC callback to the bambuddy:// deep link.</Text>
+              <Text style={[styles.oidcHint, { color: colors.textTertiary }]}>{t('auth.oidcBrowserHint', { defaultValue: 'Sign in inside the secure authorization window. Cancel to choose another sign-in method.' })}</Text>
             </View>
           ) : null}
         </View>

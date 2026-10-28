@@ -1,3 +1,6 @@
+import { NativeTranslation, nativeEnglishSuffix, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+
 import React from 'react';
 import {
   Alert,
@@ -18,6 +21,8 @@ import {
   TextField,
 } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { RemoteSpoolBuddyModal } from '@/components/spoolbuddy/RemoteSpoolBuddyPanel';
+
 import {
   EmptyState,
   ErrorState,
@@ -35,6 +40,7 @@ import {
 } from '@/theme/tokens';
 import {
   formatDuration,
+  formatDateTime,
   pickBoolean,
   pickNumber,
   pickString,
@@ -102,10 +108,13 @@ function describeLastSeen(device: ApiRecord) {
   if (!lastSeen) return 'never';
 
   const date = new Date(lastSeen);
-  return Number.isNaN(date.getTime()) ? 'never' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? 'never' : formatDateTime(lastSeen);
 }
 
 export default function SpoolBuddyScreen() {
+  useNativeLocale();
+  const { t } = useTranslation();
+  const remoteControlsLabel = t('spoolbuddy.remoteControls', { defaultValue: 'Remote controls / calibrate' });
   const navigation = useNavigation<RootNavigationProp<'SpoolBuddy'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: 'SpoolBuddy' });
@@ -129,6 +138,7 @@ export default function SpoolBuddyScreen() {
   const [slotForm, setSlotForm] =
     React.useState<SlotAssignmentForm>(EMPTY_SLOT_FORM);
   const [selectedDeviceId, setSelectedDeviceId] = React.useState<string | null>(null);
+  const [remoteDeviceId, setRemoteDeviceId] = React.useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = React.useState<SpoolBuddySlot | null>(null);
 
   const spoolbuddyQuery = useQuery({
@@ -227,11 +237,11 @@ export default function SpoolBuddyScreen() {
     onSuccess: async () => {
       await invalidateDevices();
       closeCreateModal();
-      showToast('SpoolBuddy device added.', 'success');
+      showToast(nativeMessage('native.68ffb94cd0c4779c'), 'success');
     },
     onError: (error: Error) =>
       showToast(
-        error.message || 'Unable to add SpoolBuddy device.',
+        error.message || nativeMessage('native.bb087745ef7ad27b'),
         'error',
       ),
   });
@@ -257,11 +267,11 @@ export default function SpoolBuddyScreen() {
     onSuccess: async () => {
       await invalidateDevices();
       closeEditModal();
-      showToast('SpoolBuddy settings updated.', 'success');
+      showToast(nativeMessage('native.bb34d5b539f21c97'), 'success');
     },
     onError: (error: Error) =>
       showToast(
-        error.message || 'Unable to update SpoolBuddy settings.',
+        error.message || nativeMessage('native.e0c46d263ba72498'),
         'error',
       ),
   });
@@ -271,24 +281,11 @@ export default function SpoolBuddyScreen() {
     onSuccess: async () => {
       await invalidateDevices();
       setPendingDeleteDevice(null);
-      showToast('SpoolBuddy device removed.', 'success');
+      showToast(nativeMessage('native.247639345a30b307'), 'success');
     },
     onError: (error: Error) =>
       showToast(
-        error.message || 'Unable to remove SpoolBuddy device.',
-        'error',
-      ),
-  });
-
-  const calibrateSpoolBuddyMutation = useMutation({
-    mutationFn: (deviceId: string) => api.calibrateSpoolBuddy(deviceId),
-    onSuccess: async () => {
-      await invalidateDevices();
-      showToast('Calibration command sent.', 'success');
-    },
-    onError: (error: Error) =>
-      showToast(
-        error.message || 'Unable to calibrate SpoolBuddy device.',
+        error.message || nativeMessage('native.bfa672d17a397569'),
         'error',
       ),
   });
@@ -300,13 +297,13 @@ export default function SpoolBuddyScreen() {
             device_id: selectedDeviceId,
             slot_index: 0,
           })
-        : Promise.reject(new Error('No device selected')),
+        : Promise.reject(new Error(translateNative('native.c98328becee2fef5'))),
     onSuccess: async () => {
       await invalidateSlots();
-      showToast('Slot created.', 'success');
+      showToast(nativeMessage('native.2b12e94e5919627f'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || 'Unable to create slot.', 'error'),
+      showToast(error.message || nativeMessage('native.d4e219b64be52525'), 'error'),
   });
 
   const deleteSlotMutation = useMutation({
@@ -314,16 +311,16 @@ export default function SpoolBuddyScreen() {
       api.deleteSpoolBuddySlot(deviceId, slotIndex),
     onSuccess: async () => {
       await invalidateSlots();
-      showToast('Slot removed.', 'success');
+      showToast(nativeMessage('native.b87ea5ac5db1a469'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || 'Unable to remove slot.', 'error'),
+      showToast(error.message || nativeMessage('native.66464f9fedfb30dd'), 'error'),
   });
 
   const assignSlotMutation = useMutation({
     mutationFn: () => {
       if (!selectedSlot || !selectedDeviceId || !slotForm.spoolId) {
-        return Promise.reject(new Error('Missing required fields'));
+        return Promise.reject(new Error(translateNative('native.bc09ed13741d0086')));
       }
       return api.assignSpoolBuddySlot({
         device_id: selectedDeviceId,
@@ -335,10 +332,10 @@ export default function SpoolBuddyScreen() {
       await invalidateSlots();
       await invalidateSpools();
       closeAssignModal();
-      showToast('Spool assigned to slot.', 'success');
+      showToast(nativeMessage('native.4714d4f6199f9c64'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || 'Unable to assign spool.', 'error'),
+      showToast(error.message || nativeMessage('native.410ce58cbd32a366'), 'error'),
   });
 
   const unassignSlotMutation = useMutation({
@@ -347,10 +344,10 @@ export default function SpoolBuddyScreen() {
     onSuccess: async () => {
       await invalidateSlots();
       await invalidateSpools();
-      showToast('Spool unassigned from slot.', 'success');
+      showToast(nativeMessage('native.c3433976d24113dc'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || 'Unable to unassign spool.', 'error'),
+      showToast(error.message || nativeMessage('native.4e6a92e509672538'), 'error'),
   });
 
   const openEditModal = React.useCallback((device: ApiRecord) => {
@@ -372,7 +369,7 @@ export default function SpoolBuddyScreen() {
 
   const handleCreateDevice = React.useCallback(() => {
     if (!createForm.device_id.trim()) {
-      showToast('Device ID is required.', 'error');
+      showToast(nativeMessage('native.b570bc67c3f526f1'), 'error');
       return;
     }
     createSpoolBuddyMutation.mutate();
@@ -380,7 +377,7 @@ export default function SpoolBuddyScreen() {
 
   const handleSaveDevice = React.useCallback(() => {
     if (!editingDevice) {
-      showToast('No SpoolBuddy device selected.', 'error');
+      showToast(nativeMessage('native.e27723c81c41bd6b'), 'error');
       return;
     }
     updateSpoolBuddyMutation.mutate();
@@ -388,7 +385,7 @@ export default function SpoolBuddyScreen() {
 
   const handleAssignSpool = React.useCallback(() => {
     if (!slotForm.spoolId || Number(slotForm.spoolId) <= 0) {
-      showToast('Please select a valid spool.', 'error');
+      showToast(nativeMessage('native.f81279366a1f8447'), 'error');
       return;
     }
     assignSlotMutation.mutate();
@@ -401,7 +398,7 @@ export default function SpoolBuddyScreen() {
   const usageRecords = (usageQuery.data ?? []) as SpoolBuddyUsageRecord[];
   const usageSummaries = (usageSummaryQuery.data ?? []) as SpoolBuddyUsageSummary[];
 
-  const assignmentMap = React.useMemo(() => {
+  const assignmentMap = useLocalizedMemo(() => {
     const map = new Map<number, SpoolBuddySlotAssignment>();
     assignments.forEach(a => {
       map.set(a.slot_index, a);
@@ -410,19 +407,19 @@ export default function SpoolBuddyScreen() {
   }, [assignments]);
 
   const tabs: { key: TabKey; label: string }[] = [
-    { key: 'devices', label: 'Devices' },
-    { key: 'slots', label: 'Slots' },
-    { key: 'usage', label: 'Usage' },
+    { key: 'devices', get label() { return translateNative('native.cfe7dce2f506ba52'); } },
+    { key: 'slots', get label() { return translateNative('native.e49983648890590f'); } },
+    { key: 'usage', get label() { return translateNative('native.3a113f405662380e'); } },
   ];
 
   if (spoolbuddyQuery.isLoading) {
-    return <LoadingScreen message="Loading SpoolBuddy devices…" />;
+    return <LoadingScreen message={translateNative('native.c82527729f392e28')} />;
   }
 
   if (spoolbuddyQuery.isError) {
     return (
       <ErrorState
-        message="Unable to load SpoolBuddy devices."
+        message={translateNative('native.50d126c0a9867d39')}
         onRetry={() => void spoolbuddyQuery.refetch()}
       />
     );
@@ -477,7 +474,8 @@ export default function SpoolBuddyScreen() {
             setCreateModalVisible,
             openEditModal,
             setPendingDeleteDevice,
-            calibrateSpoolBuddyMutation,
+            openRemoteDevice: setRemoteDeviceId,
+            remoteControlsLabel,
             deleteSpoolBuddyMutation,
             invalidateDevices,
             handleCreateDevice,
@@ -485,12 +483,6 @@ export default function SpoolBuddyScreen() {
             createForm,
             setCreateForm,
             closeCreateModal,
-            editModalVisible,
-            editForm,
-            setEditForm,
-            closeEditModal,
-            handleSaveDevice,
-            updateSpoolBuddyMutation,
             editingDevice,
             pendingDeleteDevice,
             onDeviceSelect: (id) => {
@@ -523,7 +515,8 @@ export default function SpoolBuddyScreen() {
             invalidateSlots,
             assignmentMap,
             openEditModal,
-            calibrateSpoolBuddyMutation,
+            openRemoteDevice: setRemoteDeviceId,
+            remoteControlsLabel,
             deleteSpoolBuddyMutation,
             invalidateDevices,
             handleCreateDevice,
@@ -559,16 +552,18 @@ export default function SpoolBuddyScreen() {
         </ScrollView>
       </View>
 
+      <RemoteSpoolBuddyModal deviceId={remoteDeviceId} onClose={() => setRemoteDeviceId(null)} />
+
       {/* Create device modal */}
       <SimpleModal
         visible={createModalVisible}
-        title="Add SpoolBuddy device"
-        subtitle="Register a SpoolBuddy by its device ID and optional network settings."
+        title={translateNative('native.cd7d93058f0f33db')}
+        subtitle={translateNative('native.4e432c8f77e2d0ff')}
         onClose={closeCreateModal}
       >
         <ScrollView contentContainerStyle={styles.modalBody}>
           <TextField
-            label="Device ID"
+            label={translateNative('native.e7992ba86db917ee')}
             value={createForm.device_id}
             onChangeText={value =>
               setCreateForm(current => ({ ...current, device_id: value }))
@@ -576,14 +571,14 @@ export default function SpoolBuddyScreen() {
             autoCapitalize="none"
           />
           <TextField
-            label="Hostname"
+            label={translateNative('native.34c7bb242505a716')}
             value={createForm.hostname}
             onChangeText={value =>
               setCreateForm(current => ({ ...current, hostname: value }))
             }
           />
           <TextField
-            label="IP address"
+            label={translateNative('native.034a6032919bb741')}
             value={createForm.ip_address}
             onChangeText={value =>
               setCreateForm(current => ({ ...current, ip_address: value }))
@@ -591,7 +586,7 @@ export default function SpoolBuddyScreen() {
             autoCapitalize="none"
           />
           <TextField
-            label="Server URL"
+            label={translateNative('native.301fd81a82ae3258')}
             value={createForm.backend_url}
             onChangeText={value =>
               setCreateForm(current => ({ ...current, backend_url: value }))
@@ -599,7 +594,7 @@ export default function SpoolBuddyScreen() {
             autoCapitalize="none"
           />
           <TextField
-            label="API key"
+            label={translateNative('native.fbfa086fd7173e5a')}
             value={createForm.api_key}
             onChangeText={value =>
               setCreateForm(current => ({ ...current, api_key: value }))
@@ -609,15 +604,15 @@ export default function SpoolBuddyScreen() {
           />
           <View style={styles.modalFooter}>
             <PrimaryButton
-              label="Cancel"
+              label={translateNative('common.cancel')}
               variant="secondary"
               onPress={closeCreateModal}
             />
             <PrimaryButton
               label={
                 createSpoolBuddyMutation.isPending
-                  ? 'Adding…'
-                  : 'Add device'
+                  ? translateNative('native.71daaf40bd1e94d2')
+                  : translateNative('native.262040b14fbd4c58')
               }
               onPress={handleCreateDevice}
               loading={createSpoolBuddyMutation.isPending}
@@ -630,20 +625,20 @@ export default function SpoolBuddyScreen() {
       {/* Edit device modal */}
       <SimpleModal
         visible={editModalVisible}
-        title="Configure SpoolBuddy"
-        subtitle="Update network and display settings for this device."
+        title={translateNative('native.f04b3b91415b1c20')}
+        subtitle={translateNative('native.edf6ae8b0b2a8976')}
         onClose={closeEditModal}
       >
         <ScrollView contentContainerStyle={styles.modalBody}>
           <TextField
-            label="Hostname"
+            label={translateNative('native.34c7bb242505a716')}
             value={editForm.hostname}
             onChangeText={value =>
               setEditForm(current => ({ ...current, hostname: value }))
             }
           />
           <TextField
-            label="IP address"
+            label={translateNative('native.034a6032919bb741')}
             value={editForm.ip_address}
             onChangeText={value =>
               setEditForm(current => ({ ...current, ip_address: value }))
@@ -651,7 +646,7 @@ export default function SpoolBuddyScreen() {
             autoCapitalize="none"
           />
           <TextField
-            label="Server URL"
+            label={translateNative('native.301fd81a82ae3258')}
             value={editForm.backend_url}
             onChangeText={value =>
               setEditForm(current => ({ ...current, backend_url: value }))
@@ -659,7 +654,7 @@ export default function SpoolBuddyScreen() {
             autoCapitalize="none"
           />
           <TextField
-            label="API key (optional)"
+            label={translateNative('native.16320a8f424ca295')}
             value={editForm.api_key}
             onChangeText={value =>
               setEditForm(current => ({ ...current, api_key: value }))
@@ -668,7 +663,7 @@ export default function SpoolBuddyScreen() {
             secureTextEntry
           />
           <TextField
-            label="Display brightness"
+            label={translateNative('native.6198a1def03bfc98')}
             value={editForm.display_brightness}
             onChangeText={value =>
               setEditForm(current => ({
@@ -679,7 +674,7 @@ export default function SpoolBuddyScreen() {
             keyboardType="number-pad"
           />
           <TextField
-            label="Display blank timeout (s)"
+            label={translateNative('native.fc3a57fdf89f134a')}
             value={editForm.display_blank_timeout}
             onChangeText={value =>
               setEditForm(current => ({
@@ -691,12 +686,12 @@ export default function SpoolBuddyScreen() {
           />
           <View style={styles.modalFooter}>
             <PrimaryButton
-              label="Cancel"
+              label={translateNative('common.cancel')}
               variant="secondary"
               onPress={closeEditModal}
             />
             <PrimaryButton
-              label={updateSpoolBuddyMutation.isPending ? 'Saving…' : 'Save'}
+              label={updateSpoolBuddyMutation.isPending ? translateNative('native.018c2002806e2312') : translateNative('common.save')}
               onPress={handleSaveDevice}
               loading={updateSpoolBuddyMutation.isPending}
               disabled={updateSpoolBuddyMutation.isPending}
@@ -708,11 +703,11 @@ export default function SpoolBuddyScreen() {
       {/* Assign spool to slot modal */}
       <SimpleModal
         visible={assignModalVisible}
-        title="Assign Spool to Slot"
+        title={translateNative('native.2aed15fa9939f47f')}
         subtitle={
           selectedSlot
-            ? `Assign a spool to slot ${selectedSlot.slot_index} on device ${selectedDeviceId}`
-            : 'Select a spool to assign to this slot'
+            ? translateNative('native.83d45f583036598f', { value0: String(selectedSlot.slot_index), value1: String(selectedDeviceId) })
+            : translateNative('native.5f2c9daed0b2507b')
         }
         onClose={closeAssignModal}
       >
@@ -727,7 +722,7 @@ export default function SpoolBuddyScreen() {
                     pickString(spool, ['brand']),
                     pickString(spool, ['material']),
                     pickString(spool, ['color_name']),
-                  ].filter(Boolean).join(' ') || `Spool #${spoolId}`;
+                  ].filter(Boolean).join(' ') || translateNative('native.695cc238a31cecd5', { value0: String(spoolId) });
                   return (
                     <Pressable
                       key={spoolId}
@@ -762,17 +757,16 @@ export default function SpoolBuddyScreen() {
             </ScrollView>
           ) : (
             <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-              No active spools available. Add spools in the Inventory tab first.
-            </Text>
+              {translateNative('native.e212cb875d6f73df')}</Text>
           )}
           <View style={styles.modalFooter}>
             <PrimaryButton
-              label="Cancel"
+              label={translateNative('common.cancel')}
               variant="secondary"
               onPress={closeAssignModal}
             />
             <PrimaryButton
-              label="Assign"
+              label={translateNative('native.aff9b055e1df6025')}
               onPress={handleAssignSpool}
               loading={assignSlotMutation.isPending}
               disabled={assignSlotMutation.isPending || !slotForm.spoolId}
@@ -784,17 +778,17 @@ export default function SpoolBuddyScreen() {
       {/* Delete slot confirmation */}
       <ConfirmModal
         visible={pendingDeleteDevice !== null}
-        title="Remove SpoolBuddy device"
+        title={translateNative('native.d4a96d2f26a68e12')}
         message={
           pendingDeleteDevice
-            ? `Remove ${pickString(
+            ? translateNative('native.be2129b437095e77', { value0: String(pickString(
                 pendingDeleteDevice,
                 ['hostname', 'device_id'],
-                'this device',
-              )}?`
-            : 'Remove this device?'
+                translateNative('native.2675dba07a684211'),
+              )) })
+            : translateNative('native.3f42a690ead34f73')
         }
-        confirmLabel="Remove"
+        confirmLabel={translateNative('native.19c4ccf07e5b405d')}
         onClose={() => setPendingDeleteDevice(null)}
         onConfirm={() => {
           if (pendingDeleteDevice) {
@@ -816,7 +810,8 @@ function renderDevicesSection({
   setCreateModalVisible,
   openEditModal,
   setPendingDeleteDevice,
-  calibrateSpoolBuddyMutation,
+  openRemoteDevice,
+  remoteControlsLabel,
   deleteSpoolBuddyMutation: _deleteSpoolBuddyMutation,
   invalidateDevices: _invalidateDevices,
   handleCreateDevice: _handleCreateDevice,
@@ -824,12 +819,6 @@ function renderDevicesSection({
   createForm: _createForm,
   setCreateForm: _setCreateForm,
   closeCreateModal: _closeCreateModal,
-  editModalVisible,
-  editForm,
-  setEditForm,
-  closeEditModal,
-  handleSaveDevice,
-  updateSpoolBuddyMutation,
   editingDevice: _editingDevice,
   pendingDeleteDevice: _pendingDeleteDevice,
   onDeviceSelect,
@@ -840,7 +829,8 @@ function renderDevicesSection({
   setCreateModalVisible: (v: boolean) => void;
   openEditModal: (d: ApiRecord) => void;
   setPendingDeleteDevice: (d: ApiRecord | null) => void;
-  calibrateSpoolBuddyMutation: any;
+  openRemoteDevice: (id: string) => void;
+  remoteControlsLabel: string;
   deleteSpoolBuddyMutation: any;
   invalidateDevices: () => Promise<void>;
   handleCreateDevice: () => void;
@@ -848,12 +838,6 @@ function renderDevicesSection({
   createForm: CreateDeviceForm;
   setCreateForm: (f: CreateDeviceForm) => void;
   closeCreateModal: () => void;
-  editModalVisible: boolean;
-  editForm: EditDeviceForm;
-  setEditForm: React.Dispatch<React.SetStateAction<EditDeviceForm>>;
-  closeEditModal: () => void;
-  handleSaveDevice: () => void;
-  updateSpoolBuddyMutation: any;
   editingDevice: ApiRecord | null;
   pendingDeleteDevice: ApiRecord | null;
   onDeviceSelect: (id: string) => void;
@@ -865,16 +849,15 @@ function renderDevicesSection({
           SpoolBuddy
         </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Manage connected devices, status, and per-device settings.
-        </Text>
+          {translateNative('native.f450c1469558d158')}</Text>
       </View>
 
       <SectionCard
-        title="Devices"
-        subtitle="Connected state, firmware, battery, sensors, and configuration actions."
+        title={translateNative('native.cfe7dce2f506ba52')}
+        subtitle={translateNative('native.ef40596f1dd43b02')}
       >
         <PrimaryButton
-          label="Add device"
+          label={translateNative('native.262040b14fbd4c58')}
           variant="secondary"
           onPress={() => setCreateModalVisible(true)}
         />
@@ -914,12 +897,10 @@ function renderDevicesSection({
                         styles.deviceMeta,
                         { color: colors.textSecondary },
                       ]}
-                    >
-                      ID: {deviceId}
-                    </Text>
+                    ><NativeTranslation id="native.5316e7447ba324cb" values={{ value0: (deviceId) }} /></Text>
                   </View>
                   <StatusBadge
-                    label={online ? 'online' : 'offline'}
+                    label={online ? translateNative('native.901d5a89d9f5cad2') : translateNative('native.c4b60eea6e399455')}
                     color={statusColor(
                       online ? 'success' : 'offline',
                       colors,
@@ -928,12 +909,12 @@ function renderDevicesSection({
                 </View>
                 <View style={styles.metricsRow}>
                   <InfoChip
-                    label="Battery"
+                    label={translateNative('native.afb437bb136531b3')}
                     value={describeBattery(device)}
                     colors={colors}
                   />
                   <InfoChip
-                    label="Firmware"
+                    label={translateNative('native.b06111138c8370ed')}
                     value={pickString(
                       device,
                       ['firmware_version'],
@@ -948,59 +929,49 @@ function renderDevicesSection({
                     { color: colors.textSecondary },
                   ]}
                 >
-                  NFC: {pickBoolean(device, ['has_nfc']) ? 'yes' : 'no'} (
-                  {pickBoolean(device, ['nfc_ok']) ? 'ok' : 'error'}) •
-                  Scale: {pickBoolean(device, ['has_scale']) ? 'yes' : 'no'} (
-                  {pickBoolean(device, ['scale_ok']) ? 'ok' : 'error'})
+                  {translateNative('native.d887a0c408b3f550')}{pickBoolean(device, ['has_nfc']) ? translateNative('native.69d469e78de0ce33', { defaultValue: 'yes' }) : translateNative('native.294fae9b9ab07565', { defaultValue: 'no' })} (
+                  {pickBoolean(device, ['nfc_ok']) ? translateNative('native.826b3b4e892042f3', { defaultValue: 'ok' }) : translateNative('native.c10ff8329514e81e')}{translateNative('native.a51c65d40a2e2de9')}{pickBoolean(device, ['has_scale']) ? translateNative('native.69d469e78de0ce33', { defaultValue: 'yes' }) : translateNative('native.294fae9b9ab07565', { defaultValue: 'no' })} (
+                  {pickBoolean(device, ['scale_ok']) ? translateNative('native.826b3b4e892042f3', { defaultValue: 'ok' }) : translateNative('native.c10ff8329514e81e')})
                 </Text>
                 <Text
                   style={[
                     styles.deviceMeta,
                     { color: colors.textSecondary },
                   ]}
-                >
-                  Last seen: {describeLastSeen(device)} • Uptime:{' '}
-                  {formatDuration(pickNumber(device, ['uptime_s'], 0))}
-                </Text>
+                ><NativeTranslation id="native.e80c00f5144b858d" values={{ value0: (describeLastSeen(device)), value1: (formatDuration(pickNumber(device, ['uptime_s'], 0))) }} /></Text>
                 <Text
                   style={[
                     styles.deviceMeta,
                     { color: colors.textSecondary },
                   ]}
-                >
-                  Server URL:{' '}
-                  {pickString(
+                ><NativeTranslation id="native.b28318a758b5fb86" values={{ value0: (pickString(
                     device,
                     ['backend_url'],
-                    'Not configured',
-                  )}
-                </Text>
+                    translateNative('native.e26dc4caf4a4ad54'),
+                  )) }} /></Text>
                 <Text
                   style={[
                     styles.deviceAction,
                     { color: colors.accent },
                   ]}
                 >
-                  Tap to manage slots →
-                </Text>
+                  {translateNative('native.c588460c012e48cd')}</Text>
 
                 <View style={styles.actionsRow}>
                   <PrimaryButton
-                    label="Configure"
+                    label={translateNative('native.6d999fe2d85736ea')}
                     variant="secondary"
                     onPress={() => openEditModal(device)}
                   />
                   <PrimaryButton
-                    label="Calibrate"
+                    label={remoteControlsLabel}
                     variant="secondary"
                     onPress={() =>
-                      calibrateSpoolBuddyMutation.mutate(deviceId)
+                      openRemoteDevice(deviceId)
                     }
-                    loading={calibrateSpoolBuddyMutation.isPending}
-                    disabled={calibrateSpoolBuddyMutation.isPending}
                   />
                   <PrimaryButton
-                    label="Remove"
+                    label={translateNative('native.19c4ccf07e5b405d')}
                     variant="danger"
                     onPress={() => setPendingDeleteDevice(device)}
                   />
@@ -1011,89 +982,12 @@ function renderDevicesSection({
         ) : (
           <EmptyState
             icon="nfc"
-            title="No SpoolBuddy devices found"
-            message="Register a device to start managing status and settings from mobile."
+            title={translateNative('native.53adb0ea6cd57dbe')}
+            message={translateNative('native.c5a2fb348daa7195')}
           />
         )}
       </SectionCard>
 
-      {/* Edit device modal inline */}
-      <SimpleModal
-        visible={editModalVisible}
-        title="Configure SpoolBuddy"
-        subtitle="Update network and display settings for this device."
-        onClose={closeEditModal}
-      >
-        <ScrollView contentContainerStyle={styles.modalBody}>
-          <TextField
-            label="Hostname"
-            value={editForm.hostname}
-            onChangeText={value =>
-              setEditForm(current => ({ ...current, hostname: value }))
-            }
-          />
-          <TextField
-            label="IP address"
-            value={editForm.ip_address}
-            onChangeText={value =>
-              setEditForm(current => ({ ...current, ip_address: value }))
-            }
-            autoCapitalize="none"
-          />
-          <TextField
-            label="Server URL"
-            value={editForm.backend_url}
-            onChangeText={value =>
-              setEditForm(current => ({ ...current, backend_url: value }))
-            }
-            autoCapitalize="none"
-          />
-          <TextField
-            label="API key (optional)"
-            value={editForm.api_key}
-            onChangeText={value =>
-              setEditForm(current => ({ ...current, api_key: value }))
-            }
-            autoCapitalize="none"
-            secureTextEntry
-          />
-          <TextField
-            label="Display brightness"
-            value={editForm.display_brightness}
-            onChangeText={value =>
-              setEditForm(current => ({
-                ...current,
-                display_brightness: value,
-              }))
-            }
-            keyboardType="number-pad"
-          />
-          <TextField
-            label="Display blank timeout (s)"
-            value={editForm.display_blank_timeout}
-            onChangeText={value =>
-              setEditForm(current => ({
-                ...current,
-                display_blank_timeout: value,
-              }))
-            }
-            keyboardType="number-pad"
-          />
-          <View style={styles.modalFooter}>
-            <PrimaryButton
-              label="Cancel"
-              variant="secondary"
-              onPress={closeEditModal}
-            />
-            <PrimaryButton
-              label={updateSpoolBuddyMutation.isPending ? 'Saving…' : 'Save'}
-              onPress={handleSaveDevice}
-              loading={updateSpoolBuddyMutation.isPending}
-              disabled={updateSpoolBuddyMutation.isPending}
-            />
-          </View>
-        </ScrollView>
-      </SimpleModal>
     </>
   );
 }
@@ -1122,7 +1016,8 @@ function renderSlotsSection({
   invalidateSlots: _invalidateSlots,
   assignmentMap,
   openEditModal,
-  calibrateSpoolBuddyMutation,
+  openRemoteDevice,
+  remoteControlsLabel,
   deleteSpoolBuddyMutation: _deleteSpoolBuddyMutation,
   invalidateDevices: _invalidateDevices,
   handleCreateDevice: _handleCreateDevice,
@@ -1163,7 +1058,8 @@ function renderSlotsSection({
   invalidateSlots: () => Promise<void>;
   assignmentMap: Map<number, SpoolBuddySlotAssignment>;
   openEditModal: (d: ApiRecord) => void;
-  calibrateSpoolBuddyMutation: any;
+  openRemoteDevice: (id: string) => void;
+  remoteControlsLabel: string;
   deleteSpoolBuddyMutation: any;
   invalidateDevices: () => Promise<void>;
   handleCreateDevice: () => void;
@@ -1186,16 +1082,14 @@ function renderSlotsSection({
       <>
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>
-            Slot Management
-          </Text>
+            {translateNative('native.03fe0c4dc87ebae7')}</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Select a device above to manage its slots and spool assignments.
-          </Text>
+            {translateNative('native.c6ef079b574b2775')}</Text>
         </View>
         {devices.length > 0 ? (
           <SectionCard
-            title="Select a device"
-            subtitle="Choose a SpoolBuddy device to view and manage its slots."
+            title={translateNative('native.e6c6aadfa14c5a8a')}
+            subtitle={translateNative('native.7a90d292d9b824a2')}
           >
             {devices.map(device => {
               const deviceId = pickString(device, ['device_id', 'id']);
@@ -1212,8 +1106,8 @@ function renderSlotsSection({
         ) : (
           <EmptyState
             icon="nfc"
-            title="No devices available"
-            message="Add a SpoolBuddy device on the Devices tab first."
+            title={translateNative('native.cc68fb57cf62782e')}
+            message={translateNative('native.1585fef048968c53')}
           />
         )}
       </>
@@ -1228,17 +1122,13 @@ function renderSlotsSection({
     <>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>
-          Slot Management
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Manage slots, assign spools, and track filament weight for{' '}
-          {pickString(currentDevice, ['hostname', 'device_id'], selectedDeviceId)}.
-        </Text>
+          {translateNative('native.03fe0c4dc87ebae7')}</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}><NativeTranslation id="native.c9b0848587a162eb" values={{ value0: (pickString(currentDevice, ['hostname', 'device_id'], selectedDeviceId)) }} /></Text>
       </View>
 
       {/* Device selector */}
       {devices.length > 1 && (
-        <SectionCard title="Switch device">
+        <SectionCard title={translateNative('native.3bdb47beb17ae557')}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.spoolChips}>
             {devices.map(device => {
               const deviceId = pickString(device, ['device_id', 'id']);
@@ -1275,11 +1165,11 @@ function renderSlotsSection({
       )}
 
       <SectionCard
-        title="Slots"
-        subtitle={`Physical slots on ${pickString(currentDevice, ['hostname', 'device_id'], selectedDeviceId)}. Tap a slot to assign or unassign a spool.`}
+        title={translateNative('native.e49983648890590f')}
+        subtitle={translateNative('native.466df31e845e6ae4', { value0: String(pickString(currentDevice, ['hostname', 'device_id'], selectedDeviceId)) })}
       >
         <PrimaryButton
-          label="Add slot"
+          label={translateNative('native.a91769118a438e28')}
           variant="secondary"
           onPress={() => void createSlotMutation.mutateAsync()}
           loading={createSlotMutation.isPending}
@@ -1302,50 +1192,45 @@ function renderSlotsSection({
               >
                 <View style={styles.slotHeader}>
                   <View style={styles.slotTitleArea}>
-                    <Text style={[styles.slotTitle, { color: colors.text }]}>
-                      Slot {slot.slot_index}
-                    </Text>
+                    <Text style={[styles.slotTitle, { color: colors.text }]}><NativeTranslation id="native.0fe9bbcfeac0b232" values={{ value0: (slot.slot_index) }} /></Text>
                     {hasSpool ? (
                       <Text
                         style={[styles.slotSpoolInfo, { color: colors.text }]}
                       >
-                        {slot.spool_brand || 'Unknown'} • {slot.spool_material || 'Unknown'}
+                        {slot.spool_brand || translateNative('native.ff12a040d13addb7')} • {slot.spool_material || translateNative('native.ff12a040d13addb7')}
                         {slot.spool_color_name ? ` • ${slot.spool_color_name}` : ''}
                       </Text>
                     ) : (
                       <Text style={[styles.slotSpoolInfo, { color: colors.textTertiary }]}>
-                        Empty
-                      </Text>
+                        {translateNative('native.ee4487d54025a3ca')}</Text>
                     )}
                   </View>
                   <StatusBadge
-                    label={slot.empty ? 'empty' : 'loaded'}
+                    label={slot.empty ? translateNative('native.392961b641438c61') : translateNative('native.a2acc21e44691893')}
                     color={statusColor(slot.empty ? 'warning' : 'success', colors)}
                   />
                 </View>
 
                 <View style={styles.metricsRow}>
                   <InfoChip
-                    label="Weight"
+                    label={translateNative('common.weight')}
                     value={`${slot.weight_g.toFixed(1)} g`}
                     colors={colors}
                   />
                   <InfoChip
-                    label="Calibrated"
+                    label={translateNative('native.2f9b92b2e3f94c24')}
                     value={`${slot.calibrated_weight_g.toFixed(1)} g`}
                     colors={colors}
                   />
                   <InfoChip
-                    label="Scale"
+                    label={translateNative('native.e2f888ec587531e5')}
                     value={slot.scale_ok ? 'ok' : 'error'}
                     colors={colors}
                   />
                 </View>
 
                 {slot.last_read_at && (
-                  <Text style={[styles.deviceMeta, { color: colors.textSecondary }]}>
-                    Last read: {new Date(slot.last_read_at).toLocaleString()}
-                  </Text>
+                  <Text style={[styles.deviceMeta, { color: colors.textSecondary }]}><NativeTranslation id="native.11f03fb5f333048d" values={{ value0: (formatDateTime(slot.last_read_at)) }} /></Text>
                 )}
 
                 <View style={styles.actionsRow}>
@@ -1359,7 +1244,7 @@ function renderSlotsSection({
                       }}
                     >
                       <PrimaryButton
-                        label="Change spool"
+                        label={translateNative('native.43eb7cfa350a028b')}
                         variant="secondary"
                         onPress={() => {
                           setSelectedSlot(slot);
@@ -1371,7 +1256,7 @@ function renderSlotsSection({
                   ) : (
                     <View>
                       <PrimaryButton
-                        label="Assign spool"
+                        label={translateNative('native.81feec5a97a3034f')}
                         variant="secondary"
                         onPress={() => {
                           setSelectedSlot(slot);
@@ -1383,7 +1268,7 @@ function renderSlotsSection({
                   )}
                   {hasSpool && assignment ? (
                     <PrimaryButton
-                      label="Unassign"
+                      label={translateNative('native.1cc819b2aa2fbd6a')}
                       variant="secondary"
                       onPress={() => {
                         if (selectedDeviceId) {
@@ -1398,16 +1283,16 @@ function renderSlotsSection({
                     />
                   ) : null}
                   <PrimaryButton
-                    label="Remove slot"
+                    label={translateNative('native.0fd77292395db6b4')}
                     variant="danger"
                     onPress={() => {
                       Alert.alert(
-                        'Remove slot',
-                        `Remove slot ${slot.slot_index}? This cannot be undone.`,
+                        translateNative('native.0fd77292395db6b4'),
+                        translateNative('native.4e6197d82f56fa89', { value0: String(slot.slot_index) }),
                         [
-                          { text: 'Cancel', style: 'cancel' },
+                          { get text() { return translateNative('common.cancel'); }, style: 'cancel' },
                           {
-                            text: 'Remove',
+                            get text() { return translateNative('native.19c4ccf07e5b405d'); },
                             style: 'destructive',
                             onPress: () =>
                               deleteSlotMutation.mutate({
@@ -1428,31 +1313,29 @@ function renderSlotsSection({
         ) : (
           <EmptyState
             icon="layers"
-            title="No slots configured"
-            message="Add a slot to start tracking filament weight and assigning spools."
+            title={translateNative('native.b608fd67bcb74c7c')}
+            message={translateNative('native.ea479c2d0a31a007')}
           />
         )}
       </SectionCard>
 
       {/* Device actions */}
-      <SectionCard title="Device actions">
+      <SectionCard title={translateNative('native.577ed9c8245d33e1')}>
         <View style={styles.actionsRow}>
           <PrimaryButton
-            label="Configure"
+            label={translateNative('native.6d999fe2d85736ea')}
             variant="secondary"
             onPress={() => currentDevice && openEditModal(currentDevice)}
           />
           <PrimaryButton
-            label="Calibrate scale"
+            label={remoteControlsLabel}
             variant="secondary"
             onPress={() =>
-              selectedDeviceId && calibrateSpoolBuddyMutation.mutate(selectedDeviceId)
+              selectedDeviceId && openRemoteDevice(selectedDeviceId)
             }
-            loading={calibrateSpoolBuddyMutation.isPending}
-            disabled={calibrateSpoolBuddyMutation.isPending}
           />
           <PrimaryButton
-            label="Remove device"
+            label={translateNative('native.4ca3cec70f0f781e')}
             variant="danger"
             onPress={() => currentDevice && setPendingDeleteDevice(currentDevice)}
           />
@@ -1462,11 +1345,11 @@ function renderSlotsSection({
       {/* Spool assignment modal */}
       <SimpleModal
         visible={assignModalVisible}
-        title="Assign Spool to Slot"
+        title={translateNative('native.2aed15fa9939f47f')}
         subtitle={
           selectedSlot
-            ? `Assign a spool to slot ${selectedSlot.slot_index}`
-            : 'Select a spool to assign to this slot'
+            ? translateNative('native.f1371c338f1b01d7', { value0: String(selectedSlot.slot_index) })
+            : translateNative('native.5f2c9daed0b2507b')
         }
         onClose={closeAssignModal}
       >
@@ -1481,7 +1364,7 @@ function renderSlotsSection({
                     pickString(spool, ['brand']),
                     pickString(spool, ['material']),
                     pickString(spool, ['color_name']),
-                  ].filter(Boolean).join(' ') || `Spool #${spoolId}`;
+                  ].filter(Boolean).join(' ') || translateNative('native.695cc238a31cecd5', { value0: String(spoolId) });
                   return (
                     <Pressable
                       key={spoolId}
@@ -1516,17 +1399,16 @@ function renderSlotsSection({
             </ScrollView>
           ) : (
             <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-              No active spools available. Add spools in the Inventory tab first.
-            </Text>
+              {translateNative('native.e212cb875d6f73df')}</Text>
           )}
           <View style={styles.modalFooter}>
             <PrimaryButton
-              label="Cancel"
+              label={translateNative('common.cancel')}
               variant="secondary"
               onPress={closeAssignModal}
             />
             <PrimaryButton
-              label="Assign"
+              label={translateNative('native.aff9b055e1df6025')}
               onPress={handleAssignSpool}
               loading={assignSlotMutation.isPending}
               disabled={assignSlotMutation.isPending || !slotForm.spoolId}
@@ -1565,15 +1447,13 @@ function renderUsageSection({
     <>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>
-          Filament Usage
-        </Text>
+          {translateNative('native.9ead714b4a1fe200')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Track filament consumption via SpoolBuddy scale readings.
-        </Text>
+          {translateNative('native.4964a4bf1d14ac31')}</Text>
       </View>
 
       {/* Device selector for usage */}
-      <SectionCard title="Select device">
+      <SectionCard title={translateNative('native.96c7bc4883b8d240')}>
         {devices.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.spoolChips}>
             {devices.map(device => {
@@ -1610,42 +1490,35 @@ function renderUsageSection({
         ) : (
           <EmptyState
             icon="trending-down"
-            title="No devices available"
-            message="Add a SpoolBuddy device to track filament usage."
+            title={translateNative('native.cc68fb57cf62782e')}
+            message={translateNative('native.04ec6d469da9d0eb')}
           />
         )}
       </SectionCard>
 
       {selectedDeviceId && usageSummaries.length > 0 && (
         <SectionCard
-          title="Usage summary"
-          subtitle={`Total consumption for ${pickString(devices.find(d => pickString(d, ['device_id', 'id']) === selectedDeviceId), ['hostname', 'device_id'], selectedDeviceId)}`}
+          title={translateNative('native.560123ef2582e046')}
+          subtitle={translateNative('native.4886e8d5598450b9', { value0: String(pickString(devices.find(d => pickString(d, ['device_id', 'id']) === selectedDeviceId), ['hostname', 'device_id'], selectedDeviceId)) })}
         >
           {usageSummaries.map(summary => (
             <View key={summary.device_id} style={styles.summaryCard}>
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                  Total used
-                </Text>
-                <Text style={[styles.summaryValue, { color: colors.text }]}>
-                  {summary.total_weight_used_g.toFixed(1)} g
-                </Text>
+                  {translateNative('native.70de98f6f1faf219')}</Text>
+                <Text style={[styles.summaryValue, { color: colors.text }]}><NativeTranslation id="native.9c765a3ca5313e91" values={{ value0: (summary.total_weight_used_g.toFixed(1)) }} /></Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                  Remaining
-                </Text>
-                <Text style={[styles.summaryValue, { color: colors.text }]}>
-                  {summary.total_weight_remaining_g.toFixed(1)} g
-                </Text>
+                  {translateNative('native.b738cd2bb44abf9a')}</Text>
+                <Text style={[styles.summaryValue, { color: colors.text }]}><NativeTranslation id="native.9c765a3ca5313e91" values={{ value0: (summary.total_weight_remaining_g.toFixed(1)) }} /></Text>
               </View>
               {summary.spool_consumptions.length > 0 && (
                 <>
                   <Text
                     style={[styles.sectionSubTitle, { color: colors.textSecondary }]}
                   >
-                    By spool
-                  </Text>
+                    {translateNative('native.91cccf549c8cfa03')}</Text>
                   {summary.spool_consumptions.map((consumption, idx) => (
                     <View
                       key={idx}
@@ -1659,12 +1532,10 @@ function renderUsageSection({
                           {consumption.spool_label}
                         </Text>
                         <Text style={[styles.consumptionMeta, { color: colors.textSecondary }]}>
-                          {consumption.print_count} print{consumption.print_count !== 1 ? 's' : ''}
+                          {consumption.print_count} {translateNative('native.14fd7cf93e80c6e0')}{nativeEnglishSuffix(consumption.print_count !== 1 ? 's' : '')}
                         </Text>
                       </View>
-                      <Text style={[styles.consumptionValue, { color: colors.text }]}>
-                        {consumption.total_used_g.toFixed(1)} g
-                      </Text>
+                      <Text style={[styles.consumptionValue, { color: colors.text }]}><NativeTranslation id="native.9c765a3ca5313e91" values={{ value0: (consumption.total_used_g.toFixed(1)) }} /></Text>
                     </View>
                   ))}
                 </>
@@ -1676,8 +1547,8 @@ function renderUsageSection({
 
       {selectedDeviceId && usageRecords.length > 0 && (
         <SectionCard
-          title="Recent readings"
-          subtitle={`Latest ${usageRecords.length} scale readings`}
+          title={translateNative('native.248e456ba5da5066')}
+          subtitle={translateNative('native.85a90cb9d4d53fb7', { value0: String(usageRecords.length) })}
         >
           {usageRecords.map(record => (
             <View
@@ -1686,22 +1557,18 @@ function renderUsageSection({
             >
               <View style={styles.rowText}>
                 <Text style={[styles.rowTitle, { color: colors.text }]}>
-                  Slot {record.slot_index}
+                  {translateNative('native.abdcaabd55140ea9')}{record.slot_index}
                   {record.spool_brand
                     ? ` • ${record.spool_brand} ${record.spool_material || ''}`
-                    : ' • (unassigned)'}
+                    : translateNative('native.b2b2902ee44580cc')}
                 </Text>
                 <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
-                  {new Date(record.recorded_at).toLocaleString()}
+                  {formatDateTime(record.recorded_at)}
                 </Text>
               </View>
               <View style={styles.rowRight}>
-                <Text style={[styles.rowMeta, { color: colors.text }]}>
-                  {record.weight_used_g.toFixed(1)} g used
-                </Text>
-                <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
-                  {record.calibrated_weight_g.toFixed(1)} g remaining
-                </Text>
+                <Text style={[styles.rowMeta, { color: colors.text }]}><NativeTranslation id="native.ea72e64ad1dc4991" values={{ value0: (record.weight_used_g.toFixed(1)) }} /></Text>
+                <Text style={[styles.rowMeta, { color: colors.textSecondary }]}><NativeTranslation id="native.ba564890f979f68b" values={{ value0: (record.calibrated_weight_g.toFixed(1)) }} /></Text>
               </View>
             </View>
           ))}
@@ -1709,14 +1576,14 @@ function renderUsageSection({
       )}
 
       {selectedDeviceId && usageRecords.length === 0 && usageQuery.isFetching && (
-        <LoadingScreen message="Loading usage data…" />
+        <LoadingScreen message={translateNative('native.55718e7f69a944d5')} />
       )}
 
       {selectedDeviceId && usageRecords.length === 0 && !usageQuery.isFetching && (
         <EmptyState
           icon="trending-down"
-          title="No usage data"
-          message="Scale readings will appear here once SpoolBuddy starts recording filament weight."
+          title={translateNative('native.e1bdc0f1ee95d0ec')}
+          message={translateNative('native.bfcad6771cf71d5d')}
         />
       )}
     </>
@@ -1732,6 +1599,7 @@ function InfoChip({
   value: string;
   colors: ReturnType<typeof useTheme>['colors'];
 }) {
+  useNativeLocale();
   return (
     <View
       style={[

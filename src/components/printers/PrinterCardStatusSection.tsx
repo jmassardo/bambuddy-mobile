@@ -1,3 +1,4 @@
+import { NativeTranslation, translateNative, useNativeLocale } from '@/i18n';
 import React from 'react';
 import { Image, Text, type ImageSourcePropType, View } from 'react-native';
 import { Box } from 'lucide-react-native';
@@ -38,11 +39,12 @@ export function PrinterCardStatusSection({
   currentPrintUserName,
   partPreviewSource,
 }: PrinterCardStatusSectionProps) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
     <>
-      <SectionLabel label="Status" />
+      <SectionLabel label={translateNative('common.status')} />
       <View style={styles.statusRow}>
         <View
           style={[
@@ -85,7 +87,7 @@ export function PrinterCardStatusSection({
               {badgeLabel}
             </Text>
             {loading ? (
-              <Text style={[styles.refreshText, { color: colors.textTertiary }]}>Refreshing…</Text>
+              <Text style={[styles.refreshText, { color: colors.textTertiary }]}>{translateNative('native.a0ce32052fed4ae3')}</Text>
             ) : null}
           </View>
           <Text style={[styles.printName, { color: colors.text }]} numberOfLines={2}>
@@ -104,33 +106,20 @@ export function PrinterCardStatusSection({
           </View>
           <View style={styles.progressMetaRow}>
             <Text style={[styles.progressText, { color: colors.text }]}>{`${Math.round(progress)}%`}</Text>
-            <Text style={[styles.progressMeta, { color: colors.textSecondary }]}> 
-              Layer{' '}
-              {status?.layer_num != null && status?.total_layers != null
+            <Text style={[styles.progressMeta, { color: colors.textSecondary }]}><NativeTranslation id="native.337a9dac62b7b2dd" values={{ value0: (status?.layer_num != null && status?.total_layers != null
                 ? `${status.layer_num}/${status.total_layers}`
-                : '—'}
-            </Text>
+                : '—') }} /></Text>
           </View>
           <View style={styles.timelineRow}>
-            <Text style={[styles.timelineItem, { color: colors.textSecondary }]}>
-              Remaining {formatDuration((status?.remaining_time ?? 0) * 60)}
-            </Text>
-            <Text style={[styles.timelineItem, { color: colors.textSecondary }]}>
-              Elapsed {formatDuration(elapsedSeconds ?? 0)}
-            </Text>
+            <Text style={[styles.timelineItem, { color: colors.textSecondary }]}><NativeTranslation id="native.9f48379c7922533e" values={{ value0: (formatDuration((status?.remaining_time ?? 0) * 60)) }} /></Text>
+            <Text style={[styles.timelineItem, { color: colors.textSecondary }]}><NativeTranslation id="native.638faf82373632b9" values={{ value0: (formatDuration(elapsedSeconds ?? 0)) }} /></Text>
           </View>
           <View style={styles.timelineRow}>
-            <Text style={[styles.timelineItem, { color: colors.textSecondary }]}>
-              ETA {formatEta(status?.remaining_time)}
-            </Text>
-            <Text style={[styles.timelineItem, { color: colors.textSecondary }]}>
-              Speed {speedInfo.label} · {speedInfo.percent}
-            </Text>
+            <Text style={[styles.timelineItem, { color: colors.textSecondary }]}><NativeTranslation id="native.aa7eaed01a31eb1e" values={{ value0: (formatEta(status?.remaining_time)) }} /></Text>
+            <Text style={[styles.timelineItem, { color: colors.textSecondary }]}><NativeTranslation id="native.81281ede95d3795b" values={{ value0: (speedInfo.label), value1: (speedInfo.percent) }} /></Text>
           </View>
           {currentPrintUserName ? (
-            <Text style={[styles.userText, { color: colors.textTertiary }]} numberOfLines={1}>
-              Started by {currentPrintUserName}
-            </Text>
+            <Text style={[styles.userText, { color: colors.textTertiary }]} numberOfLines={1}><NativeTranslation id="native.7e26c6bf24bfc3d3" values={{ value0: (currentPrintUserName) }} /></Text>
           ) : null}
         </View>
       </View>

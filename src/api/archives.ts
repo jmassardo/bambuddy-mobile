@@ -1,5 +1,5 @@
 import type { ApiEntity, Archive, EnergyStats, FailureAnalysis, PrintLogResponse } from '@/types/api';
-import { buildMediaUrl, ApiError, request, requestBlob, uploadFile, type UploadableFile } from './http';
+import { buildMediaUrl, request, requestBlob, uploadFile, type UploadableFile } from './http';
 
 export const archivesApi = {
   getArchives: async (params?: {
@@ -150,7 +150,7 @@ export const archivesApi = {
   },
 
   getArchivePlateThumbnail: (id: number, plateIndex: number): string =>
-    buildMediaUrl(`/archives/${id}/plates/${plateIndex}/thumbnail`),
+    buildMediaUrl(`/archives/${id}/plate-thumbnail/${plateIndex}`),
 
   getArchiveThumbnail: (id: number): string =>
     buildMediaUrl(`/archives/${id}/thumbnail`),
@@ -160,30 +160,6 @@ export const archivesApi = {
 
   getArchiveTimelapseThumbnail: (id: number): string =>
     buildMediaUrl(`/archives/${id}/timelapse/thumbnail`),
-
-  updateArchiveTimelapse: async (
-    id: number,
-    data: {
-      start_offset?: number;
-      end_offset?: number;
-      speed?: number;
-    },
-  ) =>
-    request<Record<string, unknown>>(`/archives/${id}/timelapse`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    }),
-
-  uploadTimelapseMusic: async (archiveId: number, file: UploadableFile) =>
-    uploadFile<Record<string, unknown>>(
-      `/archives/${archiveId}/timelapse/music`,
-      file,
-    ),
-
-  removeTimelapseMusic: async (archiveId: number) =>
-    request<Record<string, unknown>>(`/archives/${archiveId}/timelapse/music`, {
-      method: 'DELETE',
-    }),
 
   getArchivePhotoUrl: (archiveId: number, filename: string): string =>
     buildMediaUrl(
@@ -196,25 +172,17 @@ export const archivesApi = {
   },
 
   getArchivePrintLog: async (archiveId: number) => {
-    try {
-      const response = await request<Record<string, unknown> | Record<string, unknown>[]>(
-        `/archives/${archiveId}/print-log`,
-      );
-      if (Array.isArray(response)) return response;
-      return Array.isArray(response.items)
-        ? (response.items as Record<string, unknown>[])
-        : [];
-    } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 404) throw error;
-      const response = await request<ApiEntity<PrintLogResponse>>('/print-log/?limit=250');
-      const items = Array.isArray(response.items) ? response.items : [];
-      return items.filter(item => Number(item.archive_id ?? 0) === archiveId);
-    }
+    const response = await request<{ items: Record<string, unknown>[]; total: number }>(`/archives/${archiveId}/runs`);
+    return response.items;
   },
 
   getPrintLogs: async (params?: {
     printName?: string;
     printerName?: string;
+    printerId?: number;
+    createdByUsername?: string;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
     status?: string;
     dateFrom?: string;
     dateTo?: string;
@@ -224,11 +192,14 @@ export const archivesApi = {
   }) => {
     const searchParams = new URLSearchParams();
     if (params?.printName) searchParams.set('print_name', params.printName);
-    if (params?.printerName) searchParams.set('printer_name', params.printerName);
+    if (params?.printerId !== undefined) searchParams.set('printer_id', String(params.printerId));
+    if (params?.createdByUsername) searchParams.set('created_by_username', params.createdByUsername);
+    if (params?.sortBy) searchParams.set('sort_by', params.sortBy);
+    if (params?.sortDir) searchParams.set('sort_dir', params.sortDir);
     if (params?.status) searchParams.set('status', params.status);
     if (params?.dateFrom) searchParams.set('date_from', params.dateFrom);
     if (params?.dateTo) searchParams.set('date_to', params.dateTo);
-    if (params?.search) searchParams.set('q', params.search);
+    if (params?.search) searchParams.set('search', params.search);
     if (params?.limit) searchParams.set('limit', String(params.limit));
     if (params?.offset) searchParams.set('offset', String(params.offset));
     return request<ApiEntity<PrintLogResponse>>(`/print-log/?${searchParams}`);
@@ -293,8 +264,8 @@ export const archivesApi = {
     printerId?: number;
   }) => {
     const searchParams = new URLSearchParams();
-    if (params?.periodDays) searchParams.set('period_days', String(params.periodDays));
+    if (params?.periodDays) searchParams.set('days', String(params.periodDays));
     if (params?.printerId) searchParams.set('printer_id', String(params.printerId));
-    return request<FailureAnalysis>(`/archives/failure-analysis?${searchParams}`);
+    return request<FailureAnalysis>(`/archives/analysis/failures?${searchParams}`);
   },
 };

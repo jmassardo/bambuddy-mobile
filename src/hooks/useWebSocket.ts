@@ -1,3 +1,6 @@
+import { nativeMessage, translateNative } from '@/i18n';
+
+
 // WebSocket hook for real-time printer status updates
 // Ported from the web frontend's useWebSocket.ts
 
@@ -8,6 +11,7 @@ import { api, getAuthToken } from '../api/client';
 import { useServerStore, wsUrl } from '../api/server';
 import { useToast } from '../contexts/ToastContext';
 import { useNetworkStatus } from './useNetworkStatus';
+import { publishSpoolBuddyEvent, setSpoolBuddyServer, spoolBuddySocketOpened, spoolBuddySocketClosed } from './spoolbuddyEvents';
 
 const WS_CLOSE_UNAUTHORIZED = 4401;
 const MAX_RECONNECT_ATTEMPTS = 15;
@@ -22,6 +26,7 @@ export interface WebSocketError {
 }
 
 export interface UseWebSocketOptions {
+  onlySpoolBuddy?: boolean;
   onReconnect?: (attempt: number) => void;
   onError?: (error: WebSocketError) => void;
 }
@@ -47,6 +52,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
   const [errors, setErrors] = useState<WebSocketError[]>([]);
   const { showToast } = useToast();
   const serverUrl = useServerStore((s) => s.serverUrl);
+  useEffect(() => { setSpoolBuddyServer(serverUrl); }, [serverUrl]);
   const { isConnected: connectivityConnected } = useNetworkStatus();
   const isConnectedRef = useRef(true);
   const optionsRef = useRef(options);
@@ -127,6 +133,11 @@ export function useWebSocket(options?: UseWebSocketOptions) {
 
   const handleMessage = useCallback(
     (message: WebSocketMessage) => {
+      publishSpoolBuddyEvent(message);
+      if (['spoolbuddy_online', 'spoolbuddy_offline', 'spoolbuddy_update'].includes(message.type)) {
+        debouncedInvalidate('spoolbuddyDevices');
+      }
+      if (optionsRef.current?.onlySpoolBuddy) return;
       switch (message.type) {
         case 'printer_status':
           if (message.printer_id !== undefined && message.data) {
@@ -140,7 +151,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
           }
           if (message.printer_name || message.printer_id !== undefined) {
             const printer = message.printer_name || `Printer ${message.printer_id}`;
-            showToast(`${printer}: Print started`, 'info', 4000);
+            showToast(nativeMessage('native.d49b2c60fac8fd7f', () => ({ value0: String(printer) })), 'info', 4000);
           }
           break;
         }
@@ -151,7 +162,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
             .filter(Boolean);
           if (slots?.length) {
             const printer = message.printer_name || `Printer ${message.printer_id}`;
-            showToast(`${printer}: Missing spool assignment for ${slots.join(', ')}`, 'warning');
+            showToast(nativeMessage('native.91b51e74a03c2b46', () => ({ value0: String(printer), value1: String(slots.join(', ')) })), 'warning');
           }
           break;
         }
@@ -161,7 +172,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
           debouncedInvalidate('archiveStats');
           if (message.printer_name || message.printer_id !== undefined) {
             const printer = message.printer_name || `Printer ${message.printer_id}`;
-            showToast(`${printer}: Print completed`, 'success', 5000);
+            showToast(nativeMessage('native.7a493cb216ef2608', () => ({ value0: String(printer) })), 'success', 5000);
           }
           break;
         }
@@ -174,15 +185,15 @@ export function useWebSocket(options?: UseWebSocketOptions) {
           const extra = message.data?.error_message
             ? ` — ${String(message.data.error_message)}`
             : message.data?.hms_errors
-              ? ' — HMS errors detected'
+              ? translateNative('native.913372efc470fc5e')
               : '';
-          showToast(`${printer}: Print failed${extra}`, 'error', 5000);
+          showToast(nativeMessage('native.6460d2d6a054aabb', () => ({ value0: String(printer), value1: String(extra) })), 'error', 5000);
           break;
         }
 
         case 'printer_offline': {
           const printer = message.printer_name || `Printer ${message.printer_id}`;
-          showToast(`${printer}: Printer offline`, 'warning', 6000);
+          showToast(nativeMessage('native.91ed2fd436aee660', () => ({ value0: String(printer) })), 'warning', 6000);
           break;
         }
 
@@ -248,7 +259,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
         if (tokenMintFailuresRef.current >= MAX_TOKEN_MINT_RETRIES) {
           tokenMintShutdownRef.current = true;
           setIsLiveUpdatesAvailable(false);
-          addError('WebSocket: unable to mint auth token — live updates unavailable');
+          addError(translateNative('native.991538ab658e64ec'));
         }
         return;
       }
@@ -262,6 +273,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     const ws = new WebSocket(wsUrl(serverUrl, token));
 
     ws.onopen = () => {
+      spoolBuddySocketOpened(ws);
       setIsConnected(true);
       setIsReconnecting(false);
       reconnectAttemptRef.current = 0;
@@ -281,7 +293,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
       try {
         parsed = JSON.parse(event.data as string);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unknown parse error';
+        const message = err instanceof Error ? err.message : translateNative('native.f268574d28f75632');
         parseErrorCountRef.current += 1;
 
         const rawType = (() => {
@@ -317,6 +329,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     };
 
     ws.onclose = (event) => {
+      spoolBuddySocketClosed(ws);
       if (pingIntervalRef.current) {
         clearInterval(pingIntervalRef.current);
         pingIntervalRef.current = null;
@@ -333,7 +346,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
 
       if (event.code !== 1000 && event.code !== 1001) {
         addError(
-          `WebSocket closed unexpectedly (code ${event.code}, reason: ${event.reason || 'no reason'})`,
+          `WebSocket closed unexpectedly (code ${event.code}, reason: ${event.reason || translateNative('native.90292ec8dc976f6d')})`,
           undefined,
           event.code,
         );
@@ -355,7 +368,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
         const jitter = baseDelay * 0.3 * Math.random();
         reconnectTimeoutRef.current = setTimeout(() => connect(), baseDelay + jitter);
       } else {
-        addError('WebSocket: device offline — reconnect paused');
+        addError(translateNative('native.006f9c59c06aa671'));
       }
     };
 

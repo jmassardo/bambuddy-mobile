@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import React from 'react';
 import { Text, View } from 'react-native';
 import { EmptyState } from '@/components/common/StateScreens';
@@ -12,6 +13,7 @@ export function CustomNavigationSettingsSection({
 }: {
   controller: SettingsScreenController;
 }) {
+  useNativeLocale();
   const { loadItems, syncItems } = useCustomNavStore();
 
   React.useEffect(() => {
@@ -43,11 +45,11 @@ export function CustomNavigationSettingsSection({
 
   return (
     <SectionCard
-      title="Custom navigation"
-      subtitle="Add custom external links that appear alongside your navigation menu."
+      title={translateNative('native.6cc15554692308aa')}
+      subtitle={translateNative('native.9a26ec5d0389c65e')}
     >
       <PrimaryButton
-        label="Add custom link"
+        label={translateNative('native.d1717313c1f08126')}
         variant="secondary"
         onPress={handleAdd}
       />
@@ -71,7 +73,7 @@ export function CustomNavigationSettingsSection({
                     { color: controller.colors.text },
                   ]}
                 >
-                  {item.name || 'Untitled'}
+                  {item.name || translateNative('native.d047d453e13c7eec')}
                 </Text>
                 <Text
                   style={[
@@ -83,32 +85,32 @@ export function CustomNavigationSettingsSection({
                 </Text>
               </View>
               <StatusBadge
-                label={item.open_in_new_tab ? 'external' : 'embedded'}
+                label={item.open_in_new_tab ? translateNative('native.6efe26285df4359c') : translateNative('native.3c3335ed4c1dfd0f')}
                 color={controller.colors.accent}
               />
             </View>
             <View style={settingsStyles.actions}>
               <PrimaryButton
-                label="Move up"
+                label={translateNative('native.8ba1af69ff166671')}
                 variant="secondary"
                 onPress={() => moveItem(item.id, -1)}
                 disabled={index === 0}
               />
               <PrimaryButton
-                label="Move down"
+                label={translateNative('native.88156bfc217b6318')}
                 variant="secondary"
                 onPress={() => moveItem(item.id, 1)}
                 disabled={index === customItems.length - 1}
               />
               <PrimaryButton
-                label="Edit"
+                label={translateNative('common.edit')}
                 variant="secondary"
                 onPress={() => {
                   controller.actions.openCustomNavModal(item as ApiRecord);
                 }}
               />
               <PrimaryButton
-                label="Delete"
+                label={translateNative('common.delete')}
                 variant="danger"
                 onPress={() => handleDelete(item.id)}
               />
@@ -118,8 +120,8 @@ export function CustomNavigationSettingsSection({
       ) : (
         <EmptyState
           icon="🔗"
-          title="No custom links"
-          message="Add custom navigation links that appear in your menu."
+          title={translateNative('native.66902ccad23d0979')}
+          message={translateNative('native.22199de83879840b')}
         />
       )}
     </SectionCard>

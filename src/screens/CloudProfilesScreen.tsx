@@ -1,4 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+
+import React, { useCallback, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
@@ -88,10 +91,11 @@ function toRecord(value: unknown): ApiRecord | null {
 }
 
 export default function CloudProfilesScreen() {
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Profiles'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Cloud Profiles' });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('native.95ea1511baa9417b') });
+  }, [navigation, titleLocale]);
 
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -161,7 +165,7 @@ export default function CloudProfilesScreen() {
     queryKey: ['cloudProfileDetail', selectedCloudSettingId],
     queryFn: () => {
       if (!selectedCloudSettingId) {
-        throw new Error('Cloud profile setting ID is required.');
+        throw new Error(translateNative('native.1198078e8866d6bf'));
       }
       return api.getCloudProfileDetail(selectedCloudSettingId);
     },
@@ -200,7 +204,7 @@ export default function CloudProfilesScreen() {
       setCompareVisible(false);
       setDetailVisible(false);
       setSelectedCloudProfile(null);
-      showToast('Bambu Cloud disconnected.', 'success');
+      showToast(nativeMessage('native.502f213e8add42fb'), 'success');
     },
   });
 
@@ -209,14 +213,14 @@ export default function CloudProfilesScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['orcaCloudStatus'] });
       await queryClient.invalidateQueries({ queryKey: ['orcaCloudProfiles'] });
-      showToast('Orca Cloud disconnected.', 'success');
+      showToast(nativeMessage('native.c0008c470c9683b9'), 'success');
     },
   });
 
   const cloudSyncMutation = useMutation({
     mutationFn: () => api.syncCloudProfiles(),
     onSuccess: async data => {
-      const message = pickString(data, ['message'], 'Cloud profile sync started.');
+      const message = pickString(data, ['message'], nativeMessage('native.3cd0f76541dbec4e'));
       showToast(message, 'success');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['cloudProfileSyncStatus'] }),
@@ -226,11 +230,11 @@ export default function CloudProfilesScreen() {
     },
     onError: error => {
       if (error instanceof ApiError && error.status === 404) {
-        showToast('Cloud profile sync endpoint is not available on this server.', 'error');
+        showToast(nativeMessage('native.31f56b889cad7f45'), 'error');
         return;
       }
       showToast(
-        error instanceof Error ? error.message : 'Unable to trigger cloud sync.',
+        error instanceof Error ? error.message : nativeMessage('native.62f6d6151446c8c9'),
         'error',
       );
     },
@@ -241,47 +245,47 @@ export default function CloudProfilesScreen() {
       api.updateCloudProfileSync(settingId, enabled),
     onSuccess: async (_, variables) => {
       showToast(
-        variables.enabled ? 'Sync enabled for profile.' : 'Sync disabled for profile.',
+        variables.enabled ? nativeMessage('native.4dc72b404df27b5a') : nativeMessage('native.55ed37bc0cec26f9'),
         'success',
       );
       await queryClient.invalidateQueries({ queryKey: ['cloudPerProfileSync', tab] });
     },
     onError: error => {
-      showToast(error.message || 'Unable to update sync setting.', 'error');
+      showToast(error.message || nativeMessage('native.18131f8f50ab6234'), 'error');
     },
   });
 
   const syncSingleProfileMutation = useMutation({
     mutationFn: (settingId: string) => api.syncSingleCloudProfile(settingId),
     onSuccess: async () => {
-      showToast('Profile sync started.', 'success');
+      showToast(nativeMessage('native.2cb737360995f7d6'), 'success');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['cloudProfiles'] }),
         queryClient.invalidateQueries({ queryKey: ['cloudPerProfileSync', tab] }),
       ]);
     },
     onError: error => {
-      showToast(error.message || 'Unable to sync profile.', 'error');
+      showToast(error.message || nativeMessage('native.9d0b4a07729ea96d'), 'error');
     },
   });
 
   const clearProfileErrorMutation = useMutation({
     mutationFn: (settingId: string) => api.clearCloudProfileSyncError(settingId),
     onSuccess: async () => {
-      showToast('Error cleared.', 'success');
+      showToast(nativeMessage('native.c3cef319a2fde8de'), 'success');
       await queryClient.invalidateQueries({ queryKey: ['cloudPerProfileSync', tab] });
     },
     onError: error => {
-      showToast(error.message || 'Unable to clear error.', 'error');
+      showToast(error.message || nativeMessage('native.ada9835f4c6e29ba'), 'error');
     },
   });
 
-  const activeProfiles = useMemo(() => {
+  const activeProfiles = useLocalizedMemo(() => {
     if (tab === 'cloud') return normalizeProfiles(cloudProfilesQuery.data);
     return normalizeProfiles(orcaProfilesQuery.data);
   }, [tab, cloudProfilesQuery.data, orcaProfilesQuery.data]);
 
-  const syncStatesMap = useMemo(() => {
+  const syncStatesMap = useLocalizedMemo(() => {
     const map = new Map<string, CloudPerProfileSyncState>();
     const syncData = tab === 'cloud'
       ? cloudPerProfileSyncQuery.data
@@ -309,24 +313,24 @@ export default function CloudProfilesScreen() {
     return map;
   }, [activeProfiles, cloudPerProfileSyncQuery.data, orcaPerProfileSyncQuery.data, tab]);
 
-  const syncStates = useMemo(() => {
+  const syncStates = useLocalizedMemo(() => {
     return Array.from(syncStatesMap.values()).sort((a, b) => {
       if (a.enabled === b.enabled) return 0;
       return a.enabled ? -1 : 1;
     });
   }, [syncStatesMap]);
 
-  const enabledCount = useMemo(
+  const enabledCount = useLocalizedMemo(
     () => syncStates.filter(s => s.enabled).length,
     [syncStates],
   );
 
-  const hasErrors = useMemo(
+  const hasErrors = useLocalizedMemo(
     () => syncStates.some(s => s.error),
     [syncStates],
   );
 
-  const cloudProfileById = useMemo(() => {
+  const cloudProfileById = useLocalizedMemo(() => {
     const map = new Map<string, ApiRecord>();
     activeProfiles.forEach(profile => {
       const settingId = pickString(profile, ['setting_id', 'id']);
@@ -345,13 +349,13 @@ export default function CloudProfilesScreen() {
   const compareLeftName =
     pickString(cloudProfileById.get(compareSelection[0]), ['name', 'profile_name']) ||
     compareSelection[0] ||
-    'Left profile';
+    translateNative('native.58ba2b81b28beb0a');
   const compareRightName =
     pickString(cloudProfileById.get(compareSelection[1]), ['name', 'profile_name']) ||
     compareSelection[1] ||
-    'Right profile';
+    translateNative('native.165a35e48a6591cb');
 
-  const diffFields = useMemo(
+  const diffFields = useLocalizedMemo(
     () => normalizeDiffFields(cloudDiffQuery.data),
     [cloudDiffQuery.data],
   );
@@ -394,7 +398,7 @@ export default function CloudProfilesScreen() {
   };
 
   if (cloudProfilesQuery.isLoading || orcaProfilesQuery.isLoading) {
-    return <LoadingScreen message="Loading cloud profiles…" />;
+    return <LoadingScreen message={translateNative('native.3ce10bec7a9a3c57')} />;
   }
 
   return (
@@ -423,21 +427,21 @@ export default function CloudProfilesScreen() {
             <InlineTabBar
               value={tab}
               tabs={[
-                { key: 'cloud', label: 'Bambu Cloud' },
-                { key: 'orca', label: 'Orca Cloud' },
+                { key: 'cloud', get label() { return translateNative('native.7760833bbaf204fa'); } },
+                { key: 'orca', get label() { return translateNative('native.017b63d4ec99a09a'); } },
               ]}
               onChange={value => setTab(value as CloudProfilesTab)}
             />
 
             {tab === 'cloud' && (
               <SectionCard
-                title="Bambu Cloud"
+                title={translateNative('native.7760833bbaf204fa')}
                 subtitle={cloudIsAuthenticated
-                  ? `Signed in as ${pickString(cloudStatusRecord, ['email'], 'Unknown user')}`
-                  : 'Sign in to sync Bambu Cloud slicer profiles.'}
+                  ? translateNative('native.8f1354b37545d7f2', { value0: String(pickString(cloudStatusRecord, ['email'], translateNative('native.4cb2955dec6a0e41'))) })
+                  : translateNative('native.e38154c70f65dd79')}
                 right={
                   <StatusBadge
-                    label={cloudIsAuthenticated ? 'connected' : 'disconnected'}
+                    label={cloudIsAuthenticated ? translateNative('native.364df109cc5bb4ea') : translateNative('native.a8e228a68d46096f')}
                     color={statusColor(
                       cloudIsAuthenticated ? 'success' : 'offline',
                       colors,
@@ -448,7 +452,7 @@ export default function CloudProfilesScreen() {
                 {cloudIsAuthenticated ? (
                   <View style={styles.cloudActions}>
                     <PrimaryButton
-                      label={cloudSyncMutation.isPending ? 'Syncing…' : 'Sync all profiles'}
+                      label={cloudSyncMutation.isPending ? translateNative('native.64f720b4dcbe9443') : translateNative('native.1aaabdf4a1836861')}
                       onPress={() => void cloudSyncMutation.mutateAsync()}
                       disabled={cloudSyncMutation.isPending}
                       loading={cloudSyncMutation.isPending}
@@ -456,18 +460,18 @@ export default function CloudProfilesScreen() {
                     <PrimaryButton
                       label={
                         cloudLogoutMutation.isPending
-                          ? 'Disconnecting…'
-                          : 'Disconnect'
+                          ? translateNative('native.642cd71842fea4f9')
+                          : translateNative('native.5aff88e68a7bc9d9')
                       }
                       variant="secondary"
                       onPress={() => {
                         Alert.alert(
-                          'Disconnect Bambu Cloud',
-                          'Are you sure you want to disconnect from Bambu Cloud?',
+                          translateNative('native.b2564be4f6e51616'),
+                          translateNative('native.cd8736531ffbe74a'),
                           [
-                            { text: 'Cancel', style: 'cancel' },
+                            { get text() { return translateNative('common.cancel'); }, style: 'cancel' },
                             {
-                              text: 'Disconnect',
+                              get text() { return translateNative('native.5aff88e68a7bc9d9'); },
                               style: 'destructive',
                               onPress: () => void cloudLogoutMutation.mutateAsync(),
                             },
@@ -479,8 +483,7 @@ export default function CloudProfilesScreen() {
                 ) : (
                   <View style={styles.loginPrompt}>
                     <Text style={[styles.loginPromptText, { color: colors.textSecondary }]}>
-                      Connect to Bambu Cloud to enable profile synchronization.
-                    </Text>
+                      {translateNative('native.8cbbdba04feeebce')}</Text>
                   </View>
                 )}
               </SectionCard>
@@ -488,13 +491,13 @@ export default function CloudProfilesScreen() {
 
             {tab === 'orca' && (
               <SectionCard
-                title="Orca Cloud"
+                title={translateNative('native.017b63d4ec99a09a')}
                 subtitle={orcaConnected
-                  ? `Signed in as ${pickString(orcaStatusQuery.data, ['email'], 'Unknown user')}`
-                  : 'Sign in to sync Orca Cloud slicer profiles.'}
+                  ? translateNative('native.8f1354b37545d7f2', { value0: String(pickString(orcaStatusQuery.data, ['email'], translateNative('native.4cb2955dec6a0e41'))) })
+                  : translateNative('native.41a9750d9d31900d')}
                 right={
                   <StatusBadge
-                    label={orcaConnected ? 'connected' : 'disconnected'}
+                    label={orcaConnected ? translateNative('native.364df109cc5bb4ea') : translateNative('native.a8e228a68d46096f')}
                     color={statusColor(orcaConnected ? 'success' : 'offline', colors)}
                   />
                 }
@@ -504,18 +507,18 @@ export default function CloudProfilesScreen() {
                     <PrimaryButton
                       label={
                         orcaLogoutMutation.isPending
-                          ? 'Disconnecting…'
-                          : 'Disconnect'
+                          ? translateNative('native.642cd71842fea4f9')
+                          : translateNative('native.5aff88e68a7bc9d9')
                       }
                       variant="secondary"
                       onPress={() => {
                         Alert.alert(
-                          'Disconnect Orca Cloud',
-                          'Are you sure you want to disconnect from Orca Cloud?',
+                          translateNative('native.dfc3dade868b6a0d'),
+                          translateNative('native.e814ceacc09d5fe5'),
                           [
-                            { text: 'Cancel', style: 'cancel' },
+                            { get text() { return translateNative('common.cancel'); }, style: 'cancel' },
                             {
-                              text: 'Disconnect',
+                              get text() { return translateNative('native.5aff88e68a7bc9d9'); },
                               style: 'destructive',
                               onPress: () => void orcaLogoutMutation.mutateAsync(),
                             },
@@ -527,8 +530,7 @@ export default function CloudProfilesScreen() {
                 ) : (
                   <View style={styles.loginPrompt}>
                     <Text style={[styles.loginPromptText, { color: colors.textSecondary }]}>
-                      Connect to Orca Cloud to enable profile synchronization.
-                    </Text>
+                      {translateNative('native.f36fe659773b445c')}</Text>
                   </View>
                 )}
               </SectionCard>
@@ -542,16 +544,14 @@ export default function CloudProfilesScreen() {
                       {enabledCount}
                     </Text>
                     <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                      Syncing
-                    </Text>
+                      {translateNative('native.da36b50fec084ccf')}</Text>
                   </View>
                   <View style={styles.summaryItem}>
                     <Text style={[styles.summaryNumber, { color: colors.text }]}>
                       {syncStates.length}
                     </Text>
                     <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                      Total
-                    </Text>
+                      {translateNative('common.total')}</Text>
                   </View>
                   {hasErrors && (
                     <View style={styles.summaryItem}>
@@ -559,8 +559,7 @@ export default function CloudProfilesScreen() {
                         {syncStates.filter(s => s.error).length}
                       </Text>
                       <Text style={[styles.summaryLabel, { color: colors.error }]}>
-                        Errors
-                      </Text>
+                        {translateNative('native.f74c8a0c80a9e929')}</Text>
                     </View>
                   )}
                 </View>
@@ -572,12 +571,12 @@ export default function CloudProfilesScreen() {
         renderItem={({ item }) => {
           const settingId = item.setting_id;
           const profile = cloudProfileById.get(settingId);
-          const profileName = item.name || profile ? pickString(profile, ['name', 'profile_name'], 'Unnamed profile') : 'Unknown profile';
+          const profileName = item.name || profile ? pickString(profile, ['name', 'profile_name'], translateNative('native.8f051c1c891a20a3')) : translateNative('native.4e6e392cec8f574d');
           const profileType = profile ? pickString(profile, ['type', 'printer_model', 'material'], 'Profile') : 'Profile';
           const profileVersion = profile ? pickString(profile, ['version']) : null;
           const lastSyncTime = item.last_sync_at
             ? formatDateTime(item.last_sync_at)
-            : 'Never synced';
+            : translateNative('native.5a27865bd7fe73f4');
           const profileError = item.error;
           const isSyncing = !!item.syncing;
           const syncStateColor = getSyncStateColor(item.sync_state);
@@ -601,7 +600,7 @@ export default function CloudProfilesScreen() {
                       {profileName}
                     </Text>
                     <Text style={[styles.cardMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-                      {profileType}{profileVersion ? ` v${profileVersion}` : ''}
+                      {profileType}{profileVersion ? translateNative('native.a162d55c64026ec9', { value0: String(profileVersion) }) : ''}
                     </Text>
                   </View>
                   {isExpanded ? (
@@ -621,12 +620,10 @@ export default function CloudProfilesScreen() {
                     ]}
                   />
                   <Text style={[styles.syncStatusLabel, { color: syncStateColor }]}>
-                    {isSyncing ? 'Syncing…' : (item.sync_state || 'Idle')}
+                    {isSyncing ? translateNative('native.64f720b4dcbe9443') : (item.sync_state || translateNative('native.a3b81f922d798281'))}
                   </Text>
                 </View>
-                <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>
-                  Last sync: {lastSyncTime}
-                </Text>
+                <Text style={[styles.cardMeta, { color: colors.textTertiary }]}><NativeTranslation id="native.18878ffbdbc8deb6" values={{ value0: (lastSyncTime) }} /></Text>
               </View>
 
               <View style={styles.cardActions}>
@@ -648,7 +645,7 @@ export default function CloudProfilesScreen() {
                         { color: item.enabled ? colors.textInverse : colors.textSecondary },
                       ]}
                     >
-                      Sync {item.enabled ? 'On' : 'Off'}
+                      {translateNative('native.006811695c6af86e')}{item.enabled ? translateNative('native.c7e4e8a8db2bbe79', { defaultValue: 'On' }) : translateNative('native.eaa897b0631e7896', { defaultValue: 'Off' })}
                     </Text>
                   </Pressable>
                 </View>
@@ -670,7 +667,7 @@ export default function CloudProfilesScreen() {
                   ) : null}
                   <View style={styles.primaryActions}>
                     <PrimaryButton
-                      label={syncSingleProfileMutation.isPending ? 'Syncing…' : 'Sync now'}
+                      label={syncSingleProfileMutation.isPending ? translateNative('native.64f720b4dcbe9443') : translateNative('native.2b412e4ff6dabb29')}
                       variant="secondary"
                       onPress={() => handleSyncSingleProfile(settingId)}
                       disabled={syncSingleProfileMutation.isPending || !item.enabled}
@@ -678,7 +675,7 @@ export default function CloudProfilesScreen() {
                     {tab === 'cloud' && profile && (
                       <View style={styles.profileActionsRow}>
                         <PrimaryButton
-                          label="Details"
+                          label={translateNative('native.56f78a777dee08f1')}
                           variant="secondary"
                           onPress={() => {
                             setSelectedCloudProfile(profile);
@@ -687,7 +684,7 @@ export default function CloudProfilesScreen() {
                           disabled={!settingId}
                         />
                         <PrimaryButton
-                          label={isSelectedForCompare ? 'Selected' : 'Select'}
+                          label={isSelectedForCompare ? translateNative('native.236fb1d1635f5eae') : translateNative('native.1943596f57b918ad')}
                           variant={isSelectedForCompare ? 'primary' : 'secondary'}
                           onPress={() => toggleCompareSelection(settingId)}
                           disabled={!settingId}
@@ -702,20 +699,20 @@ export default function CloudProfilesScreen() {
         }}
         ListEmptyComponent={
           cloudProfilesQuery.isLoading || orcaProfilesQuery.isLoading ? (
-            <LoadingScreen message="Loading profiles…" />
+            <LoadingScreen message={translateNative('native.a729fe3fdb50f09e')} />
           ) : cloudProfilesQuery.isError || orcaProfilesQuery.isError ? (
             <ErrorState
-              message="Unable to load cloud profiles."
+              message={translateNative('native.4f4a0fecdb433230')}
               onRetry={() => void refreshAll()}
             />
           ) : (
             <EmptyState
               icon="☁️"
-              title="No cloud profiles"
+              title={translateNative('native.b0ab95d042e56c0a')}
               message={
                 tab === 'cloud'
-                  ? 'Sign in to Bambu Cloud to see your profiles.'
-                  : 'Sign in to Orca Cloud to see your profiles.'
+                  ? translateNative('native.e844394fa26e99a0')
+                  : translateNative('native.a71def2858b4ff31')
               }
             />
           )

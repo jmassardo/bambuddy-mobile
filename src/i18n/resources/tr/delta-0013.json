@@ -1,0 +1,12 @@
+{
+  "native.197a317960cf55b6": "Düşük stok eşiği: %{{threshold}}",
+  "native.2c6f1553291f3699": "{{count}} sağlayıcı",
+  "native.2d8f4b1110eef95b": "{{count}} sanal yazıcı",
+  "native.8114475cf643fbbc": "{{count}} konum",
+  "native.8f615a72dd98661e": "{{count}} kamera yapılandırıldı",
+  "native.c4bfec3810af5347": "{{keys}} anahtar • {{tokens}} kamera belirteci",
+  "native.cb19f6798e4c8df9": "{{count}} akıllı priz",
+  "native.d605514f8d9014a3": "{{count}} cihaz",
+  "native.d9dd8c0c1c350e4c": "{{count}} profil",
+  "native.f509a8cbfea53808": "{{count}} özel bağlantı"
+}

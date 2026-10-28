@@ -3,6 +3,9 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import EnergyScreen, { getEnergyRangeParams } from '@/screens/EnergyScreen';
 
+jest.mock('@/components/finance/LivePlugEnergy', () => ({ LivePlugEnergy: () => null }));
+jest.mock('@/components/finance/FinancePolicySection', () => ({ FinancePolicySection: () => null }));
+
 const mockSetOptions = jest.fn();
 let lastEnergyParams: Record<string, unknown> | undefined;
 

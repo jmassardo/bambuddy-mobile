@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+
+import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
   RefreshControl,
@@ -9,6 +12,8 @@ import {
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
+import { integrationsApi } from '@/api/integrations';
+import { VirtualPrinterAddress, VirtualPrinterDiagnostics, VirtualPrinterGlobalSetup } from '@/components/settings/VirtualPrinterIntegration';
 import {
   PrimaryButton,
   SectionCard,
@@ -31,23 +36,22 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import type { RootNavigationProp } from '@/navigation/types';
 import { useTheme } from '@/theme';
-import { fontSize, fontWeight, spacing, borderRadius } from '@/theme/tokens';
+import { fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type {
   VirtualPrinterConfig,
   VirtualPrinterListResponse,
   VirtualPrinterMode,
 } from '@/types/api';
 import { pickBoolean, pickNumber, pickString, statusColor } from '@/utils/data';
+import { useIntegrationTranslation } from '@/components/settings/useIntegrationTranslation';
 
 const VIRTUAL_PRINTERS_QUERY_KEY = ['virtualPrinters'] as const;
 
 const VIRTUAL_PRINTER_MODES: Array<{ key: VirtualPrinterMode; label: string; description: string }> = [
-  { key: 'archive', label: 'Archive', description: 'Automatically archive prints' },
-  { key: 'review', label: 'Review', description: 'Queue prints for review before printing' },
-  { key: 'queue', label: 'Queue', description: 'Add prints to the queue' },
-  { key: 'proxy', label: 'Proxy', description: 'Proxy to a real Bambu printer' },
-  { key: 'immediate', label: 'Immediate', description: 'Print files immediately' },
-  { key: 'print_queue', label: 'Print Queue', description: 'Direct print queue integration' },
+  { key: 'archive', get label() { return translateNative('screen.archive'); }, get description() { return translateNative('native.eec1df5b353934aa'); } },
+  { key: 'review', get label() { return translateNative('native.aa4ba7807e38174f'); }, get description() { return translateNative('native.4ac857f3c845d5db'); } },
+  { key: 'queue', get label() { return translateNative('nav.queue'); }, get description() { return translateNative('native.52302e8ca55f2007'); } },
+  { key: 'proxy', get label() { return translateNative('native.0ba1456c0cc0e613'); }, get description() { return translateNative('native.137ebe7d53a87b3b'); } },
 ];
 
 type VirtualPrinterFormState = {
@@ -61,6 +65,9 @@ type VirtualPrinterFormState = {
   queueForceColorMatch: boolean;
   gcodeInjection: boolean;
   tailscaleDisabled: boolean;
+  saveAmsMapping: boolean;
+  bindIp: string;
+  remoteInterfaceIp: string;
 };
 
 const EMPTY_FORM: VirtualPrinterFormState = {
@@ -74,6 +81,9 @@ const EMPTY_FORM: VirtualPrinterFormState = {
   queueForceColorMatch: false,
   gcodeInjection: false,
   tailscaleDisabled: false,
+  saveAmsMapping: false,
+  bindIp: '',
+  remoteInterfaceIp: '',
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -112,8 +122,10 @@ async function getVirtualPrinterList(): Promise<VirtualPrinterListResponse> {
 }
 
 export default function VirtualPrintersScreen() {
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'VirtualPrinters'>>();
   const { colors } = useTheme();
+  const tr = useIntegrationTranslation();
   const { isAdmin } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -123,24 +135,21 @@ export default function VirtualPrintersScreen() {
   const [form, setForm] = useState<VirtualPrinterFormState>(EMPTY_FORM);
   const [pendingDelete, setPendingDelete] =
     useState<VirtualPrinterConfig | null>(null);
-  const [testingPrinter, setTestingPrinter] = useState<number | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, {
-    status: 'loading' | 'success' | 'error';
-    message: string;
-  }>>({});
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Virtual Printers' });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('nav.virtual-printers') });
+  }, [navigation, titleLocale]);
 
   const printersQuery = useQuery<VirtualPrinterListResponse>({
     queryKey: VIRTUAL_PRINTERS_QUERY_KEY,
     queryFn: getVirtualPrinterList,
   });
+  const targetsQuery = useQuery({ queryKey: ['printers'], queryFn: () => api.getPrinters() });
+  const interfacesQuery = useQuery({ queryKey: ['networkInterfaces'], queryFn: integrationsApi.interfaces });
 
   const printers = printersQuery.data?.printers ?? [];
-  const modelOptions = useMemo(
+  const modelOptions = useLocalizedMemo(
     () =>
       Object.entries(printersQuery.data?.models ?? {}).map(([key, label]) => ({
         key,
@@ -161,7 +170,7 @@ export default function VirtualPrintersScreen() {
     },
     onError: (error: Error) => {
       showToast(
-        error.message || 'Unable to update virtual printer.',
+        error.message || nativeMessage('native.14b5505c2f74cfed'),
         'error',
       );
     },
@@ -178,13 +187,14 @@ export default function VirtualPrintersScreen() {
       if (form.accessCode.trim()) {
         payload.access_code = form.accessCode.trim();
       }
-      if (form.targetPrinterId) {
-        payload.target_printer_id = Number(form.targetPrinterId);
-      }
+      payload.target_printer_id = form.targetPrinterId ? Number(form.targetPrinterId) : null;
       payload.auto_dispatch = form.autoDispatch;
       payload.queue_force_color_match = form.queueForceColorMatch;
       payload.gcode_injection = form.gcodeInjection;
       payload.tailscale_disabled = form.tailscaleDisabled;
+      payload.save_ams_mapping = form.saveAmsMapping;
+      payload.bind_ip = form.bindIp;
+      payload.remote_interface_ip = form.remoteInterfaceIp;
 
       return editingPrinter
         ? api.updateVirtualPrinter(editingPrinter.id, payload)
@@ -195,10 +205,10 @@ export default function VirtualPrintersScreen() {
         queryKey: VIRTUAL_PRINTERS_QUERY_KEY,
       });
       closeModal();
-      showToast('Virtual printer saved.', 'success');
+      showToast(nativeMessage('native.b29426730dbc63f4'), 'success');
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Unable to save virtual printer.', 'error');
+      showToast(error.message || nativeMessage('native.812d6533fb84ee13'), 'error');
     },
   });
 
@@ -209,66 +219,17 @@ export default function VirtualPrintersScreen() {
         queryKey: VIRTUAL_PRINTERS_QUERY_KEY,
       });
       setPendingDelete(null);
-      showToast('Virtual printer deleted.', 'success');
+      showToast(nativeMessage('native.cec7ccc368b4396c'), 'success');
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Unable to delete virtual printer.', 'error');
+      showToast(error.message || nativeMessage('native.18fe6aa1022b78ba'), 'error');
     },
   });
-
-  const testConnectionMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await api.testVirtualPrinterConnection(id);
-      return response;
-    },
-    onSuccess: (result, id) => {
-      const success = pickBoolean(result, ['ok', 'success']);
-      setTestResults(prev => ({
-        ...prev,
-        [id]: {
-          status: success ? 'success' : 'error',
-          message: pickString(result, ['message', 'error'], success ? 'Connection successful' : 'Connection failed'),
-        },
-      }));
-      if (!success) {
-        showToast(
-          pickString(result, ['message', 'error'], 'Connection test failed'),
-          'error',
-        );
-      } else {
-        showToast('Connection test successful!', 'success');
-      }
-    },
-    onError: (error: Error, id) => {
-      setTestResults(prev => ({
-        ...prev,
-        [id]: {
-          status: 'error',
-          message: error.message || 'Connection test failed',
-        },
-      }));
-      showToast(error.message || 'Connection test failed.', 'error');
-    },
-    onSettled: (_, __, _id) => {
-      setTestingPrinter(null);
-    },
-  });
-
-  function testConnection(printer: VirtualPrinterConfig) {
-    const printerId = printer.id;
-    setTestingPrinter(printerId);
-    setTestResults(prev => ({
-      ...prev,
-      [printerId]: { status: 'loading', message: 'Testing...' },
-    }));
-    testConnectionMutation.mutate(printerId);
-  }
 
   function closeModal() {
     setModalVisible(false);
     setEditingPrinter(null);
     setForm(EMPTY_FORM);
-    setTestResults({});
   }
 
   function openModal(printer?: VirtualPrinterConfig) {
@@ -277,7 +238,7 @@ export default function VirtualPrintersScreen() {
       setForm({
         name: printer.name,
         model: printer.model || printer.model_name || 'BL-P001',
-        accessCode: printer.serial,
+        accessCode: '',
         enabled: printer.enabled,
         mode: pickString(printer, ['mode'], 'archive') as VirtualPrinterMode,
         targetPrinterId: String(pickNumber(printer, ['target_printer_id']) || ''),
@@ -285,6 +246,9 @@ export default function VirtualPrintersScreen() {
         queueForceColorMatch: pickBoolean(printer, ['queue_force_color_match'], false),
         gcodeInjection: pickBoolean(printer, ['gcode_injection'], false),
         tailscaleDisabled: pickBoolean(printer, ['tailscale_disabled'], false),
+        saveAmsMapping: printer.save_ams_mapping ?? false,
+        bindIp: printer.bind_ip ?? '',
+        remoteInterfaceIp: printer.remote_interface_ip ?? '',
       });
     } else {
       setEditingPrinter(null);
@@ -295,37 +259,30 @@ export default function VirtualPrintersScreen() {
 
   function handleSave() {
     if (!form.name.trim()) {
-      showToast('Virtual printer name is required.', 'error');
+      showToast(nativeMessage('native.4c132ed022f83d2c'), 'error');
       return;
     }
     if (form.mode === 'proxy' && !form.targetPrinterId) {
-      showToast('Please select a target printer for proxy mode.', 'error');
+      showToast(nativeMessage('native.533e6830957bbfed'), 'error');
+      return;
+    }
+    if (form.accessCode && form.accessCode.length !== 8) {
+      showToast(nativeMessage("native.c69a269540f4cbcf"), 'error');
       return;
     }
     saveMutation.mutate();
   }
 
-  function handleTestProxyPrinter() {
-    if (form.targetPrinterId && !editingPrinter) {
-      const printerId = Number(form.targetPrinterId);
-      if (printerId > 0) {
-        setTestingPrinter(printerId);
-        showToast('Testing target printer connection...', 'info');
-      }
-    }
-  }
-
   const isProxyMode = form.mode === 'proxy';
-  const isNewPrinter = !editingPrinter;
 
   if (printersQuery.isLoading) {
-    return <LoadingScreen message="Loading virtual printers..." />;
+    return <LoadingScreen message={translateNative('native.2a8a7f354d674598')} />;
   }
 
   if (printersQuery.isError) {
     return (
       <ErrorState
-        message="Unable to load virtual printers."
+        message={translateNative('native.8edf609d6589b7ee')}
         onRetry={() => void printersQuery.refetch()}
       />
     );
@@ -346,20 +303,19 @@ export default function VirtualPrintersScreen() {
       >
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>
-            Virtual Printers
-          </Text>
+            {translateNative('nav.virtual-printers')}</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Software-defined printers for Bambu Studio/OrcaSlicer integration. Test connections, manage lifecycle, and configure modes.
-          </Text>
+            {translateNative('native.b91a1a51a54d1397')}</Text>
         </View>
 
+        <VirtualPrinterGlobalSetup canEdit={isAdmin} />
         <SectionCard
-          title="Manage virtual printers"
-          subtitle="Create, edit, test, start, stop, and remove virtual printers."
+          title={translateNative('native.e523ec9c18407002')}
+          subtitle={translateNative('native.919d8e554177956c')}
         >
           {isAdmin ? (
             <PrimaryButton
-              label="Create virtual printer"
+              label={translateNative('native.72f5a60c986eaf7f')}
               variant="secondary"
               onPress={() => openModal()}
             />
@@ -393,15 +349,12 @@ export default function VirtualPrintersScreen() {
                           settingsStyles.itemMeta,
                           { color: colors.textSecondary },
                         ]}
-                      >
-                        {printer.model_name ||
+                      ><NativeTranslation id="native.383f9fea9f78f8c8" values={{ value0: (printer.model_name ||
                           printer.model ||
-                          'Unknown model'}{' '}
-                        • {printer.mode} • Pending {printer.status.pending_files}
-                      </Text>
+                          translateNative('native.e292a54ac2d93315')), value1: (printer.mode), value2: (printer.status.pending_files) }} /></Text>
                     </View>
                     <StatusBadge
-                      label={running ? 'running' : 'stopped'}
+                      label={running ? translateNative('native.3180e7c2ebffe771') : translateNative('native.23ea8b9cde72dff7')}
                       color={statusColor(
                         running ? 'success' : 'offline',
                         colors,
@@ -409,28 +362,12 @@ export default function VirtualPrintersScreen() {
                     />
                   </View>
 
-                  {/* Connection test result */}
-                  {testResults[printer.id] && (
-                    <View style={styles.testResult}>
-                      <Text
-                        style={[
-                          styles.testResultText,
-                          {
-                            color:
-                              testResults[printer.id].status === 'success'
-                                ? colors.success
-                                : colors.error,
-                          },
-                        ]}
-                      >
-                        {testResults[printer.id].message}
-                      </Text>
-                    </View>
-                  )}
+                  <VirtualPrinterAddress disabled={printer.tailscale_disabled} />
+                  <VirtualPrinterDiagnostics id={printer.id} />
 
                   <View style={settingsStyles.actions}>
                     <PrimaryButton
-                      label="Start"
+                      label={translateNative('common.start')}
                       variant="secondary"
                       onPress={() =>
                         controlMutation.mutate({
@@ -441,7 +378,7 @@ export default function VirtualPrintersScreen() {
                       disabled={running || controlMutation.isPending}
                     />
                     <PrimaryButton
-                      label="Stop"
+                      label={translateNative('common.stop')}
                       variant="secondary"
                       onPress={() =>
                         controlMutation.mutate({
@@ -453,19 +390,13 @@ export default function VirtualPrintersScreen() {
                     />
                     {isAdmin ? (
                       <>
-                    <PrimaryButton
-                      label="Test"
-                      variant="secondary"
-                      onPress={() => testConnection(printer)}
-                      loading={testingPrinter === printer.id}
-                    />
                         <PrimaryButton
-                          label="Edit"
+                          label={translateNative('common.edit')}
                           variant="secondary"
                           onPress={() => openModal(printer)}
                         />
                         <PrimaryButton
-                          label="Delete"
+                          label={translateNative('common.delete')}
                           variant="danger"
                           onPress={() => setPendingDelete(printer)}
                         />
@@ -478,8 +409,8 @@ export default function VirtualPrintersScreen() {
           ) : (
             <EmptyState
               icon="printer"
-              title="No virtual printers"
-              message="Create a virtual printer to start managing it here."
+              title={translateNative('native.0abb319ce2736eab')}
+              message={translateNative('native.c2c4eb8efbdeca3a')}
             />
           )}
         </SectionCard>
@@ -487,116 +418,98 @@ export default function VirtualPrintersScreen() {
 
       <SimpleModal
         visible={modalVisible}
-        title={editingPrinter ? 'Edit virtual printer' : 'Create virtual printer'}
-        subtitle="Configure the name, mode, connection details, and advanced options."
+        title={editingPrinter ? translateNative('native.514c84a5ccbf6c63') : translateNative('native.72f5a60c986eaf7f')}
+        subtitle={translateNative('native.407c4877dd7ac2ab')}
         onClose={closeModal}
       >
         <ScrollView contentContainerStyle={settingsStyles.modalBody}>
           <TextField
-            label="Name"
+            label={translateNative('common.name')}
             value={form.name}
             onChangeText={name => setForm(current => ({ ...current, name }))}
-            placeholder="e.g., Bambu Lab X1C"
+            placeholder={translateNative('native.397babf29402a4a9')}
           />
 
           <OptionChipsField
-            label="Mode"
+            label={translateNative('native.48ea225998ee692b')}
             value={form.mode}
             options={VIRTUAL_PRINTER_MODES}
             onChange={mode => setForm(current => ({ ...current, mode }))}
           />
 
           <OptionChipsField
-            label="Model"
+            label={translateNative('native.8b62363d3367fc41')}
             value={form.model}
             options={modelOptions}
             onChange={model => setForm(current => ({ ...current, model }))}
           />
 
-          {isProxyMode && (
             <View style={styles.proxySection}>
               <Text style={[styles.proxyLabel, { color: colors.text }]}>
-                Target Printer
+                {tr('Target printer')}
               </Text>
               <View style={styles.proxyInputRow}>
-                <TextField
-                  label="Printer ID"
-                  value={form.targetPrinterId}
-                  onChangeText={targetPrinterId =>
-                    setForm(current => ({ ...current, targetPrinterId }))
-                  }
-                  placeholder="Enter printer ID"
-                  style={styles.proxyInput}
-                />
-                {isNewPrinter && form.targetPrinterId && (
-                  <View style={styles.testButton}>
-                    <PrimaryButton
-                      label="Test"
-                      variant="secondary"
-                      onPress={handleTestProxyPrinter}
-                      loading={testingPrinter !== null}
-                    />
-                  </View>
-                )}
+                <OptionChipsField label={tr('Target printer')} value={form.targetPrinterId} options={[...(!editingPrinter?.target_printer_id ? [{ key: '', label: tr('Select printer') }] : []), ...(targetsQuery.data ?? []).map(printer => ({ key: String(printer.id), label: `${printer.name} (${printer.ip_address})` }))]} onChange={targetPrinterId => setForm(current => ({ ...current, targetPrinterId }))} />
               </View>
+              {form.targetPrinterId ? <VirtualPrinterDiagnostics key={form.targetPrinterId} id={Number(form.targetPrinterId)} target /> : null}
               <Text style={[styles.proxyHint, { color: colors.textSecondary }]}>
-                The physical Bambu printer to proxy prints to (for proxy mode only).
+                {tr(isProxyMode ? 'The physical Bambu printer to proxy prints to.' : 'Optional target printer. The server inherits its access code when linked.')}
               </Text>
             </View>
-          )}
 
           <TextField
-            label="Access code"
+            label={translateNative('native.7831792b80b64b30')}
             value={form.accessCode}
             onChangeText={accessCode =>
               setForm(current => ({ ...current, accessCode }))
             }
             autoCapitalize="characters"
-            placeholder="Bambu printer access code"
+            placeholder={translateNative('native.07f0ee2215b61612')}
           />
 
           <SwitchRow
-            label="Enabled"
+            label={translateNative('common.enabled')}
             value={form.enabled}
             onValueChange={enabled =>
               setForm(current => ({ ...current, enabled }))
             }
           />
+          <SwitchRow label={tr('Save AMS mapping')} value={form.saveAmsMapping} onValueChange={saveAmsMapping => setForm(current => ({ ...current, saveAmsMapping }))} />
+          {(['bindIp', 'remoteInterfaceIp'] as const).map(key => <OptionChipsField key={key} label={tr(key === 'bindIp' ? 'Bind interface / IP' : 'Remote slicer interface / IP')} value={form[key]} options={[{ key: '', label: tr(key === 'bindIp' ? 'Select bind IP before enabling' : 'Automatic') }, ...(interfacesQuery.data?.interfaces ?? []).map(iface => ({ key: iface.ip, label: `${iface.name} (${iface.ip}) — ${iface.subnet}${iface.is_alias ? translateNative('native.9f47cc3cb5e97a30') : ''}` }))]} onChange={value => setForm(current => ({ ...current, [key]: value }))} />)}
+          {interfacesQuery.error || targetsQuery.error ? <PrimaryButton label={tr('Retry network/printer choices')} variant="secondary" onPress={() => { void interfacesQuery.refetch(); void targetsQuery.refetch(); }} /> : null}
 
           <View style={styles.advancedToggle}>
             <Text
               style={[styles.advancedTitle, { color: colors.text }]}
               onPress={() => setShowAdvanced(!showAdvanced)}
-            >
-              Advanced Options {showAdvanced ? '▲' : '▼'}
-            </Text>
+            ><NativeTranslation id="native.a4d44c22da96b745" values={{ value0: (showAdvanced ? '▲' : '▼') }} /></Text>
           </View>
 
           {showAdvanced && (
             <View style={styles.advancedSection}>
               <SwitchRow
-                label="Auto dispatch"
+                label={translateNative('native.2162cbe7b887c1b7')}
                 value={form.autoDispatch}
                 onValueChange={autoDispatch =>
                   setForm(current => ({ ...current, autoDispatch }))
                 }
               />
               <SwitchRow
-                label="Force color match"
+                label={translateNative('native.5b309c9171c659c5')}
                 value={form.queueForceColorMatch}
                 onValueChange={queueForceColorMatch =>
                   setForm(current => ({ ...current, queueForceColorMatch }))
                 }
               />
               <SwitchRow
-                label="G-code injection"
+                label={translateNative('native.d57b223220f72ff4')}
                 value={form.gcodeInjection}
                 onValueChange={gcodeInjection =>
                   setForm(current => ({ ...current, gcodeInjection }))
                 }
               />
               <SwitchRow
-                label="Disable Tailscale"
+                label={translateNative('native.b1e9a303c5ab90d5')}
                 value={form.tailscaleDisabled}
                 onValueChange={tailscaleDisabled =>
                   setForm(current => ({ ...current, tailscaleDisabled }))
@@ -607,7 +520,7 @@ export default function VirtualPrintersScreen() {
 
           <View style={settingsStyles.modalFooter}>
             <PrimaryButton
-              label="Cancel"
+              label={translateNative('common.cancel')}
               variant="secondary"
               onPress={closeModal}
             />
@@ -615,11 +528,11 @@ export default function VirtualPrintersScreen() {
               label={
                 editingPrinter
                   ? saveMutation.isPending
-                    ? 'Saving...'
-                    : 'Save printer'
+                    ? translateNative('native.3eacfe080c68cb64')
+                    : translateNative('native.4cbb21711c1fcc83')
                   : saveMutation.isPending
-                    ? 'Creating...'
-                    : 'Create printer'
+                    ? translateNative('native.82fd068711df32f8')
+                    : translateNative('native.056fceb480b7ed73')
               }
               onPress={handleSave}
               loading={saveMutation.isPending}
@@ -631,13 +544,13 @@ export default function VirtualPrintersScreen() {
 
       <ConfirmModal
         visible={pendingDelete !== null}
-        title="Delete virtual printer"
+        title={translateNative('native.a144096ce76900d7')}
         message={
           pendingDelete
-            ? `Delete ${pendingDelete.name}?`
-            : 'Delete this virtual printer?'
+            ? translateNative('native.3e132ab74d3e7e22', { value0: String(pendingDelete.name) })
+            : translateNative('native.8742adfec1b30469')
         }
-        confirmLabel="Delete"
+        confirmLabel={translateNative('common.delete')}
         onClose={() => setPendingDelete(null)}
         onConfirm={() => {
           if (pendingDelete) {
@@ -667,16 +580,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: fontSize.base,
     lineHeight: 22,
-  },
-  testResult: {
-    marginTop: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-  },
-  testResultText: {
-    fontSize: fontSize.sm,
   },
   proxySection: {
     marginTop: spacing.md,

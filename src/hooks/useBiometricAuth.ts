@@ -1,3 +1,5 @@
+import { translateNative } from '@/i18n';
+
 // Biometric authentication for app unlock
 // Uses react-native-keychain for Face ID / Touch ID / Fingerprint
 
@@ -57,8 +59,8 @@ export function useBiometricAuth() {
       const creds = await Keychain.getGenericPassword({
         service: 'bambuddy-biometric-check',
         authenticationPrompt: {
-          title: 'Unlock Bambuddy',
-          cancel: 'Use Password',
+          get title() { return translateNative('native.9bc0440c27d3d971'); },
+          get cancel() { return translateNative('native.9ac201643dd7958d'); },
         },
       });
       // If no credential stored yet, set one first
@@ -72,8 +74,8 @@ export function useBiometricAuth() {
         const result = await Keychain.getGenericPassword({
           service: 'bambuddy-biometric-check',
           authenticationPrompt: {
-            title: 'Unlock Bambuddy',
-            cancel: 'Use Password',
+            get title() { return translateNative('native.9bc0440c27d3d971'); },
+            get cancel() { return translateNative('native.9ac201643dd7958d'); },
           },
         });
         return !!result;
@@ -99,11 +101,11 @@ export function useBiometricAuth() {
       case 'facial':
         return 'Face ID';
       case 'fingerprint':
-        return 'Fingerprint';
+        return translateNative('native.3fdec1118456bc5f');
       case 'iris':
-        return 'Iris';
+        return translateNative('native.7b2101feb74b215d');
       default:
-        return 'Biometric';
+        return translateNative('native.5c56379989b8cba9');
     }
   }, [state.biometricType]);
 

@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale } from '@/i18n';
+
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError, getAuthToken, loadAuthToken, setAuthToken } from '../api/client';
 import { useServerStore } from '../api/server';
@@ -14,14 +16,15 @@ interface AuthContextType {
   requiresSetup: boolean;
   loading: boolean;
   isAdmin: boolean;
-  login: (username: string, password: string) => Promise<{
+  login: (username: string, password: string, remember?: boolean) => Promise<{
     access_token?: string;
     requires_2fa?: boolean;
     pre_auth_token?: string;
     available_methods?: string[];
     user?: UserResponse;
   }>;
-  loginWithToken: (token: string, user: UserResponse) => void;
+  loginWithToken: (token: string, user: UserResponse, remember?: boolean) => Promise<void>;
+  refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   hasPermission: (permission: Permission) => boolean;
@@ -33,6 +36,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  useNativeLocale();
   const serverUrl = useServerStore((s) => s.serverUrl);
   const [user, setUser] = useState<UserResponse | null>(null);
   const [authEnabled, setAuthEnabled] = useState(false);
@@ -50,6 +54,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthEnabled(status.auth_enabled);
       setRequiresSetup(status.requires_setup);
       setServerConnected(true);
+      if (!status.auth_enabled) {
+        setUser(null);
+        await setAuthToken(null);
+      }
 
       if (status.auth_enabled) {
         const token = getAuthToken();
@@ -90,29 +98,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [checkAuthStatus, serverUrl]);
 
-  const login = useCallback(async (username: string, password: string) => {
+  const login = useCallback(async (username: string, password: string, remember = true) => {
     const response = await api.login({ username, password });
 
     if (response.requires_2fa) {
       return {
         requires_2fa: true,
         pre_auth_token: response.pre_auth_token,
-        available_methods: response.available_methods,
+        available_methods: response.available_methods ?? response.two_fa_methods,
       };
     }
 
-    await setAuthToken(response.access_token);
+    await setAuthToken(response.access_token, remember);
     if (mountedRef.current) {
       setUser(response.user);
     }
     return { access_token: response.access_token, user: response.user };
   }, []);
 
-  const loginWithToken = useCallback((token: string, newUser: UserResponse) => {
-    setUser(newUser);
-    setAuthToken(token).catch(err => {
-      console.warn('Failed to persist auth token:', err);
-    });
+  const loginWithToken = useCallback(async (token: string, newUser: UserResponse, remember = true) => {
+    await setAuthToken(token, remember);
+    if (mountedRef.current) setUser(newUser);
   }, []);
 
   const logout = useCallback(async () => {
@@ -139,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!authEnabled) return true;
       if (!user) return false;
       if (user.is_admin) return true;
+      if (user.permissions?.includes(permission)) return true;
       return user.groups?.some((g) => g.permissions?.includes(permission)) ?? false;
     },
     [authEnabled, user],
@@ -168,8 +175,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasAnyPermission,
       setServerConnected,
       serverConnected,
+      refreshAuth: checkAuthStatus,
     }),
-    [user, authEnabled, requiresSetup, loading, isAdmin, login, loginWithToken, logout, refreshUser, hasPermission, hasAnyPermission, serverConnected],
+    [user, authEnabled, requiresSetup, loading, isAdmin, login, loginWithToken, logout, refreshUser, hasPermission, hasAnyPermission, serverConnected, checkAuthStatus],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -177,6 +185,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  if (!ctx) throw new Error(translateNative('native.02411d11004370dd'));
   return ctx;
 }

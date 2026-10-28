@@ -36,6 +36,8 @@ export type Permission =
   | 'firmware:read' | 'firmware:update'
   | 'ams_history:read'
   | 'stats:read' | 'stats:filter_by_user'
+  | 'cost_centers:read_own' | 'cost_centers:read_all' | 'cost_centers:create' | 'cost_centers:modify'
+  | 'users:read_slim'
   | 'system:read'
   | 'settings:read' | 'settings:update' | 'settings:backup' | 'settings:restore'
   | 'github:backup' | 'github:restore'
@@ -45,7 +47,68 @@ export type Permission =
   | 'users:read' | 'users:create' | 'users:update' | 'users:delete'
   | 'groups:read' | 'groups:create' | 'groups:update' | 'groups:delete'
   | 'pipelines:read' | 'pipelines:write' | 'pipelines:run'
+  | 'cost_centers:read_own' | 'cost_centers:read_all' | 'cost_centers:create' | 'cost_centers:modify'
   | 'websocket:connect';
+
+// Reports-finance parity: finance wire contracts
+export interface FinanceBalance {
+  user_id: number;
+  balance: number;
+  currency: string;
+  updated_at: string | null;
+}
+
+export interface FinanceTransaction {
+  id: number;
+  user_id: number;
+  cost_center_id: number | null;
+  transaction_type: 'print_charge' | 'deposit' | 'withdraw' | 'manual_adjustment';
+  amount: number;
+  balance_after: number | null;
+  description: string | null;
+  created_at: string;
+  print_archive_id?: number | null;
+}
+
+export interface FinanceLedger {
+  items: FinanceTransaction[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface FinanceCenter {
+  id: number;
+  name: string;
+  is_private: boolean;
+  owner_user_id: number | null;
+  is_active: boolean;
+  total_balance: number;
+  total_budget: number | null;
+  monthly_budget: number | null;
+  budget_mode: string;
+  budget_limit: number | null;
+  budget_used: number | null;
+  budget_available: number | null;
+  can_print: boolean;
+}
+
+export interface FinanceMember {
+  id: number;
+  cost_center_id: number;
+  user_id: number;
+  can_print: boolean;
+}
+
+export interface PurchasingReportRow {
+  supplier_id?: number;
+  supplier_name?: string;
+  material_number?: string;
+  spool_count: number;
+  remaining_g: number;
+  consumed_g: number;
+  cost: number;
+}
 
 export interface GroupBrief {
   id: number;
@@ -257,6 +320,9 @@ export interface OIDCProvider {
   // #1589: when true, the LoginPage redirects unauthenticated visitors
   // straight to this provider on mount. At most one provider may carry this.
   is_autologin: boolean;
+  group_claim?: string;
+  group_mapping?: Record<string, string>;
+  is_env_managed?: boolean;
 }
 
 export interface OIDCProviderCreate {
@@ -273,6 +339,48 @@ export interface OIDCProviderCreate {
   icon_url?: string | null;
   default_group_id?: number | null;
   is_autologin?: boolean;  // #1589
+  group_claim?: string;
+  group_mapping?: Record<string, string>;
+}
+
+// Auth-users parity: scoped credentials and connected-app consent.
+export type ApiKeyScope =
+  | 'can_queue' | 'can_control_printer' | 'can_read_status'
+  | 'can_manage_library' | 'can_manage_inventory' | 'can_manage_maintenance'
+  | 'can_manage_archives' | 'can_manage_projects' | 'can_access_cloud'
+  | 'can_update_energy_cost' | 'can_send_notifications';
+export type ScopedApiKeyCreate = Record<ApiKeyScope, boolean> & { name: string };
+export interface ScopedApiKey extends ScopedApiKeyCreate {
+  id: number;
+  key_prefix: string;
+  user_id: number | null;
+  enabled: boolean;
+  last_used: string | null;
+  created_at: string;
+  expires_at: string | null;
+  printer_ids: number[] | null;
+}
+export interface ConnectedApp {
+  id: number;
+  name: string;
+  client_id: string;
+  redirect_uri: string;
+  enabled: boolean;
+  created_at: string;
+  last_used_at: string | null;
+}
+export interface ConnectedAppSecret extends ConnectedApp { client_secret: string }
+export interface ConnectAuthorizeParams {
+  client_id: string;
+  redirect_uri: string;
+  code_challenge: string;
+  code_challenge_method: 'S256';
+  state?: string;
+}
+export interface ConnectAuthorizeInfo {
+  app_name: string;
+  username: string;
+  already_granted: boolean;
 }
 
 export interface OIDCLink {
@@ -423,12 +531,23 @@ export interface LongLivedCameraToken {
   id: number;
   user_id: number;
   name: string;
-  scope: 'camera_stream';
+  scope: CameraTokenScope;
   lookup_prefix: string;
   created_at: string;
   expires_at: string;
   last_used_at: string | null;
   token: string | null;
+}
+
+// Camera parity lane — printer camera management and integration contracts.
+export type CameraTokenScope = 'camera_stream' | 'camwall' | 'overlay';
+export type CameraIntegrationToken = LongLivedCameraToken;
+
+export interface ExternalCameraConnectionResult {
+  success: boolean;
+  error?: string;
+  resolution?: string;
+  coalesced?: boolean;
 }
 
 export interface Printer {
@@ -511,6 +630,7 @@ export interface AMSUnit {
   dry_target_temp: number | null; // Active-cycle target °C (Bambu does not echo)
   dry_filament: string | null;    // Active-cycle filament name we sent
   module_type: string;    // "ams", "n3f", "n3s"
+  dry_countdown_stalled?: boolean;
 }
 
 export interface NozzleInfo {
@@ -654,8 +774,55 @@ export interface PrinterStatus {
   awaiting_plate_clear: boolean;
   // AMS drying support
   supports_drying: boolean;
+  supports_drying_while_printing?: boolean;
+  drying_screen_only?: boolean;
+  left_aux_fan_speed?: number | null;
+  exhaust_fan_present?: boolean;
   // Active chamber heater (responds to M141). True only for H2C/H2D/H2DPro/H2S/X2D.
   supports_chamber_heater?: boolean;
+}
+
+// Printer fleet parity: firmware management and MQTT console.
+export interface FleetFirmwareInfo {
+  printer_id: number;
+  current_version: string | null;
+  latest_version: string | null;
+  update_available: boolean;
+  release_notes: string | null;
+  available_versions: {
+    version: string;
+    file_available: boolean;
+    release_notes: string | null;
+    release_time: string | null;
+  }[];
+}
+
+export interface FleetFirmwarePrepare {
+  can_proceed: boolean;
+  sd_card_present: boolean;
+  sd_card_free_space: number;
+  firmware_size: number;
+  space_sufficient: boolean;
+  errors: string[];
+}
+
+export interface FleetFirmwareStatus {
+  status: 'idle' | 'preparing' | 'downloading' | 'uploading' | 'complete' | 'error';
+  progress: number;
+  message: string;
+  error: string | null;
+  firmware_filename: string | null;
+  firmware_version: string | null;
+}
+
+export interface FleetMQTTLogs {
+  logging_enabled: boolean;
+  logs: {
+    timestamp: string;
+    topic: string;
+    direction: 'in' | 'out';
+    payload: Record<string, unknown>;
+  }[];
 }
 
 export interface PrinterUpdate {
@@ -833,6 +1000,10 @@ export interface Archive {
   designer: string | null;
   external_url: string | null;
   is_favorite: boolean;
+  user_verdict?: 'good' | 'reject' | null;
+  user_verdict_source?: string | null;
+  user_verdict_at?: string | null;
+  confirm_requested?: boolean;
   tags: string | null;
   notes: string | null;
   cost: number | null;
@@ -952,6 +1123,8 @@ export interface TagInfo {
 }
 
 export interface FailureAnalysis {
+  rejected_prints?: number;
+  yield_rate?: number;
   period_days: number;
   total_prints: number;
   failed_prints: number;
@@ -1039,6 +1212,87 @@ export interface SimilarArchive {
 
 // Queue types
 
+// Queue / print-launch parity contracts (server print_queue schemas).
+export type CalibrationChoice = boolean | 'off' | 'on' | 'auto';
+
+export interface QueueVariant {
+  library_file_id: number;
+  target_model?: string | null;
+  filename?: string;
+  plate_id?: number | null;
+  ams_mapping?: number[] | null;
+  nozzle_mapping?: number[] | null;
+  nozzle_rack_choice?: Record<number, number> | null;
+  filament_overrides?: PrintQueueItemCreate['filament_overrides'];
+}
+
+export interface PrintBatchPlateProgress {
+  plate_id: number | null;
+  plate_name?: string | null;
+  quantity_target: number;
+  dispatched: number;
+  remaining: number;
+  pending_count: number;
+  printing_count: number;
+  completed_count: number;
+  failed_count: number;
+  cancelled_count: number;
+  skipped_count: number;
+  actual_cost: number | null;
+  estimated_remaining_cost: number | null;
+  can_dispatch: boolean;
+}
+
+export interface PrintLaunchPlate {
+  index: number;
+  name: string | null;
+  objects?: string[];
+  filament_count?: number;
+  bed_type?: string | null;
+  print_time_seconds?: number | null;
+  filament_used_grams?: number | null;
+}
+
+export interface PrintLaunchRequirement {
+  slot_id: number;
+  type: string;
+  color: string;
+  used_grams: number;
+  used_meters?: number;
+  extruder_id?: number | null;
+  nozzle_id?: number | null;
+  force_color_match?: boolean;
+  tray_info_idx?: string;
+  group_id?: number;
+  group?: {
+    on_rack: boolean;
+    nozzle_diameter: string;
+    volume_type: string;
+    filament_color?: string;
+  };
+}
+
+export interface PrintLaunchInventory {
+  inventory_remain_g: Record<string, number>;
+  slot_materials?: Array<{
+    global_tray_id: number;
+    material_key: string;
+    extruder: number;
+    remaining_g: number;
+    spool?: { brand?: string | null; material?: string | null; color_name?: string | null } | null;
+  }>;
+}
+
+export interface PrintLaunchCostCenter {
+  id: number;
+  name: string;
+  is_private: boolean;
+  is_active: boolean;
+  can_print: boolean;
+  budget_mode: 'none' | 'total' | 'monthly';
+  budget_available: number | null;
+}
+
 export interface PrintQueueItem {
   id: number;
   printer_id: number | null;  // null = unassigned
@@ -1064,16 +1318,22 @@ export interface PrintQueueItem {
   // PrintModal's deficit warning was acknowledged.
   skip_filament_check: boolean;
   ams_mapping: number[] | null;  // AMS slot mapping for multi-color prints
-  filament_overrides: Array<{ slot_id: number; type: string; color: string; color_name?: string; force_color_match?: boolean }> | null;  // Filament overrides for model-based assignment
+  filament_overrides: Array<{ slot_id: number; type: string; color: string; color_name?: string; force_color_match?: boolean; tray_info_idx?: string | null }> | null;  // Filament overrides for model-based assignment
   plate_id: number | null;  // Plate ID for multi-plate 3MF files
   // Print options
-  bed_levelling: boolean;
-  flow_cali: boolean;
+  bed_levelling: CalibrationChoice;
+  flow_cali: CalibrationChoice;
   vibration_cali: boolean;
   layer_inspect: boolean;
   timelapse: boolean;
   use_ams: boolean;
-  nozzle_offset_cali: boolean;
+  nozzle_offset_cali: CalibrationChoice;
+  confirm_outcome?: boolean;
+  cost_center_id?: number | null;
+  estimated_cost?: number | null;
+  nozzle_rack_choice?: Record<number, number> | null;
+  nozzle_mapping?: number[] | null;
+  variants?: QueueVariant[];
   preheat_override: 'inherit' | 'on' | 'off';
   preheat_chamber_target_override: number | null;
   status: 'pending' | 'printing' | 'completed' | 'failed' | 'skipped' | 'cancelled';
@@ -1123,6 +1383,14 @@ export interface PrintBatch {
   completed_count: number;
   failed_count: number;
   cancelled_count: number;
+  skipped_count?: number;
+  has_targets?: boolean;
+  target_count?: number;
+  remaining_count?: number;
+  dispatchable_count?: number;
+  actual_cost?: number | null;
+  estimated_remaining_cost?: number | null;
+  plates?: PrintBatchPlateProgress[];
 }
 
 export interface PrintBatchUngroupResponse {
@@ -1134,7 +1402,7 @@ export interface PrintQueueItemCreate {
   printer_id?: number | null;  // null = unassigned
   target_model?: string | null;  // Target printer model (mutually exclusive with printer_id)
   target_location?: string | null;  // Target location filter (only used with target_model)
-  filament_overrides?: Array<{ slot_id: number; type: string; color: string; color_name?: string; force_color_match?: boolean }> | null;
+  filament_overrides?: Array<{ slot_id: number; type: string; color: string; color_name?: string; force_color_match?: boolean; tray_info_idx?: string | null }> | null;
   archive_id?: number | null;
   library_file_id?: number | null;
   scheduled_time?: string | null;
@@ -1149,13 +1417,18 @@ export interface PrintQueueItemCreate {
   ams_mapping?: number[] | null;  // AMS slot mapping for multi-color prints
   plate_id?: number | null;  // Plate ID for multi-plate 3MF files
   // Print options
-  bed_levelling?: boolean;
-  flow_cali?: boolean;
+  bed_levelling?: CalibrationChoice;
+  flow_cali?: CalibrationChoice;
   vibration_cali?: boolean;
   layer_inspect?: boolean;
   timelapse?: boolean;
   use_ams?: boolean;
-  nozzle_offset_cali?: boolean;
+  nozzle_offset_cali?: CalibrationChoice;
+  confirm_outcome?: boolean;
+  cost_center_id?: number | null;
+  estimated_cost?: number | null;
+  nozzle_rack_choice?: Record<number, number> | null;
+  variants?: QueueVariant[];
   preheat_override?: 'inherit' | 'on' | 'off';
   preheat_chamber_target_override?: number | null;
   // Auto-print G-code injection
@@ -1172,19 +1445,21 @@ export interface PrintQueueItemCreate {
 
 export interface PrintBatchCreate {
   name: string;
+  project_id?: number | null;
   archive_id?: number | null;
   library_file_id?: number | null;
   /** When set, the listed pending items are assigned to the new batch
    *  (manual "Group as batch"). When omitted/empty, an empty batch is
    *  returned so the client can pass batch_id on subsequent addToQueue calls. */
   item_ids?: number[];
+  plates?: Array<{ plate_id: number | null; plate_name?: string | null; quantity_target: number; sort_order: number }>;
 }
 
 export interface PrintQueueItemUpdate {
   printer_id?: number | null;  // null = unassign
   target_model?: string | null;  // Target printer model (mutually exclusive with printer_id)
   target_location?: string | null;  // Target location filter (only used with target_model)
-  filament_overrides?: Array<{ slot_id: number; type: string; color: string; color_name?: string; force_color_match?: boolean }> | null;
+  filament_overrides?: Array<{ slot_id: number; type: string; color: string; color_name?: string; force_color_match?: boolean; tray_info_idx?: string | null }> | null;
   position?: number;
   scheduled_time?: string | null;
   require_previous_success?: boolean;
@@ -1193,13 +1468,18 @@ export interface PrintQueueItemUpdate {
   ams_mapping?: number[];
   plate_id?: number | null;  // Plate ID for multi-plate 3MF files
   // Print options
-  bed_levelling?: boolean;
-  flow_cali?: boolean;
+  bed_levelling?: CalibrationChoice;
+  flow_cali?: CalibrationChoice;
   vibration_cali?: boolean;
   layer_inspect?: boolean;
   timelapse?: boolean;
   use_ams?: boolean;
-  nozzle_offset_cali?: boolean;
+  nozzle_offset_cali?: CalibrationChoice;
+  confirm_outcome?: boolean;
+  cost_center_id?: number | null;
+  estimated_cost?: number | null;
+  nozzle_rack_choice?: Record<number, number> | null;
+  nozzle_mapping?: number[] | null;
   preheat_override?: 'inherit' | 'on' | 'off';
   preheat_chamber_target_override?: number | null;
   // Auto-print G-code injection
@@ -1214,13 +1494,16 @@ export interface PrintQueueBulkUpdate {
   auto_off_after?: boolean;
   manual_start?: boolean;
   // Print options
-  bed_levelling?: boolean;
-  flow_cali?: boolean;
+  bed_levelling?: CalibrationChoice;
+  flow_cali?: CalibrationChoice;
   vibration_cali?: boolean;
   layer_inspect?: boolean;
   timelapse?: boolean;
   use_ams?: boolean;
-  nozzle_offset_cali?: boolean;
+  nozzle_offset_cali?: CalibrationChoice;
+  confirm_outcome?: boolean;
+  cost_center_id?: number | null;
+  estimated_cost?: number | null;
   preheat_override?: 'inherit' | 'on' | 'off';
   preheat_chamber_target_override?: number | null;
   // Auto-print G-code injection
@@ -1609,7 +1892,7 @@ export interface ProjectCreate {
   due_date?: string;
   priority?: string;
   budget?: number | null;
-  parent_id?: number;
+  parent_id?: number | null;
   url?: string | null;  // #1155
 }
 
@@ -1625,7 +1908,7 @@ export interface ProjectUpdate {
   due_date?: string;
   priority?: string;
   budget?: number | null;
-  parent_id?: number;
+  parent_id?: number | null;
   url?: string | null;  // #1155 — explicit null clears the URL
 }
 
@@ -2101,6 +2384,9 @@ export interface APIKeyUpdate {
 }
 
 export interface AppSettings {
+  // Global parity: maintainer announcements policy.
+  announcements_enabled?: boolean;
+  announcements_all_users?: boolean;
   auto_archive: boolean;
   save_thumbnails: boolean;
   capture_finish_photo: boolean;
@@ -2196,6 +2482,7 @@ export interface AppSettings {
   // Per-install sidecar URLs. Empty string falls back to the env defaults.
   orcaslicer_api_url: string;
   bambu_studio_api_url: string;
+  slicer_stall_timeout_minutes?: number;
   // Prometheus metrics
   prometheus_enabled: boolean;
   prometheus_token: string;
@@ -2271,9 +2558,22 @@ export interface MQTTStatus {
 
 // Notification types
 
-export type ProviderType = 'callmebot' | 'ntfy' | 'pushover' | 'telegram' | 'email' | 'discord' | 'webhook' | 'homeassistant';
+export type ProviderType = 'callmebot' | 'ntfy' | 'pushover' | 'telegram' | 'email' | 'discord' | 'webhook' | 'homeassistant' | 'bark';
 
-export interface NotificationProvider {
+// Notifications parity: newer server delivery and event fields.
+export interface NotificationDeliveryFields {
+  attach_photo?: boolean;
+  on_print_confirm_request?: boolean;
+  on_plate_clear_required?: boolean;
+  on_billing_charge_failed?: boolean;
+  on_ams_drying_suspended?: boolean;
+  on_ha_sensor_alert?: boolean;
+  on_location_ha_sensor_alert?: boolean;
+  on_app_message?: boolean;
+  telegram_verdict_mode?: 'buttons' | 'reactions' | 'both';
+}
+
+export interface NotificationProvider extends NotificationDeliveryFields {
   id: number;
   name: string;
   provider_type: ProviderType;
@@ -2333,7 +2633,7 @@ export interface NotificationProvider {
   updated_at: string;
 }
 
-export interface NotificationProviderCreate {
+export interface NotificationProviderCreate extends NotificationDeliveryFields {
   name: string;
   provider_type: ProviderType;
   enabled?: boolean;
@@ -2385,7 +2685,7 @@ export interface NotificationProviderCreate {
   printer_id?: number | null;
 }
 
-export interface NotificationProviderUpdate {
+export interface NotificationProviderUpdate extends NotificationDeliveryFields {
   name?: string;
   provider_type?: ProviderType;
   enabled?: boolean;
@@ -2524,6 +2824,65 @@ export interface LocalBackupFile {
   created_at: string;
 }
 
+// Backup-system parity: immutable Git restore and diagnostic workflows.
+export type GitRestoreCategory = 'kprofiles' | 'settings' | 'spools' | 'archives';
+export interface GitBackupCommit {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+}
+export interface GitRestorePreview {
+  success: boolean;
+  message: string;
+  ref: string;
+  commit: GitBackupCommit | null;
+  metadata_version: string | null;
+  categories: Array<{
+    category: GitRestoreCategory;
+    available: boolean;
+    item_count: number;
+    detail: string | null;
+  }>;
+}
+export interface GitRestoreResult {
+  success: boolean;
+  message: string;
+  ref: string | null;
+  results: Record<string, {
+    restored: number;
+    skipped: number;
+    failed: number;
+    notes: Array<{ code: string; message: string }>;
+  }>;
+}
+export interface BackupOperationResult {
+  success: boolean;
+  message: string;
+  restart_required?: boolean;
+  diagnosis?: { message: string; detail: string };
+}
+export interface BackupPathCheck {
+  writable: boolean;
+  path: string;
+  message: string;
+  detail?: string | null;
+  remedy?: string | null;
+  warning?: string | null;
+  code?: string;
+}
+export interface ApplicationLogEntry {
+  timestamp: string;
+  level: string;
+  logger_name: string;
+  message: string;
+}
+export interface ApplicationLogs {
+  entries: ApplicationLogEntry[];
+  total_in_file: number;
+  filtered_count: number;
+}
+
 export interface ObicoDetectionEvent {
   printer_id: number;
   task_name: string;
@@ -2532,6 +2891,93 @@ export interface ObicoDetectionEvent {
   score: number;
   class: 'safe' | 'warning' | 'failure';
   detections: number;
+}
+
+// Settings workflow parity contracts.
+export interface WorkflowOpenApiSchemaNode {
+  type?: string;
+  $ref?: string;
+  properties?: Record<string, WorkflowOpenApiSchemaNode>;
+  items?: WorkflowOpenApiSchemaNode;
+  required?: string[];
+  enum?: unknown[];
+  default?: unknown;
+  example?: unknown;
+  description?: string;
+  allOf?: WorkflowOpenApiSchemaNode[];
+  anyOf?: WorkflowOpenApiSchemaNode[];
+  oneOf?: WorkflowOpenApiSchemaNode[];
+}
+
+export interface WorkflowOpenApiParameter {
+  name: string;
+  in: 'path' | 'query' | 'header';
+  required?: boolean;
+  description?: string;
+  schema?: WorkflowOpenApiSchemaNode;
+}
+
+export interface WorkflowOpenApiOperation {
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  parameters?: WorkflowOpenApiParameter[];
+  requestBody?: { required?: boolean; content?: Record<string, { schema?: WorkflowOpenApiSchemaNode }> };
+  responses?: Record<string, { description?: string }>;
+}
+
+export interface WorkflowOpenApiDocument {
+  paths: Record<string, Record<string, WorkflowOpenApiOperation>>;
+  components?: { schemas?: Record<string, WorkflowOpenApiSchemaNode> };
+}
+
+export interface WorkflowExplorerResponse {
+  status: number;
+  statusText: string;
+  body: string;
+  duration: number;
+  headers: Record<string, string>;
+}
+
+export interface ArchiveRetentionSettings {
+  enabled: boolean;
+  days: number;
+  purge_stats: boolean;
+}
+
+export interface WorkflowAiDetection {
+  class: string;
+  frame_count: number;
+  score: number;
+  error?: string | null;
+}
+
+export interface WorkflowPrinterAiStatus {
+  enabled: boolean;
+  monitored_printers: number[] | null;
+  per_printer: Record<string, WorkflowAiDetection>;
+  last_error: string | null;
+}
+
+export interface WorkflowObicoStatus {
+  is_running: boolean;
+  enabled: boolean;
+  thresholds: { low: number; high: number };
+  per_printer: Record<string, WorkflowAiDetection>;
+  last_error: string | null;
+  history: ObicoDetectionEvent[];
+  sensitivity: string;
+  action: string;
+  poll_interval: number;
+  external_url_configured: boolean;
+}
+
+export interface WorkflowObicoTestResult {
+  ok: boolean;
+  auth_ok: boolean | null;
+  status_code: number | null;
+  body: string | null;
+  error: string | null;
 }
 
 export interface ObicoStatus {
@@ -2576,6 +3022,20 @@ export interface GitHubBackupTriggerResponse {
 export interface NotificationTestRequest {
   provider_type: ProviderType;
   config: Record<string, unknown>;
+  attach_photo?: boolean;
+}
+
+// Notifications parity: aggregate delivery-test results.
+export interface NotificationTestAllResponse {
+  tested: number;
+  success: number;
+  failed: number;
+  results: Array<{
+    provider_id: number;
+    provider_name: string;
+    success: boolean;
+    message: string;
+  }>;
 }
 
 export interface NotificationTestResponse {
@@ -3016,6 +3476,12 @@ export interface SliceRequest {
   // backend validator promotes a singular into a one-element list when this
   // is omitted, so legacy single-color clients keep working unchanged.
   filament_presets?: PresetRef[];
+  filament_colours?: string[];
+  use_embedded_settings?: boolean;
+  process_overrides?: Record<string, string | string[]>;
+  design_overrides?: string[];
+  auto_orient?: boolean;
+  auto_arrange?: boolean;
   plate?: number;
   export_3mf?: boolean;
   // Build-plate override (#1337). When omitted, the slicer uses the process
@@ -3204,6 +3670,7 @@ export interface PendingUpload {
 }
 
 export interface VirtualPrinterConfig {
+  save_ams_mapping?: boolean;
   id: number;
   name: string;
   enabled: boolean;
@@ -3248,6 +3715,7 @@ export interface VPDiagnosticCheck {
     | 'port_ftps'
     | 'port_mqtt'
     | 'port_bind'
+    | 'privileged_ports'
     | 'certificate';
   status: VPDiagnosticStatus;
   params: Record<string, string | number>;
@@ -3300,8 +3768,8 @@ export interface SlicerPipelineCreateRequest {
 
 export type SlicerPipelineUpdateRequest = Partial<SlicerPipelineCreateRequest> & {
   target_kind?: 'specific_printer' | 'printer_class';
-  // ``target_printer_id: 0`` means "clear the target" — the backend maps that
-  // to null. Use null in TypeScript for the same intent.
+  // Updates clear the printer with 0 and the model class with ''.
+  // Null/omitted values leave existing bindings unchanged.
   target_printer_id?: number | null;
   target_model_class?: string | null;
   fanout_strategy?: 'max_parallel' | 'fill_one_first' | 'round_robin';
@@ -3416,6 +3884,7 @@ export interface SliceResponse {
   filament_used_g: number;
   filament_used_mm: number;
   used_embedded_settings: boolean;
+  external_write_fallback?: string | null;
 }
 
 export interface SliceArchiveResponse {
@@ -3470,9 +3939,49 @@ export interface SliceJobState {
   error_detail?: string;
 }
 
+// Slicing-pipelines lane: source metadata and flattened preset values.
+export interface SliceSourceProps {
+  sourceType: 'file' | 'archive';
+  sourceId: number;
+  sourceName: string;
+}
+export interface DesignOverride {
+  key: string;
+  value: import('./slicerSettings').SettingValue;
+  printer_coupled: boolean;
+  preset_defining: boolean;
+}
+export interface SourceFilament {
+  slot_id: number;
+  type: string;
+  color: string;
+  used_in_plate?: boolean;
+}
+export interface SourcePlates {
+  plates: Array<{
+    index: number;
+    name: string | null;
+    thumbnail_url: string | null;
+    objects: string[];
+    filaments: SourceFilament[];
+  }>;
+  is_multi_plate: boolean;
+  embedded_printer?: string | null;
+  embedded_process?: string | null;
+  design_overrides?: DesignOverride[];
+}
+export interface PresetValues {
+  resolved: boolean;
+  values: Record<string, import('./slicerSettings').SettingValue>;
+  reason: 'ok' | 'sidecar_outdated' | 'sidecar_unavailable' | 'not_configured' | 'preset_unresolved';
+}
+
 // All other types
 
 export interface SmartPlug {
+  controls_printer_power: boolean;
+  rest_energy_total_path: string | null;
+  rest_energy_total_multiplier: number;
   id: number;
   name: string;
   plug_type: 'tasmota' | 'homeassistant' | 'mqtt' | 'rest';
@@ -3548,6 +4057,9 @@ export interface SmartPlug {
 }
 
 export interface SmartPlugCreate {
+  controls_printer_power?: boolean;
+  rest_energy_total_path?: string | null;
+  rest_energy_total_multiplier?: number;
   name: string;
   plug_type?: 'tasmota' | 'homeassistant' | 'mqtt' | 'rest';
   ip_address?: string | null;  // Required for Tasmota
@@ -3615,6 +4127,9 @@ export interface SmartPlugCreate {
 }
 
 export interface SmartPlugUpdate {
+  controls_printer_power?: boolean;
+  rest_energy_total_path?: string | null;
+  rest_energy_total_multiplier?: number;
   name?: string;
   plug_type?: 'tasmota' | 'homeassistant' | 'mqtt' | 'rest';
   ip_address?: string | null;
@@ -3730,7 +4245,6 @@ export interface TasmotaScanStatus {
   scanned: number;
   total: number;
 }
-
 export interface DiscoveredTasmotaDevice {
   ip_address: string;
   name: string;
@@ -3800,6 +4314,73 @@ export interface KProfileNote {
 
 export interface KProfileNotesResponse {
   notes: Record<string, string>;  // setting_id -> note
+}
+
+// Profiles-maintenance parity lane: current cloud/local/device authorization contracts.
+export interface PrinterMaintenanceAssignment {
+  id: number;
+  printer_id: number;
+  maintenance_type_id: number;
+  maintenance_type: MaintenanceType;
+  custom_interval_hours: number | null;
+  enabled: boolean;
+  last_performed_at: string | null;
+  last_performed_hours: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PresetDetail {
+  setting_id?: string;
+  id?: number;
+  name: string;
+  type?: string;
+  preset_type?: string;
+  base_id?: string | null;
+  version?: string | null;
+  setting: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface PresetMutation {
+  name: string;
+  type: string;
+  base_id: string;
+  version: string;
+  setting: Record<string, unknown>;
+}
+
+export type PresetGroups = Record<'filament' | 'printer' | 'process', Array<Record<string, unknown>>>;
+
+export interface PresetImportResult {
+  success: boolean;
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+
+export interface PresetField {
+  key: string;
+  label?: string;
+  type?: string;
+  category?: string;
+  options?: unknown[];
+  [key: string]: unknown;
+}
+export type PresetFields = Record<string, unknown>;
+
+export interface OrcaDeviceAuthorization {
+  user_code: string;
+  verification_uri: string;
+  verification_uri_complete: string;
+  interval: number;
+  expires_in: number;
+}
+
+export interface OrcaDevicePoll {
+  status: 'authorization_pending' | 'slow_down' | 'access_denied' | 'expired_token' | 'complete';
+  connected: boolean;
+  email?: string | null;
 }
 
 export interface SlotPresetMapping {
@@ -4121,6 +4702,40 @@ export interface SpoolBuddyDevice {
   online: boolean;
 }
 
+// SpoolBuddy parity lane — remote device workflows.
+export type SpoolBuddySystemCommand = 'restart_browser' | 'restart_daemon' | 'reboot' | 'shutdown';
+export type SpoolBuddyDiagnostic = 'nfc' | 'scale' | 'read_tag';
+export interface SpoolBuddyDiagnosticResult {
+  diagnostic: string;
+  success: boolean;
+  output: string;
+  exit_code: number;
+}
+export interface SpoolBuddyUpdateCheck {
+  current_version: string;
+  latest_version: string | null;
+  update_available: boolean;
+}
+export interface SpoolBuddyRemoteState {
+  weight: number | null;
+  stable: boolean;
+  rawAdc: number | null;
+  tagUid: string | null;
+  trayUuid: string | null;
+  sak: number | null;
+  tagState: 'waiting' | 'matched' | 'unknown' | 'removed' | 'error';
+  spool: Partial<InventorySpool> | null;
+  online: boolean | null;
+  reconnectRevision: number;
+  writeSpoolId: number | null;
+  writeTagUid: string | null;
+  writeStatus: 'idle' | 'queued' | 'success' | 'error' | 'link_failed' | 'cancelled';
+  message: string | null;
+  updateStatus: string | null;
+  updateMessage: string | null;
+  updateReportedAt: number | null;
+}
+
 export interface SpoolBuddyDeviceCreateRequest {
   device_id: string;
   hostname?: string | null;
@@ -4242,4 +4857,251 @@ export interface SponsorPromptCheckResponse {
   family?: 'prints' | 'cost' | 'archives' | 'anniversary' | 'version-update';
   threshold?: number;
   payload?: Record<string, unknown>;
+}
+// Printer-controls parity: physical device commands and runtime integrations.
+export interface DeviceSlotConfiguration {
+  tray_info_idx: string;
+  tray_type: string;
+  tray_sub_brands: string;
+  tray_color: string;
+  nozzle_temp_min: number;
+  nozzle_temp_max: number;
+  cali_idx: number;
+  nozzle_diameter: string;
+  setting_id: string;
+  kprofile_filament_id?: string;
+  kprofile_setting_id?: string;
+  k_value: number;
+  orca_profile_id?: string;
+}
+
+export interface DeviceSlotResult {
+  tray_info_idx?: string;
+  orca_fallback_reason?: string | null;
+}
+
+export interface ScheduledDryingCreate {
+  printer_id: number;
+  ams_id: number;
+  temp: number;
+  duration_hours: number;
+  filament: string;
+  rotate_tray: boolean;
+  start_after: string | null;
+}
+
+export interface ScheduledDrying extends ScheduledDryingCreate {
+  id: number;
+  status: string;
+  waiting_reason: string | null;
+  error_message: string | null;
+  error_code?: string | null;
+}
+
+export interface PrinterHASensorReading {
+  id: number;
+  name: string;
+  entity_id: string;
+  kind: string;
+  state: string | null;
+  value: number | null;
+  unit: string | null;
+  reachable: boolean;
+  alerting: boolean;
+  block_print: boolean;
+}
+
+export interface SpoolmanSlotSpool {
+  id: number;
+  brand: string | null;
+  material: string;
+  color_name: string | null;
+  rgba: string | null;
+  slicer_filament_name?: string | null;
+  archived_at?: string | null;
+}
+
+export interface SpoolmanSlotBinding {
+  printer_id: number;
+  ams_id: number;
+  tray_id: number;
+  spoolman_spool_id: number;
+}
+
+export interface PrinterSDListing {
+  path: string;
+  files: { name: string; path: string; size: number; is_directory: boolean; modified?: string | null }[];
+  warnings: string[];
+}
+
+// Projects / MakerWorld parity lane
+export interface Project {
+  target_sets?: number | null;
+  descendant_count?: number;
+  rollup_stats?: ProjectStats | null;
+}
+
+export interface ProjectChildPreview {
+  descendant_count?: number;
+  total_archives?: number;
+  completed_prints?: number;
+  total_print_time_hours?: number;
+  total_filament_grams?: number;
+  total_cost?: number;
+}
+
+export interface ProjectListItem {
+  target_sets?: number | null;
+  parent_id?: number | null;
+  child_count?: number;
+  tags?: string | null;
+  due_date?: string | null;
+  priority?: string;
+}
+
+export interface ProjectCreate {
+  target_sets?: number | null;
+}
+
+export interface ProjectUpdate {
+  target_sets?: number | null;
+}
+
+export interface ProjectFileProgress {
+  file_id: number;
+  completed_count: number;
+}
+
+export interface MakerworldImportRequest {
+  model_id: number;
+  instance_id: number | null;
+  profile_id: number | null;
+  folder_id: number | null;
+}
+
+// Archives/media parity workflow responses.
+export interface PendingArchiveUpload {
+  id: number;
+  filename: string;
+  print_name?: string | null;
+  display_name?: string;
+  uploaded_at: string;
+  tags?: string | null;
+  notes?: string | null;
+  project_id?: number | null;
+  printer_name?: string | null;
+}
+export interface TimelapseInfo {
+  duration: number;
+  width: number;
+  height: number;
+  fps: number;
+  has_audio: boolean;
+}
+export interface ArchiveProjectPage {
+  title?: string | null;
+  designer?: string | null;
+  license?: string | null;
+  description?: string | null;
+  profile_title?: string | null;
+  profile_description?: string | null;
+  model_pictures?: Array<{ name: string; path: string; url: string }>;
+  profile_pictures?: Array<{ name: string; path: string; url: string }>;
+  thumbnails?: Array<{ name: string; path: string; url: string }>;
+  [key: string]: unknown;
+}
+export interface ArchivePrinterMedia {
+  archive_id: number;
+  printer_id: number | null;
+  local_timelapse: { name: string; size: number } | null;
+  remote_files: Array<{ name: string; path: string; size: number; type?: string }>;
+  warnings: string[];
+}
+
+// Global parity: maintainer announcements, separate from printer notifications.
+export interface UiDisplayPreferences {
+  date_format: AppSettings['date_format'];
+  time_format: AppSettings['time_format'];
+}
+export interface UiFlags {
+  currency: string;
+  billing_enabled: boolean;
+  user_notifications_enabled: boolean;
+  check_updates: boolean;
+}
+export interface UiNavigationPreferences {
+  default_sidebar_order: string;
+}
+export interface AnnouncementText {
+  title: string;
+  body: string;
+  link_label?: string;
+}
+export interface Announcement {
+  id: string;
+  level: 'info' | 'important' | 'critical';
+  texts: Record<string, AnnouncementText>;
+  link_url: string | null;
+  published_at: string | null;
+  expires_at: string | null;
+  archived: boolean;
+  read: boolean;
+}
+export interface AnnouncementList {
+  visible: boolean;
+  announcements: Announcement[];
+}
+
+// Inventory parity lane: backend-driven management and label composition.
+export type InventoryRecord = Record<string, unknown>;
+export interface InventoryLabelOptions {
+  spool_ids: number[];
+  template: string;
+  fields: string[];
+  monochrome: boolean;
+  starting_position: number;
+  format: 'pdf' | 'png';
+  dpi: 203 | 300 | 600;
+}
+
+// Library previews lane: current library response contracts.
+export interface LibraryTrashResponse {
+  items: Array<ApiEntity<LibraryTrashItem>>;
+  total: number;
+  retention_days: number;
+}
+
+export interface LibraryTrashSettings {
+  retention_days: number;
+  auto_purge_enabled: boolean;
+  auto_purge_days: number;
+  auto_purge_include_never_printed: boolean;
+}
+
+export interface LibraryFolderReadme {
+  filename: string;
+  content: string;
+  truncated: boolean;
+}
+
+export interface LibraryThumbnailBatch {
+  processed: number;
+  succeeded: number;
+  failed: number;
+  results: Array<{
+    file_id: number;
+    filename: string;
+    success: boolean;
+    error: string | null;
+  }>;
+}
+
+export interface LibraryFileUploadResult {
+  id: number;
+  filename: string;
+  file_type: string;
+  file_size: number;
+  thumbnail_path: string | null;
+  duplicate_of?: number | null;
+  metadata?: Record<string, unknown> | null;
 }

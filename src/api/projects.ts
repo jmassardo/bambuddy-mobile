@@ -5,12 +5,12 @@ import type {
   Project,
   ProjectListItem,
   TimelineEvent,
+  ProjectFileProgress,
 } from '@/types/api';
 import {
   buildMediaUrl,
   request,
   requestBlob,
-  requestWithFallback,
   uploadFile,
   type UploadableFile,
 } from './http';
@@ -28,7 +28,7 @@ export const projectsApi = {
 
   updateProject: async (id: number, data: Record<string, unknown>) =>
     request<Record<string, unknown>>(`/projects/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(data),
     }),
 
@@ -39,23 +39,14 @@ export const projectsApi = {
       `/projects/${id}/archives?limit=${limit}&offset=${offset}`,
     ),
 
-  sliceProject: async (id: number, data: Record<string, unknown>) =>
-    requestWithFallback<Record<string, unknown>>(
-      {
-        endpoint: `/projects/${id}/slice`,
-        options: {
-          method: 'POST',
-          body: JSON.stringify(data),
-        },
-      },
-      {
-        endpoint: '/slicer/slice',
-        options: {
-          method: 'POST',
-          body: JSON.stringify({ project_id: id, ...data }),
-        },
-      },
-    ),
+  getAllProjectArchives: async (id: number) => {
+    const archives: Array<ApiEntity<Archive>> = [];
+    for (let offset = 0; ; offset += 100) {
+      const page = await request<Array<ApiEntity<Archive>>>(`/projects/${id}/archives?limit=100&offset=${offset}`);
+      archives.push(...page);
+      if (page.length < 100) return archives;
+    }
+  },
 
   getProjectBOM: async (projectId: number) =>
     request<Array<ApiEntity<BOMItem>>>(`/projects/${projectId}/bom`),
@@ -102,4 +93,22 @@ export const projectsApi = {
 
   exportProjectZip: async (projectId: number) =>
     requestBlob(`/projects/${projectId}/export`),
+
+  exportProjectJson: (projectId: number) =>
+    request<Record<string, unknown>>(`/projects/${projectId}/export?format=json`),
+
+  importProject: (data: Record<string, unknown>) =>
+    request<ApiEntity<Project>>('/projects/import', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  importProjectFile: (file: UploadableFile) =>
+    uploadFile<ApiEntity<Project>>('/projects/import/file', file),
+
+  createTemplateFromProject: (projectId: number) =>
+    request<ApiEntity<Project>>(`/projects/${projectId}/create-template`, { method: 'POST' }),
+
+  getProjectFileProgress: (projectId: number) =>
+    request<ProjectFileProgress[]>(`/projects/${projectId}/file-progress`),
 };

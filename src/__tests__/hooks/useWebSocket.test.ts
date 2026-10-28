@@ -2,6 +2,7 @@ import React from 'react';
 import { AppState } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { getSpoolBuddyRemoteState, resetSpoolBuddyEvents } from '@/hooks/spoolbuddyEvents';
 
 const mockInvalidateQueries = jest.fn();
 const mockSetQueryData = jest.fn();
@@ -31,9 +32,11 @@ jest.mock('@/api/server', () => ({
   },
 }));
 
-jest.mock('@/contexts/ToastContext', () => ({
-  useToast: () => ({ showToast: mockShowToast }),
-}));
+jest.mock('@/contexts/ToastContext', () => {
+  const { resolveNativeMessage } = jest.requireActual<typeof import('@/i18n')>('@/i18n');
+  const showToast = (message: Parameters<typeof resolveNativeMessage>[0], ...args: unknown[]) => mockShowToast(resolveNativeMessage(message), ...args);
+  return { useToast: () => ({ showToast }) };
+});
 
 const mockConnectivityConnected = jest.fn(() => true);
 
@@ -102,6 +105,7 @@ describe('useWebSocket', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    resetSpoolBuddyEvents();
     MockWebSocket.instances = [];
     hookRef.current = null;
     mockGetWebSocketToken.mockResolvedValue({ token: 'ws-token' });
@@ -133,6 +137,48 @@ describe('useWebSocket', () => {
     await act(async () => {
       renderer.unmount();
     });
+  });
+
+  it('forwards physical SpoolBuddy events from the existing authenticated socket per device', async () => {
+    const renderer = await renderHookHarness();
+    await act(async () => {
+      MockWebSocket.instances[0]?.open();
+      MockWebSocket.instances[0]?.emitMessage({
+        type: 'spoolbuddy_unknown_tag', device_id: 'reader-a', tag_uid: '04010203040506', sak: 0,
+      });
+      MockWebSocket.instances[0]?.emitMessage({
+        type: 'spoolbuddy_weight', device_id: 'reader-b', weight_grams: 100, raw_adc: 555, stable: true,
+      });
+    });
+    expect(getSpoolBuddyRemoteState('reader-a')).toMatchObject({ tagState: 'unknown', tagUid: '04010203040506', weight: null });
+    expect(getSpoolBuddyRemoteState('reader-b')).toMatchObject({ tagState: 'waiting', weight: 100, rawAdc: 555 });
+    expect(MockWebSocket.instances).toHaveLength(1);
+    await act(async () => { renderer.unmount(); });
+  });
+
+  it('scopes a remote-panel connection without duplicate printer toasts or clearing another live socket reader result', async () => {
+    function RemotePanelConnection() {
+      useWebSocket({ onlySpoolBuddy: true });
+      return null;
+    }
+    let remoteRenderer!: ReactTestRenderer.ReactTestRenderer;
+    const renderer = await renderHookHarness();
+    await act(async () => {
+      remoteRenderer = ReactTestRenderer.create(React.createElement(RemotePanelConnection));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      MockWebSocket.instances[0]?.open();
+      MockWebSocket.instances[1]?.open();
+      MockWebSocket.instances[1]?.emitMessage({ type: 'print_start', printer_name: 'Printer' });
+      MockWebSocket.instances[1]?.emitMessage({ type: 'spoolbuddy_unknown_tag', device_id: 'a', tag_uid: '04010203040506' });
+    });
+    expect(mockShowToast).not.toHaveBeenCalled();
+    expect(getSpoolBuddyRemoteState('a').tagState).toBe('unknown');
+    await act(async () => { remoteRenderer.unmount(); });
+    expect(getSpoolBuddyRemoteState('a').tagState).toBe('unknown');
+    await act(async () => { renderer.unmount(); });
+    expect(getSpoolBuddyRemoteState('a').tagState).toBe('waiting');
   });
 
   it('reconnects after an unexpected disconnect', async () => {

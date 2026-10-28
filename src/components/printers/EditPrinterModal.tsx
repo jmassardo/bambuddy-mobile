@@ -1,12 +1,17 @@
+import { nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
+
 import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Alert,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  Switch,
   View,
 } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +22,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { Printer } from '@/types/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface EditPrinterModalProps {
   visible: boolean;
@@ -26,7 +32,7 @@ interface EditPrinterModalProps {
 
 type EditablePrinter = Printer & { notes?: string | null };
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
@@ -35,12 +41,20 @@ export function EditPrinterModal({
   printer,
   onClose,
 }: EditPrinterModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const { hasPermission } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
+  const [ipAddress, setIpAddress] = useState('');
+  const [accessCode, setAccessCode] = useState('');
+  const [model, setModel] = useState('');
+  const [autoArchive, setAutoArchive] = useState(true);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     if (!printer) return;
@@ -48,15 +62,24 @@ export function EditPrinterModal({
     setName(printer.name);
     setLocation(printer.location ?? '');
     setNotes(editablePrinter.notes ?? '');
-  }, [printer]);
+    setIpAddress(printer.ip_address);
+    setAccessCode('');
+    setModel(printer.model ?? '');
+    setAutoArchive(printer.auto_archive);
+  }, [printer, visible]);
 
   const saveMutation = useMutation({
     mutationFn: () => {
-      if (!printer) throw new Error('Printer unavailable');
+      if (!printer) throw new Error(translateNative('native.b88c48e2049ab0e4'));
+      if (!hasPermission('printers:update')) throw new Error(t('fleet.editDenied', { defaultValue: 'Printer update permission required.' }));
       return api.updatePrinter(printer.id, {
         name: name.trim(),
         location: location.trim() || null,
         notes: notes.trim() || null,
+        ip_address: ipAddress.trim(),
+        ...(accessCode.trim() ? { access_code: accessCode.trim() } : {}),
+        model: model.trim(),
+        auto_archive: autoArchive,
       });
     },
     onSuccess: async () => {
@@ -66,12 +89,45 @@ export function EditPrinterModal({
         queryClient.invalidateQueries({ queryKey: ['printer', printer.id] }),
         queryClient.invalidateQueries({ queryKey: ['printerStatus', printer.id] }),
       ]);
-      showToast('Printer updated.', 'success');
+      showToast(nativeMessage('native.a206e55ab1d4a78f'), 'success');
       onClose();
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to update printer.'), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.a55949c59db4d4a8')), 'error'),
   });
+
+  const preflight = async () => {
+    if (!printer) return;
+    setChecking(true);
+    try {
+      const result = await api.diagnoseConnection({
+        ip_address: ipAddress.trim(),
+        serial_number: printer.serial_number,
+        ...(accessCode.trim() ? { access_code: accessCode.trim() } : {}),
+      });
+      const checks = result.checks;
+      if (checks?.some(check => check.status === 'fail')) {
+        Alert.alert(
+          t('fleet.preflightFailed', { defaultValue: 'Connection checks failed' }),
+          checks.filter(check => check.status === 'fail').map(check => `${check.id}: ${Object.values(check.params).join(' · ')}`).join('\n'),
+          [
+            { text: t('common.back', { defaultValue: 'Back' }), style: 'cancel' },
+            { text: t('fleet.saveAnyway', { defaultValue: 'Save anyway' }), onPress: () => saveMutation.mutate() },
+          ],
+        );
+        return;
+      }
+    } catch (error) {
+      Alert.alert(t('fleet.preflightFailed', { defaultValue: 'Connection checks failed' }), getErrorMessage(error, t('fleet.diagnosticUnavailable', { defaultValue: 'Diagnostic unavailable. Save without checking?' })), [
+        { text: t('common.back', { defaultValue: 'Back' }), style: 'cancel' },
+        { text: t('fleet.saveAnyway', { defaultValue: 'Save anyway' }), onPress: () => saveMutation.mutate() },
+      ]);
+      return;
+    } finally {
+      setChecking(false);
+    }
+    saveMutation.mutate();
+  };
 
   if (!printer) return null;
 
@@ -97,10 +153,9 @@ export function EditPrinterModal({
             <View style={styles.header}>
               <View style={styles.headerText}>
                 <Text style={[styles.title, { color: colors.text }]}>
-                  Edit printer
-                </Text>
+                  {translateNative('native.b12f7dceaa30792e')}</Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                  Update name, location, and notes.
+                  {t('fleet.editSubtitle', { defaultValue: 'Update connection, model, archiving, and profile.' })}
                 </Text>
               </View>
               <Pressable
@@ -115,34 +170,41 @@ export function EditPrinterModal({
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
+              <TextField label={t('fleet.ip', { defaultValue: 'IP / hostname' })} value={ipAddress} onChangeText={setIpAddress} autoCapitalize="none" />
+              <TextField label={t('fleet.replacementCode', { defaultValue: 'Replacement access code (blank keeps existing)' })} value={accessCode} onChangeText={setAccessCode} secureTextEntry autoCapitalize="none" />
+              <TextField label={t('fleet.model', { defaultValue: 'Model' })} value={model} onChangeText={setModel} />
+              <View style={styles.toggle}>
+                <Text style={{ color: colors.text }}>{t('fleet.autoArchive', { defaultValue: 'Automatically archive prints' })}</Text>
+                <Switch value={autoArchive} onValueChange={setAutoArchive} accessibilityLabel={t('fleet.autoArchive', { defaultValue: 'Automatically archive prints' })} />
+              </View>
               <TextField
-                label="Name"
+                label={translateNative('common.name')}
                 value={name}
                 onChangeText={setName}
-                placeholder="Printer name"
+                placeholder={translateNative('native.d983863c9a265ef0')}
               />
               <TextField
-                label="Location"
+                label={translateNative('native.4fa01b8a6af1174b')}
                 value={location}
                 onChangeText={setLocation}
-                placeholder="Workshop, Office, Rack A…"
+                placeholder={translateNative('native.9569a6f13f0219a6')}
               />
               <TextField
-                label="Notes"
+                label={translateNative('native.be6245aeb9573da2')}
                 value={notes}
                 onChangeText={setNotes}
-                placeholder="Maintenance info, nozzle details, quirks…"
+                placeholder={translateNative('native.67c529450a4ac6cd')}
                 multiline
               />
             </ScrollView>
 
             <View style={styles.actions}>
-              <PrimaryButton label="Cancel" variant="secondary" onPress={onClose} />
+              <PrimaryButton label={translateNative('common.cancel')} variant="secondary" onPress={onClose} />
               <PrimaryButton
-                label={saveMutation.isPending ? 'Saving…' : 'Save'}
-                onPress={() => saveMutation.mutate()}
-                disabled={!name.trim() || saveMutation.isPending}
-                loading={saveMutation.isPending}
+                label={checking ? t('fleet.checking', { defaultValue: 'Checking connection…' }) : saveMutation.isPending ? translateNative('native.018c2002806e2312') : translateNative('common.save')}
+                onPress={() => { void preflight(); }}
+                disabled={!name.trim() || !ipAddress.trim() || checking || saveMutation.isPending || !hasPermission('printers:update')}
+                loading={checking || saveMutation.isPending}
               />
             </View>
           </View>
@@ -153,6 +215,7 @@ export function EditPrinterModal({
 }
 
 const styles = StyleSheet.create({
+  toggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
   backdrop: {
     flex: 1,
     justifyContent: 'center',

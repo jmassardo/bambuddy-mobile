@@ -34,7 +34,8 @@ export const printersApi = {
       body: JSON.stringify(data),
     }),
 
-  deletePrinter: async (id: number) => request<void>(`/printers/${id}`, { method: 'DELETE' }),
+  deletePrinter: async (id: number, deleteArchives = true) =>
+    request<void>(`/printers/${id}?delete_archives=${deleteArchives}`, { method: 'DELETE' }),
 
   getPrinterStatus: async (id: number) =>
     request<PrinterStatus>(`/printers/${id}/status`),
@@ -45,7 +46,7 @@ export const printersApi = {
     }),
 
   connectPrinter: async (id: number) =>
-    request<void>(`/printers/${id}/connect`, { method: 'POST' }),
+    request<{ connected: boolean }>(`/printers/${id}/connect`, { method: 'POST' }),
 
   disconnectPrinter: async (id: number) =>
     request<void>(`/printers/${id}/disconnect`, { method: 'POST' }),
@@ -91,20 +92,23 @@ export const printersApi = {
 
   getPlateDetectionStatus: async (printerId: number) =>
     request<PlateDetectionStatus>(
-      `/printers/${printerId}/plate-detection/status`,
+      `/printers/${printerId}/camera/plate-detection/status`,
     ),
 
   calibratePlateDetection: async (
     printerId: number,
-    data?: Record<string, unknown>,
-  ) =>
-    request<CalibrationResult>(
-      `/printers/${printerId}/plate-detection/calibrate`,
+    options?: { label?: string; useExternal?: boolean },
+  ) => {
+    const params = new URLSearchParams();
+    if (options?.label) params.set('label', options.label);
+    if (options?.useExternal !== undefined) params.set('use_external', String(options.useExternal));
+    return request<CalibrationResult>(
+      `/printers/${printerId}/camera/plate-detection/calibrate?${params.toString()}`,
       {
         method: 'POST',
-        body: JSON.stringify(data ?? {}),
       },
-    ),
+    );
+  },
 
   setPrintSpeed: async (printerId: number, mode: number) =>
     requestWithFallback<void>(
@@ -483,33 +487,17 @@ export const printersApi = {
     request<void>(`/virtual-printers/${id}`, { method: 'DELETE' }),
 
   startVirtualPrinter: async (id: number) =>
-    requestWithFallback<ApiEntity<VirtualPrinterConfig>>(
-      {
-        endpoint: `/virtual-printers/${id}/start`,
-        options: { method: 'POST' },
-      },
-      {
-        endpoint: `/virtual-printers/${id}`,
-        options: { method: 'PUT', body: JSON.stringify({ enabled: true }) },
-      },
-    ),
+    request<ApiEntity<VirtualPrinterConfig>>(`/virtual-printers/${id}`, {
+      method: 'PUT', body: JSON.stringify({ enabled: true }),
+    }),
 
   stopVirtualPrinter: async (id: number) =>
-    requestWithFallback<ApiEntity<VirtualPrinterConfig>>(
-      {
-        endpoint: `/virtual-printers/${id}/stop`,
-        options: { method: 'POST' },
-      },
-      {
-        endpoint: `/virtual-printers/${id}`,
-        options: { method: 'PUT', body: JSON.stringify({ enabled: false }) },
-      },
-    ),
+    request<ApiEntity<VirtualPrinterConfig>>(`/virtual-printers/${id}`, {
+      method: 'PUT', body: JSON.stringify({ enabled: false }),
+    }),
 
   testVirtualPrinterConnection: async (id: number) =>
-    request<Record<string, unknown>>(`/virtual-printers/${id}/test`, {
-      method: 'POST',
-    }),
+    request<Record<string, unknown>>(`/virtual-printers/${id}/diagnostic`),
 
   discoverPrinters: async (duration: number = 10) =>
     request<DiscoveryStatus>(`/discovery/start?duration=${duration}`, {

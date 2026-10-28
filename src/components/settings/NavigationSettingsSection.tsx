@@ -1,3 +1,4 @@
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
 import React from 'react';
 import { Text, View } from 'react-native';
 import { PrimaryButton, SectionCard, StatusBadge } from '@/components/common/AppUI';
@@ -10,10 +11,11 @@ export function NavigationSettingsSection({
 }: {
   controller: SettingsScreenController;
 }) {
+  useNativeLocale();
   const visibleIds = controller.state.navigationOrderDraft;
   const { setNavigationOrderDraft } = controller.actions;
-  const visibleIdSet = React.useMemo(() => new Set(visibleIds), [visibleIds]);
-  const allItems = React.useMemo(
+  const visibleIdSet = useLocalizedMemo(() => new Set(visibleIds), [visibleIds]);
+  const allItems = useLocalizedMemo(
     () => [
       ...visibleIds
         .map(id => BUILT_IN_NAV_ITEMS.find(item => item.id === id))
@@ -65,18 +67,15 @@ export function NavigationSettingsSection({
 
   return (
     <SectionCard
-      title="Navigation layout"
-      subtitle="Control which pages appear and the order used across tabs and the More menu."
+      title={translateNative('native.aa4ef5cabaebeed1')}
+      subtitle={translateNative('native.f3687aae1b1f7828')}
     >
       <Text
         style={[
           settingsStyles.helper,
           { color: controller.colors.textSecondary },
         ]}
-      >
-        Visible: {visibleIds.length} • Hidden:{' '}
-        {BUILT_IN_NAV_ITEMS.length - visibleIds.length}
-      </Text>
+      ><NativeTranslation id="native.4fbc51d5c67a2aa0" values={{ value0: (visibleIds.length), value1: (BUILT_IN_NAV_ITEMS.length - visibleIds.length) }} /></Text>
       {allItems.map(item => {
         const isVisible = visibleIdSet.has(item.id);
         const visibleIndex = visibleIds.indexOf(item.id);
@@ -115,7 +114,7 @@ export function NavigationSettingsSection({
                 </Text>
               </View>
               <StatusBadge
-                label={isVisible ? `#${visibleIndex + 1}` : 'hidden'}
+                label={isVisible ? `#${visibleIndex + 1}` : translateNative('native.4b232b6adc6f30a2')}
                 color={
                   isVisible
                     ? controller.colors.accent
@@ -125,24 +124,24 @@ export function NavigationSettingsSection({
             </View>
 
             <SwitchRow
-              label="Visible"
+              label={translateNative('native.1dc04f857ddcbefd')}
               value={isVisible}
               onValueChange={value => toggleVisible(item.id, value)}
               description={
-                item.lockVisibility ? 'This item is always shown.' : undefined
+                item.lockVisibility ? translateNative('native.79fb9bae0e6c2d2c') : undefined
               }
               disabled={item.lockVisibility}
             />
 
             <View style={settingsStyles.actions}>
               <PrimaryButton
-                label="Move up"
+                label={translateNative('native.8ba1af69ff166671')}
                 variant="secondary"
                 onPress={() => moveVisibleItem(item.id, -1)}
                 disabled={!canMoveUp}
               />
               <PrimaryButton
-                label="Move down"
+                label={translateNative('native.88156bfc217b6318')}
                 variant="secondary"
                 onPress={() => moveVisibleItem(item.id, 1)}
                 disabled={!canMoveDown}
@@ -154,8 +153,8 @@ export function NavigationSettingsSection({
       <PrimaryButton
         label={
           controller.mutations.saveNavigationOrderMutation.isPending
-            ? 'Saving…'
-            : 'Save navigation'
+            ? translateNative('native.018c2002806e2312')
+            : translateNative('native.8235d49dba692b98')
         }
         onPress={() =>
           void controller.mutations.saveNavigationOrderMutation.mutateAsync()

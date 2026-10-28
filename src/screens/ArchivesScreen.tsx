@@ -1,9 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+
+import React, { useState } from 'react';
+import { localizedStatus } from '@/utils/statusLabel';
 import { useNavigation } from '@react-navigation/native';
 import type { MainTabNavigationProp } from '@/navigation/types';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {
   FlatList,
+  Image,
   Linking,
   Modal,
   Pressable,
@@ -13,7 +18,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Camera, CheckCircle, Download, Pause, X } from 'lucide-react-native';
+import { CheckCircle, Download, Pause, X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { ArchiveCard } from '@/components/archives/ArchiveCard';
@@ -28,6 +33,7 @@ import {
 } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { SliceModal } from '@/components/files/SliceModal';
+import { RunWithPipelineModal } from '@/components/slicing/RunWithPipelineModal';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { useToast } from '@/contexts/ToastContext';
 import { useArchiveFiltersStore } from '@/store/archiveFiltersStore';
@@ -46,6 +52,14 @@ import {
   pickNumber,
 } from '@/utils/data';
 import { shareBlob } from '@/utils/share';
+import { archiveWorkflows } from '@/api/archiveWorkflows';
+import { ArchiveBatchDialog, ArchiveBrowseControls, ArchiveTagCatalog, initialBrowseOptions } from '@/components/archives/ArchiveBrowseControls';
+import { ArchiveDeleteDialog, ArchiveIngestionPanel, ArchivePhotoGallery, ConfirmOutcomeDialog } from '@/components/archives/ArchiveWorkflowUI';
+import { browseArchives } from '@/utils/archiveWorkflows';
+
+import { useAuth } from '@/contexts/AuthContext';
+import { useMediaToken } from '@/hooks/useStreamToken';
+import { PrintModal } from '@/components/printers/PrintModal';
 
 type ArchiveViewMode = 'list' | 'grid';
 
@@ -112,6 +126,7 @@ function SimpleModal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -134,10 +149,25 @@ function SimpleModal({
 }
 
 export default function ArchivesScreen() {
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<MainTabNavigationProp<'Archives'>>();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  const { token: mediaToken } = useMediaToken();
+  const { user, hasPermission } = useAuth();
+  const [browse, setBrowse] = useState(initialBrowseOptions);
+  const [batchIds, setBatchIds] = useState<number[]>([]);
+  const [deletingIds, setDeletingIds] = useState<number[]>([]);
+  const [launchId, setLaunchId] = useState<number | null>(null);
+  const [pipelineArchive, setPipelineArchive] = useState<Archive | null>(null);
+  const [outcomeId, setOutcomeId] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
+  const [customPurgeDays, setCustomPurgeDays] = useState('90');
+  const canUpdate = (archive: Archive) => hasPermission('archives:update_all') || (archive.created_by_id === user?.id && hasPermission('archives:update_own'));
+  const canDelete = (archive: Archive) => hasPermission('archives:delete_all') || (archive.created_by_id === user?.id && hasPermission('archives:delete_own'));
   const { filters, setFilters, loadFilters } = useArchiveFiltersStore();
   const [viewMode, setViewMode] = useState<ArchiveViewMode>('list');
   const [selectionMode, setSelectionMode] = useState(false);
@@ -145,8 +175,6 @@ export default function ArchivesScreen() {
   const [compareIds, setCompareIds] = useState<number[]>([]);
   const [photosArchive, setPhotosArchive] = useState<Archive | null>(null);
   const [qrArchive, setQrArchive] = useState<Archive | null>(null);
-  const [tagsArchiveIds, setTagsArchiveIds] = useState<number[]>([]);
-  const [tagsDraft, setTagsDraft] = useState('');
   const [showTagSummary, setShowTagSummary] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx' | 'json'>('csv');
@@ -174,18 +202,18 @@ export default function ArchivesScreen() {
   React.useLayoutEffect(() => {
     navigation.setOptions({
        
-      title: 'Archives',
+      title: translateNative('nav.archives'),
       headerRight: () => (
         <Pressable onPress={() => setShowExportModal(true)} style={styles.headerButton} hitSlop={8}>
           <Download size={18} color={colors.text} strokeWidth={2} />
         </Pressable>
       ),
     });
-  }, [colors.text, navigation]);
+  }, [colors.text, navigation, titleLocale]);
 
   const archivesQuery = useQuery({
     queryKey: ['archives'],
-    queryFn: () => api.getArchives({ limit: 300 }),
+    queryFn: () => archiveWorkflows.allArchives(),
   });
   const printersQuery = useQuery({
     queryKey: ['printers'],
@@ -200,89 +228,52 @@ export default function ArchivesScreen() {
     queryFn: () => api.getArchiveStats(),
   });
 
-
   const archivePurgePreviewQuery = useQuery({
     queryKey: ['archivePurgePreview', purgeDays, purgeStats],
     queryFn: () => api.previewArchivePurge(purgeDays, purgeStats),
     enabled: showPurgeModal,
   });
 
-  const archives = useMemo(() => toArchives(archivesQuery.data), [archivesQuery.data]);
-  const printers = useMemo(
+  const archives = useLocalizedMemo(() => toArchives(archivesQuery.data), [archivesQuery.data]);
+  const printers = useLocalizedMemo(
     () => (Array.isArray(printersQuery.data) ? (printersQuery.data as unknown as Printer[]) : []),
     [printersQuery.data],
   );
-  const filamentTypes = useMemo(() => {
+  const filamentTypes = useLocalizedMemo(() => {
     const types = new Set<string>();
     archives.forEach(archive => {
       if (archive.filament_type) types.add(archive.filament_type);
     });
     return Array.from(types).sort();
   }, [archives]);
-  const tagSummary = useMemo(
+  const tagSummary = useLocalizedMemo(
     () => (Array.isArray(tagsQuery.data) ? tagsQuery.data : []),
     [tagsQuery.data],
   );
   const stats = (statsQuery.data ?? null) as ArchiveStats | null;
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.deleteArchive(id),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['archives'] }),
-        queryClient.invalidateQueries({ queryKey: ['archiveStats'] }),
-      ]);
-      setSelectedIds([]);
-      showToast('Archive deleted.', 'success');
+  const favoriteMutation = useMutation({
+    mutationFn: (id: number) => archiveWorkflows.favorite(id),
+    onMutate: async id => {
+      await queryClient.cancelQueries({ queryKey: ['archives'] });
+      const previous = queryClient.getQueryData<Archive[]>(['archives']);
+      queryClient.setQueryData<Archive[]>(['archives'], current => current?.map(item => item.id === id ? { ...item, is_favorite: !item.is_favorite } : item));
+      return { previous };
     },
-    onError: () => showToast('Unable to delete the archive.', 'error'),
+    onSuccess: updated => {
+      queryClient.setQueryData<Archive[]>(['archives'], current => current?.map(item => item.id === updated.id ? { ...item, is_favorite: updated.is_favorite } : item));
+      showToast(nativeMessage('archives.favoriteUpdated', () => ({ defaultValue: 'Favorite updated.' })), 'success');
+    },
+    onError: (error: Error, _id, context) => {
+      if (context?.previous) queryClient.setQueryData(['archives'], context.previous);
+      showToast(error.message, 'error');
+    },
   });
 
-  const reprintMutation = useMutation({
-    mutationFn: (id: number) => api.printArchive(id, {}),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['queue'] });
-      showToast('Reprint started.', 'success');
-    },
-    onError: () => showToast('Unable to start a reprint.', 'error'),
-  });
-
-  const tagMutation = useMutation({
-    mutationFn: async ({ ids, tags }: { ids: number[]; tags: string }) => {
-      for (const id of ids) {
-        await api.updateArchive(id, { tags });
-      }
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['archives'] });
-      setTagsArchiveIds([]);
-      setSelectedIds([]);
-      setSelectionMode(false);
-      showToast('Tags updated.', 'success');
-    },
-    onError: () => showToast('Unable to update tags.', 'error'),
-  });
-
-  const bulkDeleteMutation = useMutation({
-    mutationFn: async (ids: number[]) => {
-      for (const id of ids) await api.deleteArchive(id);
-    },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['archives'] }),
-        queryClient.invalidateQueries({ queryKey: ['archiveStats'] }),
-      ]);
-      setSelectedIds([]);
-      setSelectionMode(false);
-      showToast('Selected archives deleted.', 'success');
-    },
-    onError: () => showToast('Unable to delete selected archives.', 'error'),
-  });
-
-  const filteredArchives = useMemo(() => {
+  const filteredArchives = useLocalizedMemo(() => {
     const term = search.trim().toLowerCase();
     const cutoff = rangeCutoff(rangeFilter);
-    return archives.filter(archive => {
+    return browseArchives(archives.filter(archive => {
       if (term) {
         const haystack = [
           archive.print_name,
@@ -318,10 +309,12 @@ export default function ArchivesScreen() {
         if (!Number.isFinite(stamp) || stamp < cutoff) return false;
       }
       return true;
-    });
-  }, [archives, printerFilter, filamentTypeFilter, rangeFilter, search, statusFilter, tagFilter, aiFilter]);
+    }), browse);
+  }, [archives, printerFilter, filamentTypeFilter, rangeFilter, search, statusFilter, tagFilter, aiFilter, browse]);
+  React.useEffect(() => { setPage(0); }, [filters, browse, pageSize]);
+  const maxPage = Math.max(0, Math.ceil(filteredArchives.length / pageSize) - 1);
 
-  const compareArchives = useMemo(
+  const compareArchives = useLocalizedMemo(
     () =>
       compareIds
         .map(id => archives.find(archive => archive.id === id))
@@ -330,24 +323,26 @@ export default function ArchivesScreen() {
   );
 
   const hasUnsupportedServerExportFilters = Boolean(
-    tagFilter || statusFilter === 'favorite' || statusFilter === 'duplicate',
+    tagFilter || statusFilter === 'favorite' || statusFilter === 'duplicate' ||
+    filamentTypeFilter !== 'all' || aiFilter !== 'all' ||
+    JSON.stringify(browse) !== JSON.stringify(initialBrowseOptions),
   );
 
   const exportMutation = useMutation({
     mutationFn: async () => {
       const filenameBase = `bambuddy-archives-${new Date().toISOString().slice(0, 10)}`;
+      const rowsToExport = exportScope === 'selected'
+        ? archives.filter(a => selectedIds.includes(a.id))
+        : filteredArchives;
       if (exportFormat === 'json') {
         const jsonBlobOptions: BlobOptions = {
           type: 'application/json',
           lastModified: Date.now(),
         };
-        const blob = new Blob([JSON.stringify(filteredArchives, null, 2)], jsonBlobOptions);
+        const blob = new Blob([JSON.stringify(rowsToExport, null, 2)], jsonBlobOptions);
         await shareBlob(blob, `${filenameBase}.json`);
         return;
       }
-      const rowsToExport = exportScope === 'selected'
-        ? archives.filter(a => selectedIds.includes(a.id))
-        : filteredArchives;
       if (exportScope === 'selected' || hasUnsupportedServerExportFilters) {
         const csv = toCsv(archiveExportRows(rowsToExport));
         const csvBlobOptions: BlobOptions = {
@@ -380,10 +375,10 @@ export default function ArchivesScreen() {
       await shareBlob(blob, `${filenameBase}.${exportFormat}`);
     },
     onSuccess: () => {
-      showToast(`${exportFormat.toUpperCase()} export ready to share.`, 'success');
+      showToast(nativeMessage('native.6e87274835985d3c', () => ({ value0: String(exportFormat.toUpperCase()) })), 'success');
       setShowExportModal(false);
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to export archives.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.7a6f24449f5fce9c'), 'error'),
   });
 
   const purgeMutation = useMutation({
@@ -395,9 +390,15 @@ export default function ArchivesScreen() {
       ]);
       setShowPurgeConfirm(false);
       setShowPurgeModal(false);
-      showToast('Archive purge complete.', 'success');
+      showToast(nativeMessage('native.6bf1e766e03e262e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to purge archives.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.0f6a5a92ddb86572'), 'error'),
+  });
+  const qrExportMutation = useMutation({
+    mutationFn: async () => {
+      if (qrArchive) await shareBlob(await archiveWorkflows.download(qrArchive.id, 'qrcode'), `archive-${qrArchive.id}-qr.png`);
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
   });
 
   const refreshAll = async () => {
@@ -434,14 +435,14 @@ export default function ArchivesScreen() {
 
   const allSelected = filteredArchives.length > 0 && selectedIds.length === filteredArchives.length;
 
-  if (archivesQuery.isLoading && printersQuery.isLoading) {
-    return <LoadingScreen message="Loading archives…" />;
+  if (archivesQuery.isLoading || printersQuery.isLoading) {
+    return <LoadingScreen message={translateNative('native.6aa2126399895070')} />;
   }
 
   if (archivesQuery.isError) {
     return (
       <ErrorState
-        message="Unable to load archive history."
+        message={translateNative('native.5d99f4a3a6a37f9e')}
         onRetry={() => {
           refreshAll();
         }}
@@ -452,8 +453,9 @@ export default function ArchivesScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}> 
       <FlatList
+        extraData={mediaToken}
         key={viewMode}
-        data={filteredArchives}
+        data={filteredArchives.slice(page * pageSize, (page + 1) * pageSize)}
         keyExtractor={item => String(item.id)}
         numColumns={viewMode === 'grid' ? 2 : 1}
         renderItem={({ item }) => (
@@ -471,29 +473,28 @@ export default function ArchivesScreen() {
                   current.includes(item.id) ? current : [...current, item.id],
                 );
               }}
-              onReprint={() => {
-                reprintMutation.mutate(item.id);
-              }}
+              onReprint={() => setLaunchId(item.id)}
+              onFavorite={canUpdate(item) ? () => favoriteMutation.mutate(item.id) : undefined}
+              onPipeline={hasPermission('pipelines:run') ? () => setPipelineArchive(item) : undefined}
+              onOutcome={canUpdate(item) && item.status === 'completed' && item.confirm_requested && item.user_verdict == null ? () => setOutcomeId(item.id) : undefined}
               onTimelapse={() => {
                 if (!item.timelapse_path) {
-                  showToast('No timelapse is attached to this archive.', 'warning');
+                  showToast(nativeMessage('native.e7606e7c893b7ccf'), 'warning');
                   return;
                 }
                 Linking.openURL(api.getArchiveTimelapse(item.id)).catch(() => {
-                  showToast('Unable to open the timelapse link.', 'error');
+                  showToast(nativeMessage('native.650451ed93d5493d'), 'error');
                 });
               }}
               onPhotos={() => {
                 if (!item.photos?.length) {
-                  showToast('No photos are attached to this archive.', 'warning');
+                  showToast(nativeMessage('native.9776cec29f9bab40'), 'warning');
                   return;
                 }
                 setPhotosArchive(item);
               }}
               onQRCode={() => setQrArchive(item)}
-              onDelete={() => {
-                deleteMutation.mutate(item.id);
-              }}
+              onDelete={canDelete(item) ? () => setDeletingIds([item.id]) : undefined}
               onSlice={() => {
                 setSliceArchiveId(item.id);
                 setSliceArchiveName(item.print_name || item.filename);
@@ -515,22 +516,33 @@ export default function ArchivesScreen() {
         }
         ListHeaderComponent={
           <View style={styles.headerStack}>
+            <ArchiveIngestionPanel />
+            <ArchiveBrowseControls archives={archives} options={browse} onChange={setBrowse} />
+            <SectionCard title={t('archives.pages', { defaultValue: '{{count}} matching archives · page {{page}} / {{pages}}', count: filteredArchives.length, page: page + 1, pages: maxPage + 1 })}>
+              <View style={styles.filterRow}>{[25, 50, 100, 200].map(size => <Chip key={size} label={String(size)} selected={size === pageSize} onPress={() => setPageSize(size)} />)}</View>
+              <View style={styles.filterRow}>
+                <PrimaryButton label={t('common.first', { defaultValue: 'First' })} disabled={page === 0} onPress={() => setPage(0)} />
+                <PrimaryButton label={t('common.previous', { defaultValue: 'Previous' })} disabled={page === 0} onPress={() => setPage(page - 1)} />
+                <PrimaryButton label={t('common.next', { defaultValue: 'Next' })} disabled={page >= maxPage} onPress={() => setPage(page + 1)} />
+                <PrimaryButton label={t('common.last', { defaultValue: 'Last' })} disabled={page >= maxPage} onPress={() => setPage(maxPage)} />
+              </View>
+            </SectionCard>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
-              <StatCard label="Filtered" value={String(filteredArchives.length)} helper={`${archives.length} total`} />
-              <StatCard label="Successful" value={String(stats?.successful_prints ?? 0)} helper="Archive stats" />
-              <StatCard label="Failed" value={String(stats?.failed_prints ?? 0)} helper="Archive stats" />
-              <StatCard label="Print time" value={formatDuration(Math.round((stats?.total_print_time_hours ?? 0) * 3600))} helper="All archives" />
-              <StatCard label="Cost" value={formatCurrency(stats?.total_cost ?? 0)} helper="All archives" />
+              <StatCard label={translateNative('native.6d57baccade5ba80')} value={String(filteredArchives.length)} helper={translateNative('native.4fd8680d181245e0', { value0: String(archives.length) })} />
+              <StatCard label={translateNative('native.e674ffca8f9210c5')} value={String(stats?.successful_prints ?? 0)} helper={translateNative('native.0db89c0245abe34e')} />
+              <StatCard label={translateNative('native.4951b5090ada997d')} value={String(stats?.failed_prints ?? 0)} helper={translateNative('native.0db89c0245abe34e')} />
+              <StatCard label={translateNative('native.e3f6c45e9f8c8d80')} value={formatDuration(Math.round((stats?.total_print_time_hours ?? 0) * 3600))} helper={translateNative('native.d94e443f85c0eaec')} />
+              <StatCard label={translateNative('common.cost')} value={formatCurrency(stats?.total_cost ?? 0)} helper={translateNative('native.d94e443f85c0eaec')} />
             </ScrollView>
 
-            <SectionCard title="Archive browser" subtitle="Web-style search, filters, compare mode, tags, and actions for reprints, timelapses, photos, QR links, and deletes.">
-              <SearchBar value={search} onChangeText={text => setFilters({ search: text })} placeholder="Search print name, filename, printer, material, tags, or notes" />
+            <SectionCard title={translateNative('native.f7ba4dbd4159e4e6')} subtitle={translateNative('native.e7cb6a9679244b2e')}>
+              <SearchBar value={search} onChangeText={text => setFilters({ search: text })} placeholder={translateNative('native.ca2f9500682b69bd')} />
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
                 {(['all', 'completed', 'failed', 'running', 'paused', 'canceled', 'favorite', 'duplicate'] as const).map(status => (
                   <Chip
                     key={status}
-                    label={`${status[0].toUpperCase()}${status.slice(1)}${statusCounts[status as keyof typeof statusCounts] ? ` (${statusCounts[status as keyof typeof statusCounts]})` : ''}`}
+                    label={`${localizedStatus(`${status[0].toUpperCase()}${status.slice(1)}`)}${statusCounts[status as keyof typeof statusCounts] ? ` (${statusCounts[status as keyof typeof statusCounts]})` : ''}`}
                     selected={statusFilter === status}
                     onPress={() => setFilters({ statusFilter: status as typeof statusFilter })}
                   />
@@ -541,7 +553,7 @@ export default function ArchivesScreen() {
                 {(['all', 'ai', 'human', 'any'] as const).map(mode => (
                   <Chip
                     key={mode}
-                    label={`${mode === 'ai' ? '🤖 AI' : mode === 'human' ? '👤 Human' : mode === 'any' ? '📊 Any' : 'All AI'}${aiCounts[mode] ? ` (${aiCounts[mode]})` : ''}`}
+                    label={`${mode === 'ai' ? translateNative('native.d2c6b846d935ca90') : mode === 'human' ? translateNative('native.681d8a7582550951') : mode === 'any' ? translateNative('native.5b9a56a46ded49c9') : translateNative('native.3b8ba9544dd0954a')}${aiCounts[mode] ? ` (${aiCounts[mode]})` : ''}`}
                     selected={aiFilter === mode}
                     onPress={() => setFilters({ aiFilter: mode })}
                   />
@@ -552,7 +564,7 @@ export default function ArchivesScreen() {
                 {(['all', '7d', '30d', '90d'] as const).map(range => (
                   <Chip
                     key={range}
-                    label={range === 'all' ? 'All dates' : `${range.toUpperCase()} range`}
+                    label={range === 'all' ? translateNative('native.6a4df68fe1f54b97') : translateNative('native.a691550c633b8b12', { value0: String(range.toUpperCase()) })}
                     selected={rangeFilter === range}
                     onPress={() => setFilters({ rangeFilter: range as typeof rangeFilter })}
                   />
@@ -560,7 +572,7 @@ export default function ArchivesScreen() {
               </ScrollView>
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                <Chip label="All printers" selected={printerFilter === 'all'} onPress={() => setFilters({ printerFilter: 'all' })} />
+                <Chip label={translateNative('native.b8ed6cb4c204100e')} selected={printerFilter === 'all'} onPress={() => setFilters({ printerFilter: 'all' })} />
                 {printers.map(printer => (
                   <Chip
                     key={printer.id}
@@ -573,7 +585,7 @@ export default function ArchivesScreen() {
 
               {filamentTypes.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                  <Chip label="All materials" selected={filamentTypeFilter === 'all'} onPress={() => setFilters({ filamentTypeFilter: 'all' })} />
+                  <Chip label={translateNative('native.cb99589cb80a2f82')} selected={filamentTypeFilter === 'all'} onPress={() => setFilters({ filamentTypeFilter: 'all' })} />
                   {filamentTypes.map(type => {
                     const count = archives.filter(a => a.filament_type === type).length;
                     return (
@@ -590,7 +602,7 @@ export default function ArchivesScreen() {
 
               {tagSummary.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                  <Chip label="All tags" selected={tagFilter === null} onPress={() => setFilters({ tagFilter: null })} />
+                  <Chip label={translateNative('native.692a97addc4befcc')} selected={tagFilter === null} onPress={() => setFilters({ tagFilter: null })} />
                   {tagSummary.map(tag => (
                     <Chip
                       key={tag.name}
@@ -605,7 +617,7 @@ export default function ArchivesScreen() {
               <View style={styles.headerActions}>
                 {(statusFilter !== 'all' || rangeFilter !== 'all' || printerFilter !== 'all' || filamentTypeFilter !== 'all' || tagFilter != null || aiFilter !== 'all') ? (
                   <PrimaryButton
-                    label="Clear filters"
+                    label={translateNative('native.42cc919f7bae50c1')}
                     variant="secondary"
                     onPress={() => {
                       setFilters({ statusFilter: 'all', rangeFilter: 'all', printerFilter: 'all', filamentTypeFilter: 'all', tagFilter: null, aiFilter: 'all', search: '' });
@@ -613,23 +625,23 @@ export default function ArchivesScreen() {
                   />
                 ) : null}
                 <PrimaryButton
-                  label={viewMode === 'grid' ? 'List view' : 'Grid view'}
+                  label={viewMode === 'grid' ? translateNative('native.33b836845ee11768') : translateNative('native.7dec88bad08e1b80')}
                   variant="secondary"
                   onPress={() => setViewMode(current => (current === 'grid' ? 'list' : 'grid'))}
                 />
                 <PrimaryButton
-                  label={selectionMode ? 'Done selecting' : 'Select archives'}
+                  label={selectionMode ? translateNative('native.e22a6bd45a2255c3') : translateNative('native.336b9805481fc016')}
                   variant="secondary"
                   onPress={() => {
                     if (selectionMode) setSelectedIds([]);
                     setSelectionMode(current => !current);
                   }}
                 />
-                <PrimaryButton label="Export" variant="secondary" onPress={() => setShowExportModal(true)} />
-                <PrimaryButton label="Purge" variant="secondary" onPress={() => setShowPurgeModal(true)} />
-                <PrimaryButton label="Manage tags" variant="secondary" onPress={() => setShowTagSummary(true)} />
+                <PrimaryButton label={translateNative('native.d2ff97dc9d5b8666')} variant="secondary" onPress={() => setShowExportModal(true)} />
+                <PrimaryButton label={translateNative('native.687d0955d943e9c4')} variant="secondary" onPress={() => setShowPurgeModal(true)} />
+                <PrimaryButton label={translateNative('native.ada94657acb47627')} variant="secondary" onPress={() => setShowTagSummary(true)} />
                 {selectedIds.length >= 2 && selectedIds.length <= 5 ? (
-                  <PrimaryButton label={`Compare (${selectedIds.length})`} onPress={() => setCompareIds(selectedIds)} />
+                  <PrimaryButton label={translateNative('native.e17e75c9c6578978', { value0: String(selectedIds.length) })} onPress={() => setCompareIds(selectedIds)} />
                 ) : null}
               </View>
             </SectionCard>
@@ -638,8 +650,8 @@ export default function ArchivesScreen() {
         ListEmptyComponent={
           <EmptyState
             icon="📦"
-            title="No archives found"
-            message="Try relaxing your search or filters. Completed prints appear here with thumbnails, tags, material, cost, and reprint actions."
+            title={translateNative('native.cfdf637966a04a08')}
+            message={translateNative('native.6b00500109571eaf')}
           />
         }
       />
@@ -648,36 +660,33 @@ export default function ArchivesScreen() {
         <View style={[styles.selectionBar, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectionActions}>
             <PrimaryButton
-              label={allSelected ? 'Clear selection' : 'Select all'}
+              label={allSelected ? translateNative('native.1a163117d04ef04b') : translateNative('native.6e543cfc5195d3b4')}
               variant="secondary"
               onPress={() => setSelectedIds(allSelected ? [] : filteredArchives.map(archive => archive.id))}
             />
             {selectedIds.length > 0 ? (
-              <Text style={[styles.selectionText, { color: colors.text }]}>
-                {selectedIds.length} selected
-              </Text>
+              <Text style={[styles.selectionText, { color: colors.text }]}><NativeTranslation id="native.df8179da1ed8585c" values={{ value0: (selectedIds.length) }} /></Text>
             ) : null}
             {selectedIds.length > 0 ? (
               <PrimaryButton
-                label="Edit tags"
+                label={t('archives.batch', { defaultValue: 'Tags / project / favorites' })}
                 variant="secondary"
+                disabled={archives.some(item => selectedIds.includes(item.id) && !canUpdate(item))}
                 onPress={() => {
-                  setTagsArchiveIds(selectedIds);
-                  const selectedArchives = archives.filter(archive => selectedIds.includes(archive.id));
-                  const shared = selectedArchives[0]?.tags ?? '';
-                  setTagsDraft(shared);
+                  setBatchIds(selectedIds);
                 }}
               />
             ) : null}
             {selectedIds.length >= 2 && selectedIds.length <= 5 ? (
-              <PrimaryButton label="Compare" onPress={() => setCompareIds(selectedIds)} />
+              <PrimaryButton label={translateNative('native.2b0bbb607e3e5cfb')} onPress={() => setCompareIds(selectedIds)} />
             ) : null}
             {selectedIds.length > 0 ? (
               <PrimaryButton
-                label="Delete"
+                label={translateNative('common.delete')}
                 variant="danger"
+                disabled={archives.some(item => selectedIds.includes(item.id) && !canDelete(item))}
                 onPress={() => {
-                  bulkDeleteMutation.mutate(selectedIds);
+                  setDeletingIds(selectedIds);
                 }}
               />
             ) : null}
@@ -690,18 +699,23 @@ export default function ArchivesScreen() {
         archives={compareArchives}
         onClose={() => setCompareIds([])}
       />
+      {batchIds.length ? <ArchiveBatchDialog archives={archives.filter(item => batchIds.includes(item.id) && canUpdate(item))} onClose={() => setBatchIds([])} /> : null}
+      {deletingIds.length ? <ArchiveDeleteDialog archives={archives.filter(item => deletingIds.includes(item.id) && canDelete(item))} onClose={() => setDeletingIds([])} onDeleted={() => setSelectedIds([])} /> : null}
+      {launchId !== null ? <PrintModal visible onClose={() => setLaunchId(null)} {...{ initialArchiveId: launchId, initialMode: 'asap' as const }} /> : null}
+      {outcomeId !== null ? <ConfirmOutcomeDialog archiveId={outcomeId} onClose={() => setOutcomeId(null)} onReprint={setLaunchId} /> : null}
+      {pipelineArchive ? <RunWithPipelineModal visible onClose={() => setPipelineArchive(null)} sourceType="archive" sourceId={pipelineArchive.id} sourceName={pipelineArchive.print_name || pipelineArchive.filename} /> : null}
 
       <SimpleModal
         visible={showExportModal}
-        title="Export archives"
-        subtitle="Share the current archive list as CSV, Excel, or JSON."
+        title={translateNative('native.1c64074bb83fd9b9')}
+        subtitle={translateNative('native.f0da084b5d4c4666')}
         onClose={() => setShowExportModal(false)}
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           {(['csv', 'xlsx', 'json'] as const).map(format => (
             <Chip
               key={format}
-              label={format === 'xlsx' ? 'EXCEL' : format.toUpperCase()}
+              label={format === 'xlsx' ? translateNative('native.fe23ff62085c2fd8') : format.toUpperCase()}
               selected={exportFormat === format}
               onPress={() => setExportFormat(format)}
             />
@@ -712,7 +726,7 @@ export default function ArchivesScreen() {
             {(['all', 'selected'] as const).map(scope => (
               <Chip
                 key={scope}
-                label={scope === 'selected' ? `Selected only (${selectedIds.length})` : 'All filtered'}
+                label={scope === 'selected' ? translateNative('native.7adc8d12e2b8af17', { value0: String(selectedIds.length) }) : translateNative('native.ea318478bfd6f6e0')}
                 selected={exportScope === scope}
                 onPress={() => setExportScope(scope as typeof exportScope)}
               />
@@ -721,19 +735,19 @@ export default function ArchivesScreen() {
         ) : null}
         <Text style={[styles.modalBodyText, { color: colors.textSecondary }]}>
           {exportFormat === 'json'
-            ? 'JSON export mirrors the exact filtered results shown on this screen.'
+            ? translateNative('native.ef0b7acbee345ed4')
             : exportScope === 'selected'
-              ? 'Exported as CSV to preserve the selected archive set.'
+              ? translateNative('native.6bbb310644c1b2ad')
               : hasUnsupportedServerExportFilters
-                ? 'CSV export is generated from the currently filtered results to preserve tag, favorite, and duplicate filters.'
+                ? translateNative('native.6a6fcebcf25cac4c')
                 : exportFormat === 'xlsx'
-                  ? 'Excel export uses the archive export endpoint with your current toolbar filters.'
-                  : 'CSV export uses the archive export endpoint with your current toolbar filters.'}
+                  ? translateNative('native.6cf6d655c1744a94')
+                  : translateNative('native.52c91a546b119978')}
         </Text>
         <View style={styles.modalFooter}>
-          <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowExportModal(false)} />
+          <PrimaryButton label={translateNative('common.cancel')} variant="secondary" onPress={() => setShowExportModal(false)} />
           <PrimaryButton
-            label={exportMutation.isPending ? 'Preparing…' : `Share ${exportFormat.toUpperCase()}`}
+            label={exportMutation.isPending ? translateNative('native.e0a20d4245e5f839') : translateNative('native.bf1348295874e772', { value0: String(exportFormat.toUpperCase()) })}
             onPress={() => void exportMutation.mutateAsync()}
             disabled={exportMutation.isPending}
           />
@@ -742,27 +756,32 @@ export default function ArchivesScreen() {
 
       <SimpleModal
         visible={showPurgeModal}
-        title="Purge archives"
-        subtitle="Preview archived files that match the purge threshold before deleting them."
+        title={translateNative('native.58137dd883ad40b5')}
+        subtitle={translateNative('native.4c827d6563941909')}
         onClose={() => setShowPurgeModal(false)}
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           {[30, 60, 90, 180, 365].map(days => (
             <Chip
               key={days}
-              label={`${days} days`}
+              label={translateNative('native.f8779b248fc4b5e3', { value0: String(days) })}
               selected={purgeDays === days}
-              onPress={() => setPurgeDays(days)}
+              onPress={() => { setPurgeDays(days); setCustomPurgeDays(String(days)); }}
             />
           ))}
         </ScrollView>
+        <TextField label={t('archives.purgeCustomDays', { defaultValue: 'Custom archive age in days (1–3650)' })} value={customPurgeDays} keyboardType="number-pad" onChangeText={value => {
+          setCustomPurgeDays(value);
+          const parsed = Number(value);
+          if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 3650) setPurgeDays(parsed);
+        }} />
         <Pressable
           onPress={() => setPurgeStats(current => !current)}
           style={[styles.toggleRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
         >
           <View style={styles.toggleText}>
-            <Text style={[styles.toggleTitle, { color: colors.text }]}>Also purge stats</Text>
-            <Text style={[styles.toggleSubtitle, { color: colors.textSecondary }]}>Hard-delete archived rows and remove them from Quick Stats totals.</Text>
+            <Text style={[styles.toggleTitle, { color: colors.text }]}>{translateNative('native.590b5102786688da')}</Text>
+            <Text style={[styles.toggleSubtitle, { color: colors.textSecondary }]}>{translateNative('native.92ec8d623f032fb7')}</Text>
           </View>
           {purgeStats ? (
             <CheckCircle size={18} color={colors.success} strokeWidth={2} />
@@ -771,134 +790,67 @@ export default function ArchivesScreen() {
           )}
         </Pressable>
         <View style={[styles.previewCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-          <Text style={[styles.previewTitle, { color: colors.text }]}>Preview</Text>
+          <Text style={[styles.previewTitle, { color: colors.text }]}>{translateNative('native.ebf8fd19dcb9ff60')}</Text>
           <Text style={[styles.previewValue, { color: colors.textSecondary }]}>
             {archivePurgePreviewQuery.isLoading
-              ? 'Calculating…'
-              : `${pickNumber(archivePurgePreviewQuery.data, ['count'], 0)} archive(s) • ${Math.round(pickNumber(archivePurgePreviewQuery.data, ['total_bytes'], 0) / 1024 / 1024)} MB`}
+              ? translateNative('native.fa38ece05f76ed3e')
+              : translateNative('native.e09abb10c245cc64', { value0: String(pickNumber(archivePurgePreviewQuery.data, ['count'], 0)), value1: String(Math.round(pickNumber(archivePurgePreviewQuery.data, ['total_bytes'], 0) / 1024 / 1024)) })}
           </Text>
           {pickArray(archivePurgePreviewQuery.data as Record<string, unknown>, ['sample_filenames']).slice(0, 5).map(sample => (
             <Text key={String(sample)} style={[styles.previewSample, { color: colors.textSecondary }]}>• {String(sample)}</Text>
           ))}
         </View>
         <View style={styles.modalFooter}>
-          <PrimaryButton label="Close" variant="secondary" onPress={() => setShowPurgeModal(false)} />
-          <PrimaryButton label="Confirm purge" variant="danger" onPress={() => setShowPurgeConfirm(true)} />
+          <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={() => setShowPurgeModal(false)} />
+          <PrimaryButton label={translateNative('native.ef6e740aaf594eff')} variant="danger" disabled={!Number.isInteger(Number(customPurgeDays)) || Number(customPurgeDays) < 1 || Number(customPurgeDays) > 3650} onPress={() => setShowPurgeConfirm(true)} />
         </View>
       </SimpleModal>
 
-      <SimpleModal
-        visible={photosArchive !== null}
-        title={photosArchive ? `${photosArchive.print_name || photosArchive.filename} photos` : 'Photos'}
-        subtitle="Photo attachments from the archive card."
-        onClose={() => setPhotosArchive(null)}
-      >
-        <ScrollView style={styles.modalScroll}>
-          {photosArchive?.photos?.map(photo => (
-            <View key={photo} style={[styles.simpleListItem, { borderColor: colors.borderSubtle }]}> 
-              <Camera size={16} color={colors.info} strokeWidth={2} />
-              <Text style={[styles.simpleListText, { color: colors.text }]}>{photo}</Text>
-            </View>
-          ))}
-          {!photosArchive?.photos?.length ? (
-            <Text style={[styles.modalBodyText, { color: colors.textSecondary }]}>No photos are attached to this archive.</Text>
-          ) : null}
-        </ScrollView>
-        <View style={styles.modalFooter}>
-          <PrimaryButton label="Close" variant="secondary" onPress={() => setPhotosArchive(null)} />
-        </View>
-      </SimpleModal>
+      {photosArchive ? <ArchivePhotoGallery archive={photosArchive} onClose={() => setPhotosArchive(null)} /> : null}
 
       <SimpleModal
         visible={qrArchive !== null}
-        title={qrArchive ? `${qrArchive.print_name || qrArchive.filename} links` : 'Archive links'}
-        subtitle="The web app shows a QR code here; mobile exposes the same shareable links directly."
+        title={qrArchive ? translateNative('native.2f336fd6c23c9ffe', { value0: String(qrArchive.print_name || qrArchive.filename) }) : translateNative('native.60acb820126ae9d7')}
+        subtitle={t('archives.qrSubtitle', { defaultValue: 'Scan or save the QR image to download the original printable file.' })}
         onClose={() => setQrArchive(null)}
       >
+        {qrArchive ? <Image source={{ uri: api.getArchiveQRCode(qrArchive.id) }} style={styles.qrImage} /> : null}
+        <PrimaryButton label={t('archives.saveQr', { defaultValue: 'Save / share QR image' })} loading={qrExportMutation.isPending} onPress={() => qrExportMutation.mutate()} />
         <View style={styles.linkSection}>
-          <Text style={[styles.linkLabel, { color: colors.textSecondary }]}>Archive download</Text>
-          <Text style={[styles.linkValue, { color: colors.text }]}>{qrArchive ? api.getArchiveThumbnail(qrArchive.id).replace('/thumbnail', '') : ''}</Text>
+          <Text style={[styles.linkLabel, { color: colors.textSecondary }]}>{translateNative('native.1e1188a9edda25c5')}</Text>
+          <Text style={[styles.linkValue, { color: colors.text }]}>{qrArchive ? archiveWorkflows.downloadUrl(qrArchive.id) : ''}</Text>
           <PrimaryButton
-            label="Copy archive link"
+            label={translateNative('native.836605bc5068817c')}
             variant="secondary"
             onPress={() => {
               if (!qrArchive) return;
-              const value = api.getArchiveThumbnail(qrArchive.id).replace('/thumbnail', '');
+              const value = archiveWorkflows.downloadUrl(qrArchive.id);
               Clipboard.setString(value);
-              showToast('Archive link copied.', 'success');
+              showToast(nativeMessage('native.360bb86764f9f35c'), 'success');
             }}
           />
         </View>
         {qrArchive?.timelapse_path ? (
           <View style={styles.linkSection}>
-            <Text style={[styles.linkLabel, { color: colors.textSecondary }]}>Timelapse</Text>
+            <Text style={[styles.linkLabel, { color: colors.textSecondary }]}>{translateNative('native.190a6a4c52455a67')}</Text>
             <Text style={[styles.linkValue, { color: colors.text }]}>{api.getArchiveTimelapse(qrArchive.id)}</Text>
             <PrimaryButton
-              label="Copy timelapse link"
+              label={translateNative('native.d75c0cc4a470714d')}
               variant="secondary"
               onPress={() => {
                 if (!qrArchive) return;
                 Clipboard.setString(api.getArchiveTimelapse(qrArchive.id));
-                showToast('Timelapse link copied.', 'success');
+                showToast(nativeMessage('native.dd45e6b8a952826c'), 'success');
               }}
             />
           </View>
         ) : null}
         <View style={styles.modalFooter}>
-          <PrimaryButton label="Close" variant="secondary" onPress={() => setQrArchive(null)} />
+          <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={() => setQrArchive(null)} />
         </View>
       </SimpleModal>
 
-      <SimpleModal
-        visible={tagsArchiveIds.length > 0}
-        title="Edit tags"
-        subtitle="Assign comma-separated tags to the selected archives."
-        onClose={() => setTagsArchiveIds([])}
-      >
-        <TextField
-          label="Tags"
-          multiline
-          value={tagsDraft}
-          onChangeText={setTagsDraft}
-          placeholder="quality-check, customer-a, pla"
-        />
-        <View style={styles.modalFooter}>
-          <PrimaryButton label="Cancel" variant="secondary" onPress={() => setTagsArchiveIds([])} />
-          <PrimaryButton
-            label={tagMutation.isPending ? 'Saving…' : 'Save tags'}
-            onPress={() => {
-              tagMutation.mutate({ ids: tagsArchiveIds, tags: tagsDraft });
-            }}
-            disabled={tagMutation.isPending}
-          />
-        </View>
-      </SimpleModal>
-
-      <SimpleModal
-        visible={showTagSummary}
-        title="Tag management"
-        subtitle="Tap a tag to filter archives, or clear the filter from the chip rail above."
-        onClose={() => setShowTagSummary(false)}
-      >
-        <ScrollView style={styles.modalScroll}>
-          {tagSummary.map(tag => (
-            <Pressable
-              key={tag.name}
-              onPress={() => {
-                setFilters({ tagFilter: tag.name });
-                setShowTagSummary(false);
-              }}
-              style={[styles.simpleListItem, { borderColor: colors.borderSubtle }]}
-            >
-              <Text style={[styles.simpleListText, { color: colors.text }]}>{tag.name}</Text>
-              <Text style={[styles.simpleListMeta, { color: colors.textSecondary }]}>{tag.count}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-        <View style={styles.modalFooter}>
-          <PrimaryButton label="Close" variant="secondary" onPress={() => setShowTagSummary(false)} />
-        </View>
-      </SimpleModal>
+      {showTagSummary ? <ArchiveTagCatalog onClose={() => setShowTagSummary(false)} /> : null}
 
       <ConfirmModal
         visible={showPurgeConfirm}
@@ -906,9 +858,9 @@ export default function ArchivesScreen() {
         onConfirm={() => {
           void purgeMutation.mutateAsync();
         }}
-        title="Purge matching archives?"
-        message={`This will remove archives older than ${purgeDays} days${purgeStats ? ' and purge their stats' : ''}.`}
-         confirmLabel="Purge"
+        title={translateNative('native.8df3859a02b088fd')}
+        message={translateNative('native.3ad1a0de2d5e487c', { value0: String(purgeDays), value1: String(purgeStats ? translateNative('native.13719015e31b9163') : '') })}
+         confirmLabel={translateNative('native.687d0955d943e9c4')}
          loading={purgeMutation.isPending}
        />
 
@@ -930,6 +882,7 @@ export default function ArchivesScreen() {
 }
 
 const styles = StyleSheet.create({
+  qrImage: { width: 200, height: 200, alignSelf: 'center' },
   container: {
     flex: 1,
   },

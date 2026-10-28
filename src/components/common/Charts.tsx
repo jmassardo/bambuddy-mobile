@@ -1,3 +1,4 @@
+import { useNativeLocale } from '@/i18n';
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle, Rect, Text as SvgText, Line, Polyline } from 'react-native-svg';
@@ -16,6 +17,7 @@ export function SimpleBarChart({
   horizontal = false,
   formatValue = (v) => String(Math.round(v)),
 }: BarChartProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const maxValue = Math.max(...data.map(d => d.value), 1);
 
@@ -128,6 +130,7 @@ interface DonutChartProps {
 }
 
 export function SimpleDonutChart({ data, size = 120 }: DonutChartProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const total = data.reduce((acc, d) => acc + d.value, 0) || 1;
   const radius = size / 2 - 10;
@@ -226,6 +229,7 @@ export function MultiSeriesLineChart({
   height = 220,
   formatYAxis = value => `${Math.round(value)}°`,
 }: MultiSeriesLineChartProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const chartWidth = 320;
   const paddingTop = 18;

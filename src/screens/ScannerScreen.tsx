@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+
+import React, { useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
@@ -71,10 +74,11 @@ function extractSpoolId(value: string) {
 }
 
 export default function ScannerScreen() {
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Scanner'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Scan QR Code', headerShown: false });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('native.5fde9a627feaf209'), headerShown: false });
+  }, [navigation, titleLocale]);
   const route = useRoute<RootRouteProp<'Scanner'>>();
   const { mode } = (route.params ?? {}) as { mode?: string };
   const { colors } = useTheme();
@@ -85,11 +89,11 @@ export default function ScannerScreen() {
   const [handled, setHandled] = useState(false);
   const [pendingServerUrl, setPendingServerUrl] = useState<URL | null>(null);
 
-  const subtitle = useMemo(
+  const subtitle = useLocalizedMemo(
     () =>
       mode === 'server'
-        ? 'Scan a QR code containing your Bambuddy server URL.'
-        : 'Scan a server URL or a spool label QR code.',
+        ? translateNative('native.f51f36569070ccf1')
+        : translateNative('native.955faba40562e151'),
     [mode],
   );
 
@@ -101,7 +105,7 @@ export default function ScannerScreen() {
       const scannedServerUrl = parseServerUrl(data);
       if (mode === 'server' || scannedServerUrl) {
         if (!scannedServerUrl) {
-          showToast('QR code does not contain a valid server URL.', 'warning');
+          showToast(nativeMessage('native.df6b1b526ca88536'), 'warning');
           setHandled(false);
           return;
         }
@@ -111,7 +115,7 @@ export default function ScannerScreen() {
 
       const spoolId = extractSpoolId(data);
       if (spoolId) {
-        showToast(`Scanned spool label ${spoolId}.`, 'success');
+        showToast(nativeMessage('native.539a4279ec497356', () => ({ value0: String(spoolId) })), 'success');
         navigation.reset({
           index: 0,
           routes: [{ name: 'Inventory', params: { spool: spoolId } }],
@@ -119,11 +123,11 @@ export default function ScannerScreen() {
         return;
       }
 
-      showToast('QR code not recognized. Try again.', 'warning');
+      showToast(nativeMessage('native.29e1912cf1b5f745'), 'warning');
       setHandled(false);
     } catch (error) {
       showToast(
-        error instanceof Error ? error.message : 'Scan failed.',
+        error instanceof Error ? error.message : nativeMessage('native.115b8e6f5c633cac'),
         'error',
       );
       setHandled(false);
@@ -140,7 +144,7 @@ export default function ScannerScreen() {
       const status = await api.getAuthStatus();
       setServerConnected(true);
       setPendingServerUrl(null);
-      showToast('Server URL saved from QR code.', 'success');
+      showToast(nativeMessage('native.00221374e03d28d4'), 'success');
       if (status.requires_setup) {
         navigation.reset({ index: 0, routes: [{ name: 'Setup' }] });
         return;
@@ -157,7 +161,7 @@ export default function ScannerScreen() {
       setPendingServerUrl(null);
       setHandled(false);
       showToast(
-        error instanceof Error ? error.message : 'Scan failed.',
+        error instanceof Error ? error.message : nativeMessage('native.115b8e6f5c633cac'),
         'error',
       );
     }
@@ -178,13 +182,12 @@ export default function ScannerScreen() {
         style={[styles.centered, { backgroundColor: colors.background }]}
       >
         <Text style={[styles.title, { color: colors.text }]}>
-          Camera permission required
-        </Text>
+          {translateNative('native.138ce5c4744561ca')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           {subtitle}
         </Text>
         <PrimaryButton
-          label="Grant Camera Access"
+          label={translateNative('native.21fa199932c61d99')}
           onPress={() => void requestPermission()}
         />
       </SafeAreaView>
@@ -197,11 +200,9 @@ export default function ScannerScreen() {
         style={[styles.centered, { backgroundColor: colors.background }]}
       >
         <Text style={[styles.title, { color: colors.text }]}>
-          Camera unavailable
-        </Text>
+          {translateNative('native.dd79b585121476fc')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          No back camera is available on this device.
-        </Text>
+          {translateNative('native.2be9febb83a2863b')}</Text>
       </SafeAreaView>
     );
   }
@@ -218,14 +219,13 @@ export default function ScannerScreen() {
       />
       <View style={[styles.overlayCard, { backgroundColor: colors.overlay }]}>
         <Text style={[styles.title, { color: colors.text }]}>
-          QR Code Scanner
-        </Text>
+          {translateNative('native.55fccab1a84fc8e0')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           {subtitle}
         </Text>
         {handled ? (
           <PrimaryButton
-            label="Scan Another"
+            label={translateNative('native.10d0efeaef75c794')}
             onPress={() => {
               setPendingServerUrl(null);
               setHandled(false);
@@ -238,7 +238,7 @@ export default function ScannerScreen() {
         onPress={() => navigation.goBack()}
         style={[styles.closeButton, { backgroundColor: colors.overlay }]}
       >
-        <Text style={[styles.closeText, { color: colors.text }]}>Close</Text>
+        <Text style={[styles.closeText, { color: colors.text }]}>{translateNative('common.close')}</Text>
       </Pressable>
       <ConfirmModal
         visible={pendingServerUrl !== null}
@@ -249,13 +249,13 @@ export default function ScannerScreen() {
         onConfirm={() => {
           void confirmServerUrl();
         }}
-        title="Save server URL"
+        title={translateNative('native.8dce0a5836189aeb')}
         message={
           pendingServerUrl
-            ? `Save ${pendingServerUrl.origin} (${pendingServerUrl.host}) as your Bambuddy server?`
+            ? translateNative('native.b5ab96962e7fbfba', { value0: String(pendingServerUrl.origin), value1: String(pendingServerUrl.host) })
             : ''
         }
-        confirmLabel="Save"
+        confirmLabel={translateNative('common.save')}
         variant="info"
       />
     </SafeAreaView>

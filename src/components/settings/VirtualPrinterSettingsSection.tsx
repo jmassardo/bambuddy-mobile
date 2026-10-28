@@ -1,68 +1,29 @@
-import React, { useState } from 'react';
+import { NativeTranslation, translateNative, useNativeLocale } from '@/i18n';
+
+import React from 'react';
 import { Text, View } from 'react-native';
-import { useMutation } from '@tanstack/react-query';
-import { api } from '@/api/client';
 import { EmptyState } from '@/components/common/StateScreens';
 import { PrimaryButton, SectionCard, StatusBadge } from '@/components/common/AppUI';
 import { settingsStyles } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
-import { useToast } from '@/contexts/ToastContext';
-import { useTheme } from '@/theme';
-import { pickBoolean, pickNumber, pickString, statusColor } from '@/utils/data';
+import { pickBoolean, pickString, statusColor } from '@/utils/data';
+import { VirtualPrinterAddress, VirtualPrinterDiagnostics, VirtualPrinterGlobalSetup } from './VirtualPrinterIntegration';
+import { useNavigation } from '@react-navigation/native';
+import type { RootNavigationProp } from '@/navigation/types';
+import { useIntegrationTranslation } from './useIntegrationTranslation';
 
 export function VirtualPrinterSettingsSection({ controller }: { controller: SettingsScreenController }) {
+  useNativeLocale();
   const printers = controller.derived.virtualPrinterItems;
-// @ts-expect-error - colors used by parent
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { _colors } = useTheme();
-  const { showToast } = useToast();
-  const [testingPrinter, setTestingPrinter] = useState<number | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, { status: 'loading' | 'success' | 'error'; message: string }>>({});
-
-  const testConnectionMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await api.testVirtualPrinterConnection(id);
-      return response;
-    },
-    onSuccess: (result, id) => {
-      const success = pickBoolean(result, ['ok', 'success']);
-      setTestResults(prev => ({
-        ...prev,
-        [id]: {
-          status: success ? 'success' : 'error',
-          message: pickString(result, ['message', 'error'], success ? 'Connection successful' : 'Connection failed'),
-        },
-      }));
-      showToast(
-        pickString(result, ['message', 'error'], success ? 'Connection test successful!' : 'Connection test failed'),
-        success ? 'success' : 'error',
-      );
-    },
-    onError: (error: Error, id) => {
-      setTestResults(prev => ({
-        ...prev,
-        [id]: { status: 'error', message: error.message || 'Connection test failed' },
-      }));
-      showToast(error.message || 'Connection test failed.', 'error');
-    },
-    onSettled: (_, __, _id) => {
-      setTestingPrinter(null);
-    },
-  });
-
-  function testConnection(printer: Record<string, unknown>) {
-    const printerId = pickNumber(printer, ['id']);
-    setTestingPrinter(printerId);
-    setTestResults(prev => ({
-      ...prev,
-      [printerId]: { status: 'loading', message: 'Testing...' },
-    }));
-    testConnectionMutation.mutate(printerId);
-  }
+  const tr = useIntegrationTranslation();
+  const navigation = useNavigation<RootNavigationProp<'Settings'>>();
 
   return (
-    <SectionCard title="Virtual printers" subtitle="Current virtual printer connections and lifecycle actions.">
-      <PrimaryButton label="Create virtual printer" variant="secondary" onPress={() => controller.actions.openVirtualPrinterModal()} />
+    <>
+    <VirtualPrinterGlobalSetup canEdit={controller.permissions.canUpdateSettings} />
+    <SectionCard title={translateNative('native.f2e4cf8146418886')} subtitle={translateNative('native.885f556aac1c583b')}>
+      <PrimaryButton label={tr('Advanced virtual printer setup')} variant="secondary" onPress={() => navigation.navigate('VirtualPrinters')} />
+      <PrimaryButton label={translateNative('native.72f5a60c986eaf7f')} variant="secondary" onPress={() => controller.actions.openVirtualPrinterModal()} />
       {printers.length > 0 ? (
         printers.map(printer => {
           const running = pickBoolean(printer, ['status.running', 'running', 'enabled']);
@@ -72,36 +33,26 @@ export function VirtualPrinterSettingsSection({ controller }: { controller: Sett
             <View key={printerId} style={[settingsStyles.itemCard, { backgroundColor: controller.colors.surfaceElevated, borderColor: controller.colors.border }]}> 
               <View style={settingsStyles.itemHeader}>
                 <View style={settingsStyles.itemText}>
-                  <Text style={[settingsStyles.itemTitle, { color: controller.colors.text }]}>{pickString(printer, ['name'], 'Virtual printer')}</Text>
-                  <Text style={[settingsStyles.itemMeta, { color: controller.colors.textSecondary }]}>{pickString(printer, ['model_name', 'model'], 'Unknown model')} • {pickString(printer, ['mode'], 'archive')} • Pending {pickString(printer, ['status.pending_files'], '0')}</Text>
+                  <Text style={[settingsStyles.itemTitle, { color: controller.colors.text }]}>{pickString(printer, ['name'], translateNative('native.4d00890bc58d24d0'))}</Text>
+                  <Text style={[settingsStyles.itemMeta, { color: controller.colors.textSecondary }]}><NativeTranslation id="native.383f9fea9f78f8c8" values={{ value0: (pickString(printer, ['model_name', 'model'], translateNative('native.e292a54ac2d93315'))), value1: (pickString(printer, ['mode'], 'archive')), value2: (pickString(printer, ['status.pending_files'], '0')) }} /></Text>
                 </View>
-                <StatusBadge label={running ? 'running' : 'stopped'} color={statusColor(running ? 'success' : 'offline', controller.colors)} />
+                <StatusBadge label={running ? translateNative('native.3180e7c2ebffe771') : translateNative('native.23ea8b9cde72dff7')} color={statusColor(running ? 'success' : 'offline', controller.colors)} />
               </View>
-              {testResults[printerId] && (
-                <View style={{ marginTop: 4, padding: 4, borderRadius: 4, borderWidth: 1, borderStyle: 'dashed', borderColor: testResults[printerId].status === 'success' ? controller.colors.success : controller.colors.error }}>
-                  <Text style={{ fontSize: 12, color: testResults[printerId].status === 'success' ? controller.colors.success : controller.colors.error }}>
-                    {testResults[printerId].message}
-                  </Text>
-                </View>
-              )}
+              <VirtualPrinterAddress disabled={pickBoolean(printer, ['tailscale_disabled'])} />
+              <VirtualPrinterDiagnostics id={id} />
               <View style={settingsStyles.actions}>
-                <PrimaryButton label="Start" variant="secondary" onPress={() => void controller.mutations.virtualPrinterControl.mutateAsync({ id, action: 'start' })} />
-                <PrimaryButton label="Stop" variant="secondary" onPress={() => void controller.mutations.virtualPrinterControl.mutateAsync({ id, action: 'stop' })} />
-                <PrimaryButton 
-                  label="Test" 
-                  variant="secondary" 
-                  onPress={() => testConnection(printer)}
-                  loading={testingPrinter === id}
-                />
-                <PrimaryButton label="Edit" variant="secondary" onPress={() => controller.actions.openVirtualPrinterModal(printer)} />
-                <PrimaryButton label="Delete" variant="danger" onPress={() => controller.actions.setPendingDeleteVirtualPrinter(printer)} />
+                <PrimaryButton label={translateNative('common.start')} variant="secondary" onPress={() => void controller.mutations.virtualPrinterControl.mutateAsync({ id, action: 'start' })} />
+                <PrimaryButton label={translateNative('common.stop')} variant="secondary" onPress={() => void controller.mutations.virtualPrinterControl.mutateAsync({ id, action: 'stop' })} />
+                <PrimaryButton label={translateNative('common.edit')} variant="secondary" onPress={() => controller.actions.openVirtualPrinterModal(printer)} />
+                <PrimaryButton label={translateNative('common.delete')} variant="danger" onPress={() => controller.actions.setPendingDeleteVirtualPrinter(printer)} />
               </View>
             </View>
           );
         })
       ) : (
-        <EmptyState icon="🖨" title="No virtual printers" message="Create virtual printers on the server to manage them here." />
+        <EmptyState icon="🖨" title={translateNative('native.0abb319ce2736eab')} message={translateNative('native.41f18bd732ce1d78')} />
       )}
     </SectionCard>
+    </>
   );
 }

@@ -1,4 +1,6 @@
-import React, { useMemo } from 'react';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -46,28 +48,28 @@ function getSeverityMeta(
   switch (severity) {
     case 1:
       return {
-        label: 'Fatal',
+        get label() { return translateNative('native.90450b166846e2eb'); },
         color: colors.error,
         backgroundColor: `${colors.error}18`,
         Icon: AlertTriangle,
       };
     case 2:
       return {
-        label: 'Serious',
+        get label() { return translateNative('native.7478a9529835be20'); },
         color: colors.error,
         backgroundColor: `${colors.error}12`,
         Icon: AlertTriangle,
       };
     case 3:
       return {
-        label: 'Warning',
+        get label() { return translateNative('native.ecedc86c28d0c0db'); },
         color: colors.warning,
         backgroundColor: `${colors.warning}16`,
         Icon: AlertCircle,
       };
     default:
       return {
-        label: 'Info',
+        get label() { return translateNative('native.f09d93f79765846b'); },
         color: colors.info,
         backgroundColor: `${colors.info}16`,
         Icon: Info,
@@ -75,7 +77,7 @@ function getSeverityMeta(
   }
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   if (error instanceof Error && error.message) return error.message;
   return fallback;
 }
@@ -87,21 +89,22 @@ export function HMSErrorModal({
   errors,
   onClose,
 }: HMSErrorModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const knownErrors = useMemo(() => filterKnownHMSErrors(errors), [errors]);
+  const knownErrors = useLocalizedMemo(() => filterKnownHMSErrors(errors), [errors]);
 
   const clearMutation = useMutation({
     mutationFn: () => api.clearHMSErrors(printerId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] });
-      showToast('HMS errors cleared.', 'success');
+      showToast(nativeMessage('native.b267395294b5fe57'), 'success');
       onClose();
     },
     onError: (error) => {
-      showToast(getErrorMessage(error, 'Unable to clear HMS errors.'), 'error');
+      showToast(getErrorMessage(error, nativeMessage('native.b50d7530c8beee89')), 'error');
     },
   });
 
@@ -121,12 +124,12 @@ export function HMSErrorModal({
         >
           <View style={[styles.header, { borderBottomColor: colors.borderSubtle }]}> 
             <View style={styles.headerTextWrap}>
-              <Text style={[styles.title, { color: colors.text }]}>HMS errors</Text>
+              <Text style={[styles.title, { color: colors.text }]}>{translateNative('native.2bdbf5d93641f9d6')}</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                 {printerName}
               </Text>
             </View>
-            <Pressable onPress={onClose} style={styles.closeButton} accessibilityLabel="Close" accessibilityRole="button">
+            <Pressable onPress={onClose} style={styles.closeButton} accessibilityLabel={translateNative('common.close')} accessibilityRole="button">
               <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
@@ -135,16 +138,15 @@ export function HMSErrorModal({
             {knownErrors.length === 0 ? (
               <View style={styles.emptyState}>
                 <AlertCircle size={32} color={colors.textTertiary} strokeWidth={2} />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>No active HMS errors</Text>
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>{translateNative('native.7028970991e68fb7')}</Text>
                 <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                  Active printer faults will appear here.
-                </Text>
+                  {translateNative('native.f949a32ed6529aa2')}</Text>
               </View>
             ) : (
               knownErrors.map((error, index) => {
                 const shortCode = getHMSErrorCode(error);
                 const description =
-                  ERROR_DESCRIPTIONS[shortCode] ?? 'Unknown HMS error code.';
+                  ERROR_DESCRIPTIONS[shortCode] ?? translateNative('native.5b400bbf03286340');
                 const severity = getSeverityMeta(error.severity, colors);
 
                 return (
@@ -195,7 +197,7 @@ export function HMSErrorModal({
 
                     {error.actions?.length ? (
                       <View style={styles.actionsList}>
-                        <Text style={[styles.actionsTitle, { color: colors.text }]}>Suggested actions</Text>
+                        <Text style={[styles.actionsTitle, { color: colors.text }]}>{translateNative('native.732b1105cef15813')}</Text>
                         {error.actions.map((action) => (
                           <Text
                             key={action}
@@ -210,12 +212,12 @@ export function HMSErrorModal({
                     <Pressable
                       onPress={() => {
                         void Linking.openURL('https://wiki.bambulab.com/en/hms/home').catch(() => {
-                          showToast('Unable to open the HMS wiki.', 'error');
+                          showToast(nativeMessage('native.e2cdfa9e275ffb65'), 'error');
                         });
                       }}
                       style={styles.linkRow}
                     >
-                      <Text style={[styles.linkText, { color: colors.accentLight }]}>Open HMS wiki</Text>
+                      <Text style={[styles.linkText, { color: colors.accentLight }]}>{translateNative('native.05e635e573320c6a')}</Text>
                       <ExternalLink size={14} color={colors.accentLight} strokeWidth={2} />
                     </Pressable>
                   </View>
@@ -232,7 +234,7 @@ export function HMSErrorModal({
                 { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
               ]}
             >
-              <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Close</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.text }]}>{translateNative('common.close')}</Text>
             </Pressable>
             <Pressable
               onPress={() => clearMutation.mutate()}
@@ -256,7 +258,7 @@ export function HMSErrorModal({
               ) : (
                 <Trash2 size={16} color={colors.text} strokeWidth={2} />
               )}
-              <Text style={[styles.primaryButtonText, { color: colors.text }]}>Clear all</Text>
+              <Text style={[styles.primaryButtonText, { color: colors.text }]}>{translateNative('native.e0c9e7047ac670ee')}</Text>
             </Pressable>
           </View>
         </View>

@@ -142,8 +142,22 @@ describe('AuthContext', () => {
         await latestAuth!.loginWithToken('new-token', regularUser);
       });
 
-      expect(mockedSetAuthToken).toHaveBeenCalledWith('new-token');
+      expect(mockedSetAuthToken).toHaveBeenCalledWith('new-token', true);
       expect(latestAuth!.user?.username).toBe('viewer');
+    });
+
+    it('honors top-level delegated permissions even when brief groups omit permissions', async () => {
+      mockedApi.getCurrentUser.mockResolvedValue({ ...regularUser, groups: [{ id: 2, name: 'Operators', permissions: [] }], permissions: ['users:read'] });
+      await act(async () => { renderAuth(); });
+      expect(latestAuth!.hasPermission('users:read')).toBe(true);
+      expect(latestAuth!.hasPermission('users:delete')).toBe(false);
+    });
+
+    it('passes the memory-only choice to secure token storage', async () => {
+      mockedApi.login.mockResolvedValue({ access_token: 'session', token_type: 'bearer', user: regularUser });
+      await act(async () => { renderAuth(); });
+      await act(async () => { await latestAuth!.login('viewer', 'password', false); });
+      expect(mockedSetAuthToken).toHaveBeenCalledWith('session', false);
     });
   });
 

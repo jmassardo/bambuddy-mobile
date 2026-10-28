@@ -1,8 +1,16 @@
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import { localizedStatus } from '@/utils/statusLabel';
+
 import React from 'react';
+import { PrinterDeviceControls } from '@/components/printers/PrinterDeviceControls';
+import { PrinterSourceActions } from '@/components/printers/PrinterSourceActions';
+import { PrinterPowerIntegration } from '@/components/settings/SmartPlugPowerControls';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -10,7 +18,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -22,9 +29,11 @@ import {
   Edit2,
   Home,
   MoveVertical,
-  X,
 } from 'lucide-react-native';
 import { api, ApiError } from '@/api/client';
+import { EditPrinterModal } from '@/components/printers/EditPrinterModal';
+import { MQTTConsole } from '@/components/printers/MQTTConsole';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -57,18 +66,18 @@ import {
 } from '@/utils/data';
 
 const SPEED_MODES = [
-  { label: 'Silent', value: 1 },
-  { label: 'Standard', value: 2 },
-  { label: 'Sport', value: 3 },
-  { label: 'Ludicrous', value: 4 },
+  { get label() { return translateNative('native.0814d36734bfb834'); }, value: 1 },
+  { get label() { return translateNative('native.7239d2283cbaffae'); }, value: 2 },
+  { get label() { return translateNative('native.5167a009d34d3ac8'); }, value: 3 },
+  { get label() { return translateNative('native.666a52cda10a4d17'); }, value: 4 },
 ] as const;
 
 const JOG_STEP_SIZES = [0.1, 1, 10, 100] as const;
 
 const JOG_SPEED_OPTIONS = [
-  { label: 'Slow', value: 'slow' },
-  { label: 'Normal', value: 'normal' },
-  { label: 'Fast', value: 'fast' },
+  { get label() { return translateNative('native.2e1411b2438a0dd8'); }, value: 'slow' },
+  { get label() { return translateNative('native.729aa07c7938c10d'); }, value: 'normal' },
+  { get label() { return translateNative('native.7a424fba39712956'); }, value: 'fast' },
 ] as const;
 
 type JogSpeed = (typeof JOG_SPEED_OPTIONS)[number]['value'];
@@ -108,7 +117,7 @@ function stringifyDebugValue(value: unknown) {
   }
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
@@ -127,6 +136,7 @@ function JogButton({
   highlighted?: boolean;
   colors: ThemeColors;
 }) {
+  useNativeLocale();
   return (
     <Pressable
       onPress={onPress}
@@ -154,20 +164,19 @@ function JogButton({
 }
 
 export default function PrinterDetailScreen() {
+  useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'PrinterDetail'>>();
   const route = useRoute<RootRouteProp<'PrinterDetail'>>();
   const { id } = (route.params ?? {}) as { id: string };
   const printerId = Number(id);
   const queryClient = useQueryClient();
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const { hasPermission } = useAuth();
   const hasEditPermission = hasPermission('printers:update');
   const [showDebugModal, setShowDebugModal] = React.useState(false);
   const [showEditModal, setShowEditModal] = React.useState(false);
-  const [editName, setEditName] = React.useState('');
-  const [editLocation, setEditLocation] = React.useState('');
-  const [editNotes, setEditNotes] = React.useState('');
   const [jogStepSize, setJogStepSize] = React.useState<(typeof JOG_STEP_SIZES)[number]>(
     1,
   );
@@ -237,42 +246,14 @@ export default function PrinterDetailScreen() {
   };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _profileData = React.useMemo(
+  const _profileData = useLocalizedMemo(
     () => printerQuery.data ?? {},
     [printerQuery.data],
   );
 
-  const syncEditFields = React.useCallback(() => {
-    if (!printerQuery.data) return;
-    const data = printerQuery.data as ApiRecord;
-    setEditName(String(data.name ?? '') || '');
-    setEditLocation(String(data.location ?? '') || '');
-    setEditNotes(String(data.notes ?? '') || '');
-  }, [printerQuery.data]);
-
   const showEdit = () => {
-    syncEditFields();
     setShowEditModal(true);
   };
-
-  const profileMutation = useMutation({
-    mutationFn: async (data: { name: string; location: string | null; notes: string | null }) =>
-      api.updatePrinter(printerId, {
-        name: data.name.trim(),
-        location: data.location ? data.location.trim() : null,
-        notes: data.notes ? data.notes.trim() : null,
-      }),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['printers'] }),
-        queryClient.invalidateQueries({ queryKey: ['printer', printerId] }),
-        queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] }),
-      ]);
-      showToast('Printer profile updated.', 'success');
-      setShowEditModal(false);
-    },
-    onError: () => showToast('Failed to update printer profile.', 'error'),
-  });
 
   const invalidatePrinterStatus = React.useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] });
@@ -294,10 +275,19 @@ export default function PrinterDetailScreen() {
       await queryClient.invalidateQueries({
         queryKey: ['printerStatus', printerId],
       });
-      showToast(`Printer ${action} command sent.`, 'success');
+      showToast(nativeMessage('native.bf4d8ef589e7fea8', () => ({ value0: String(action) })), 'success');
     },
-    onError: () => showToast('Printer command failed.', 'error'),
+    onError: () => showToast(nativeMessage('native.057caadfef404064'), 'error'),
   });
+
+  const confirmPrintAction = (action: 'pause' | 'resume' | 'stop') => Alert.alert(
+    t('fleet.confirmAction', { defaultValue: '{{action}} print?', action }),
+    t('fleet.confirmDetailAction', { defaultValue: '{{printer}} — {{job}}. Stopping cannot be resumed.', printer: printerQuery.data?.name ?? String(printerId), job: statusQuery.data?.subtask_name ?? statusQuery.data?.current_print ?? t('fleet.activeJob', { defaultValue: 'Active print' }) }),
+    [
+      { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+      { text: t('common.confirm', { defaultValue: 'Confirm' }), style: action === 'stop' ? 'destructive' : 'default', onPress: () => actionMutation.mutate(action) },
+    ],
+  );
 
   const speedMutation = useMutation({
     mutationFn: (mode: number) => api.setPrintSpeed(printerId, mode),
@@ -305,9 +295,9 @@ export default function PrinterDetailScreen() {
       await queryClient.invalidateQueries({
         queryKey: ['printerStatus', printerId],
       });
-      showToast('Print speed updated.', 'success');
+      showToast(nativeMessage('native.d6bfbabf9cc21bd9'), 'success');
     },
-    onError: () => showToast('Failed to update print speed.', 'error'),
+    onError: () => showToast(nativeMessage('native.314b832477b6a5e3'), 'error'),
   });
 
   const xyJogMutation = useMutation({
@@ -316,7 +306,7 @@ export default function PrinterDetailScreen() {
       void invalidatePrinterStatus();
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to move the print head.'), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.9c4bffb9f78a482f')), 'error'),
   });
 
   const zJogMutation = useMutation({
@@ -325,7 +315,7 @@ export default function PrinterDetailScreen() {
       void invalidatePrinterStatus();
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to move the Z axis.'), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.50e4c820a549ac54')), 'error'),
   });
 
   const homeMutation = useMutation({
@@ -333,13 +323,13 @@ export default function PrinterDetailScreen() {
       api.homeAxes(printerId, axes),
     onSuccess: async (_, { label }) => {
       await invalidatePrinterStatus();
-      showToast(`${label} started.`, 'success');
+      showToast(nativeMessage('native.1abaf60be83f775b', () => ({ value0: String(label) })), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to home the printer.'), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.9bd8aedeaed7801b')), 'error'),
   });
 
-  const heaterHistory = React.useMemo(() => {
+  const heaterHistory = useLocalizedMemo(() => {
     const heaterHistorySeries = heaterHistoryQuery.data?.series ?? [];
     const pointsByKind: Record<
       SupportedHeaterKind,
@@ -396,26 +386,26 @@ export default function PrinterDetailScreen() {
     };
   }, [heaterHistoryQuery.data?.series, heaterRange]);
 
-  const heaterChartSeries = React.useMemo(
+  const heaterChartSeries = useLocalizedMemo(
     () => [
-      { key: 'nozzle_actual', label: 'Nozzle actual', color: colors.warning },
+      { key: 'nozzle_actual', get label() { return translateNative('native.6fef32ba2d7cf96c'); }, color: colors.warning },
       {
         key: 'nozzle_target',
-        label: 'Nozzle target',
+        get label() { return translateNative('native.f5f626d3bf1bc91d'); },
         color: `${colors.warning}99`,
         dashed: true,
       },
-      { key: 'bed_actual', label: 'Bed actual', color: colors.accent },
+      { key: 'bed_actual', get label() { return translateNative('native.6cf82f9734bcc885'); }, color: colors.accent },
       {
         key: 'bed_target',
-        label: 'Bed target',
+        get label() { return translateNative('native.0423aca09d7736d4'); },
         color: `${colors.accent}99`,
         dashed: true,
       },
-      { key: 'chamber_actual', label: 'Chamber actual', color: colors.info },
+      { key: 'chamber_actual', get label() { return translateNative('native.68497d1fd2700c95'); }, color: colors.info },
       {
         key: 'chamber_target',
-        label: 'Chamber target',
+        get label() { return translateNative('native.ac25854ef06470bf'); },
         color: `${colors.info}99`,
         dashed: true,
       },
@@ -424,13 +414,13 @@ export default function PrinterDetailScreen() {
   );
 
   if (printerQuery.isLoading || statusQuery.isLoading) {
-    return <LoadingScreen message="Loading printer details…" />;
+    return <LoadingScreen message={translateNative('native.f496663c29951557')} />;
   }
 
   if (printerQuery.isError || statusQuery.isError || !printerQuery.data) {
     return (
       <ErrorState
-        message="Unable to load printer details."
+        message={translateNative('native.156d048b8d6fa775')}
         onRetry={() => void refreshAll()}
       />
     );
@@ -459,7 +449,7 @@ export default function PrinterDetailScreen() {
   const currentFile = pickString(
     status,
     ['current_file', 'job.name', 'file_name'],
-    'No file selected',
+    translateNative('native.77be770140cae260'),
   );
   const amsSlots = pickRecordArray(status, [
     'ams_slots',
@@ -507,70 +497,69 @@ export default function PrinterDetailScreen() {
     >
       <View style={styles.header}>
         <Text style={[styles.subtitle, styles.headerSubtitle, { color: colors.textSecondary }]}>
-          {pickString(printer, ['model', 'printer_model'], 'Unknown model')}
+          {pickString(printer, ['model', 'printer_model'], translateNative('native.e292a54ac2d93315'))}
         </Text>
-        <StatusBadge label={state} color={badgeColor} />
+        <StatusBadge label={localizedStatus(state)} color={badgeColor} />
       </View>
 
       <SectionCard
-        title="Profile"
-        subtitle="Printer name, location, and notes."
+        title={translateNative('native.4a362111d2e1aa94')}
+        subtitle={translateNative('native.0b43ec35c75693eb')}
         right={
           <Pressable
             onPress={showEdit}
-            disabled={!hasEditPermission || profileMutation.isPending}
+            disabled={!hasEditPermission}
             style={[
               styles.editButton,
               {
                 backgroundColor: colors.accentBg,
                 borderColor: colors.accent,
-                opacity: !hasEditPermission || profileMutation.isPending ? 0.5 : 1,
+                opacity: !hasEditPermission ? 0.5 : 1,
               },
             ]}
           >
-            {profileMutation.isPending ? (
-              <ActivityIndicator size="small" color={colors.accent} />
-            ) : (
-              <Edit2 size={16} color={colors.accent} strokeWidth={2} />
-            )}
+            <Edit2 size={16} color={colors.accent} strokeWidth={2} />
           </Pressable>
         }
       >
         <KeyValueRow
-          label="Name"
+          label={translateNative('common.name')}
           value={pickString(printer, ['name'], '—')}
         />
         <KeyValueRow
-          label="Location"
+          label={translateNative('native.4fa01b8a6af1174b')}
           value={pickString(printer, ['location'], '—')}
         />
         <KeyValueRow
-          label="Model"
+          label={translateNative('native.8b62363d3367fc41')}
           value={pickString(printer, ['model'], '—')}
         />
         <KeyValueRow
-          label="Serial"
+          label={translateNative('native.80a6fd12627344ff')}
           value={pickString(printer, ['serial_number'], '—')}
         />
         <KeyValueRow
-          label="IP Address"
+          label={translateNative('native.fc54836a42485597')}
           value={pickString(printer, ['ip_address'], '—')}
         />
         {pickString(printer, ['notes']) ? (
           <KeyValueRow
-            label="Notes"
+            label={translateNative('native.be6245aeb9573da2')}
             value={pickString(printer, ['notes'], '—')}
           />
         ) : null}
         <KeyValueRow
-          label="Created"
+          label={translateNative('native.370f94cea9a653bb')}
           value={formatDateTime(pickString(printer, ['created_at']))}
         />
         <KeyValueRow
-          label="Last updated"
+          label={translateNative('native.c16c9eb6f25b8a84')}
           value={formatDateTime(pickString(printer, ['updated_at']))}
         />
       </SectionCard>
+
+      <PrinterPowerIntegration printerId={printerId} />
+      <PrinterSourceActions printerId={printerId} />
 
       <Pressable
         onPress={() => navigation.navigate('Camera', { id: String(printerId) })}
@@ -582,8 +571,8 @@ export default function PrinterDetailScreen() {
       </Pressable>
 
       <SectionCard
-        title="Status"
-        subtitle="Live print progress and job details."
+        title={translateNative('common.status')}
+        subtitle={translateNative('native.a7fca09264bb3c50')}
       >
         <View
           style={[
@@ -601,9 +590,9 @@ export default function PrinterDetailScreen() {
             ]}
           />
         </View>
-        <KeyValueRow label="Progress" value={formatPercent(progress)} />
+        <KeyValueRow label={translateNative('native.bb42ea23a396f650')} value={formatPercent(progress)} />
         <KeyValueRow
-          label="ETA"
+          label={translateNative('native.b9acbc48541e900b', { defaultValue: 'ETA' })}
           value={formatDuration(
             pickNumber(
               status,
@@ -613,34 +602,37 @@ export default function PrinterDetailScreen() {
           )}
         />
         <KeyValueRow
-          label="Layer"
+          label={translateNative('native.56b23c213be21529')}
           value={`${pickNumber(
             status,
             ['layer_current', 'current_layer'],
             0,
           )} / ${pickNumber(status, ['layer_total', 'total_layers'], 0)}`}
         />
-        <KeyValueRow label="Current file" value={currentFile} />
+        <KeyValueRow label={translateNative('native.c1a0e1256b5dcef1')} value={currentFile} />
       </SectionCard>
 
-      <SectionCard title="Controls" subtitle="Quick printer commands.">
+      <SectionCard title={translateNative('native.c507912584538fba')} subtitle={translateNative('native.8c1ddd2c34eebffc')}>
+        {actionMutation.isPending ? <Text accessibilityLiveRegion="polite" style={{ color: colors.textSecondary }}>{t('fleet.actionPending', { defaultValue: 'Sending {{action}} to {{printer}}…', action: actionMutation.variables, printer: printerQuery.data?.name ?? String(printerId) })}</Text> : null}
         <View style={styles.buttonRow}>
           <View style={styles.buttonCell}>
             <PrimaryButton
-              label={state.toLowerCase().includes('pause') ? 'Resume' : 'Pause'}
+              label={state.toLowerCase().includes('pause') ? translateNative('native.b68738f908376c9e') : translateNative('native.362b1658df45e7f1')}
               onPress={() =>
-                void actionMutation.mutateAsync(
+                confirmPrintAction(
                   state.toLowerCase().includes('pause') ? 'resume' : 'pause',
                 )
               }
+              disabled={!hasPermission('printers:control') || !statusQuery.data?.connected || !['RUNNING', 'PAUSE'].includes(statusQuery.data?.state ?? '') || actionMutation.isPending}
               variant="secondary"
               loading={actionMutation.isPending}
             />
           </View>
           <View style={styles.buttonCell}>
             <PrimaryButton
-              label="Stop"
-              onPress={() => void actionMutation.mutateAsync('stop')}
+              label={translateNative('common.stop')}
+              onPress={() => confirmPrintAction('stop')}
+              disabled={!hasPermission('printers:control') || !statusQuery.data?.connected || !['RUNNING', 'PAUSE'].includes(statusQuery.data?.state ?? '') || actionMutation.isPending}
               variant="danger"
               loading={actionMutation.isPending}
             />
@@ -649,8 +641,8 @@ export default function PrinterDetailScreen() {
             <PrimaryButton
               label={
                 pickBoolean(status, ['chamber_light_on', 'light_on'], false)
-                  ? 'Light Off'
-                  : 'Light On'
+                  ? translateNative('native.3f4155cf168bea58')
+                  : translateNative('native.15e639611f60e39c')
               }
               onPress={() => void actionMutation.mutateAsync('light')}
               variant="secondary"
@@ -660,7 +652,7 @@ export default function PrinterDetailScreen() {
         </View>
       </SectionCard>
 
-      <SectionCard title="Movement" subtitle="Jog the axes and home the printer.">
+      <SectionCard title={translateNative('native.4aaa3e130cf42e9f')} subtitle={translateNative('native.bc8bdce5a210c8c8')}>
         {isPrinting ? (
           <View
             style={[
@@ -672,20 +664,18 @@ export default function PrinterDetailScreen() {
             ]}
           >
             <Text style={[styles.movementBannerText, { color: colors.warning }]}>
-              Movement controls are disabled while printing.
-            </Text>
+              {translateNative('native.15a135deef56e2a3')}</Text>
           </View>
         ) : null}
 
         <View style={styles.movementPanel}>
           <View style={styles.xySection}>
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-              X / Y
-            </Text>
+              {translateNative('native.6158f82545f74a9f')}</Text>
             <View style={styles.xyGrid}>
               <View style={styles.gridSpacer} />
               <JogButton
-                label="Y+"
+                label={translateNative('native.624bed550cf73e7d')}
                 disabled={movementDisabled}
                 onPress={() =>
                   xyJogMutation.mutate({ x: 0, y: movementDelta })
@@ -695,7 +685,7 @@ export default function PrinterDetailScreen() {
               />
               <View style={styles.gridSpacer} />
               <JogButton
-                label="X−"
+                label={translateNative('native.6086960b45355173')}
                 disabled={movementDisabled}
                 onPress={() =>
                   xyJogMutation.mutate({ x: -movementDelta, y: 0 })
@@ -704,15 +694,15 @@ export default function PrinterDetailScreen() {
                 colors={colors}
               />
               <JogButton
-                label={homeMutation.isPending ? 'Homing' : 'Home'}
+                label={homeMutation.isPending ? translateNative('native.54658c6f45606ca1') : translateNative('native.d286327177e6555f')}
                 disabled={movementDisabled}
                 highlighted
-                onPress={() => homeMutation.mutate({ axes: 'all', label: 'Home all' })}
+                onPress={() => homeMutation.mutate({ axes: 'all', get label() { return translateNative('native.4282cb4cc6f15328'); } })}
                 icon={<Home size={20} color={colors.accentLight} strokeWidth={2} />}
                 colors={colors}
               />
               <JogButton
-                label="X+"
+                label={translateNative('native.ba3aa1e3e83f9357')}
                 disabled={movementDisabled}
                 onPress={() =>
                   xyJogMutation.mutate({ x: movementDelta, y: 0 })
@@ -722,7 +712,7 @@ export default function PrinterDetailScreen() {
               />
               <View style={styles.gridSpacer} />
               <JogButton
-                label="Y−"
+                label={translateNative('native.9fb2d1b3ef6a5e63')}
                 disabled={movementDisabled}
                 onPress={() =>
                   xyJogMutation.mutate({ x: 0, y: -movementDelta })
@@ -738,19 +728,18 @@ export default function PrinterDetailScreen() {
             <View style={styles.zHeader}>
               <MoveVertical size={16} color={colors.textSecondary} strokeWidth={2} />
               <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-                Z
-              </Text>
+                {"Z"}</Text>
             </View>
             <View style={styles.zButtons}>
               <JogButton
-                label="Z+"
+                label={translateNative('native.8fd3871a396d1547')}
                 disabled={movementDisabled}
                 onPress={() => zJogMutation.mutate(-movementDelta)}
                 icon={<ArrowUp size={20} color={colors.text} strokeWidth={2} />}
                 colors={colors}
               />
               <JogButton
-                label="Z−"
+                label={translateNative('native.0c59c2660c299bbe')}
                 disabled={movementDisabled}
                 onPress={() => zJogMutation.mutate(movementDelta)}
                 icon={<ArrowDown size={20} color={colors.text} strokeWidth={2} />}
@@ -762,10 +751,10 @@ export default function PrinterDetailScreen() {
 
         <View style={styles.homeButtonRow}>
           {[
-            { label: 'Home All', axes: 'all' as const },
-            { label: 'Home X', axes: 'xy' as const },
-            { label: 'Home Y', axes: 'xy' as const },
-            { label: 'Home Z', axes: 'z' as const },
+            { get label() { return translateNative('native.db197b37e6a6324f'); }, axes: 'all' as const },
+            { get label() { return translateNative('native.ecc06d42d9a4b128'); }, axes: 'xy' as const },
+            { get label() { return translateNative('native.ab670ea2c9bcebd7'); }, axes: 'xy' as const },
+            { get label() { return translateNative('native.c3a6b91217f29600'); }, axes: 'z' as const },
           ].map(action => (
             <Pressable
               key={action.label}
@@ -790,8 +779,7 @@ export default function PrinterDetailScreen() {
 
         <View style={styles.selectorGroup}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            Step size
-          </Text>
+            {translateNative('native.f5c4b97e1a1f194c')}</Text>
           <View style={styles.selectorRow}>
             {JOG_STEP_SIZES.map(step => {
               const selected = step === jogStepSize;
@@ -818,9 +806,7 @@ export default function PrinterDetailScreen() {
                         color: selected ? colors.accentLight : colors.textSecondary,
                       },
                     ]}
-                  >
-                    {step}mm
-                  </Text>
+                  ><NativeTranslation id="native.281d5b92833317ed" values={{ value0: (step) }} /></Text>
                 </Pressable>
               );
             })}
@@ -829,8 +815,7 @@ export default function PrinterDetailScreen() {
 
         <View style={styles.selectorGroup}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            Speed
-          </Text>
+            {translateNative('native.1257da4fa2984d81')}</Text>
           <View style={styles.selectorRow}>
             {JOG_SPEED_OPTIONS.map(option => {
               const selected = option.value === jogSpeed;
@@ -867,9 +852,9 @@ export default function PrinterDetailScreen() {
         </View>
       </SectionCard>
 
-      <SectionCard title="Temperatures">
+      <SectionCard title={translateNative('native.2cc11150474ebd7d')}>
         <KeyValueRow
-          label="Nozzle"
+          label={translateNative('native.13db537aa9385363')}
           value={`${pickNumber(
             status,
             ['temperatures.nozzle.current', 'nozzle_temp'],
@@ -881,7 +866,7 @@ export default function PrinterDetailScreen() {
           ).toFixed(0)}°`}
         />
         <KeyValueRow
-          label="Bed"
+          label={translateNative('native.a3619e5a7b86c9e4', { defaultValue: 'Bed' })}
           value={`${pickNumber(
             status,
             ['temperatures.bed.current', 'bed_temp'],
@@ -893,7 +878,7 @@ export default function PrinterDetailScreen() {
           ).toFixed(0)}°`}
         />
         <KeyValueRow
-          label="Chamber"
+          label={translateNative('native.3240e2f71b00c6f4')}
           value={`${pickNumber(
             status,
             ['temperatures.chamber.current', 'chamber_temp'],
@@ -907,8 +892,8 @@ export default function PrinterDetailScreen() {
       </SectionCard>
 
       <SectionCard
-        title="Heater history"
-        subtitle="Historical nozzle, bed, and chamber temperatures."
+        title={translateNative('native.dd7b72342954e3ed')}
+        subtitle={translateNative('native.462d67376c50d5d2')}
       >
         <InlineTabBar
           value={heaterRange}
@@ -922,27 +907,24 @@ export default function PrinterDetailScreen() {
           <ActivityIndicator color={colors.accent} />
         ) : heaterHistoryQuery.isError ? (
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Unable to load heater history.
-          </Text>
+            {translateNative('native.ad7569c2ae4d31c8')}</Text>
         ) : heaterHistory.points.length === 0 ? (
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No heater history samples are available for this time range.
-          </Text>
+            {translateNative('native.15dba161a287d6f9')}</Text>
         ) : (
           <>
             <MultiSeriesLineChart points={heaterHistory.points} series={heaterChartSeries} />
             {!heaterHistory.chamberHasData ? (
               <Text style={[styles.heaterHistoryNote, { color: colors.textTertiary }]}>
-                Chamber history is unavailable for this printer in the selected range.
-              </Text>
+                {translateNative('native.a8f132bfbb735174')}</Text>
             ) : null}
           </>
         )}
       </SectionCard>
 
-      <SectionCard title="Fan Speeds">
+      <SectionCard title={translateNative('native.4bc11c35b0cf1881')}>
         <KeyValueRow
-          label="Part cooling"
+          label={translateNative('native.3c9a3ad783508857')}
           value={`${pickNumber(
             status,
             ['fans.part', 'part_fan_speed'],
@@ -950,7 +932,7 @@ export default function PrinterDetailScreen() {
           ).toFixed(0)}%`}
         />
         <KeyValueRow
-          label="Aux fan"
+          label={translateNative('native.cae602d2fafe533b')}
           value={`${pickNumber(
             status,
             ['fans.aux', 'aux_fan_speed'],
@@ -958,7 +940,7 @@ export default function PrinterDetailScreen() {
           ).toFixed(0)}%`}
         />
         <KeyValueRow
-          label="Chamber fan"
+          label={translateNative('native.390965957fc71204')}
           value={`${pickNumber(
             status,
             ['fans.chamber', 'chamber_fan_speed'],
@@ -967,7 +949,9 @@ export default function PrinterDetailScreen() {
         />
       </SectionCard>
 
-      <SectionCard title="AMS" subtitle="Loaded filament slots.">
+      <PrinterDeviceControls printerId={printerId} model={printerQuery.data?.model} />
+
+      <SectionCard title="AMS" subtitle={translateNative('native.378c3c651d301d61')}>
         {amsSlots.length > 0 ? (
           <View style={styles.amsGrid}>
             {amsSlots.map((slot, index) => {
@@ -997,9 +981,7 @@ export default function PrinterDetailScreen() {
                       { backgroundColor: color || colors.surfaceHover },
                     ]}
                   />
-                  <Text style={[styles.slotTitle, { color: colors.text }]}>
-                    Slot {index + 1}
-                  </Text>
+                  <Text style={[styles.slotTitle, { color: colors.text }]}><NativeTranslation id="native.0fe9bbcfeac0b232" values={{ value0: (index + 1) }} /></Text>
                   <Text
                     style={[styles.slotMeta, { color: colors.textSecondary }]}
                     numberOfLines={2}
@@ -1007,7 +989,7 @@ export default function PrinterDetailScreen() {
                     {pickString(
                       slot,
                       ['filament_name', 'material', 'brand'],
-                      'Unknown filament',
+                      translateNative('native.7f8014f8ed83660d'),
                     )}
                   </Text>
                 </View>
@@ -1016,12 +998,11 @@ export default function PrinterDetailScreen() {
           </View>
         ) : (
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No AMS data available for this printer.
-          </Text>
+            {translateNative('native.d80f5b1f5f44a8b0')}</Text>
         )}
       </SectionCard>
 
-      <SectionCard title="Speed Control">
+      <SectionCard title={translateNative('native.446856b138f02e32')}>
         <View style={styles.speedRow}>
           {SPEED_MODES.map(mode => {
             const active = currentSpeed === mode.value;
@@ -1055,11 +1036,11 @@ export default function PrinterDetailScreen() {
         </View>
       </SectionCard>
 
-      <SectionCard title="Debug" subtitle="Connection traces, print history, and recent HMS events.">
+      <SectionCard title={translateNative('native.881a9bc355b6b38f')} subtitle={translateNative('native.d7d546b07299788d')}>
         <View style={styles.buttonRow}>
           <View style={styles.buttonCell}>
             <PrimaryButton
-              label="Open debug history"
+              label={translateNative('native.5e49a0ef6c82bb22')}
               variant="secondary"
               onPress={() => setShowDebugModal(true)}
             />
@@ -1072,47 +1053,48 @@ export default function PrinterDetailScreen() {
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
             <View style={styles.modalHeader}>
               <View style={styles.headerText}>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>Printer debug</Text>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>{translateNative('native.a37bc458ee3af02f')}</Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                  {pickString(printer, ['name'], 'Printer history')}
+                  {pickString(printer, ['name'], translateNative('native.1768778a8d9d377a'))}
                 </Text>
               </View>
             </View>
             <ScrollView contentContainerStyle={styles.modalBody}>
-              <SectionCard title="Connection debug info" subtitle="Live MQTT and connection metadata.">
+              {showDebugModal ? <MQTTConsole printerId={printerId} /> : null}
+              <SectionCard title={translateNative('native.9f76394a3aa2df15')} subtitle={translateNative('native.436a43245389a515')}>
                 {mqttLogsQuery.isLoading ? (
                   <ActivityIndicator color={colors.accent} />
                 ) : (
                   <>
                     <KeyValueRow
-                      label="Last MQTT message"
+                      label={translateNative('native.b034b1b471040e79')}
                       value={pickString(
                         mqttLogRecord,
                         ['last_message', 'message'],
-                        lastMqttEntry ? stringifyDebugValue(lastMqttEntry) : 'No MQTT messages recorded.',
+                        lastMqttEntry ? stringifyDebugValue(lastMqttEntry) : translateNative('native.233ee65a1242785b'),
                       )}
                     />
                     <KeyValueRow
-                      label="Connected"
+                      label={translateNative('native.7a24d4ce1f2c4857')}
                       value={formatDateTime(
                         pickString(mqttLogRecord, ['connected_at', 'last_connected_at', 'session_started_at']),
                       )}
                     />
                     <KeyValueRow
-                      label="Disconnected"
+                      label={translateNative('native.22cd1cee4ce4b061')}
                       value={formatDateTime(
                         pickString(mqttLogRecord, ['disconnected_at', 'last_disconnected_at', 'session_ended_at']),
                       )}
                     />
                     <KeyValueRow
-                      label="Debug entries"
+                      label={translateNative('native.2b60565339692c8e')}
                       value={String(mqttEntries.length)}
                     />
                   </>
                 )}
               </SectionCard>
 
-              <SectionCard title="Print history" subtitle="Most recent archives for this printer.">
+              <SectionCard title={translateNative('native.fa1fcd7a650b3866')} subtitle={translateNative('native.4777d810ad66db43')}>
                 {printHistoryQuery.isLoading ? (
                   <ActivityIndicator color={colors.accent} />
                 ) : archives.length > 0 ? (
@@ -1123,7 +1105,7 @@ export default function PrinterDetailScreen() {
                     >
                       <View style={styles.historyText}>
                         <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>
-                          {pickString(archive, ['print_name', 'filename', 'name'], 'Archived print')}
+                          {pickString(archive, ['print_name', 'filename', 'name'], translateNative('native.1f8fe56a5af104db'))}
                         </Text>
                         <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
                           {formatDateTime(
@@ -1144,12 +1126,11 @@ export default function PrinterDetailScreen() {
                   ))
                 ) : (
                   <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                    No archive history is available for this printer yet.
-                  </Text>
+                    {translateNative('native.0a95d1c8a7473f2f')}</Text>
                 )}
               </SectionCard>
 
-              <SectionCard title="HMS error history" subtitle="Current printer HMS faults plus matching debug log entries.">
+              <SectionCard title={translateNative('native.02e5be51cb31a23c')} subtitle={translateNative('native.a42902c068f7138a')}>
                 {activeHmsErrors.length > 0 ? (
                   activeHmsErrors.map((error, index) => (
                     <View
@@ -1158,13 +1139,11 @@ export default function PrinterDetailScreen() {
                     >
                       <View style={styles.historyText}>
                         <Text style={[styles.rowTitle, { color: colors.text }]}>
-                          {pickString(error, ['code'], 'HMS error')}
+                          {pickString(error, ['code'], translateNative('native.110b61dc33838806'))}
                         </Text>
-                        <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
-                          Severity {pickString(error, ['severity'], '—')} · Attr {pickString(error, ['attr'], '—')}
-                        </Text>
+                        <Text style={[styles.rowMeta, { color: colors.textSecondary }]}><NativeTranslation id="native.d4c62cb0a064dbaa" values={{ value0: (pickString(error, ['severity'], '—')), value1: (pickString(error, ['attr'], '—')) }} /></Text>
                       </View>
-                      <StatusBadge label="active" color={colors.warning} />
+                      <StatusBadge label={translateNative('native.0882f126ac69b221')} color={colors.warning} />
                     </View>
                   ))
                 ) : hmsHistoryEntries.length > 0 ? (
@@ -1175,7 +1154,7 @@ export default function PrinterDetailScreen() {
                     >
                       <View style={styles.historyText}>
                         <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={2}>
-                          {pickString(entry, ['message', 'payload', 'topic'], 'MQTT log entry')}
+                          {pickString(entry, ['message', 'payload', 'topic'], translateNative('native.8139d6876ddae465'))}
                         </Text>
                         <Text style={[styles.rowMeta, { color: colors.textSecondary }]} numberOfLines={2}>
                           {formatDateTime(pickString(entry, ['timestamp', 'created_at']))}
@@ -1185,12 +1164,11 @@ export default function PrinterDetailScreen() {
                   ))
                 ) : (
                   <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                    No recent HMS history is available from the current status or debug logs.
-                  </Text>
+                    {translateNative('native.a4fe44fc71d13f7d')}</Text>
                 )}
               </SectionCard>
 
-              <SectionCard title="AMS telemetry" subtitle="Recent AMS history samples for troubleshooting.">
+              <SectionCard title={translateNative('native.f6c278b651de58bd')} subtitle={translateNative('native.30153d55af9bc4f2')}>
                 {amsHistoryQuery.isLoading ? (
                   <ActivityIndicator color={colors.accent} />
                 ) : amsHistory.length > 0 ? (
@@ -1203,94 +1181,24 @@ export default function PrinterDetailScreen() {
                         <Text style={[styles.rowTitle, { color: colors.text }]}>
                           {formatDateTime(pickString(point, ['recorded_at']))}
                         </Text>
-                        <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
-                          Temp {pickString(point, ['temperature'], '—')}° · Humidity {pickString(point, ['humidity'], '—')}
-                        </Text>
+                        <Text style={[styles.rowMeta, { color: colors.textSecondary }]}><NativeTranslation id="native.ae809b3249f76a4f" values={{ value0: (pickString(point, ['temperature'], '—')), value1: (pickString(point, ['humidity'], '—')) }} /></Text>
                       </View>
                     </View>
                   ))
                 ) : (
                   <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                    No AMS history samples are available for this printer.
-                  </Text>
+                    {translateNative('native.d16452dbbdfee8c9')}</Text>
                 )}
               </SectionCard>
             </ScrollView>
             <View style={styles.modalActions}>
-              <PrimaryButton label="Close" onPress={() => setShowDebugModal(false)} />
+              <PrimaryButton label={translateNative('common.close')} onPress={() => setShowDebugModal(false)} />
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Edit Profile Modal */}
-      <Modal visible={showEditModal} transparent animationType="fade" onRequestClose={() => setShowEditModal(false)}>
-        <View style={[styles.editModalOverlay, { backgroundColor: colors.overlay }]}> 
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowEditModal(false)} />
-          <View style={[styles.editModalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
-            <View style={styles.editModalHeader}>
-              <View style={styles.editModalHeaderText}>
-                <Text style={[styles.editModalTitle, { color: colors.text }]}>Edit printer profile</Text>
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                  Update name, location, and notes.
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => setShowEditModal(false)}
-                style={[styles.editModalClose, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-              >
-                <X size={18} color={colors.text} strokeWidth={2} />
-              </Pressable>
-            </View>
-
-            <View style={{ gap: spacing.md }}>
-              <View style={styles.editField}>
-                <Text style={[styles.editLabel, { color: colors.textSecondary }]}>Name</Text>
-                <TextInput
-                  value={editName}
-                  onChangeText={setEditName}
-                  placeholder="Printer name"
-                  placeholderTextColor={colors.inputPlaceholder}
-                  style={[styles.editInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
-                />
-              </View>
-
-              <View style={styles.editField}>
-                <Text style={[styles.editLabel, { color: colors.textSecondary }]}>Location</Text>
-                <TextInput
-                  value={editLocation}
-                  onChangeText={setEditLocation}
-                  placeholder="Workshop, Office, Rack A…"
-                  placeholderTextColor={colors.inputPlaceholder}
-                  style={[styles.editInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
-                />
-              </View>
-
-              <View style={styles.editField}>
-                <Text style={[styles.editLabel, { color: colors.textSecondary }]}>Notes</Text>
-                <TextInput
-                  value={editNotes}
-                  onChangeText={setEditNotes}
-                  placeholder="Maintenance info, nozzle details, quirks…"
-                  placeholderTextColor={colors.inputPlaceholder}
-                  multiline
-                  style={[styles.editInputMultiline, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
-                />
-              </View>
-            </View>
-
-            <View style={styles.editModalActions}>
-              <PrimaryButton label="Cancel" variant="secondary" onPress={() => setShowEditModal(false)} />
-              <PrimaryButton
-                label={profileMutation.isPending ? 'Saving…' : 'Save'}
-                onPress={() => profileMutation.mutate({ name: editName, location: editLocation, notes: editNotes })}
-                disabled={!editName.trim() || profileMutation.isPending}
-                loading={profileMutation.isPending}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <EditPrinterModal visible={showEditModal} printer={printerQuery.data ?? null} onClose={() => setShowEditModal(false)} />
     </ScrollView>
   );
 }

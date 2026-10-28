@@ -1,0 +1,1167 @@
+{
+  "native.e9b673d8cc563c31": {
+    "english": "This factor affects the amount of material for filling the gaps.\n\nThe actual gap filling flow used is calculated by multiplying this value by the filament flow ratio, and if set, the object's flow ratio.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "gap_fill_flow_ratio.tooltip",
+        "source": "Read-only canonical metadata display field: gap_fill_flow_ratio.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.e9e4f88d8b6a8f64": {
+    "english": "Infill/wall overlap",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "infill_wall_overlap.label",
+        "source": "Read-only canonical metadata display field: infill_wall_overlap.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ea43e7ee2430845d": {
+    "english": "Tree Slim",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "support_style.enum_labels",
+        "source": "Read-only canonical metadata display field: support_style.enum_labels. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ea82e65cf84dc7a7": {
+    "english": "Wipe tower",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "wipe_tower_filament.label",
+        "source": "Read-only canonical metadata display field: wipe_tower_filament.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ea84f5a49e4a9cab": {
+    "english": "The maximum deviation allowed when reducing the resolution for the 'Maximum wall resolution' setting. If you increase this, the print will be less accurate, but the G-Code will be smaller. 'Maximum wall deviation' limits 'Maximum wall resolution', so if the two conflict, 'Maximum wall deviation' takes precedence.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "wall_maximum_deviation.tooltip",
+        "source": "Read-only canonical metadata display field: wall_maximum_deviation.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ec0278921d3a7bf4": {
+    "english": "Apply the reverse perimeters logic only on internal perimeters.\n\nThis setting greatly reduces part stresses as they are now distributed in alternating directions. This should reduce part warping while also maintaining external wall quality. This feature can be very useful for warp prone material, like ABS/ASA, and also for elastic filaments, like TPU and Silk PLA. It can also help reduce warping on floating regions over supports.\n\nFor this setting to be the most effective, it is recommended to set the Reverse Threshold to 0 so that all internal walls print in alternating directions on even layers irrespective of their overhang degree.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "overhang_reverse_internal_only.tooltip",
+        "source": "Read-only canonical metadata display field: overhang_reverse_internal_only.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ec04cbe87a833098": {
+    "english": "Wipe on loops",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "wipe_on_loops.label",
+        "source": "Read-only canonical metadata display field: wipe_on_loops.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ec9b08a95a5b2ad5": {
+    "english": "Rectilinear grid",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "support_base_pattern.enum_labels",
+        "source": "Read-only canonical metadata display field: support_base_pattern.enum_labels. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ecb443fe9d2f8179": {
+    "english": "Top/Bottom solid infill/wall overlap",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "top_bottom_infill_wall_overlap.label",
+        "source": "Read-only canonical metadata display field: top_bottom_infill_wall_overlap.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ecb4d75c9f929627": {
+    "english": "Internal bridge only",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "enable_extra_bridge_layer.enum_labels",
+        "source": "Read-only canonical metadata display field: enable_extra_bridge_layer.enum_labels. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ed82d882830054d7": {
+    "english": "Apply fuzzy skin to first layer",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "fuzzy_skin_first_layer.label",
+        "source": "Read-only canonical metadata display field: fuzzy_skin_first_layer.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ee1b14f1d2d48938": {
+    "english": "Use beam interlocking",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "interlocking_beam.label",
+        "source": "Read-only canonical metadata display field: interlocking_beam.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ee3791ad9e6d0371": {
+    "english": "Search for almost-circular holes that span more than one layer and convert the geometry to polyholes. Use the nozzle size and the (biggest) diameter to compute the polyhole.\nSee http://hydraraptor.blogspot.com/2011/02/polyholes.html",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "hole_to_polyhole.tooltip",
+        "source": "Read-only canonical metadata display field: hole_to_polyhole.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ee9296a14c7a2a91": {
+    "english": "Lightning overhang angle",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "lightning_overhang_angle.label",
+        "source": "Read-only canonical metadata display field: lightning_overhang_angle.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ef4b1af7578e0ce8": {
+    "english": "Printer not set",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/slicing/RunWithPipelineModal.tsx",
+        "line": 5,
+        "kind": "translation-default",
+        "owner": "issueCaptions",
+        "existingKey": "pipeline.issue.printerNotSet",
+        "source": "'Printer not set'"
+      }
+    ]
+  },
+  "native.ef72750770113303": {
+    "english": "Scarf joint seam (beta)",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "seam_slope_type.label",
+        "source": "Read-only canonical metadata display field: seam_slope_type.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f0ce99451c30f8ab": {
+    "english": "Apply scarf joints only to smooth perimeters where traditional seams do not conceal the seams at sharp corners effectively.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "seam_slope_conditional.tooltip",
+        "source": "Read-only canonical metadata display field: seam_slope_conditional.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f0d3954fa373d4fe": {
+    "english": "Maximum wipe tower print speed",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "wipe_tower_max_purge_speed.label",
+        "source": "Read-only canonical metadata display field: wipe_tower_max_purge_speed.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f0ff7c50835fc1ae": {
+    "english": "X-Y hole compensation",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "xy_hole_compensation.label",
+        "source": "Read-only canonical metadata display field: xy_hole_compensation.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f1742ffe7b5ae34f": {
+    "english": "Scarf joint flow ratio",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "scarf_joint_flow_ratio.label",
+        "source": "Read-only canonical metadata display field: scarf_joint_flow_ratio.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f18367ca5b120e03": {
+    "english": "Hollow",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "support_base_pattern.enum_labels",
+        "source": "Read-only canonical metadata display field: support_base_pattern.enum_labels. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f1937efbfedbb87a": {
+    "english": "This is the spacing of bottom interface lines. 0 means solid interface.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "support_bottom_interface_spacing.tooltip",
+        "source": "Read-only canonical metadata display field: support_bottom_interface_spacing.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f200ec8bf4575a4f": {
+    "english": "Combined - single skirt for all objects, Per object - individual object skirt.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "skirt_type.tooltip",
+        "source": "Read-only canonical metadata display field: skirt_type.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f22a63e99f9ee9e4": {
+    "english": "Honeycomb",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "sparse_infill_pattern.enum_labels",
+        "source": "Read-only canonical metadata display field: sparse_infill_pattern.enum_labels. Wire values and English search anchors must remain unchanged."
+      },
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "support_base_pattern.enum_labels",
+        "source": "Read-only canonical metadata display field: support_base_pattern.enum_labels. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f24bcac62df28bab": {
+    "english": "Mouse ear",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "brim_type.enum_labels",
+        "source": "Read-only canonical metadata display field: brim_type.enum_labels. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f2575b10c66a640b": {
+    "english": "Archimedean Chords",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "bottom_surface_pattern.enum_labels",
+        "source": "Read-only canonical metadata display field: bottom_surface_pattern.enum_labels. Wire values and English search anchors must remain unchanged."
+      },
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "internal_solid_infill_pattern.enum_labels",
+        "source": "Read-only canonical metadata display field: internal_solid_infill_pattern.enum_labels. Wire values and English search anchors must remain unchanged."
+      },
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "sparse_infill_pattern.enum_labels",
+        "source": "Read-only canonical metadata display field: sparse_infill_pattern.enum_labels. Wire values and English search anchors must remain unchanged."
+      },
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "top_surface_pattern.enum_labels",
+        "source": "Read-only canonical metadata display field: top_surface_pattern.enum_labels. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f2aa2897663e7057": {
+    "english": "Seam",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-ui-tree.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-ui-tree.json",
+        "existingKey": "page/group",
+        "source": "Read-only canonical metadata display field: page/group. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f2be4af331b4e032": {
+    "english": "Maximum wall deviation",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "wall_maximum_deviation.label",
+        "source": "Read-only canonical metadata display field: wall_maximum_deviation.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f3241e8b33d3e062": {
+    "english": "Ironing type",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "ironing_type.label",
+        "source": "Read-only canonical metadata display field: ironing_type.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f3656c5f8d03512f": {
+    "english": "This is the height for each layer. Smaller layer heights give greater accuracy but longer printing time.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "layer_height.tooltip",
+        "source": "Read-only canonical metadata display field: layer_height.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f38333f205a1782e": {
+    "english": "Wipe before external loop",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "wipe_before_external_loop.label",
+        "source": "Read-only canonical metadata display field: wipe_before_external_loop.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f38394ca2bc54fc9": {
+    "english": "Acceleration of internal solid infill. If the value is expressed as a percentage (e.g. 100%), it will be calculated based on the default acceleration.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "internal_solid_infill_acceleration.tooltip",
+        "source": "Read-only canonical metadata display field: internal_solid_infill_acceleration.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f38da3deae398fde": {
+    "english": "A draft shield is useful to protect an ABS or ASA print from warping and detaching from print bed due to wind draft. It is usually needed only with open frame printers, i.e. without an enclosure.\n\nEnabled = skirt is as tall as the highest printed object. Otherwise 'Skirt height' is used.\nNote: With the draft shield active, the skirt will be printed at skirt distance from the object. Therefore, if brims are active it may intersect with them. To avoid this, increase the skirt distance value.\n",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "draft_shield.tooltip",
+        "source": "Read-only canonical metadata display field: draft_shield.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f3b300ecee799348": {
+    "english": "This is the printing speed for the outer walls of parts. These are generally printed slower than inner walls for higher quality.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "outer_wall_speed.tooltip",
+        "source": "Read-only canonical metadata display field: outer_wall_speed.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f3ea39005d243801": {
+    "english": "Ignore small overhangs that possibly don't require support.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "support_remove_small_overhang.tooltip",
+        "source": "Read-only canonical metadata display field: support_remove_small_overhang.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f4604fbc6acc22b3": {
+    "english": "Internal solid infill flow ratio",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "internal_solid_infill_flow_ratio.label",
+        "source": "Read-only canonical metadata display field: internal_solid_infill_flow_ratio.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f463897bfd46b53b": {
+    "english": "Support interface",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "support_interface_speed.label",
+        "source": "Read-only canonical metadata display field: support_interface_speed.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f47799d04ca94f8d": {
+    "english": "Travel jerk of first layer.\nThe percentage value is relative to Travel Jerk.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "initial_layer_travel_jerk.tooltip",
+        "source": "Read-only canonical metadata display field: initial_layer_travel_jerk.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f4b7dfcda1bb5f62": {
+    "english": "Wall generator",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "wall_generator.label",
+        "source": "Read-only canonical metadata display field: wall_generator.label. Wire values and English search anchors must remain unchanged."
+      },
+      {
+        "file": "src/data/slicer/process-ui-tree.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-ui-tree.json",
+        "existingKey": "page/group",
+        "source": "Read-only canonical metadata display field: page/group. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f4c877ffe32f9055": {
+    "english": "Don't support bridges",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "bridge_no_support.label",
+        "source": "Read-only canonical metadata display field: bridge_no_support.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f527b09afc850fd8": {
+    "english": "This allows the infill area to be enlarged slightly to overlap with walls for better bonding. The percentage value is relative to line width of sparse infill. Set this value to ~10-15% to minimize potential over extrusion and accumulation of material resulting in rough top surfaces.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "infill_wall_overlap.tooltip",
+        "source": "Read-only canonical metadata display field: infill_wall_overlap.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f591fa8cfef60a97": {
+    "english": "Maximum length of the infill anchor",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "infill_anchor_max.label",
+        "source": "Read-only canonical metadata display field: infill_anchor_max.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f5adcfb8fe431632": {
+    "english": "Scarf joint for inner walls",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "seam_slope_inner_walls.label",
+        "source": "Read-only canonical metadata display field: seam_slope_inner_walls.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f6399a46d70d2ea1": {
+    "english": "Minimum wall width",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "min_bead_width.label",
+        "source": "Read-only canonical metadata display field: min_bead_width.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f6cc321c33563678": {
+    "english": "Wall loop direction",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "wall_direction.label",
+        "source": "Read-only canonical metadata display field: wall_direction.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f716975a30110818": {
+    "english": "This determines the print sequence, allowing you to print layer-by-layer or object-by-object.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "print_sequence.tooltip",
+        "source": "Read-only canonical metadata display field: print_sequence.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f761e3686a4cd0b3": {
+    "english": "Expands the top surfaces by this distance to connect distinct top surfaces and fill gaps.\nUseful for cases where the top surface is interrupted by a raised feature, such as text on a plane. Expanding it removes the holes beneath these features and creates a continuous path with a better finish for printing on top. The expansion is applied to the original top surface, before any other processing such as bridging or overhang detection.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "top_surface_expansion.tooltip",
+        "source": "Read-only canonical metadata display field: top_surface_expansion.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f77b3e262ce0ed93": {
+    "english": "Z contouring enabled",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "zaa_enabled.label",
+        "source": "Read-only canonical metadata display field: zaa_enabled.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f791784f8aaaec93": {
+    "english": "Nearest",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "seam_position.enum_labels",
+        "source": "Read-only canonical metadata display field: seam_position.enum_labels. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f7af079044b01f9b": {
+    "english": "This is the speed for internal solid infill, not including the top or bottom surface.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "internal_solid_infill_speed.tooltip",
+        "source": "Read-only canonical metadata display field: internal_solid_infill_speed.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f82a26765e2b1b35": {
+    "english": "Skirt start point",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "skirt_start_angle.label",
+        "source": "Read-only canonical metadata display field: skirt_start_angle.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f8a890f3f6030bf9": {
+    "english": "Chooses where the centering point of centered top/bottom surface patterns (Archimedean Chords, Octagram Spiral) is placed.\n - Each Surface: centers the pattern on every individual surface region, so each island is symmetric on its own.\n - Each Model: centers the pattern on each connected body. Parts that touch or overlap share one center; parts detached from the rest each get their own.\n - Each Assembly: uses a single shared center for the whole object or assembly.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "center_of_surface_pattern.tooltip",
+        "source": "Read-only canonical metadata display field: center_of_surface_pattern.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f8bd33c9abcfe0aa": {
+    "english": "Print charge",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FinanceScreen.tsx",
+        "line": 10,
+        "kind": "translation-default",
+        "owner": "financeCaptions",
+        "existingKey": "finance.enum.printCharge",
+        "source": "'Print charge'"
+      }
+    ]
+  },
+  "native.f8dcbd9b03be3528": {
+    "english": "Enable internal ribs to increase the stability of the prime tower.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "prime_tower_enable_framework.tooltip",
+        "source": "Read-only canonical metadata display field: prime_tower_enable_framework.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f944d07e95eea96f": {
+    "english": "Strength",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-ui-tree.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-ui-tree.json",
+        "existingKey": "page/group",
+        "source": "Read-only canonical metadata display field: page/group. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f9487b7a976f5f96": {
+    "english": "This is the amount of material to be extruded during ironing. It is relative to the flow of normal layer height. Too high a value will result in overextrusion on the surface.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "ironing_flow.tooltip",
+        "source": "Read-only canonical metadata display field: ironing_flow.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.f9ac194427d23149": {
+    "english": "Z-buckling bias optimization (experimental)",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "gyroid_optimized.label",
+        "source": "Read-only canonical metadata display field: gyroid_optimized.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fa5ef0008c4422e5": {
+    "english": "Noise type to use for fuzzy skin generation:\nClassic: Classic uniform random noise.\nPerlin: Perlin noise, which gives a more consistent texture.\nBillow: Similar to perlin noise, but clumpier.\nRidged Multifractal: Ridged noise with sharp, jagged features. Creates marble-like textures.\nVoronoi: Divides the surface into voronoi cells, and displaces each one by a random amount. Creates a patchwork texture.\nRipple: Uniform ripple pattern that ripples left and right of the original path. Repeating pattern, woven appearance.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "fuzzy_skin_noise_type.tooltip",
+        "source": "Read-only canonical metadata display field: fuzzy_skin_noise_type.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fa6158ccf6dab4c8": {
+    "english": "Filament to print outer walls.\n\"Default\" uses the active object/part filament.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "outer_wall_filament_id.tooltip",
+        "source": "Read-only canonical metadata display field: outer_wall_filament_id.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fa61926b5872a143": {
+    "english": "This setting makes the toolhead randomly jitter while printing walls so that the surface has a rough textured look. This setting controls the fuzzy position.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "fuzzy_skin.tooltip",
+        "source": "Read-only canonical metadata display field: fuzzy_skin.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fa75d96446d510cb": {
+    "english": "Density of internal sparse infill, 100% turns all sparse infill into solid infill and internal solid infill pattern will be used.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "sparse_infill_density.tooltip",
+        "source": "Read-only canonical metadata display field: sparse_infill_density.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fa8d72b58aa27eb8": {
+    "english": "Intra-layer order",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "print_order.label",
+        "source": "Read-only canonical metadata display field: print_order.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fac8c0a114ca1e81": {
+    "english": "When transitioning between different numbers of walls as the part becomes thinner, a certain amount of space is allotted to split or join the wall segments. It\\'s expressed as a percentage over nozzle diameter.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "wall_transition_length.tooltip",
+        "source": "Read-only canonical metadata display field: wall_transition_length.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fb05d1229393c547": {
+    "english": "This is the angle for sparse infill pattern, which controls the start or main direction of lines.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "infill_direction.tooltip",
+        "source": "Read-only canonical metadata display field: infill_direction.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fb2b32583057c202": {
+    "english": "mm³/s²",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "max_volumetric_extrusion_rate_slope.sidetext",
+        "source": "Read-only canonical metadata display field: max_volumetric_extrusion_rate_slope.sidetext. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fb8af2ddeb13036e": {
+    "english": "The classic wall generator produces walls with constant extrusion width and for very thin areas, gap-fill is used. The Arachne engine produces walls with variable extrusion width.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "wall_generator.tooltip",
+        "source": "Read-only canonical metadata display field: wall_generator.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fc113f5db8fa17d0": {
+    "english": "This option causes the inner seams to be shifted backwards based on their depth, forming a zigzag pattern.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "staggered_inner_seams.tooltip",
+        "source": "Read-only canonical metadata display field: staggered_inner_seams.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fd0822293fba6c10": {
+    "english": "Extra perimeters on overhangs",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "extra_perimeters_on_overhangs.label",
+        "source": "Read-only canonical metadata display field: extra_perimeters_on_overhangs.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fd112391376c634c": {
+    "english": "Outer/Inner",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "wall_sequence.enum_labels",
+        "source": "Read-only canonical metadata display field: wall_sequence.enum_labels. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fd49a57404c41805": {
+    "english": "Avoid using support interface filament to print support base if possible.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "support_interface_not_for_body.tooltip",
+        "source": "Read-only canonical metadata display field: support_interface_not_for_body.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fd8960c9361a76a6": {
+    "english": "Purging after filament change will be done inside objects\\' infills. This may lower the amount of waste and decrease the print time. If the walls are printed with transparent filament, the mixed color infill will be visible. It will not take effect unless the prime tower is enabled.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "flush_into_infill.tooltip",
+        "source": "Read-only canonical metadata display field: flush_into_infill.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fd8d7ed8e5da123c": {
+    "english": "Support interface flow ratio",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "support_interface_flow_ratio.label",
+        "source": "Read-only canonical metadata display field: support_interface_flow_ratio.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.fe139c2272165f0d": {
+    "english": "Tightens the gyroid wave along the Z (vertical) axis at low infill density to shorten the effective vertical column length and improve Z-axis compression buckling resistance. Filament use is preserved. No effect at ~30% sparse infill density and above. Only applies when Sparse infill pattern is set to Gyroid.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "gyroid_optimized.tooltip",
+        "source": "Read-only canonical metadata display field: gyroid_optimized.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.feb1868f5574356a": {
+    "english": "Fixed angle for the bottom solid infill lines.\nSet to -1 to follow the default solid infill direction.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "bottom_layer_direction.tooltip",
+        "source": "Read-only canonical metadata display field: bottom_layer_direction.tooltip. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  },
+  "native.ffa8d4159d23145c": {
+    "english": "Wall transitioning filter margin",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/data/slicer/process-schema.json",
+        "line": 0,
+        "kind": "static-metadata-caption",
+        "owner": "process-schema.json",
+        "existingKey": "wall_transition_filter_deviation.label",
+        "source": "Read-only canonical metadata display field: wall_transition_filter_deviation.label. Wire values and English search anchors must remain unchanged."
+      }
+    ]
+  }
+}

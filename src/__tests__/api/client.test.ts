@@ -1,4 +1,4 @@
-import { ApiError, api, setAuthToken, request, DEFAULT_TIMEOUT_MS } from '@/api/client';
+import { ApiError, api, getAuthToken, loadAuthToken, setAuthToken, request, DEFAULT_TIMEOUT_MS } from '@/api/client';
 import { useServerStore } from '@/api/server';
 import * as Keychain from 'react-native-keychain';
 
@@ -97,13 +97,8 @@ describe('api client', () => {
     {
       name: 'testGitHubBackupConnection',
       call: () => api.testGitHubBackupConnection('https://github.com/octo/repo', 'pat-secret'),
-      endpoint: '/github-backup/test',
+      endpoint: '/github-backup/test?repo_url=https%3A%2F%2Fgithub.com%2Focto%2Frepo&token=pat-secret&provider=github',
       method: 'POST',
-      body: {
-        repo_url: 'https://github.com/octo/repo',
-        token: 'pat-secret',
-        provider: 'github',
-      },
       response: { ok: true },
     },
   ])('sends the correct auth request for $name', async ({ call, endpoint, method, body, response }) => {
@@ -168,7 +163,6 @@ describe('api client', () => {
       endpoint: '/queue/reorder',
       method: 'POST',
       body: {
-        item_ids: [10, 12],
         items: [
           { id: 10, position: 1 },
           { id: 12, position: 2 },
@@ -181,15 +175,14 @@ describe('api client', () => {
       call: () =>
         api.bulkUpdateQueue({
           item_ids: [10, 12],
-          update: { status: 'cancelled', manual_start: true },
+          update: { bed_levelling: 'auto', manual_start: true },
         }),
       endpoint: '/queue/bulk',
       method: 'PATCH',
       body: {
         item_ids: [10, 12],
-        status: 'cancelled',
+        bed_levelling: 'auto',
         manual_start: true,
-        update: { status: 'cancelled', manual_start: true },
       },
       response: { updated: 2 },
     },
@@ -410,6 +403,25 @@ describe('api client', () => {
       { service: 'bambuddy-auth-token:https://bambuddy.test' },
     );
   });
+
+  it('keeps session-only tokens in memory and removes previously remembered credentials', async () => {
+    const keychain = Keychain as jest.Mocked<typeof Keychain>;
+    keychain.setGenericPassword.mockClear();
+    keychain.resetGenericPassword.mockClear();
+    mockFetch.mockResolvedValue(createResponse({ token: 'media-token' }));
+    await setAuthToken('session-only-token', false);
+    expect(keychain.setGenericPassword).not.toHaveBeenCalled();
+    expect(keychain.resetGenericPassword).toHaveBeenCalledWith({ service: 'bambuddy-auth-token:https://bambuddy.test' });
+    expect(getAuthToken()).toBe('session-only-token');
+    expect(await loadAuthToken()).toBe('session-only-token');
+  });
+
+  it('does not silently claim session-only sign-in when saved credentials cannot be removed', async () => {
+    const keychain = Keychain as jest.Mocked<typeof Keychain>;
+    keychain.resetGenericPassword.mockRejectedValueOnce(new Error('Keychain unavailable'));
+    await expect(setAuthToken('session-only-token', false)).rejects.toThrow('Unable to remove previously saved credentials');
+    expect(getAuthToken()).toBeNull();
+  });
 });
 
 describe('request timeouts and JSON guard', () => {
@@ -428,6 +440,35 @@ describe('request timeouts and JSON guard', () => {
   afterEach(async () => {
     jest.useRealTimers();
     await setAuthToken(null);
+  });
+
+  it('lets server-supervised preview slices exceed the normal request timeout', async () => {
+    mockFetch.mockImplementation((_url: string, options?: RequestInit) =>
+      new Promise<Response>(resolve => {
+        expect(options?.signal?.aborted).toBe(false);
+        setTimeout(() => resolve(createResponse({ filaments: [] })), 120_000);
+      }),
+    );
+    const result = request('/library/files/7/filament-requirements', {}, null);
+    jest.advanceTimersByTime(120_000);
+    await expect(result).resolves.toEqual({ filaments: [] });
+  });
+
+  it('still cancels an unbounded preview when its caller leaves the source', async () => {
+    const controller = new AbortController();
+    mockFetch.mockImplementation((_url: string, options?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        options?.signal?.addEventListener('abort', () => {
+          const error = new Error('Aborted by caller');
+          error.name = 'AbortError';
+          reject(error);
+        });
+      }),
+    );
+    const result = request('/library/files/7/filament-requirements', { signal: controller.signal }, null);
+    jest.advanceTimersByTime(DEFAULT_TIMEOUT_MS * 2);
+    controller.abort();
+    await expect(result).rejects.toMatchObject({ name: 'AbortError', message: 'Aborted by caller' });
   });
 
   it('rejects with a timeout ApiError when server does not respond within DEFAULT_TIMEOUT_MS', async () => {

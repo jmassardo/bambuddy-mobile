@@ -1,0 +1,226 @@
+{
+  "native.2d913d867f277f9f": {
+    "english": "profile description",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/archives/ArchiveDetailTools.tsx",
+        "line": 79,
+        "kind": "ui-label-dictionary",
+        "owner": "fieldLabels",
+        "source": "'profile description'"
+      }
+    ]
+  },
+  "native.305fc440b54b012d": {
+    "english": "core weight catalog id",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/InventoryScreen.tsx",
+        "line": 87,
+        "kind": "ui-label-dictionary",
+        "owner": "INVENTORY_FILTER_LABELS",
+        "source": "'core weight catalog id'"
+      }
+    ]
+  },
+  "native.5961942f6e49487f": {
+    "english": "Month",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FilesScreen.tsx",
+        "line": 145,
+        "kind": "ui-label-dictionary",
+        "owner": "FILE_FILTER_LABELS",
+        "source": "'Month'"
+      }
+    ]
+  },
+  "native.5aebee33930209dc": {
+    "english": "Uploaded",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 12,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Uploaded'"
+      }
+    ]
+  },
+  "native.71f4d2b393acbd02": {
+    "english": "Week",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FilesScreen.tsx",
+        "line": 145,
+        "kind": "ui-label-dictionary",
+        "owner": "FILE_FILTER_LABELS",
+        "source": "'Week'"
+      }
+    ]
+  },
+  "native.7bfa836d448c26ad": {
+    "english": "designer",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/archives/ArchiveDetailTools.tsx",
+        "line": 75,
+        "kind": "ui-label-dictionary",
+        "owner": "fieldLabels",
+        "source": "'designer'"
+      }
+    ]
+  },
+  "native.ade29f565b1a8f18": {
+    "english": "title",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/archives/ArchiveDetailTools.tsx",
+        "line": 74,
+        "kind": "ui-label-dictionary",
+        "owner": "fieldLabels",
+        "source": "'title'"
+      },
+      {
+        "file": "src/components/archives/ArchiveDetailTools.tsx",
+        "line": 74,
+        "kind": "ui-object-label",
+        "owner": "fieldLabels",
+        "source": "'title'"
+      }
+    ]
+  },
+  "native.b05d1f6ce84f8410": {
+    "english": "Medium",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FilesScreen.tsx",
+        "line": 146,
+        "kind": "ui-label-dictionary",
+        "owner": "FILE_FILTER_LABELS",
+        "source": "'Medium'"
+      }
+    ]
+  },
+  "native.b163c1549f81a04f": {
+    "english": "profile title",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/archives/ArchiveDetailTools.tsx",
+        "line": 78,
+        "kind": "ui-label-dictionary",
+        "owner": "fieldLabels",
+        "source": "'profile title'"
+      }
+    ]
+  },
+  "native.bb26049e82c8e724": {
+    "english": "Small",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FilesScreen.tsx",
+        "line": 146,
+        "kind": "ui-label-dictionary",
+        "owner": "FILE_FILTER_LABELS",
+        "source": "'Small'"
+      }
+    ]
+  },
+  "native.c691b8219b077f90": {
+    "english": "material number",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/InventoryScreen.tsx",
+        "line": 87,
+        "kind": "ui-label-dictionary",
+        "owner": "INVENTORY_FILTER_LABELS",
+        "source": "'material number'"
+      }
+    ]
+  },
+  "native.d87ef69215c625eb": {
+    "english": "license",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/archives/ArchiveDetailTools.tsx",
+        "line": 76,
+        "kind": "ui-label-dictionary",
+        "owner": "fieldLabels",
+        "source": "'license'"
+      }
+    ]
+  },
+  "native.db579643a2c06c8e": {
+    "english": "location id",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/InventoryScreen.tsx",
+        "line": 88,
+        "kind": "ui-label-dictionary",
+        "owner": "INVENTORY_FILTER_LABELS",
+        "source": "'location id'"
+      }
+    ]
+  },
+  "native.f38e87166ac410c8": {
+    "english": "description",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/archives/ArchiveDetailTools.tsx",
+        "line": 77,
+        "kind": "ui-label-dictionary",
+        "owner": "fieldLabels",
+        "source": "'description'"
+      },
+      {
+        "file": "src/components/archives/ArchiveDetailTools.tsx",
+        "line": 77,
+        "kind": "ui-object-label",
+        "owner": "fieldLabels",
+        "source": "'description'"
+      }
+    ]
+  },
+  "native.f66ae6051562fb7d": {
+    "english": "Large",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FilesScreen.tsx",
+        "line": 146,
+        "kind": "ui-label-dictionary",
+        "owner": "FILE_FILTER_LABELS",
+        "source": "'Large'"
+      }
+    ]
+  }
+}

@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React from 'react';
 import { CheckCircle, Move, Pencil, RotateCcw, Trash2, Wrench, X } from 'lucide-react-native';
 import { ActionSheetModal, type ActionSheetAction } from '@/components/common/ActionSheetModal';
@@ -7,6 +9,7 @@ import { MoveControlsModal } from '@/components/printers/MoveControlsModal';
 import { SkipObjectsModal } from '@/components/printers/SkipObjectsModal';
 import { TrayDetailModal } from '@/components/printers/TrayDetailModal';
 import { useTheme } from '@/theme';
+
 import type { HMSError, MaintenanceStatus, Printer } from '@/types/api';
 import type { SelectedTray } from '@/components/printers/PrinterCard.types';
 
@@ -77,19 +80,21 @@ export function PrinterCardDialogs({
   onCloseCalibrateSheet,
   onCloseMoreSheet,
 }: PrinterCardDialogsProps) {
+  useNativeLocale();
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const maintenanceTitle = maintenanceModeTarget
-    ? 'Disable maintenance mode'
-    : 'Enable maintenance mode';
+    ? translateNative('native.23c7f8fe03169d26')
+    : translateNative('native.4ccdcd0ec3e25a51');
   const maintenanceSubtitle = maintenanceModeTarget
-    ? `${printer.name} will return to active service.`
-    : `${printer.name} will stop accepting normal printer actions until maintenance mode is disabled.`;
+    ? translateNative('native.b3eac0d4bf3d2704', { value0: String(printer.name) })
+    : translateNative('native.ca10030e0dff733f', { value0: String(printer.name) });
   const maintenanceItemSubtitle =
     selectedMaintenanceItem == null
       ? undefined
       : selectedMaintenanceItem.is_due
-        ? 'This task is overdue. Mark as completed?'
-        : `This task is due soon (${selectedMaintenanceItem.interval_type === 'days' ? `${selectedMaintenanceItem.days_until_due ?? 0} days left` : `${Math.round(selectedMaintenanceItem.hours_until_due)}h left`}). Mark as completed?`;
+        ? translateNative('native.990ec1a5a0ea2465')
+        : translateNative('native.b1c1a1967e180078', { value0: String(selectedMaintenanceItem.interval_type === 'days' ? translateNative('native.8c7440ee660a4ee7', { value0: String(selectedMaintenanceItem.days_until_due ?? 0) }) : translateNative('native.9151531b4eedd411', { value0: String(Math.round(selectedMaintenanceItem.hours_until_due)) })) });
 
   return (
     <>
@@ -132,8 +137,8 @@ export function PrinterCardDialogs({
 
       <ActionSheetModal
         visible={showSpeedSheet}
-        title="Print speed"
-        subtitle="Choose a print speed."
+        title={translateNative('native.e995e9dc044f397a')}
+        subtitle={translateNative('native.0563b5c522129d1e')}
         onClose={onCloseSpeedSheet}
         actions={speedActions}
       />
@@ -148,15 +153,15 @@ export function PrinterCardDialogs({
 
       <ActionSheetModal
         visible={deleteSheetVisible}
-        title="Delete printer"
-        subtitle={`Delete ${printer.name}? This cannot be undone.`}
+        title={translateNative('native.1412aa7b38351bde')}
+        subtitle={t('fleet.deleteExplanation', { defaultValue: 'Delete {{printer}}? Choose whether to keep its archives or permanently delete them too. Cancellation changes nothing.', printer: printer.name })}
         onClose={onCloseDeleteSheet}
         actions={deleteActions}
       />
 
       <ActionSheetModal
         visible={selectedMaintenanceItem != null}
-        title={selectedMaintenanceItem?.maintenance_type_name ?? 'Maintenance'}
+        title={selectedMaintenanceItem?.maintenance_type_name ?? translateNative('nav.maintenance')}
         subtitle={maintenanceItemSubtitle}
         onClose={onCloseMaintenanceItemSheet}
         actions={maintenanceItemActions}
@@ -164,8 +169,8 @@ export function PrinterCardDialogs({
 
       <ActionSheetModal
         visible={calibrateSheetVisible}
-        title="Calibration"
-        subtitle="Choose a printer homing action."
+        title={translateNative('native.d508e0a93ba56db2')}
+        subtitle={translateNative('native.23ce27b677bdbf92')}
         onClose={onCloseCalibrateSheet}
         actions={calibrateActions}
       />
@@ -173,7 +178,7 @@ export function PrinterCardDialogs({
       <ActionSheetModal
         visible={moreSheetVisible}
         title={printer.name}
-        subtitle={printer.model || 'Printer options'}
+        subtitle={printer.model || translateNative('native.485dd7e50a2b0015')}
         onClose={onCloseMoreSheet}
         actions={moreActions.map(action => {
           if (action.label === 'Edit') {

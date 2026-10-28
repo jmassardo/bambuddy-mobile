@@ -1,4 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -21,8 +24,10 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { Archive, Printer, Project } from '@/types/api';
+import { validateArchiveQuantities } from '@/utils/archiveWorkflows';
+import { WorkflowChip as Chip } from './ArchiveWorkflowUI';
 
-const ARCHIVE_STATUSES = ['completed', 'failed', 'aborted', 'printing'] as const;
+const ARCHIVE_STATUSES = ['completed', 'failed', 'aborted', 'printing', 'archived', 'cancelled', 'stopped', 'paused', 'skipped'] as const;
 const FAILURE_REASONS = [
   'adhesionFailure',
   'spaghettiDetached',
@@ -53,7 +58,7 @@ interface SelectOption {
   helper?: string;
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
@@ -98,6 +103,7 @@ function SelectField({
   onToggle: () => void;
   onSelect: (value: SelectorValue) => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -153,6 +159,7 @@ export function EditArchiveModal({
   onClose,
   onSaved,
 }: EditArchiveModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -168,6 +175,9 @@ export function EditArchiveModal({
   const [quantity, setQuantity] = useState('1');
   const [photos, setPhotos] = useState<string[]>([]);
   const [externalUrl, setExternalUrl] = useState('');
+  const [filamentGrams, setFilamentGrams] = useState('');
+  const [verdict, setVerdict] = useState<'good' | 'reject' | null>(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!archive || !visible) return;
@@ -180,7 +190,10 @@ export function EditArchiveModal({
       ? archive.status
       : 'completed') as (typeof ARCHIVE_STATUSES)[number]);
     setFailureReason(archive.failure_reason ?? '');
-    setQuantity(String(Math.max(1, archive.quantity ?? 1)));
+    setQuantity(String(archive.quantity ?? 1));
+    setFilamentGrams(archive.filament_used_grams == null ? '' : String(archive.filament_used_grams));
+    const storedVerdict = (archive as unknown as { user_verdict?: 'good' | 'reject' | null }).user_verdict;
+    setVerdict(storedVerdict ?? null);
     setPhotos(archive.photos ?? []);
     setExternalUrl(archive.external_url ?? '');
     setActiveSelector(null);
@@ -205,30 +218,30 @@ export function EditArchiveModal({
     enabled: visible,
   });
 
-  const printers = useMemo(
+  const printers = useLocalizedMemo(
     () =>
       (Array.isArray(printersQuery.data)
         ? [...(printersQuery.data as unknown as Printer[])].sort((a, b) => a.name.localeCompare(b.name))
         : []),
     [printersQuery.data],
   );
-  const projects = useMemo(
+  const projects = useLocalizedMemo(
     () =>
       (Array.isArray(projectsQuery.data)
         ? [...(projectsQuery.data as unknown as Project[])].sort((a, b) => a.name.localeCompare(b.name))
         : []),
     [projectsQuery.data],
   );
-  const tagNames = useMemo(
+  const tagNames = useLocalizedMemo(
     () => (Array.isArray(tagsQuery.data) ? tagsQuery.data.map(tag => tag.name) : []),
     [tagsQuery.data],
   );
-  const tagList = useMemo(() => normalizeTags(tags), [tags]);
-  const currentTagInput = useMemo(() => {
+  const tagList = useLocalizedMemo(() => normalizeTags(tags), [tags]);
+  const currentTagInput = useLocalizedMemo(() => {
     const parts = tags.split(',');
     return parts[parts.length - 1]?.trim().toLowerCase() ?? '';
   }, [tags]);
-  const tagSuggestions = useMemo(
+  const tagSuggestions = useLocalizedMemo(
     () =>
       tagNames.filter(tag => {
         const lower = tag.toLowerCase();
@@ -253,8 +266,8 @@ export function EditArchiveModal({
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!archive) throw new Error('Archive unavailable');
-      const parsedQuantity = Math.max(1, Number.parseInt(quantity, 10) || 1);
+      if (!archive) throw new Error(translateNative('native.e6be5c36d55115b3'));
+      const quantities = validateArchiveQuantities(quantity, filamentGrams, t);
       return api.updateArchive(archive.id, {
         print_name: printName.trim() || null,
         printer_id: printerId,
@@ -262,39 +275,40 @@ export function EditArchiveModal({
         notes: notes.trim() || null,
         tags: tagList.join(', ') || null,
         status,
-        failure_reason: status === 'failed' || status === 'aborted' ? failureReason || null : null,
-        quantity: parsedQuantity,
+        failure_reason: status === 'failed' || status === 'aborted' || verdict === 'reject' ? failureReason || null : null,
+        ...quantities,
+        ...(status === 'completed' && verdict !== (archive.user_verdict ?? null) ? { user_verdict: verdict, user_verdict_source: 'dialog' } : {}),
         external_url: externalUrl.trim() || null,
       });
     },
     onSuccess: async () => {
       await invalidateArchiveQueries();
-      showToast('Archive updated.', 'success');
+      showToast(nativeMessage('native.263bbce85bde3aef'), 'success');
       onSaved?.();
       onClose();
     },
-    onError: error => showToast(getErrorMessage(error, 'Unable to update archive.'), 'error'),
+    onError: error => showToast(getErrorMessage(error, nativeMessage('native.2209c790c4b8ea65')), 'error'),
   });
 
   const uploadPhotoMutation = useMutation({
     mutationFn: async (asset: Asset) => {
-      if (!archive) throw new Error('Archive unavailable');
+      if (!archive) throw new Error(translateNative('native.e6be5c36d55115b3'));
       const file = assetToUpload(asset);
-      if (!file) throw new Error('Selected image is unavailable');
+      if (!file) throw new Error(translateNative('native.9e62fcda42958ceb'));
       await api.uploadArchivePhoto(archive.id, file);
       return api.getArchivePhotos(archive.id);
     },
     onSuccess: async nextPhotos => {
       setPhotos(nextPhotos);
       await invalidateArchiveQueries();
-      showToast('Photo uploaded.', 'success');
+      showToast(nativeMessage('native.7b1106f0bfc4156f'), 'success');
     },
-    onError: error => showToast(getErrorMessage(error, 'Unable to upload photo.'), 'error'),
+    onError: error => showToast(getErrorMessage(error, nativeMessage('native.c450951dfd4a358d')), 'error'),
   });
 
   const deletePhotoMutation = useMutation({
     mutationFn: async (photo: string) => {
-      if (!archive) throw new Error('Archive unavailable');
+      if (!archive) throw new Error(translateNative('native.e6be5c36d55115b3'));
       await api.deleteArchivePhoto(archive.id, photo);
       return api.getArchivePhotos(archive.id);
     },
@@ -302,9 +316,9 @@ export function EditArchiveModal({
       setPhotos(nextPhotos);
       setPendingPhotoDelete(null);
       await invalidateArchiveQueries();
-      showToast('Photo removed.', 'success');
+      showToast(nativeMessage('native.fe5b6b06f65e3dd4'), 'success');
     },
-    onError: error => showToast(getErrorMessage(error, 'Unable to remove photo.'), 'error'),
+    onError: error => showToast(getErrorMessage(error, nativeMessage('native.7b4fada8f2819f53')), 'error'),
   });
 
   const handlePhotoPick = async (source: 'camera' | 'gallery') => {
@@ -321,12 +335,12 @@ export function EditArchiveModal({
       }
       const asset = result.assets?.[0];
       if (!asset) {
-        showToast('No photo was selected.', 'warning');
+        showToast(nativeMessage('native.d6a3777d24ec7466'), 'warning');
         return;
       }
       uploadPhotoMutation.mutate(asset);
     } catch (error) {
-      showToast(getErrorMessage(error, 'Unable to open the image picker.'), 'error');
+      showToast(getErrorMessage(error, nativeMessage('native.57a0bea0571bde29')), 'error');
     }
   };
 
@@ -344,7 +358,7 @@ export function EditArchiveModal({
 
   const selectionOptions: Record<Exclude<SelectorKey, null>, SelectOption[]> = {
     printer: [
-      { label: 'No printer', value: null },
+      { get label() { return translateNative('native.bbad1fcfe1f97009'); }, value: null },
       ...printers.map(printer => ({
         label: printer.name,
         value: printer.id,
@@ -352,7 +366,7 @@ export function EditArchiveModal({
       })),
     ],
     project: [
-      { label: 'No project', value: null },
+      { get label() { return translateNative('native.d9e7e5742ee28212'); }, value: null },
       ...projects.map(project => ({
         label: project.name,
         value: project.id,
@@ -361,7 +375,7 @@ export function EditArchiveModal({
     ],
     status: ARCHIVE_STATUSES.map(value => ({ label: titleCase(value), value })),
     failureReason: [
-      { label: 'No failure reason', value: null },
+      { get label() { return translateNative('native.2ef2687d5533a329'); }, value: null },
       ...FAILURE_REASONS.map(value => ({ label: titleCase(value), value })),
     ],
   };
@@ -408,8 +422,8 @@ export function EditArchiveModal({
             >
               <View style={styles.header}>
                 <View style={styles.headerText}>
-                  <Text style={[styles.title, { color: colors.text }]}>Edit archive</Text>
-                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Update print details, failure notes, tags, and attached photos.</Text>
+                  <Text style={[styles.title, { color: colors.text }]}>{translateNative('native.22636471158cb125')}</Text>
+                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{translateNative('native.88568da902e5ab41')}</Text>
                 </View>
                 <Pressable
                   onPress={onClose}
@@ -424,16 +438,16 @@ export function EditArchiveModal({
 
               <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <TextField
-                  label="Print name"
+                  label={translateNative('native.861e032040547eee')}
                   value={printName}
                   onChangeText={setPrintName}
-                  placeholder="Print name"
+                  placeholder={translateNative('native.861e032040547eee')}
                 />
 
                 <SelectField
-                  label="Printer"
+                  label={translateNative('screen.printer')}
                   value={currentPrinter?.name ?? ''}
-                  placeholder={printersQuery.isLoading ? 'Loading printers…' : 'Select a printer'}
+                  placeholder={printersQuery.isLoading ? translateNative('native.5172319c7d271115') : translateNative('native.e79e94e277427366')}
                   open={activeSelector === 'printer'}
                   options={selectionOptions.printer}
                   onToggle={() => setActiveSelector(current => (current === 'printer' ? null : 'printer'))}
@@ -441,9 +455,9 @@ export function EditArchiveModal({
                 />
 
                 <SelectField
-                  label="Project"
+                  label={translateNative('screen.project')}
                   value={currentProject?.name ?? ''}
-                  placeholder={projectsQuery.isLoading ? 'Loading projects…' : 'Select a project'}
+                  placeholder={projectsQuery.isLoading ? translateNative('native.12593164867ec279') : translateNative('native.4ff77ce1cbc25427')}
                   open={activeSelector === 'project'}
                   options={selectionOptions.project}
                   onToggle={() => setActiveSelector(current => (current === 'project' ? null : 'project'))}
@@ -451,15 +465,15 @@ export function EditArchiveModal({
                 />
 
                 <TextField
-                  label="Notes"
+                  label={translateNative('native.be6245aeb9573da2')}
                   value={notes}
                   onChangeText={setNotes}
-                  placeholder="Failure analysis, tuning notes, or post-print observations"
+                  placeholder={translateNative('native.143f6d9b1c39c3c8')}
                   multiline
                 />
 
                 <View style={styles.fieldGroup}>
-                  <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Tags</Text>
+                  <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{translateNative('native.0157f54b2e4d9f8e')}</Text>
                   {tagList.length > 0 ? (
                     <View style={styles.tagsRow}>
                       {tagList.map(tag => (
@@ -481,7 +495,7 @@ export function EditArchiveModal({
                     label=""
                     value={tags}
                     onChangeText={setTags}
-                    placeholder="quality-check, customer-a, pla"
+                    placeholder={translateNative('native.c93b2a5492109cf5')}
                     style={styles.tagInput}
                   />
                   {tagSuggestions.length > 0 ? (
@@ -503,9 +517,9 @@ export function EditArchiveModal({
                 </View>
 
                 <SelectField
-                  label="Status"
+                  label={translateNative('common.status')}
                   value={titleCase(status)}
-                  placeholder="Select a status"
+                  placeholder={translateNative('native.5be0d2dc733c5ee7')}
                   open={activeSelector === 'status'}
                   options={selectionOptions.status}
                   onToggle={() => setActiveSelector(current => (current === 'status' ? null : 'status'))}
@@ -514,9 +528,9 @@ export function EditArchiveModal({
 
                 {status === 'failed' || status === 'aborted' ? (
                   <SelectField
-                    label="Failure reason"
+                    label={translateNative('native.6c33df27c679d6f1')}
                     value={failureReason ? titleCase(failureReason) : ''}
-                    placeholder="Select a failure reason"
+                    placeholder={translateNative('native.e6dc4a654bcabe72')}
                     open={activeSelector === 'failureReason'}
                     options={selectionOptions.failureReason}
                     onToggle={() =>
@@ -529,15 +543,22 @@ export function EditArchiveModal({
                 ) : null}
 
                 <TextField
-                  label="Quantity"
+                  label={translateNative('native.742a646ad4b230ba')}
                   value={quantity}
                   onChangeText={setQuantity}
                   placeholder="1"
                   keyboardType="number-pad"
                 />
+                <TextField label={t('archives.filamentGrams', { defaultValue: 'Filament used (g); leave empty to clear' })} value={filamentGrams} onChangeText={setFilamentGrams} keyboardType="decimal-pad" />
+                {status === 'completed' ? <View style={styles.fieldGroup}>
+                  <Text style={{ color: colors.text }}>{t('archives.qualityVerdict', { defaultValue: 'Quality verdict (does not change machine status)' })}</Text>
+                  {verdict === (archive.user_verdict ?? null) && archive.user_verdict_source ? <Text style={{ color: colors.textSecondary }}>{t('archives.verdictProvenance', { defaultValue: 'Stored verdict source: {{source}}', source: archive.user_verdict_source })}</Text> : null}
+                  <View style={styles.suggestionsWrap}>{([null, 'good', 'reject'] as const).map(value => <Chip key={String(value)} label={value === null ? t('archives.none', { defaultValue: 'None / clear' }) : value === 'good' ? t('archives.good', { defaultValue: 'Good' }) : t('archives.reject', { defaultValue: 'Reject' })} active={verdict === value} onPress={() => setVerdict(value)} />)}</View>
+                  {verdict === 'reject' ? <TextField label={t('archives.rejectionReason', { defaultValue: 'Rejection reason' })} value={failureReason} onChangeText={setFailureReason} /> : null}
+                </View> : null}
 
                 <View style={styles.fieldGroup}>
-                  <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Photos</Text>
+                  <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{translateNative('native.7d5c5671012db5ee')}</Text>
                   <View style={styles.photoGrid}>
                     {photos.map(photo => (
                       <View key={photo} style={styles.photoWrap}>
@@ -561,19 +582,19 @@ export function EditArchiveModal({
                         ]}
                       >
                         <ActivityIndicator color={colors.accent} />
-                        <Text style={[styles.photoActionText, { color: colors.textSecondary }]}>Updating…</Text>
+                        <Text style={[styles.photoActionText, { color: colors.textSecondary }]}>{translateNative('native.2f062a3481054e2f')}</Text>
                       </View>
                     ) : null}
                   </View>
                   <View style={styles.photoActions}>
                     <PrimaryButton
-                      label="Camera"
+                      label={translateNative('native.ac1081d67c0eb4a3')}
                       variant="secondary"
                       onPress={() => void handlePhotoPick('camera')}
                       disabled={uploadPhotoMutation.isPending}
                     />
                     <PrimaryButton
-                      label="Gallery"
+                      label={translateNative('native.730291cdbc8cfb3e')}
                       variant="secondary"
                       onPress={() => void handlePhotoPick('gallery')}
                       disabled={uploadPhotoMutation.isPending}
@@ -582,7 +603,7 @@ export function EditArchiveModal({
                 </View>
 
                 <TextField
-                  label="External URL"
+                  label={translateNative('native.b543b3bf7894c9d6')}
                   value={externalUrl}
                   onChangeText={setExternalUrl}
                   placeholder="https://printables.com/model/..."
@@ -592,9 +613,9 @@ export function EditArchiveModal({
               </ScrollView>
 
               <View style={styles.actions}>
-                <PrimaryButton label="Cancel" variant="secondary" onPress={onClose} />
+                <PrimaryButton label={translateNative('common.cancel')} variant="secondary" onPress={onClose} />
                 <PrimaryButton
-                  label={saveMutation.isPending ? 'Saving…' : 'Save'}
+                  label={saveMutation.isPending ? translateNative('native.018c2002806e2312') : translateNative('common.save')}
                   onPress={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending}
                   loading={saveMutation.isPending}
@@ -607,9 +628,9 @@ export function EditArchiveModal({
 
       <ConfirmModal
         visible={pendingPhotoDelete !== null}
-        title="Delete photo"
-        message="Remove this archive photo?"
-        confirmLabel="Delete"
+        title={translateNative('native.b6870532d6ae062d')}
+        message={translateNative('native.e72f7c297a057f10')}
+        confirmLabel={translateNative('common.delete')}
         variant="danger"
         loading={deletePhotoMutation.isPending}
         onClose={() => setPendingPhotoDelete(null)}

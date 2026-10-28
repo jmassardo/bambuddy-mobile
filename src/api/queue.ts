@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import type {
   PrintBatch,
   PrintBatchUngroupResponse,
@@ -41,9 +42,13 @@ export const queueApi = {
       )
       .sort((a, b) => {
         const aTime =
-          new Date(a.completed_at ?? a.started_at ?? a.created_at ?? 0).getTime() || 0;
+          new Date(
+            a.completed_at ?? a.started_at ?? a.created_at ?? 0,
+          ).getTime() || 0;
         const bTime =
-          new Date(b.completed_at ?? b.started_at ?? b.created_at ?? 0).getTime() || 0;
+          new Date(
+            b.completed_at ?? b.started_at ?? b.created_at ?? 0,
+          ).getTime() || 0;
         return bTime - aTime;
       });
     return typeof limit === 'number'
@@ -61,13 +66,14 @@ export const queueApi = {
     }),
 
   deleteQueueItem: async (id: number) =>
-    request<void>(`/queue/${id}`, { method: 'DELETE' }),
+    request<{ message: string; deleted: boolean }>(`/queue/${id}`, {
+      method: 'DELETE',
+    }),
 
   reorderQueue: async (itemIds: number[]) =>
     request<{ message: string }>('/queue/reorder', {
       method: 'POST',
       body: JSON.stringify({
-        item_ids: itemIds,
         items: itemIds.map((itemId, index) => ({
           id: itemId,
           position: index + 1,
@@ -75,8 +81,43 @@ export const queueApi = {
       }),
     }),
 
-  startQueueItem: async (id: number) =>
-    request<PrintQueueItem>(`/queue/${id}/start`, { method: 'POST' }),
+  startQueueItem: async (
+    id: number,
+    options?: { skipFilamentCheck?: boolean },
+  ) =>
+    request<PrintQueueItem>(
+      `/queue/${id}/start${
+        options?.skipFilamentCheck ? '?skip_filament_check=true' : ''
+      }`,
+      { method: 'POST' },
+    ),
+
+  stopQueueItem: async (id: number) =>
+    request<{ message: string }>(`/queue/${id}/stop`, { method: 'POST' }),
+
+  resumeQueueAfterFailure: async (printerId: number) =>
+    request<{ acknowledged: number; restored: number }>(
+      `/queue/printer/${printerId}/resume`,
+      { method: 'POST' },
+    ),
+
+  createBatch: async (data: import('@/types/api').PrintBatchCreate) =>
+    request<PrintBatch>('/queue/batches', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  dispatchBatch: async (
+    id: number,
+    data: { only_plate?: boolean; plate_id?: number | null } = {},
+  ) =>
+    request<PrintBatch>(`/queue/batches/${id}/dispatch`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  cancelBatch: async (id: number) =>
+    request<{ message: string }>(`/queue/batches/${id}`, { method: 'DELETE' }),
 
   cancelQueueItem: async (id: number) =>
     request<{ message: string }>(`/queue/${id}/cancel`, { method: 'POST' }),
@@ -87,8 +128,8 @@ export const queueApi = {
       return request<PrintQueueItem>(`/queue/${id}/start`, { method: 'POST' });
     }
 
-    if (!item.archive_id && !item.library_file_id) {
-      throw new Error('Queue item cannot be retried');
+    if (!item.archive_id && !item.library_file_id && !item.variants?.length) {
+      throw new Error(translateNative('native.1506f323f03fdac2'));
     }
 
     return addToQueueRequest({
@@ -112,6 +153,12 @@ export const queueApi = {
       timelapse: item.timelapse,
       use_ams: item.use_ams,
       nozzle_offset_cali: item.nozzle_offset_cali,
+      confirm_outcome: item.confirm_outcome,
+      cost_center_id: item.cost_center_id,
+      estimated_cost: item.estimated_cost,
+      nozzle_rack_choice: item.nozzle_rack_choice,
+      variants:
+        item.archive_id || item.library_file_id ? undefined : item.variants,
       preheat_override: item.preheat_override,
       preheat_chamber_target_override: item.preheat_chamber_target_override,
       gcode_injection: item.gcode_injection,
@@ -123,9 +170,13 @@ export const queueApi = {
     const items = await queueApi.getQueue();
     return [...items].sort((a, b) => {
       const aTime =
-        new Date(a.completed_at ?? a.started_at ?? a.created_at ?? 0).getTime() || 0;
+        new Date(
+          a.completed_at ?? a.started_at ?? a.created_at ?? 0,
+        ).getTime() || 0;
       const bTime =
-        new Date(b.completed_at ?? b.started_at ?? b.created_at ?? 0).getTime() || 0;
+        new Date(
+          b.completed_at ?? b.started_at ?? b.created_at ?? 0,
+        ).getTime() || 0;
       return bTime - aTime;
     });
   },
@@ -135,18 +186,15 @@ export const queueApi = {
       | PrintQueueBulkUpdate
       | {
           item_ids: number[];
-          update: Partial<Omit<PrintQueueBulkUpdate, 'item_ids'>> & {
-            status?: string;
-          };
+          update: Partial<Omit<PrintQueueBulkUpdate, 'item_ids'>>;
         },
   ) => {
-    const normalized = 'update' in data ? { item_ids: data.item_ids, ...data.update } : data;
+    const normalized =
+      'update' in data ? { item_ids: data.item_ids, ...data.update } : data;
 
     return request<PrintQueueBulkUpdateResponse>('/queue/bulk', {
       method: 'PATCH',
-      body: JSON.stringify(
-        'update' in data ? { ...normalized, update: data.update } : normalized,
-      ),
+      body: JSON.stringify(normalized),
     });
   },
 

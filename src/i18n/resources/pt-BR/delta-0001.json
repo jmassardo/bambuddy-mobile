@@ -1,0 +1,21 @@
+{
+  "native.04fb589d9c46972b": "Tentar novamente apenas o vínculo com o estoque?",
+  "native.078383ec46d40c2f": "Entre com sua conta do diretório.",
+  "native.0c60c0c6856b6903": "Trabalhos com fatiamentos alternativos não resolvidos não podem ter uma impressora fixa. Deixe a impressora inalterada ou sem atribuição.",
+  "native.0c65b108307c5d36": "Tentar vínculo com o estoque novamente",
+  "native.1a5932500ebd8c6f": "Atualização concluída. O dispositivo remoto informa a versão {{version}}.",
+  "native.4ca8f2ae45ddb60b": "Vínculo com o estoque reparado. A etiqueta NFC física não foi regravada.",
+  "native.4d999eaa75bc989a": "Acompanhe o progresso dos fluxos de fatiamento",
+  "native.7356160c2a259d93": "Monitore as câmeras das impressoras juntas",
+  "native.88d0c23d4edeb85b": "Conecte visualizadores externos de câmera",
+  "native.990a472990fbdf8d": "Gravação NFC física bem-sucedida. Vincule a etiqueta {{tag}} à bobina #{{id}} sem regravá-la.",
+  "native.c13edffd24345730": "Centros de custo e faturamento",
+  "native.c7482a2684ec7ea6": "Fluxos de fatiamento",
+  "native.c76b0088d7977298": "Verificar novamente o estado do login do diretório",
+  "native.c8c49bef3c51e3ff": "Integrações de câmera",
+  "native.e75b16b7c4dce790": "Execuções de fluxo",
+  "native.ececbf64c1ab0472": "Mural de câmeras",
+  "native.ef6149f2bdee70f3": "Gravação física bem-sucedida; falha no vínculo com o estoque",
+  "native.f2aa245433a562b7": "Gerencie fluxos de fatiamento automatizados",
+  "native.f981ae40b78c0d40": "Não foi possível salvar as alterações do relato: {{error}}. Mantenha esta tela aberta e tente editar novamente antes de reiniciar o aplicativo."
+}

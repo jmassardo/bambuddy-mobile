@@ -1,3 +1,4 @@
+import { NativeTranslation, translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React, { useCallback, useRef, useState } from 'react';
 import {
   Image,
@@ -46,6 +47,7 @@ import {
   formatWeight,
 } from '@/utils/data';
 import HapticFeedback from 'react-native-haptic-feedback';
+import { calibration } from '@/utils/printLaunch';
 
 const HAPTIC_OPTIONS = {
   enableVibrateFallback: true,
@@ -98,25 +100,25 @@ function statusPresentation(
   colors: ReturnType<typeof useTheme>['colors'],
 ) {
   if (item.status === 'pending' && item.waiting_reason) {
-    return { label: 'Waiting', color: colors.highlight };
+    return { get label() { return translateNative('native.62363493900507d9'); }, color: colors.highlight };
   }
   if (item.status === 'printing' && printerState === 'PAUSE') {
-    return { label: 'Paused', color: colors.statusPaused };
+    return { get label() { return translateNative('native.2e8d3baadb9cc3fd'); }, color: colors.statusPaused };
   }
 
   switch (item.status) {
     case 'pending':
-      return { label: 'Pending', color: colors.warning };
+      return { get label() { return translateNative('native.f57578b016dacb32'); }, color: colors.warning };
     case 'printing':
-      return { label: 'Printing', color: colors.statusPrinting };
+      return { get label() { return translateNative('native.58b5ceab5adaa853'); }, color: colors.statusPrinting };
     case 'completed':
-      return { label: 'Completed', color: colors.success };
+      return { get label() { return translateNative('native.e8d25c3ab5a7be5d'); }, color: colors.success };
     case 'failed':
-      return { label: 'Failed', color: colors.error };
+      return { get label() { return translateNative('native.4951b5090ada997d'); }, color: colors.error };
     case 'skipped':
-      return { label: 'Skipped', color: colors.warning };
+      return { get label() { return translateNative('native.23a65d62ff0a8c05'); }, color: colors.warning };
     case 'cancelled':
-      return { label: 'Cancelled', color: colors.textTertiary };
+      return { get label() { return translateNative('native.827f4f3e696f5356'); }, color: colors.textTertiary };
     default:
       return { label: item.status, color: colors.info };
   }
@@ -135,6 +137,8 @@ function QueueActionButton({
   color: string;
   subtle?: boolean;
 }) {
+  useNativeLocale();
+  const { t } = useTranslation();
   if (!onPress) return null;
   const IconComponent = icon ? QUEUE_ACTION_ICONS[icon] : null;
 
@@ -151,7 +155,7 @@ function QueueActionButton({
       ]}
     >
       {IconComponent ? <IconComponent size={14} color={color} strokeWidth={2} /> : null}
-      <Text style={[styles.actionText, { color }]}>{label}</Text>
+      <Text style={[styles.actionText, { color }]}>{t(`queue.${label.replace(/\W/g, '')}`, { defaultValue: label })}</Text>
     </Pressable>
   );
 }
@@ -163,6 +167,8 @@ function OptionChip({
   label: string;
   color: string;
 }) {
+  useNativeLocale();
+  const { t } = useTranslation();
   return (
     <View
       style={[
@@ -170,7 +176,7 @@ function OptionChip({
         { backgroundColor: `${color}18`, borderColor: `${color}55` },
       ]}
     >
-      <Text style={[styles.optionChipText, { color }]}>{label}</Text>
+      <Text style={[styles.optionChipText, { color }]}>{t(`queue.${label.replace(/\W/g, '')}`, { defaultValue: label })}</Text>
     </View>
   );
 }
@@ -227,6 +233,7 @@ export function QueueItemCardContent({
   dragTargetIndex,
   dragEnabled = false,
 }: QueueItemCardContentProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const serverUrl = useServerStore(s => s.serverUrl);
 
@@ -251,31 +258,32 @@ export function QueueItemCardContent({
   const title =
     item.archive_name ||
     item.library_file_name ||
-    `Queue item #${item.id}`;
+    translateNative('native.77bba0849c238b47', { value0: String(item.id) });
   const printerLabel = item.target_model && !item.printer_id
-    ? `Any ${item.target_model}${item.target_location ? ` • ${item.target_location}` : ''}`
-    : item.printer_name || (item.printer_id ? `Printer #${item.printer_id}` : 'Unassigned');
+    ? translateNative('native.215bf686c05d12c4', { value0: String(item.target_model), value1: String(item.target_location ? ` • ${item.target_location}` : '') })
+    : item.printer_name || (item.printer_id ? translateNative('native.cce5106f9222d909', { value0: String(item.printer_id) }) : translateNative('native.424849cf8f869437'));
 
   const options = [
-    item.manual_start ? { label: 'Staged', color: colors.highlight } : null,
+    item.manual_start ? { get label() { return translateNative('native.89d359ec067e3df2'); }, color: colors.highlight } : null,
     item.require_previous_success
-      ? { label: 'Requires previous success', color: colors.warning }
+      ? { get label() { return translateNative('native.d6f1b06d7f64e893'); }, color: colors.warning }
       : null,
-    item.auto_off_after ? { label: 'Auto power off', color: colors.info } : null,
-    item.gcode_injection ? { label: 'G-code injection', color: colors.accent } : null,
-    item.bed_levelling ? { label: 'Bed levelling', color: colors.accent } : null,
-    item.flow_cali ? { label: 'Flow cali', color: colors.accent } : null,
-    item.vibration_cali ? { label: 'Vibration cali', color: colors.accent } : null,
-    item.layer_inspect ? { label: 'Layer inspect', color: colors.accent } : null,
-    item.timelapse ? { label: 'Timelapse', color: colors.accent } : null,
+    item.auto_off_after ? { get label() { return translateNative('native.5ae540a7e1150dcf'); }, color: colors.info } : null,
+    item.gcode_injection ? { get label() { return translateNative('native.d57b223220f72ff4'); }, color: colors.accent } : null,
+    calibration(item.bed_levelling) !== 'off' ? { get label() { return translateNative('native.ce069d1c6bfa45b5', { value0: String(calibration(item.bed_levelling)) }); }, color: colors.accent } : null,
+    calibration(item.flow_cali) !== 'off' ? { get label() { return translateNative('native.19e17bfd05f0e426', { value0: String(calibration(item.flow_cali)) }); }, color: colors.accent } : null,
+    item.vibration_cali ? { get label() { return translateNative('native.b100a4275c30ba04'); }, color: colors.accent } : null,
+    item.layer_inspect ? { get label() { return translateNative('native.a64647dc5b62466d'); }, color: colors.accent } : null,
+    item.timelapse ? { get label() { return translateNative('native.190a6a4c52455a67'); }, color: colors.accent } : null,
     item.use_ams ? { label: 'AMS', color: colors.accent } : null,
-    item.nozzle_offset_cali ? { label: 'Nozzle offset', color: colors.accent } : null,
+    calibration(item.nozzle_offset_cali) !== 'off' ? { get label() { return translateNative('native.0962dfa2aa4691b3', { value0: String(calibration(item.nozzle_offset_cali)) }); }, color: colors.accent } : null,
+    item.confirm_outcome ? { get label() { return translateNative('native.6beafac4854e37c0'); }, color: colors.info } : null,
     item.preheat_override && item.preheat_override !== 'inherit'
       ? {
           label:
             item.preheat_override === 'on'
-              ? 'Preheat on'
-              : 'Preheat off',
+              ? translateNative('native.46630b1daa03bd46')
+              : translateNative('native.d99b016d5e28d4a7'),
           color: colors.warning,
         }
       : null,
@@ -359,7 +367,7 @@ export function QueueItemCardContent({
                   { backgroundColor: colors.infoBg, borderColor: `${colors.info}44` },
                 ]}
               >
-                <Text style={[styles.batchBadgeText, { color: colors.infoLight }]}>Batch</Text>
+                <Text style={[styles.batchBadgeText, { color: colors.infoLight }]}>{translateNative('native.2e57cf859b6571e8')}</Text>
               </View>
             ) : null}
           </View>
@@ -378,21 +386,21 @@ export function QueueItemCardContent({
       <View style={styles.metaGrid}>
         <View style={styles.metaItem}>
           <Printer size={14} color={colors.textTertiary} strokeWidth={2} />
-          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Printer</Text>
+          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>{translateNative('screen.printer')}</Text>
           <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
             {printerLabel}
           </Text>
         </View>
         <View style={styles.metaItem}>
           <Clock3 size={14} color={colors.textTertiary} strokeWidth={2} />
-          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Estimate</Text>
+          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>{translateNative('native.ba2693c5402aa290')}</Text>
           <Text style={[styles.metaValue, { color: colors.text }]}>
             {formatDuration(item.print_time_seconds)}
           </Text>
         </View>
         <View style={styles.metaItem}>
           <Tag size={14} color={colors.textTertiary} strokeWidth={2} />
-          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Filament</Text>
+          <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>{translateNative('native.12e2b8020ce55e27')}</Text>
           <View style={styles.filamentRow}>
             {item.filament_color ? (
               <View
@@ -406,7 +414,7 @@ export function QueueItemCardContent({
               />
             ) : null}
             <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
-              {item.filament_type || 'Unknown'}
+              {item.filament_type || translateNative('native.ff12a040d13addb7')}
             </Text>
           </View>
         </View>
@@ -440,7 +448,7 @@ export function QueueItemCardContent({
         <Text style={[styles.notice, { color: colors.highlightLight }]}>{item.waiting_reason}</Text>
       ) : null}
       {item.filament_short ? (
-        <Text style={[styles.notice, { color: colors.warning }]}>Filament short on assigned spool</Text>
+        <Text style={[styles.notice, { color: colors.warning }]}>{translateNative('native.f582eebe084da79a')}</Text>
       ) : null}
       {item.error_message ? (
         <Text style={[styles.notice, { color: colors.error }]}>{item.error_message}</Text>
@@ -458,19 +466,19 @@ export function QueueItemCardContent({
         <View style={[styles.footerRow, { borderColor: colors.borderSubtle }]}>
           {dragEnabled ? (
             <View style={styles.reorderRow}>
-              <Text style={[styles.reorderHint, { color: colors.textTertiary }]}>Drag to reorder</Text>
+              <Text style={[styles.reorderHint, { color: colors.textTertiary }]}>{translateNative('native.9c9c06a286b3d5e3')}</Text>
             </View>
           ) : null}
           {hasReorderActions && !dragEnabled ? (
             <View style={styles.reorderRow}>
               <QueueActionButton
-                label="Move ↑"
+                label={translateNative('native.95917ebd829777ae')}
                 onPress={onMoveUp}
                 color={colors.textSecondary}
                 subtle
               />
               <QueueActionButton
-                label="Move ↓"
+                label={translateNative('native.1617a1aeda76f651')}
                 onPress={onMoveDown}
                 color={colors.textSecondary}
                 subtle
@@ -480,22 +488,22 @@ export function QueueItemCardContent({
           <View style={styles.actionsRow}>
             {item.status === 'pending' ? (
               <>
-                <QueueActionButton label="Start" icon="play" onPress={onStart} color={colors.accent} />
-                <QueueActionButton label="Reassign" icon="printer" onPress={onReassign} color={colors.info} />
-                <QueueActionButton label="Cancel" icon="x" onPress={onCancel} color={colors.warning} />
-                <QueueActionButton label="Delete" icon="trash" onPress={onDelete} color={colors.error} />
+                <QueueActionButton label={translateNative('common.start')} icon="play" onPress={onStart} color={colors.accent} />
+                <QueueActionButton label={translateNative('common.edit')} icon="printer" onPress={onReassign} color={colors.info} />
+                <QueueActionButton label={translateNative('common.cancel')} icon="x" onPress={onCancel} color={colors.warning} />
+                <QueueActionButton label={translateNative('common.delete')} icon="trash" onPress={onDelete} color={colors.error} />
               </>
             ) : null}
             {item.status === 'printing' ? (
               <>
-                <QueueActionButton label="Pause" icon="pause" onPress={onPause} color={colors.warning} />
-                <QueueActionButton label="Stop" icon="stop" onPress={onStop} color={colors.error} />
+                <QueueActionButton label={translateNative('native.362b1658df45e7f1')} icon="pause" onPress={onPause} color={colors.warning} />
+                <QueueActionButton label={translateNative('common.stop')} icon="stop" onPress={onStop} color={colors.error} />
               </>
             ) : null}
             {['completed', 'failed', 'skipped', 'cancelled'].includes(item.status) ? (
               <>
-                <QueueActionButton label="Retry" icon="refresh" onPress={onRetry} color={colors.accent} />
-                <QueueActionButton label="Delete" icon="trash" onPress={onDelete} color={colors.error} />
+                <QueueActionButton label={translateNative('native.85ed8d3e341d9bea')} icon="refresh" onPress={onRetry} color={colors.accent} />
+                <QueueActionButton label={translateNative('common.delete')} icon="trash" onPress={onDelete} color={colors.error} />
               </>
             ) : null}
           </View>
@@ -511,23 +519,23 @@ export function QueueItemCardContent({
           <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
             {formatWeight(item.filament_used_grams)}
           </Text>
-          {item.preheat_chamber_target_override ? (
+          {item.preheat_chamber_target_override != null ? (
             <>
               <Text style={[styles.summaryDivider, { color: colors.textTertiary }]}>•</Text>
-              <Text style={[styles.summaryText, { color: colors.textSecondary }]}>Preheat {item.preheat_chamber_target_override}°</Text>
+              <Text style={[styles.summaryText, { color: colors.textSecondary }]}><NativeTranslation id="native.70ebe0ee91b8ee5d" values={{ value0: (item.preheat_chamber_target_override) }} /></Text>
             </>
           ) : null}
           {item.archive_id ? (
             <>
               <Text style={[styles.summaryDivider, { color: colors.textTertiary }]}>•</Text>
-              <Text style={[styles.summaryText, { color: colors.textSecondary }]}>Archive #{item.archive_id}</Text>
+              <Text style={[styles.summaryText, { color: colors.textSecondary }]}><NativeTranslation id="native.44f949b4bc07a152" values={{ value0: (item.archive_id) }} /></Text>
             </>
           ) : null}
         </View>
       ) : null}
 
-      {item.status === 'completed' && item.filament_used_grams ? (
-        <Text style={[styles.costHint, { color: colors.textTertiary }]}>Estimated material cost {formatCurrency((item.filament_used_grams / 1000) * 24)}</Text>
+      {item.estimated_cost != null ? (
+        <Text style={[styles.costHint, { color: colors.textTertiary }]}><NativeTranslation id="native.96a19bdd05536717" values={{ value0: (formatCurrency(item.estimated_cost)) }} /></Text>
       ) : null}
     </View>
   );
@@ -557,10 +565,10 @@ export function QueueItemCard({
   index,
   isDragging: parentIsDragging = false,
   dragIndex,
-  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   dragTargetIndex,
   dragEnabled = false,
 }: QueueItemCardProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);

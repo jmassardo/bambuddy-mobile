@@ -1,0 +1,12 @@
+{
+  "native.197a317960cf55b6": "在庫不足のしきい値 {{threshold}}%",
+  "native.2c6f1553291f3699": "プロバイダー {{count}}件",
+  "native.2d8f4b1110eef95b": "仮想プリンター {{count}}台",
+  "native.8114475cf643fbbc": "場所 {{count}}件",
+  "native.8f615a72dd98661e": "{{count}}件設定済み",
+  "native.c4bfec3810af5347": "キー {{keys}}件 • カメラトークン {{tokens}}件",
+  "native.cb19f6798e4c8df9": "スマートプラグ {{count}}台",
+  "native.d605514f8d9014a3": "デバイス {{count}}台",
+  "native.d9dd8c0c1c350e4c": "プロファイル {{count}}件",
+  "native.f509a8cbfea53808": "カスタムリンク {{count}}件"
+}

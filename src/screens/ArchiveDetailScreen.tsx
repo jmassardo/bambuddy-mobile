@@ -1,15 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+
+import React, { useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp, AppNavigationProp } from '@/navigation/types';
 import {
   ActivityIndicator,
   Image,
-  Linking,
   Modal,
   Pressable,
   RefreshControl,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -33,9 +34,19 @@ import { useServerStore } from '@/api/server';
 import { api } from '@/api/client';
 import { useMediaToken } from '@/hooks/useStreamToken';
 import { EditArchiveModal } from '@/components/archives/EditArchiveModal';
+import { ArchiveDetailTools, EmbeddedArchiveProjectPage } from '@/components/archives/ArchiveDetailTools';
+import { ConfirmOutcomeDialog, useArchiveAuthorization } from '@/components/archives/ArchiveWorkflowUI';
+import { PrintModal } from '@/components/printers/PrintModal';
+import { requestBlob } from '@/api/http';
+import { archiveWorkflows } from '@/api/archiveWorkflows';
+import { shareBlob } from '@/utils/share';
+
 import { PrintLogModal } from '@/components/archives/PrintLogModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { SliceModal } from '@/components/files/SliceModal';
+import { RunWithPipelineModal } from '@/components/slicing/RunWithPipelineModal';
+import { AssetPreviewModal, type AssetPreviewSource } from '@/components/files/AssetPreviewModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -73,6 +84,7 @@ function assetToUpload(asset: Asset) {
 }
 
 export default function ArchiveDetailScreen() {
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'ArchiveDetail'>>();
   const rootNavigation = useNavigation<AppNavigationProp>();
   const route = useRoute<RootRouteProp<'ArchiveDetail'>>();
@@ -83,6 +95,10 @@ export default function ArchiveDetailScreen() {
   const { token: mediaToken, isReady: mediaTokenReady } = useMediaToken();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  const { hasPermission } = useAuth();
+  const [outcomeVisible, setOutcomeVisible] = useState(false);
+  const [launchMode, setLaunchMode] = useState<'asap' | 'queue' | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPrintLog, setShowPrintLog] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
@@ -92,7 +108,8 @@ export default function ArchiveDetailScreen() {
     null,
   );
   const [showTimelapseFullscreen, setShowTimelapseFullscreen] = useState(false);
-  const [preview3dArchiveId, setPreview3dArchiveId] = useState<number | null>(null);
+  const [assetPreview, setAssetPreview] = useState<AssetPreviewSource | null>(null);
+  const [pipelineVisible, setPipelineVisible] = useState(false);
   const [timelapseError, setTimelapseError] = useState(false);
   const [timelapseRetrySeed, setTimelapseRetrySeed] = useState(0);
   const [thumbnailError, setThumbnailError] = useState(false);
@@ -115,10 +132,11 @@ export default function ArchiveDetailScreen() {
     enabled: Number.isFinite(archiveId),
   });
 
-  const archive = useMemo(
+  const archive = useLocalizedMemo(
     () => (archiveQuery.data as Archive | undefined) ?? null,
     [archiveQuery.data],
   );
+  const authorization = useArchiveAuthorization(archive);
 
   const hasTimelapse = Boolean(
     archive?.timelapse_path ||
@@ -128,8 +146,8 @@ export default function ArchiveDetailScreen() {
     pickString(archive as unknown as ApiRecord, ['deleted_at']) ||
       archive?.status === 'deleted',
   );
-  const archiveUrl = serverUrl ? `${serverUrl}/archives/${archiveId}` : null;
-  const serverOrigin = useMemo(() => {
+  const archiveUrl = serverUrl ? `${serverUrl}/api/v1/archives/${archiveId}/download` : null;
+  const serverOrigin = useLocalizedMemo(() => {
     if (!serverUrl) return null;
     try {
       return new URL(serverUrl).origin;
@@ -137,7 +155,7 @@ export default function ArchiveDetailScreen() {
       return null;
     }
   }, [serverUrl]);
-  const timelapseUrl = useMemo(() => {
+  const timelapseUrl = useLocalizedMemo(() => {
     if (!hasTimelapse || !mediaTokenReady || !serverOrigin) return null;
     return withCacheBuster(
       api.getArchiveTimelapse(archiveId),
@@ -151,7 +169,7 @@ export default function ArchiveDetailScreen() {
     serverOrigin,
     timelapseRetrySeed,
   ]);
-  const thumbnailUrl = useMemo(() => {
+  const thumbnailUrl = useLocalizedMemo(() => {
     if (!mediaTokenReady) return null;
     return withCacheBuster(
       api.getArchiveThumbnail(archiveId),
@@ -163,15 +181,6 @@ export default function ArchiveDetailScreen() {
     mediaTokenReady,
     thumbnailRetrySeed,
   ]);
-  const archiveProjectPageUrl =
-    pickString(archive as unknown as ApiRecord, [
-      'external_url',
-      'makerworld_url',
-    ]) ||
-    (archive?.project_id && serverUrl
-      ? `${serverUrl}/projects/${archive.project_id}`
-      : null);
-
   React.useEffect(() => {
     setTimelapseError(false);
     setThumbnailError(false);
@@ -180,14 +189,15 @@ export default function ArchiveDetailScreen() {
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
-      title: 'Archive',
+      title: translateNative('screen.archive'),
       headerRight: archive
         ? () => (
             <Pressable
               onPress={() => setShowEditModal(true)}
+              disabled={!authorization.update}
               style={styles.headerButton}
               hitSlop={8}
-              accessibilityLabel="Edit archive"
+              accessibilityLabel={translateNative('native.22636471158cb125')}
               accessibilityRole="button"
             >
               <Pencil size={18} color={colors.text} strokeWidth={2} />
@@ -195,21 +205,7 @@ export default function ArchiveDetailScreen() {
           )
         : undefined,
     });
-  }, [archive, colors.text, navigation]);
-
-  React.useEffect(() => {
-    if (preview3dArchiveId != null && archive) {
-      const source3mfPath = pickString(archive as unknown as ApiRecord, ['source_3mf_path']) as string | undefined;
-      if (source3mfPath) {
-        rootNavigation.navigate('Model3DPreview', {
-          archiveId,
-          filename: archive.print_name || archive.filename,
-          source3mfPath,
-        });
-      }
-      setPreview3dArchiveId(null);
-    }
-  }, [preview3dArchiveId, archive, archiveId, rootNavigation]);
+  }, [archive, authorization.update, colors.text, navigation, titleLocale]);
 
   const invalidateArchiveQueries = async () => {
     await Promise.all([
@@ -220,34 +216,20 @@ export default function ArchiveDetailScreen() {
     ]);
   };
 
-  const reprintMutation = useMutation({
-    mutationFn: () => api.printArchive(archiveId, {}),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['queue'] });
-      showToast('Reprint started.', 'success');
-    },
-    onError: () =>
-      showToast('Unable to start a reprint for this archive.', 'error'),
-  });
-
-  const queueMutation = useMutation({
-    mutationFn: () => api.addToQueue({ archive_id: archiveId }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['queue'] });
-      showToast('Archive added to queue.', 'success');
-    },
-    onError: () =>
-      showToast('Unable to add this archive to the queue.', 'error'),
-  });
-
   const restoreMutation = useMutation({
     mutationFn: () => api.restoreArchive(archiveId),
     onSuccess: async () => {
       await invalidateArchiveQueries();
-      showToast('Archive restored.', 'success');
+      showToast(nativeMessage('native.94c4e38a30a38e9c'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || 'Unable to restore this archive.', 'error'),
+      showToast(error.message || nativeMessage('native.e6b3b6d22e1e5ef8'), 'error'),
+  });
+  const shareFileMutation = useMutation({
+    mutationFn: async () => {
+      if (archive) await shareBlob(await archiveWorkflows.download(archiveId), archive.filename);
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
   });
 
   const uploadPhotoMutation = useMutation({
@@ -255,10 +237,10 @@ export default function ArchiveDetailScreen() {
       api.uploadArchivePhoto(archiveId, file),
     onSuccess: async () => {
       await invalidateArchiveQueries();
-      showToast('Photo added to archive.', 'success');
+      showToast(nativeMessage('native.78fb6d80bb76df36'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || 'Unable to upload the photo.', 'error'),
+      showToast(error.message || nativeMessage('native.aeb62a0d1541f540'), 'error'),
   });
 
   const deletePhotoMutation = useMutation({
@@ -268,10 +250,10 @@ export default function ArchiveDetailScreen() {
       await invalidateArchiveQueries();
       setPendingPhotoDelete(null);
       setFullscreenPhoto(null);
-      showToast('Photo removed.', 'success');
+      showToast(nativeMessage('native.fe5b6b06f65e3dd4'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || 'Unable to remove the photo.', 'error'),
+      showToast(error.message || nativeMessage('native.94df862b86b9fe1c'), 'error'),
   });
 
   const pickPhoto = async (source: 'camera' | 'gallery') => {
@@ -286,18 +268,18 @@ export default function ArchiveDetailScreen() {
           : await launchImageLibrary({ mediaType: 'photo', selectionLimit: 1 });
       const selectedAsset = result.assets?.[0];
       if (!selectedAsset) {
-        showToast('No photo was selected.', 'warning');
+        showToast(nativeMessage('native.d6a3777d24ec7466'), 'warning');
         return;
       }
       const file = assetToUpload(selectedAsset);
       if (!file) {
-        showToast('No photo was selected.', 'warning');
+        showToast(nativeMessage('native.d6a3777d24ec7466'), 'warning');
         return;
       }
       await uploadPhotoMutation.mutateAsync(file);
     } catch (error) {
       showToast(
-        error instanceof Error ? error.message : 'Unable to add a photo.',
+        error instanceof Error ? error.message : nativeMessage('native.9a2c1d9d95dcd8a6'),
         'error',
       );
     }
@@ -341,13 +323,13 @@ export default function ArchiveDetailScreen() {
     );
 
   if (archiveQuery.isLoading || runsQuery.isLoading) {
-    return <LoadingScreen message="Loading archive details…" />;
+    return <LoadingScreen message={translateNative('native.6d9b2ac3ef60a4d8')} />;
   }
 
   if (archiveQuery.isError || !archive) {
     return (
       <ErrorState
-        message="Unable to load archive details."
+        message={translateNative('native.5ebe72a9d8745117')}
         onRetry={() => void refreshAll()}
       />
     );
@@ -382,10 +364,9 @@ export default function ArchiveDetailScreen() {
           ) : thumbnailError ? (
             <View style={styles.mediaError}>
               <Text style={[styles.mediaErrorText, { color: colors.error }]}>
-                Unable to load archive image.
-              </Text>
+                {translateNative('native.6d1d2e689bf2287e')}</Text>
               <PrimaryButton
-                label="Retry image"
+                label={translateNative('native.bb2f5c0814788a31')}
                 variant="secondary"
                 onPress={retryThumbnail}
               />
@@ -401,18 +382,18 @@ export default function ArchiveDetailScreen() {
         </View>
 
         <SectionCard
-          title={archive.print_name || archive.filename || 'Untitled archive'}
+          title={archive.print_name || archive.filename || translateNative('native.e857ce138ab32715')}
           subtitle={
             archive.printer_name ||
             pickString(
               archive as unknown as ApiRecord,
               ['printer_name', 'printer'],
-              'Unknown printer',
+              translateNative('native.d2f3cad436de827d'),
             )
           }
         >
           <KeyValueRow
-            label="Tags"
+            label={translateNative('native.0157f54b2e4d9f8e')}
             value={
               archive.tags ||
               pickString(
@@ -424,21 +405,21 @@ export default function ArchiveDetailScreen() {
             }
           />
           <KeyValueRow
-            label="Date"
+            label={translateNative('common.date')}
             value={formatDateTime(archive.completed_at || archive.created_at)}
           />
           <KeyValueRow
-            label="Duration"
+            label={translateNative('native.e6b6cee2c436ee57')}
             value={formatDuration(
               archive.actual_time_seconds || archive.print_time_seconds,
             )}
           />
           <KeyValueRow
-            label="Filament"
+            label={translateNative('native.12e2b8020ce55e27')}
             value={formatWeight(archive.filament_used_grams)}
           />
           <KeyValueRow
-            label="Cost"
+            label={translateNative('common.cost')}
             value={formatCurrency(
               archive.cost ??
                 pickString(archive as unknown as ApiRecord, ['estimated_cost']),
@@ -449,29 +430,27 @@ export default function ArchiveDetailScreen() {
         <View style={styles.actionRow}>
           <View style={styles.actionCell}>
             <PrimaryButton
-              label="Reprint"
-              onPress={() => void reprintMutation.mutateAsync()}
-              loading={reprintMutation.isPending}
+              label={translateNative('native.d67377e1385602fe')}
+              onPress={() => setLaunchMode('asap')}
             />
           </View>
           <View style={styles.actionCell}>
             <PrimaryButton
-              label="Add to Queue"
+              label={translateNative('native.700bca3c2a1baa38')}
               variant="secondary"
-              onPress={() => void queueMutation.mutateAsync()}
-              loading={queueMutation.isPending}
+              onPress={() => setLaunchMode('queue')}
             />
           </View>
           <View style={styles.actionCell}>
             <PrimaryButton
-              label="Print log"
+              label={translateNative('native.a89901702a807e8f')}
               variant="secondary"
               onPress={() => rootNavigation.navigate('PrintLog', { archiveId })}
             />
           </View>
           <View style={styles.actionCell}>
             <PrimaryButton
-              label="QR code"
+              label={translateNative('native.a766fd8f2fb213f0')}
               variant="secondary"
               onPress={() => setShowQrModal(true)}
               disabled={!archiveUrl}
@@ -479,41 +458,37 @@ export default function ArchiveDetailScreen() {
           </View>
           <View style={styles.actionCell}>
             <PrimaryButton
-              label="Project page"
+              label={translateNative('native.4fedf24bfc44b6e2')}
               variant="secondary"
               onPress={() => setShowProjectPageModal(true)}
-              disabled={!archiveProjectPageUrl}
             />
           </View>
           <View style={styles.actionCell}>
             <PrimaryButton
-              label="Share"
+              label={translateNative('native.c0158b3c3ccab862')}
               variant="secondary"
-              onPress={() =>
-                void Share.share({
-                  message: `${archive.print_name || archive.filename} • ${
-                    archive.printer_name ||
-                    pickString(archive as unknown as ApiRecord, [
-                      'printer_name',
-                      'printer',
-                    ])
-                  }`,
-                })
-              }
+              onPress={() => shareFileMutation.mutate()}
+              loading={shareFileMutation.isPending}
             />
           </View>
-          {pickString(archive as unknown as ApiRecord, ['source_3mf_path']) ? (
+          {archive.source_3mf_path || archive.filename.toLowerCase().endsWith('.3mf') ? (
             <View style={styles.actionCell}>
               <PrimaryButton
-                label="3D Preview"
+                label={translateNative('screen.modelPreview')}
                 variant="secondary"
-                onPress={() => setPreview3dArchiveId(archiveId)}
+                onPress={() => setAssetPreview({ archiveId, filename: archive.source_3mf_path?.split('/').pop() || archive.filename, mode: 'model', archiveSource: Boolean(archive.source_3mf_path) })}
               />
             </View>
           ) : null}
           <View style={styles.actionCell}>
+            <PrimaryButton label={t('archives.toolpaths', { defaultValue: 'Inspect toolpaths' })} variant="secondary" onPress={() => setAssetPreview({ archiveId, filename: archive.filename, mode: 'gcode', archiveSource: false })} />
+          </View>
+          {hasPermission('pipelines:run') ? <View style={styles.actionCell}>
+            <PrimaryButton label={t('archives.runPipeline', { defaultValue: 'Run with pipeline' })} variant="secondary" onPress={() => setPipelineVisible(true)} />
+          </View> : null}
+          <View style={styles.actionCell}>
             <PrimaryButton
-              label="Slice"
+              label={translateNative('native.8a8a9fc981cbae11')}
               variant="secondary"
               onPress={() => setShowSliceModal(true)}
             />
@@ -521,7 +496,7 @@ export default function ArchiveDetailScreen() {
           {isSoftDeleted ? (
             <View style={styles.actionCell}>
               <PrimaryButton
-                label="Restore"
+                label={translateNative('native.3d4ea31b4516a8ec')}
                 onPress={() => void restoreMutation.mutateAsync()}
                 loading={restoreMutation.isPending}
               />
@@ -531,8 +506,8 @@ export default function ArchiveDetailScreen() {
 
         {hasTimelapse ? (
           <SectionCard
-            title="Timelapse"
-            subtitle="Play the finished print timelapse inline or expand it fullscreen."
+            title={translateNative('native.190a6a4c52455a67')}
+            subtitle={translateNative('native.cf1b0eca76d74888')}
           >
             <View style={[styles.webviewFrame, { borderColor: colors.border }]}>
               {!mediaTokenReady || !serverOrigin ? (
@@ -544,18 +519,16 @@ export default function ArchiveDetailScreen() {
                       { color: colors.textSecondary },
                     ]}
                   >
-                    Preparing timelapse…
-                  </Text>
+                    {translateNative('native.fdbdaf4aee89138a')}</Text>
                 </View>
               ) : timelapseError ? (
                 <View style={styles.mediaError}>
                   <Text
                     style={[styles.mediaErrorText, { color: colors.error }]}
                   >
-                    Unable to load this timelapse.
-                  </Text>
+                    {translateNative('native.ff83912a2a298ed0')}</Text>
                   <PrimaryButton
-                    label="Retry timelapse"
+                    label={translateNative('native.16b15d784580dbbf')}
                     variant="secondary"
                     onPress={retryTimelapse}
                   />
@@ -579,12 +552,12 @@ export default function ArchiveDetailScreen() {
             </View>
             <View style={styles.inlineActions}>
               <PrimaryButton
-                label="Edit timelapse"
+                label={translateNative('native.0881728142cb3ef5')}
                 variant="secondary"
                 onPress={() => navigation.navigate('TimelapseEditor', { archiveId })}
               />
               <PrimaryButton
-                label="Fullscreen"
+                label={translateNative('native.d30264eabd2b8cfc')}
                 variant="secondary"
                 onPress={() => setShowTimelapseFullscreen(true)}
               />
@@ -593,8 +566,8 @@ export default function ArchiveDetailScreen() {
         ) : null}
 
         <SectionCard
-          title="Photo gallery"
-          subtitle="Archive photos appear here as a horizontal gallery."
+          title={translateNative('native.93b2f5af193d5b68')}
+          subtitle={translateNative('native.afa5ec916b51ee1a')}
         >
           <ScrollView
             horizontal
@@ -603,8 +576,7 @@ export default function ArchiveDetailScreen() {
           >
             {photos.length === 0 ? (
               <Text style={[styles.note, { color: colors.textSecondary }]}>
-                No photos have been added to this archive.
-              </Text>
+                {translateNative('native.c8df2ef80e6a9e3b')}</Text>
             ) : null}
             {photos.map(photo => (
               <View key={photo} style={styles.photoCard}>
@@ -632,10 +604,9 @@ export default function ArchiveDetailScreen() {
                         { color: colors.error },
                       ]}
                     >
-                      Photo failed to load.
-                    </Text>
+                      {translateNative('native.dbf29b3fc8cd5022')}</Text>
                     <PrimaryButton
-                      label="Retry photo"
+                      label={translateNative('native.197c35eec3734f81')}
                       variant="secondary"
                       onPress={() => retryPhoto(photo)}
                     />
@@ -691,8 +662,7 @@ export default function ArchiveDetailScreen() {
                   { color: colors.textSecondary },
                 ]}
               >
-                Camera
-              </Text>
+                {translateNative('native.ac1081d67c0eb4a3')}</Text>
             </Pressable>
             <Pressable
               onPress={() => void pickPhoto('gallery')}
@@ -711,20 +681,23 @@ export default function ArchiveDetailScreen() {
                   { color: colors.textSecondary },
                 ]}
               >
-                Gallery
-              </Text>
+                {translateNative('native.730291cdbc8cfb3e')}</Text>
             </Pressable>
           </ScrollView>
           {uploadPhotoMutation.isPending ? (
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-              Uploading photo…
-            </Text>
+              {translateNative('native.0367eca0e0cae237')}</Text>
           ) : null}
         </SectionCard>
 
+        <ArchiveDetailTools archive={archive} onOutcome={() => setOutcomeVisible(true)} onProjectPage={() => setShowProjectPageModal(true)} onNavigate={(kind, targetId) => {
+          if (kind === 'archive') navigation.push('ArchiveDetail', { id: String(targetId) });
+          else if (kind === 'project') rootNavigation.navigate('ProjectDetail', { id: targetId });
+          else rootNavigation.navigate('Main', { screen: 'Files', params: { folderId: targetId } } as never);
+        }} />
         <SectionCard
-          title="Print History"
-          subtitle="Previous runs for this archived model."
+          title={translateNative('native.e2784e99fa7fc986')}
+          subtitle={translateNative('native.d6e9d4e02671ecab')}
         >
           {runs.length > 0 ? (
             runs.map(run => (
@@ -739,7 +712,7 @@ export default function ArchiveDetailScreen() {
                 ]}
               >
                 <Text style={[styles.runTitle, { color: colors.text }]}>
-                  {pickString(run, ['status', 'result'], 'Unknown result')}
+                  {pickString(run, ['status', 'result'], translateNative('native.4a960baaebf1ac5d'))}
                 </Text>
                 <Text style={[styles.runMeta, { color: colors.textSecondary }]}>
                   {formatDateTime(
@@ -750,26 +723,27 @@ export default function ArchiveDetailScreen() {
                   {pickString(
                     run,
                     ['printer_name', 'printer'],
-                    'Unknown printer',
+                    translateNative('native.d2f3cad436de827d'),
                   )}
                 </Text>
+                <Text style={[styles.runMeta, { color: colors.textSecondary }]}>{String(run.failure_reason ?? '—')} · {formatDuration(Number(run.duration_seconds ?? 0))} · {formatWeight(Number(run.filament_used_grams ?? 0))} · {run.cost == null ? '—' : formatCurrency(Number(run.cost))}</Text>
+                <Text style={[styles.runMeta, { color: colors.textSecondary }]}>{run.energy_kwh == null ? '—' : translateNative('native.a550c7a04846ff65', { value0: String(run.energy_kwh) })} · {run.energy_cost == null ? '—' : formatCurrency(Number(run.energy_cost))}</Text>
               </View>
             ))
           ) : (
             <Text style={[styles.note, { color: colors.textSecondary }]}>
-              No print history available yet.
-            </Text>
+              {translateNative('native.6d7e574ed507d21c')}</Text>
           )}
         </SectionCard>
 
-        <SectionCard title="Notes & Failure Analysis">
+        <SectionCard title={translateNative('native.ec849216c1a4f983')}>
           <Text style={[styles.note, { color: colors.textSecondary }]}>
             {archive.notes ||
               archive.failure_reason ||
               pickString(
                 archive as unknown as ApiRecord,
                 ['failure_analysis', 'comment'],
-                'No notes or failure analysis were captured for this archive.',
+                translateNative('native.a9290c7c55e9f76b'),
               )}
           </Text>
         </SectionCard>
@@ -808,11 +782,9 @@ export default function ArchiveDetailScreen() {
             ]}
           >
             <Text style={[styles.qrTitle, { color: colors.text }]}>
-              Archive QR code
-            </Text>
+              {translateNative('native.2a08a3acbf39fc98')}</Text>
             <Text style={[styles.qrSubtitle, { color: colors.textSecondary }]}>
-              Scan to open this archive in Bambuddy.
-            </Text>
+              {translateNative('native.78a66132ba1325fa')}</Text>
             {archiveUrl ? (
               <View
                 style={[styles.qrFrame, { backgroundColor: colors.surface }]}
@@ -826,8 +798,7 @@ export default function ArchiveDetailScreen() {
               </View>
             ) : (
               <Text style={[styles.note, { color: colors.error }]}>
-                The server URL is not configured.
-              </Text>
+                {translateNative('native.bf753bc1ece3f56d')}</Text>
             )}
             {archiveUrl ? (
               <Text style={[styles.qrUrl, { color: colors.textSecondary }]}>
@@ -835,7 +806,7 @@ export default function ArchiveDetailScreen() {
               </Text>
             ) : null}
             <PrimaryButton
-              label="Close"
+              label={translateNative('common.close')}
               variant="secondary"
               onPress={() => setShowQrModal(false)}
             />
@@ -843,81 +814,11 @@ export default function ArchiveDetailScreen() {
         </View>
       </Modal>
 
-      <Modal
-        visible={showProjectPageModal}
-        animationType="slide"
-        onRequestClose={() => setShowProjectPageModal(false)}
-      >
-        <View
-          style={[
-            styles.fullscreenContainer,
-            { backgroundColor: colors.background },
-          ]}
-        >
-          <View
-            style={[
-              styles.fullscreenHeader,
-              { borderBottomColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.fullscreenTitle, { color: colors.text }]}>
-              Project page
-            </Text>
-            <PrimaryButton
-              label="Close"
-              variant="secondary"
-              onPress={() => setShowProjectPageModal(false)}
-            />
-          </View>
-          {archiveProjectPageUrl ? (
-            (() => {
-              let isExternal = false;
-              try {
-                isExternal = serverOrigin
-                  ? new URL(archiveProjectPageUrl).origin !== serverOrigin
-                  : false;
-              } catch {}
-              if (isExternal) {
-                return (
-                  <View style={styles.emptyWebView}>
-                    <Text style={[styles.note, { color: colors.textSecondary }]}>
-                      This project links to an external site.
-                    </Text>
-                    <PrimaryButton
-                      label="Open in Browser"
-                      variant="primary"
-                      onPress={() => Linking.openURL(archiveProjectPageUrl)}
-                    />
-                  </View>
-                );
-              }
-              return (
-                serverOrigin ? (
-                  <MediaWebView
-                    source={{ uri: archiveProjectPageUrl }}
-                    originWhitelist={[serverOrigin]}
-                    javaScriptEnabled={false}
-                    allowFileAccess={false}
-                    setSupportMultipleWindows={false}
-                    allowsInlineMediaPlayback
-                  />
-                ) : (
-                  <View style={styles.emptyWebView}>
-                    <ActivityIndicator size="large" color={colors.accent} />
-                  </View>
-                )
-              );
-            })()
-          ) : (
-            <View style={styles.emptyWebView}>
-              <Text style={[styles.note, { color: colors.textSecondary }]}>
-                No project page is available for this archive.
-              </Text>
-            </View>
-          )}
-        </View>
-      </Modal>
-
+      {showProjectPageModal ? <EmbeddedArchiveProjectPage archive={archive} onClose={() => setShowProjectPageModal(false)} /> : null}
+      {outcomeVisible ? <ConfirmOutcomeDialog archiveId={archiveId} onClose={() => setOutcomeVisible(false)} onReprint={() => setLaunchMode('asap')} /> : null}
+      {launchMode ? <PrintModal visible onClose={() => setLaunchMode(null)} {...{ initialArchiveId: archiveId, initialMode: launchMode }} /> : null}
+      {assetPreview ? <AssetPreviewModal source={assetPreview} onClose={() => setAssetPreview(null)} /> : null}
+      {pipelineVisible ? <RunWithPipelineModal visible onClose={() => setPipelineVisible(false)} sourceType="archive" sourceId={archiveId} sourceName={archive.print_name || archive.filename} /> : null}
       <Modal
         visible={fullscreenPhoto !== null}
         transparent
@@ -944,10 +845,9 @@ export default function ArchiveDetailScreen() {
             ) : photoErrors[fullscreenPhoto] ? (
               <View style={styles.mediaError}>
                 <Text style={[styles.mediaErrorText, { color: colors.error }]}>
-                  Unable to load this photo.
-                </Text>
+                  {translateNative('native.cda9e2407411650c')}</Text>
                 <PrimaryButton
-                  label="Retry photo"
+                  label={translateNative('native.197c35eec3734f81')}
                   variant="secondary"
                   onPress={() => retryPhoto(fullscreenPhoto)}
                 />
@@ -969,9 +869,13 @@ export default function ArchiveDetailScreen() {
           ) : null}
           {fullscreenPhoto ? (
             <View style={styles.fullscreenActions}>
+              <PrimaryButton label={t('common.previous', { defaultValue: 'Previous photo' })} variant="secondary" disabled={(archive.photos?.indexOf(fullscreenPhoto) ?? 0) <= 0} onPress={() => { const index = archive.photos?.indexOf(fullscreenPhoto) ?? 0; setFullscreenPhoto(archive.photos?.[index - 1] ?? fullscreenPhoto); }} />
+              <PrimaryButton label={t('common.next', { defaultValue: 'Next photo' })} variant="secondary" disabled={(archive.photos?.indexOf(fullscreenPhoto) ?? 0) >= (archive.photos?.length ?? 0) - 1} onPress={() => { const index = archive.photos?.indexOf(fullscreenPhoto) ?? 0; setFullscreenPhoto(archive.photos?.[index + 1] ?? fullscreenPhoto); }} />
+              <PrimaryButton label={t('archives.saveShare', { defaultValue: 'Save / share photo' })} variant="secondary" onPress={() => { void requestBlob(`/archives/${archiveId}/photos/${encodeURIComponent(fullscreenPhoto)}`).then(blob => shareBlob(blob, fullscreenPhoto)).catch((error: Error) => showToast(error.message, 'error')); }} />
               <PrimaryButton
-                label="Delete photo"
+                label={translateNative('native.b6870532d6ae062d')}
                 variant="danger"
+                disabled={!authorization.update}
                 onPress={() => setPendingPhotoDelete(fullscreenPhoto)}
               />
             </View>
@@ -997,10 +901,9 @@ export default function ArchiveDetailScreen() {
             ]}
           >
             <Text style={[styles.fullscreenTitle, { color: colors.text }]}>
-              Timelapse
-            </Text>
+              {translateNative('native.190a6a4c52455a67')}</Text>
             <PrimaryButton
-              label="Close"
+              label={translateNative('common.close')}
               variant="secondary"
               onPress={() => setShowTimelapseFullscreen(false)}
             />
@@ -1012,10 +915,9 @@ export default function ArchiveDetailScreen() {
           ) : timelapseError ? (
             <View style={styles.mediaError}>
               <Text style={[styles.mediaErrorText, { color: colors.error }]}>
-                Unable to load this timelapse.
-              </Text>
+                {translateNative('native.ff83912a2a298ed0')}</Text>
               <PrimaryButton
-                label="Retry timelapse"
+                label={translateNative('native.16b15d784580dbbf')}
                 variant="secondary"
                 onPress={retryTimelapse}
               />
@@ -1045,9 +947,9 @@ export default function ArchiveDetailScreen() {
           if (!pendingPhotoDelete) return;
           void deletePhotoMutation.mutateAsync(pendingPhotoDelete);
         }}
-        title="Delete photo"
-        message="Remove this archive photo?"
-        confirmLabel="Delete"
+        title={translateNative('native.b6870532d6ae062d')}
+        message={translateNative('native.e72f7c297a057f10')}
+        confirmLabel={translateNative('common.delete')}
         loading={deletePhotoMutation.isPending}
       />
 

@@ -1,3 +1,6 @@
+import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState } from '@/i18n';
+
+
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
@@ -27,16 +30,17 @@ function normalizeUrl(input: string) {
 }
 
 export default function ServerConfigScreen() {
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'ServerSetup'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Server', headerShown: false });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('native.992d78618ce5a620'), headerShown: false });
+  }, [navigation, titleLocale]);
   const { colors } = useTheme();
   const { setServerConnected, login } = useAuth();
   const { showToast } = useToast();
   const storedUrl = useServerStore(state => state.serverUrl);
   const [serverUrl, setServerUrl] = useState(storedUrl ?? '');
-  const [error, setError] = useState('');
+  const [error, setError] = useNativeMessageState('');
 
   useEffect(() => {
     if (storedUrl) {
@@ -59,12 +63,12 @@ export default function ServerConfigScreen() {
       }
     },
     onSuccess: () => {
-      showToast('Connected to Bambuddy server.', 'success');
+      showToast(nativeMessage('native.9065f81fe5b7eb53'), 'success');
       // RootNavigator automatically handles navigation based on auth state
     },
     onError: (mutationError: Error) => {
-      setError(mutationError.message || 'Could not connect to that server.');
-      showToast('Connection failed.', 'error');
+      setError(mutationError.message || nativeMessage('native.55719db16dfe438e'));
+      showToast(nativeMessage('native.df9a9d2cedce22b6'), 'error');
     },
   });
 
@@ -78,7 +82,7 @@ export default function ServerConfigScreen() {
         const result = await login(demoConfig.username, demoConfig.password);
         if (result.requires_2fa) {
           throw new Error(
-            'The demo account requires two-factor authentication.',
+            translateNative('native.f492ddb542e57130'),
           );
         }
         await useServerStore.getState().setDemoMode(true);
@@ -89,11 +93,11 @@ export default function ServerConfigScreen() {
       }
     },
     onSuccess: () => {
-      showToast('Signed in to the Bambuddy demo.', 'success');
+      showToast(nativeMessage('native.9467d8471c5bbd03'), 'success');
     },
     onError: (mutationError: Error) => {
-      setError(mutationError.message || 'Could not start the demo.');
-      showToast('Demo unavailable.', 'error');
+      setError(mutationError.message || nativeMessage('native.1760122192f776c5'));
+      showToast(nativeMessage('native.87328f4a81f3980a'), 'error');
     },
   });
 
@@ -102,12 +106,12 @@ export default function ServerConfigScreen() {
   /** Shows a demo mode confirmation dialog before connecting. */
   function handleDemo() {
     Alert.alert(
-      'Demo Mode',
-      'You will connect to a shared demo server with sample data. Demo mode is read-only — you cannot start or manage real prints.',
+      translateNative('native.92b556c76ada2257'),
+      translateNative('native.4ebb1acebcd8f536'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { get text() { return translateNative('common.cancel'); }, style: 'cancel' },
         {
-          text: 'Continue',
+          get text() { return translateNative('native.3bc5f77ba542ea87'); },
           style: 'destructive',
           onPress: () => void demoMutation.mutate(),
         },
@@ -120,12 +124,12 @@ export default function ServerConfigScreen() {
     const normalized = normalizeUrl(serverUrl);
     if (isInsecureUrl(normalized)) {
       Alert.alert(
-        'Insecure Connection',
-        'This server uses HTTP, which is not encrypted. Your data may be visible to others on the network.\n\nOnly use this on trusted networks (e.g. your home LAN or VPN).',
+        translateNative('native.5aab1d54c4e71f40'),
+        translateNative('native.9d8d9534c518bca4'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { get text() { return translateNative('common.cancel'); }, style: 'cancel' },
           {
-            text: 'Connect Anyway',
+            get text() { return translateNative('native.4d36e2e601c11a70'); },
             style: 'destructive',
             onPress: () => void connectMutation.mutateAsync(),
           },
@@ -153,14 +157,11 @@ export default function ServerConfigScreen() {
           resizeMode="contain"
         />
         <Text style={[styles.title, { color: colors.text }]}>
-          Connect to your server
-        </Text>
+          {translateNative('native.5c4db6d9e74be876')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          This mobile app connects to your self-hosted Bambuddy instance so you
-          can monitor prints and manage your queue from anywhere.
-        </Text>
+          {translateNative('native.868cbc8ebae6e3f1')}</Text>
         <TextField
-          label="Server URL"
+          label={translateNative('native.301fd81a82ae3258')}
           value={serverUrl}
           onChangeText={setServerUrl}
           keyboardType="url"
@@ -172,21 +173,19 @@ export default function ServerConfigScreen() {
            local/private-network addresses. Public servers must use HTTPS. */}
         {isInsecureUrl(serverUrl.trim()) ? (
           <Text style={[styles.warning, { color: colors.warning }]}>
-            ⚠️ Plain HTTP is only supported for servers on your local network.
-            Public servers require HTTPS.
-          </Text>
+            {translateNative('native.5192dddfd9302eb9')}</Text>
         ) : null}
         {error ? (
           <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
         ) : null}
         <PrimaryButton
-          label="Scan QR Code"
+          label={translateNative('native.5fde9a627feaf209')}
           onPress={() => navigation.navigate('Scanner', { mode: 'server' })}
           variant="secondary"
           disabled={busy}
         />
         <PrimaryButton
-          label={connectMutation.isPending ? 'Connecting…' : 'Connect'}
+          label={connectMutation.isPending ? translateNative('native.ca729717d0f94e46') : translateNative('common.connect')}
           onPress={handleConnect}
           loading={connectMutation.isPending}
           disabled={serverUrl.trim().length === 0 || demoMutation.isPending}
@@ -197,11 +196,10 @@ export default function ServerConfigScreen() {
               style={[styles.divider, { backgroundColor: colors.cardBorder }]}
             />
             <Text style={[styles.demoHint, { color: colors.textSecondary }]}>
-              Don't have a server yet?
-            </Text>
+              {translateNative('native.28f6ee3360c9d1e8')}</Text>
             <PrimaryButton
               label={
-                demoMutation.isPending ? 'Starting demo…' : 'Try the demo'
+                demoMutation.isPending ? translateNative('native.d37028b8c42b6555') : translateNative('native.b09aabd1e0e9bcd2')
               }
               onPress={handleDemo}
               variant="secondary"

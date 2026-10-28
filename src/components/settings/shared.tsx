@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale } from '@/i18n';
+
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { X } from 'lucide-react-native';
@@ -6,6 +8,7 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { SmartPlug } from '@/types/api';
 import type { OptionItem } from './types';
+import { SettingsSearchAnchor } from './SettingsSearchFocus';
 
 export function SimpleModal({
   visible,
@@ -20,6 +23,7 @@ export function SimpleModal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -55,9 +59,11 @@ export function OptionChipsField<T extends string>({
   onChange: (value: T) => void;
   disabled?: boolean;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
+    <SettingsSearchAnchor label={label}>
     <View style={settingsStyles.fieldGroup}>
       <Text style={[settingsStyles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
       <View style={settingsStyles.chipWrap}>
@@ -68,6 +74,7 @@ export function OptionChipsField<T extends string>({
         ))}
       </View>
     </View>
+    </SettingsSearchAnchor>
   );
 }
 
@@ -84,15 +91,18 @@ export function SwitchRow({
   description?: string;
   disabled?: boolean;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
+    <SettingsSearchAnchor label={label}>
     <View style={settingsStyles.switchRowCard}>
       <View style={settingsStyles.switchTextWrap}>
         <Text style={[settingsStyles.switchLabel, { color: colors.text }]}>{label}</Text>
         {description ? <Text style={[settingsStyles.switchDescription, { color: colors.textSecondary }]}>{description}</Text> : null}
       </View>
       <Switch
+        accessibilityLabel={label}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: colors.surfaceHover, true: colors.accent }}
@@ -100,6 +110,7 @@ export function SwitchRow({
         disabled={disabled}
       />
     </View>
+    </SettingsSearchAnchor>
   );
 }
 
@@ -112,15 +123,15 @@ export function stringifyNumberField(value: unknown, fallback = '0') {
 export function describePlugConnection(plug: SmartPlug) {
   switch (plug.plug_type) {
     case 'tasmota':
-      return plug.ip_address || 'No IP address';
+      return plug.ip_address || translateNative('native.6ecf4bd83b441b87');
     case 'homeassistant':
-      return plug.ha_entity_id || 'No entity ID';
+      return plug.ha_entity_id || translateNative('native.de6ad8bb5f78d4a4');
     case 'mqtt':
-      return plug.mqtt_power_topic || plug.mqtt_topic || 'No MQTT topic';
+      return plug.mqtt_power_topic || plug.mqtt_topic || translateNative('native.ed3cc6e24995c2ba');
     case 'rest':
-      return plug.rest_on_url || plug.rest_off_url || 'No REST endpoint';
+      return plug.rest_on_url || plug.rest_off_url || translateNative('native.e9e7a1f9010a5172');
     default:
-      return 'Unknown connection';
+      return translateNative('native.294a53fb56d648ba');
   }
 }
 

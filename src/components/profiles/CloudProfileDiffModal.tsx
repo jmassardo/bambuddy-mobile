@@ -1,3 +1,4 @@
+import { NativeTranslation, translateNative, useNativeLocale } from '@/i18n';
 import React from 'react';
 import {
   Modal,
@@ -41,6 +42,7 @@ export function CloudProfileDiffModal({
   onRetry,
   onClose,
 }: CloudProfileDiffModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -56,11 +58,8 @@ export function CloudProfileDiffModal({
           <View style={styles.header}>
             <View style={styles.headerText}>
               <Text style={[styles.title, { color: colors.text }]}>
-                Template differences
-              </Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                {leftLabel} vs {rightLabel}
-              </Text>
+                {translateNative('native.469a1ddb4dd5875a')}</Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}><NativeTranslation id="native.6d0bbb5237a7d99d" values={{ value0: (leftLabel), value1: (rightLabel) }} /></Text>
             </View>
             <Pressable
               onPress={onClose}
@@ -78,14 +77,13 @@ export function CloudProfileDiffModal({
 
           {isLoading ? (
             <Text style={[styles.message, { color: colors.textSecondary }]}>
-              Comparing profile templates…
-            </Text>
+              {translateNative('native.cfe185b8c844d5fc')}</Text>
           ) : errorMessage ? (
             <View style={styles.messageWrap}>
               <Text style={[styles.message, { color: colors.error }]}>
                 {errorMessage}
               </Text>
-              <PrimaryButton label="Retry compare" variant="secondary" onPress={onRetry} />
+              <PrimaryButton label={translateNative('native.dcd36c14f443a507')} variant="secondary" onPress={onRetry} />
             </View>
           ) : fields.length === 0 ? (
             <View
@@ -95,8 +93,7 @@ export function CloudProfileDiffModal({
               ]}
             >
               <Text style={[styles.summaryText, { color: colors.text }]}>
-                No template differences reported for the selected profiles.
-              </Text>
+                {translateNative('native.06a0eaf63d51a48f')}</Text>
             </View>
           ) : (
             <ScrollView contentContainerStyle={styles.list}>
@@ -135,7 +132,7 @@ export function CloudProfileDiffModal({
             </ScrollView>
           )}
 
-          <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
+          <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         </View>
       </View>
     </Modal>

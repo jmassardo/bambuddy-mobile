@@ -1,5 +1,5 @@
-import { getNavigationLayout, parseNavigationOrder, serializeNavigationOrder } from '@/navigation/navigationConfig';
-import type { ExternalLink } from '@/types/api';
+import { canAccessNavigationItem, getNavigationLayout, parseNavigationOrder, serializeNavigationOrder } from '@/navigation/navigationConfig';
+import type { ExternalLink, Permission } from '@/types/api';
 
 describe('navigationConfig', () => {
   describe('parseNavigationOrder', () => {
@@ -46,6 +46,11 @@ describe('navigationConfig', () => {
         'scanner',
         'failure-analysis',
         'print-log',
+        'camera-wall',
+        'camera-integrations',
+        'slicer-pipelines',
+        'pipeline-runs',
+        'finance',
       ]);
     });
 
@@ -96,6 +101,22 @@ describe('navigationConfig', () => {
 
       const layout = getNavigationLayout({ externalLinks: links });
       expect(layout.externalLinks.map(item => item.id)).toEqual([1, 2, 3]);
+    });
+
+    it('uses delegated Users access and denies protected destinations without their read permission', () => {
+      const access = { hasPermission: jest.fn((permission: Permission) => permission === 'users:read'), authenticatedUser: true, billingEnabled: true };
+      expect(canAccessNavigationItem({ id: 'users' }, access)).toBe(true);
+      expect(canAccessNavigationItem({ id: 'camera-wall' }, access)).toBe(false);
+      expect(canAccessNavigationItem({ id: 'slicer-pipelines' }, access)).toBe(false);
+      expect(canAccessNavigationItem({ id: 'files' }, { ...access, hasPermission: permission => permission === 'library:read_own' })).toBe(true);
+    });
+
+    it('requires an actual user and enabled billing in addition to finance permission', () => {
+      const access = { hasPermission: jest.fn(() => true), authenticatedUser: true, billingEnabled: true };
+      expect(canAccessNavigationItem({ id: 'finance' }, access)).toBe(true);
+      expect(canAccessNavigationItem({ id: 'finance' }, { ...access, authenticatedUser: false })).toBe(false);
+      expect(canAccessNavigationItem({ id: 'finance' }, { ...access, billingEnabled: false })).toBe(false);
+      expect(canAccessNavigationItem({ id: 'finance' }, { ...access, hasPermission: () => false })).toBe(false);
     });
   });
 });

@@ -1,0 +1,249 @@
+{
+  "native.01a1ecdde595fcf9": {
+    "english": "Group",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/notificationProvider.ts",
+        "line": 70,
+        "kind": "helper-ui-argument",
+        "owner": "PROVIDER_FIELDS",
+        "source": "'Group'"
+      }
+    ]
+  },
+  "native.13b61c38ea69f0d0": {
+    "english": "N-coef (optional)",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 121,
+        "kind": "helper-ui-argument",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'N-coef (optional)'"
+      }
+    ]
+  },
+  "native.1c166290a978e41f": {
+    "english": "unstable / waiting",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 929,
+        "kind": "wrapped-translation-default",
+        "owner": "RemoteSpoolBuddyPanel",
+        "source": "'unstable / waiting'"
+      }
+    ]
+  },
+  "native.416ea710d44b2003": {
+    "english": "Tare",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 943,
+        "kind": "helper-ui-argument",
+        "owner": "RemoteSpoolBuddyPanel",
+        "source": "'Tare'"
+      }
+    ]
+  },
+  "native.52bd293beacce8cb": {
+    "english": "Topic",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/notificationProvider.ts",
+        "line": 36,
+        "kind": "helper-ui-argument",
+        "owner": "PROVIDER_FIELDS",
+        "source": "'Topic'"
+      }
+    ]
+  },
+  "native.57fa503430114002": {
+    "english": "Power",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 85,
+        "kind": "helper-ui-argument",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'Power'"
+      }
+    ]
+  },
+  "native.63ca3716876226f9": {
+    "english": "Retention",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 281,
+        "kind": "helper-ui-argument",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'Retention'"
+      }
+    ]
+  },
+  "native.6ed18423008e7456": {
+    "english": "Deposit",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FinanceScreen.tsx",
+        "line": 388,
+        "kind": "helper-ui-argument",
+        "owner": "FinanceScreen",
+        "source": "'Deposit'"
+      }
+    ]
+  },
+  "native.725b124a359c6540": {
+    "english": "Theme",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 23,
+        "kind": "helper-ui-argument",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'Theme'"
+      }
+    ]
+  },
+  "native.8d71a170fb40b349": {
+    "english": "Withdraw",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FinanceScreen.tsx",
+        "line": 389,
+        "kind": "helper-ui-argument",
+        "owner": "FinanceScreen",
+        "source": "'Withdraw'"
+      }
+    ]
+  },
+  "native.95231b5817324552": {
+    "english": "Token",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 287,
+        "kind": "helper-ui-argument",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'Token'"
+      },
+      {
+        "file": "src/utils/notificationProvider.ts",
+        "line": 65,
+        "kind": "helper-ui-argument",
+        "owner": "PROVIDER_FIELDS",
+        "source": "'Token'"
+      }
+    ]
+  },
+  "native.9e13ee70c035b805": {
+    "english": "Selected: ",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 691,
+        "kind": "wrapped-translation-default",
+        "owner": "RemoteSpoolBuddyPanel",
+        "source": "'Selected: '"
+      }
+    ]
+  },
+  "native.c52b23a3898c6e0f": {
+    "english": "The Web camera page could not be loaded (HTTP {{value0}}). Check local network permissions and retry.",
+    "context": "shared",
+    "placeholders": [
+      "value0"
+    ],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraScreen.tsx",
+        "line": 1369,
+        "kind": "helper-ui-argument",
+        "owner": "CameraScreen",
+        "source": "`The Web camera page could not be loaded (HTTP ${webCameraErrorStatus}). Check local network permissions and retry.`"
+      }
+    ]
+  },
+  "native.ca4bf11be7184edd": {
+    "english": "Sound",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/notificationProvider.ts",
+        "line": 71,
+        "kind": "helper-ui-argument",
+        "owner": "PROVIDER_FIELDS",
+        "source": "'Sound'"
+      }
+    ]
+  },
+  "native.d199e05f6ee481a3": {
+    "english": "Administration",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FinanceScreen.tsx",
+        "line": 358,
+        "kind": "helper-ui-argument",
+        "owner": "FinanceScreen",
+        "source": "'Administration'"
+      }
+    ]
+  },
+  "native.e3091c39ee566b07": {
+    "english": "K-profiles",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 115,
+        "kind": "helper-ui-argument",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'K-profiles'"
+      }
+    ]
+  },
+  "native.f9fac8a3619772f7": {
+    "english": "stable",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 928,
+        "kind": "wrapped-translation-default",
+        "owner": "RemoteSpoolBuddyPanel",
+        "source": "'stable'"
+      }
+    ]
+  }
+}

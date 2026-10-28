@@ -1,382 +1,91 @@
-import React, { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useNativeLocale, useTranslation } from '@/i18n';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Boxes, X } from 'lucide-react-native';
-import { ActionSheetModal } from '@/components/common/ActionSheetModal';
+import { api } from '@/api/client';
+import { request } from '@/api/http';
 import { PrimaryButton } from '@/components/common/AppUI';
-import { api, ApiError } from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/contexts/ToastContext';
+
 import { useTheme } from '@/theme';
-import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
+import { spacing } from '@/theme/tokens';
+import { SkipObjectsPlate } from './SkipObjectsPlate';
 
-interface PrintableObject {
-  id: number;
-  name: string;
-  skipped: boolean;
-}
-
-interface SkipObjectsModalProps {
-  visible: boolean;
-  printerId: number;
-  onClose: () => void;
-}
-
-function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof ApiError ? error.message : fallback;
-}
-
-export function SkipObjectsModal({
-  visible,
-  printerId,
-  onClose,
-}: SkipObjectsModalProps) {
+export function SkipObjectsModal({ visible, printerId, onClose }: {
+  visible: boolean; printerId: number; onClose: () => void;
+}) {
+  useNativeLocale();
+  const { t } = useTranslation();
   const { colors } = useTheme();
-  const { showToast } = useToast();
   const { hasPermission } = useAuth();
-  const queryClient = useQueryClient();
-  const [pendingObject, setPendingObject] = useState<PrintableObject | null>(null);
-
-  const statusQuery = useQuery({
-    queryKey: ['printerStatus', printerId],
-    queryFn: () => api.getPrinterStatus(printerId),
-    enabled: visible,
-    refetchInterval: visible ? 15_000 : false,
+  const client = useQueryClient();
+  const [selected, setSelected] = useState<number[]>([]);
+  const status = useQuery({
+    queryKey: ['printerStatus', printerId], queryFn: () => api.getPrinterStatus(printerId),
+    enabled: visible, refetchInterval: visible ? 5000 : false,
   });
-
-  const objectsQuery = useQuery({
-    queryKey: ['printableObjects', printerId],
-    queryFn: () => api.getPrintableObjects(printerId),
-    enabled: visible,
-    refetchInterval: visible ? 5_000 : false,
+  const objects = useQuery({
+    queryKey: ['printableObjects', printerId], queryFn: () => api.getPrintableObjects(printerId),
+    enabled: visible, refetchInterval: visible ? 5000 : false,
   });
-
-  const skipMutation = useMutation({
-    mutationFn: (objectIds: number[]) => api.skipObjects(printerId, objectIds),
+  const reload = useMutation({
+    mutationFn: () => request(`/printers/${printerId}/print/objects?reload=true`),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['printableObjects', printerId] }),
+  });
+  const active = objects.data?.objects.filter(object => !object.skipped) ?? [];
+  const selectedIds = selected.filter(id => active.some(object => object.id === id));
+  const canSkip = hasPermission('printers:control') && status.data?.connected
+    && ['RUNNING', 'PAUSE'].includes(status.data?.state ?? '') && (status.data?.layer_num ?? 0) > 1;
+  const mutation = useMutation({
+    mutationFn: (ids: number[]) => api.skipObjects(printerId, ids),
     onSuccess: async () => {
+      setSelected([]);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['printableObjects', printerId] }),
-        queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] }),
+        client.invalidateQueries({ queryKey: ['printableObjects', printerId] }),
+        client.invalidateQueries({ queryKey: ['printerStatus', printerId] }),
       ]);
-      showToast('Object skipped.', 'success');
-      setPendingObject(null);
     },
-    onError: error =>
-      showToast(getErrorMessage(error, 'Unable to skip object.'), 'error'),
   });
-
-  const objects = useMemo(
-    () => (objectsQuery.data?.objects ?? []) as PrintableObject[],
-    [objectsQuery.data?.objects],
-  );
-  const isPrinting =
-    statusQuery.data?.state === 'RUNNING' || statusQuery.data?.state === 'PAUSE';
-  const layerNumber = Number(statusQuery.data?.layer_num ?? 0);
-  const canSkip = hasPermission('printers:control') && isPrinting && layerNumber > 1;
-  const activeCount = objects.filter(object => !object.skipped).length;
-
-  const requestSkip = (object: PrintableObject) => {
-    setPendingObject(object);
+  useEffect(() => { setSelected([]); }, [visible, printerId, status.data?.current_print]);
+  const toggle = (id: number) => {
+    if (!canSkip || mutation.isPending || !active.some(object => object.id === id)) return;
+    setSelected(previous => previous.includes(id) ? previous.filter(item => item !== id) : [...previous, id]);
   };
-
-  return (
-    <>
-      <Modal
-        visible={visible}
-        transparent
-        animationType="fade"
-        onRequestClose={onClose}
-      >
-        <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.modalBg, borderColor: colors.border },
-            ]}
-          >
-            <View style={styles.header}>
-              <View style={styles.headerTitle}>
-                <Boxes size={18} color={colors.accentLight} strokeWidth={2} />
-                <Text style={[styles.title, { color: colors.text }]}>Skip objects</Text>
-              </View>
-              <Pressable
-                onPress={onClose}
-                style={[
-                  styles.iconButton,
-                  { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-                ]}
-              >
-                <X size={18} color={colors.text} strokeWidth={2} />
-              </Pressable>
-            </View>
-
-          <View
-            style={[
-              styles.summary,
-              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.summaryText, { color: colors.text }]}>
-              {activeCount} active • {objects.length - activeCount} skipped
-            </Text>
-            <Text style={[styles.summarySubtext, { color: colors.textSecondary }]}>
-              Select a part to cancel it mid-print.
-            </Text>
-          </View>
-
-          {!canSkip ? (
-            <View
-              style={[
-                styles.warning,
-                {
-                  backgroundColor: `${colors.warning}18`,
-                  borderColor: `${colors.warning}55`,
-                },
-              ]}
-            >
-              <AlertCircle size={16} color={colors.warning} strokeWidth={2} />
-              <Text style={[styles.warningText, { color: colors.warning }]}>
-                {!hasPermission('printers:control')
-                  ? 'You do not have permission to control this printer.'
-                  : !isPrinting
-                    ? 'Object skipping is only available while a print is running.'
-                    : `Wait for layer 2 before skipping parts (currently layer ${layerNumber}).`}
-              </Text>
-            </View>
-          ) : null}
-
-          <ScrollView
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {objectsQuery.isLoading ? (
-              <View style={styles.stateBlock}>
-                <ActivityIndicator color={colors.accent} />
-                <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-                  Loading printable objects…
-                </Text>
-              </View>
-            ) : null}
-
-            {!objectsQuery.isLoading && objects.length === 0 ? (
-              <View style={styles.stateBlock}>
-                <Boxes size={20} color={colors.textTertiary} strokeWidth={2} />
-                <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-                  No printable objects were reported for this print.
-                </Text>
-              </View>
-            ) : null}
-
-            {objects.map(object => {
-              const skipped = object.skipped;
-              return (
-                <View
-                  key={object.id}
-                  style={[
-                    styles.objectRow,
-                    {
-                      backgroundColor: skipped
-                        ? `${colors.error}12`
-                        : colors.surfaceElevated,
-                      borderColor: skipped ? `${colors.error}44` : colors.border,
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.objectBadge,
-                      {
-                        backgroundColor: skipped ? `${colors.error}22` : colors.accentBg,
-                        borderColor: skipped ? `${colors.error}55` : colors.accent,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.objectBadgeText,
-                        { color: skipped ? colors.error : colors.accentLight },
-                      ]}
-                    >
-                      {object.id}
-                    </Text>
-                  </View>
-                  <View style={styles.objectText}>
-                    <Text style={[styles.objectTitle, { color: colors.text }]} numberOfLines={1}>
-                      {object.name || `Object ${object.id}`}
-                    </Text>
-                    <Text
-                      style={[styles.objectSubtitle, { color: colors.textSecondary }]}
-                      numberOfLines={1}
-                    >
-                      {skipped ? 'Skipped' : 'Active'}
-                    </Text>
-                  </View>
-                  <PrimaryButton
-                    label={skipped ? 'Skipped' : 'Skip'}
-                    variant={skipped ? 'secondary' : 'danger'}
-                    onPress={() => requestSkip(object)}
-                    disabled={skipped || !canSkip || skipMutation.isPending}
-                    loading={pendingObject?.id === object.id && skipMutation.isPending}
-                  />
-                </View>
-              );
-            })}
-          </ScrollView>
-
-            <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
-          </View>
-        </View>
-      </Modal>
-
-      <ActionSheetModal
-        visible={pendingObject != null}
-        title="Skip object"
-        subtitle={
-          pendingObject
-            ? `Skip "${pendingObject.name}" for the rest of this print?`
-            : undefined
-        }
-        onClose={() => setPendingObject(null)}
-        actions={[
-          {
-            label: 'Cancel',
-            onPress: () => setPendingObject(null),
-          },
-          {
-            label: 'Skip',
-            onPress: () => {
-              if (!pendingObject) return;
-              const objectId = pendingObject.id;
-              setPendingObject(null);
-              skipMutation.mutate([objectId]);
-            },
-            destructive: true,
-          },
-        ]}
-      />
-    </>
-  );
+  const confirm = () => Alert.alert(t('device.skipObjects', { defaultValue: 'Skip selected objects?' }),
+    selectedIds.length === active.length
+      ? t('device.skipAllWarning', { defaultValue: 'You selected every remaining object. This can end the print. Skip all {{count}} objects?', count: selectedIds.length })
+      : t('device.skipConfirmation', { defaultValue: 'Skip {{count}} objects for the rest of this print? This cannot be undone.', count: selectedIds.length }),
+    [{ text: t('common.cancel'), style: 'cancel' }, { text: t('device.skip', { defaultValue: 'Skip' }), style: 'destructive', onPress: () => {
+      if (canSkip && selectedIds.length) mutation.mutate(selectedIds);
+    } }]);
+  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <PrimaryButton label={t('common.close')} variant="secondary" onPress={onClose} />
+      <Text style={{ color: colors.text }}>{t('device.skipObjectsTitle', { defaultValue: 'Skip objects' })}</Text>
+      {!canSkip ? <Text style={{ color: colors.warning }}>{t('device.skipGuard', { defaultValue: 'A connected running print after layer 1 and printer control permission are required.' })}</Text> : null}
+      <ScrollView contentContainerStyle={styles.stack}>
+        {visible && objects.data?.objects.length ? <SkipObjectsPlate printerId={printerId}
+          printKey={`${status.data?.current_archive_id ?? status.data?.current_print ?? ''}:${status.data?.current_plate_id ?? ''}`}
+          selected={selectedIds} skipped={objects.data.objects.filter(object => object.skipped).map(object => object.id)} onSelect={toggle} /> : null}
+        {objects.isLoading ? <ActivityIndicator /> : null}
+        {objects.error || status.error || reload.error ? <Text style={{ color: colors.error }}>{objects.error?.message || status.error?.message || reload.error?.message}</Text> : null}
+        {objects.data?.objects.length === 0 ? <Text style={{ color: colors.textSecondary }}>{t('device.noObjects', { defaultValue: 'No objects loaded. Reload from the current print after reconnecting.' })}</Text> : null}
+        <PrimaryButton label={t('device.reloadObjects', { defaultValue: 'Reload current print objects' })} variant="secondary" disabled={!status.data?.connected} loading={reload.isPending} onPress={() => reload.mutate()} />
+        <PrimaryButton label={selectedIds.length === active.length && active.length ? t('device.clearSelection', { defaultValue: 'Clear selection' }) : t('device.selectAll', { defaultValue: 'Select all remaining' })}
+          variant="secondary" disabled={!canSkip || mutation.isPending} onPress={() => setSelected(selectedIds.length === active.length ? [] : active.map(object => object.id))} />
+        {objects.data?.objects.map(object => <PrimaryButton key={object.id}
+          label={`${object.skipped ? '⊘' : selectedIds.includes(object.id) ? '☑' : '☐'} ${object.name || `#${object.id}`}`}
+          variant={selectedIds.includes(object.id) ? 'primary' : 'secondary'} disabled={object.skipped || !canSkip || mutation.isPending} onPress={() => toggle(object.id)} />)}
+      </ScrollView>
+      <PrimaryButton label={t('device.skipCount', { defaultValue: 'Skip selected ({{count}})', count: selectedIds.length })}
+        variant="danger" disabled={!canSkip || !selectedIds.length} loading={mutation.isPending} onPress={confirm} />
+      {mutation.error ? <Text style={{ color: colors.error }}>{mutation.error.message}</Text> : null}
+      {mutation.isSuccess ? <Text style={{ color: colors.success }}>{t('device.objectsSkipped', { defaultValue: 'Selected objects skipped.' })}</Text> : null}
+    </View>
+  </Modal>;
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 560,
-    maxHeight: '88%',
-    borderRadius: borderRadius['2xl'],
-    borderWidth: 1,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  headerTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  title: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.semibold,
-  },
-  iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  summary: {
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  summaryText: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.medium,
-  },
-  summarySubtext: {
-    fontSize: fontSize.sm,
-  },
-  warning: {
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-  },
-  list: {
-    flexGrow: 0,
-  },
-  listContent: {
-    gap: spacing.sm,
-    paddingBottom: spacing.xs,
-  },
-  stateBlock: {
-    paddingVertical: spacing['2xl'],
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  stateText: {
-    fontSize: fontSize.sm,
-    textAlign: 'center',
-  },
-  objectRow: {
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  objectBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  objectBadgeText: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.bold,
-  },
-  objectText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  objectTitle: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.medium,
-  },
-  objectSubtitle: {
-    fontSize: fontSize.xs,
-  },
+  root: { flex: 1, padding: spacing.lg, paddingTop: spacing.xl, gap: spacing.sm },
+  stack: { gap: spacing.sm, paddingVertical: spacing.sm },
 });

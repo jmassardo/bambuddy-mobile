@@ -1,3 +1,7 @@
+import { NativeTranslation, nativeEnglishSuffix, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
+import { localizedStatus } from '@/utils/statusLabel';
+
 import React from 'react';
 import {
   Image,
@@ -24,7 +28,7 @@ import {
 } from '@/utils/data';
 import { Sparkles } from 'lucide-react-native';
 
-type ArchiveActionIconName = 'printer' | 'video' | 'camera' | 'qr-code' | 'trash' | 'scissors';
+type ArchiveActionIconName = 'printer' | 'video' | 'camera' | 'qr-code' | 'trash' | 'scissors' | 'star';
 
 const ARCHIVE_ACTION_ICONS = {
   printer: Printer,
@@ -33,6 +37,7 @@ const ARCHIVE_ACTION_ICONS = {
   'qr-code': QrCode,
   trash: Trash2,
   scissors: Scissors,
+  star: Star,
 } satisfies Record<ArchiveActionIconName, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>>;
 
 interface ArchiveCardProps {
@@ -49,6 +54,9 @@ interface ArchiveCardProps {
   onQRCode?: () => void;
   onDelete?: () => void;
   onSlice?: () => void;
+  onFavorite?: () => void;
+  onOutcome?: () => void;
+  onPipeline?: () => void;
 }
 
 function statusColor(status: string, colors: ReturnType<typeof useTheme>['colors']) {
@@ -83,6 +91,7 @@ function ArchiveAction({
   color: string;
   onPress?: () => void;
 }) {
+  useNativeLocale();
   if (!onPress) return null;
   const IconComponent = ARCHIVE_ACTION_ICONS[icon];
 
@@ -118,8 +127,13 @@ export function ArchiveCard({
   onQRCode,
   onDelete,
   onSlice,
+  onFavorite,
+  onOutcome,
+  onPipeline,
 }: ArchiveCardProps) {
+  useNativeLocale();
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const cardStatusColor = statusColor(archive.status, colors);
   const isGrid = viewMode === 'grid';
 
@@ -155,7 +169,7 @@ export function ArchiveCard({
                 borderColor: selected ? colors.accent : colors.border,
               },
             ]}
-            accessibilityLabel={selected ? 'Deselect archive' : 'Select archive'}
+            accessibilityLabel={selected ? translateNative('native.76a7b48c5d8b39e2') : translateNative('native.e0e8eefb1d2c3988')}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: selected }}
           >
@@ -186,12 +200,12 @@ export function ArchiveCard({
               {archive.filename}
             </Text>
           </View>
-          <StatusBadge label={archive.status} color={cardStatusColor} />
+          <StatusBadge label={localizedStatus(archive.status)} color={cardStatusColor} />
         </View>
 
         <View style={styles.metaStrip}>
           <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>
-            {archive.print_name || archive.sliced_for_model || 'No printer'}
+            {archive.print_name || archive.sliced_for_model || translateNative('native.bbad1fcfe1f97009')}
           </Text>
           {archive.project_name ? (
             <View
@@ -209,19 +223,19 @@ export function ArchiveCard({
 
         <View style={styles.metricGrid}>
           <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>Date</Text>
+            <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>{translateNative('common.date')}</Text>
             <Text style={[styles.metricValue, { color: colors.text }]} numberOfLines={1}>
               {formatDateTime(archive.completed_at || archive.created_at)}
             </Text>
           </View>
           <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>Duration</Text>
+            <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>{translateNative('native.e6b6cee2c436ee57')}</Text>
             <Text style={[styles.metricValue, { color: colors.text }]}>
               {formatDuration(archive.actual_time_seconds || archive.print_time_seconds)}
             </Text>
           </View>
           <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>Filament</Text>
+            <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>{translateNative('native.12e2b8020ce55e27')}</Text>
             <View style={styles.inlineMetric}>
               {archive.filament_color ? (
                 <View
@@ -235,12 +249,12 @@ export function ArchiveCard({
                 />
               ) : null}
               <Text style={[styles.metricValue, { color: colors.text }]} numberOfLines={1}>
-                {archive.filament_type || 'Unknown'}
+                {archive.filament_type || translateNative('native.ff12a040d13addb7')}
               </Text>
             </View>
           </View>
           <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>Used</Text>
+            <Text style={[styles.metricLabel, { color: colors.textTertiary }]}>{translateNative('native.a05f38c493918bf0')}</Text>
             <Text style={[styles.metricValue, { color: colors.text }]}>
               {formatWeight(archive.filament_used_grams)}
             </Text>
@@ -248,6 +262,9 @@ export function ArchiveCard({
         </View>
 
         <View style={styles.badgesRow}>
+          {archive.status === 'completed' && (archive.user_verdict || archive.confirm_requested) ? <View style={[styles.badgeChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <Text style={[styles.badgeChipText, { color: archive.user_verdict === 'reject' ? colors.error : archive.user_verdict === 'good' ? colors.success : colors.warning }]}>{archive.user_verdict === 'reject' ? t('archives.rejected', { defaultValue: 'Quality rejected' }) : archive.user_verdict === 'good' ? t('archives.good', { defaultValue: 'Good' }) : t('archives.pendingOutcome', { defaultValue: 'Confirm outcome' })}</Text>
+          </View> : null}
           {archive.ai_detection ? (
             <View
               style={[
@@ -257,7 +274,7 @@ export function ArchiveCard({
             >
               <Sparkles size={12} color={getAiColor(archive.ai_detection, colors)} strokeWidth={2} />
               <Text style={[styles.aiBadgeText, { color: getAiColor(archive.ai_detection, colors) }]}>
-                {archive.ai_detection.classification === 'human' ? 'Human' : archive.ai_detection.classification === 'ai' ? 'AI' : 'Unknown'}
+                {archive.ai_detection.classification === 'human' ? translateNative('native.b645c9cce84ce284') : archive.ai_detection.classification === 'ai' ? translateNative('native.cfc111a5b7b11fa5', { defaultValue: 'AI' }) : translateNative('native.ff12a040d13addb7')}
               </Text>
               <Text style={[styles.aiBadgeConfidence, { color: getAiColor(archive.ai_detection, colors) }]}>
                 {Math.round(archive.ai_detection.confidence)}%
@@ -283,7 +300,7 @@ export function ArchiveCard({
                 { backgroundColor: `${colors.info}18`, borderColor: `${colors.info}44` },
               ]}
             >
-              <Text style={[styles.badgeChipText, { color: colors.info }]}>Notes</Text>
+              <Text style={[styles.badgeChipText, { color: colors.info }]}>{translateNative('native.be6245aeb9573da2')}</Text>
             </View>
           ) : null}
           {archive.photos?.length ? (
@@ -294,7 +311,7 @@ export function ArchiveCard({
               ]}
             >
               <Text style={[styles.badgeChipText, { color: colors.warning }]}>
-                {archive.photos.length} photo{archive.photos.length === 1 ? '' : 's'}
+                {archive.photos.length} {translateNative('native.b91e27d9124b8503')}{nativeEnglishSuffix(archive.photos.length === 1 ? '' : 's')}
               </Text>
             </View>
           ) : null}
@@ -305,7 +322,7 @@ export function ArchiveCard({
                 { backgroundColor: colors.highlightBg, borderColor: `${colors.highlight}44` },
               ]}
             >
-              <Text style={[styles.badgeChipText, { color: colors.highlightLight }]}>+{archive.duplicate_count} duplicates</Text>
+              <Text style={[styles.badgeChipText, { color: colors.highlightLight }]}><NativeTranslation id="native.ed6f56afb5a3dba6" values={{ value0: (archive.duplicate_count) }} /></Text>
             </View>
           ) : null}
         </View>
@@ -338,12 +355,15 @@ export function ArchiveCard({
 
         <View style={[styles.footer, { borderColor: colors.borderSubtle }]}> 
           <View style={styles.actionsRow}>
-            <ArchiveAction label="Reprint" icon="printer" color={colors.accent} onPress={onReprint} />
-            <ArchiveAction label="Slice" icon="scissors" color={colors.highlight} onPress={onSlice} />
-            <ArchiveAction label="Time" icon="video" color={colors.info} onPress={onTimelapse} />
-            <ArchiveAction label="Photos" icon="camera" color={colors.warning} onPress={onPhotos} />
+            <ArchiveAction label={t('archives.pendingOutcome', { defaultValue: 'Confirm outcome' })} icon="camera" color={colors.warning} onPress={onOutcome} />
+            <ArchiveAction label={archive.is_favorite ? t('archives.unfavorite', { defaultValue: 'Unfavorite' }) : t('archives.favorite', { defaultValue: 'Favorite' })} icon="star" color={colors.warning} onPress={onFavorite} />
+            <ArchiveAction label={translateNative('native.d67377e1385602fe')} icon="printer" color={colors.accent} onPress={onReprint} />
+            <ArchiveAction label={translateNative('native.8a8a9fc981cbae11')} icon="scissors" color={colors.highlight} onPress={onSlice} />
+            <ArchiveAction label={t('archives.pipeline', { defaultValue: 'Pipeline' })} icon="scissors" color={colors.highlight} onPress={onPipeline} />
+            <ArchiveAction label={translateNative('common.time')} icon="video" color={colors.info} onPress={onTimelapse} />
+            <ArchiveAction label={translateNative('native.7d5c5671012db5ee')} icon="camera" color={colors.warning} onPress={onPhotos} />
             <ArchiveAction label="QR" icon="qr-code" color={colors.textSecondary} onPress={onQRCode} />
-            <ArchiveAction label="Delete" icon="trash" color={colors.error} onPress={onDelete} />
+            <ArchiveAction label={translateNative('common.delete')} icon="trash" color={colors.error} onPress={onDelete} />
           </View>
         </View>
       </View>

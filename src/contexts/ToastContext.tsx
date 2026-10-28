@@ -1,20 +1,23 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { resolveNativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation, type NativeMessage } from '@/i18n';
+
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import { borderRadius, fontSize, spacing } from '../theme/tokens';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
+export type ToastMessage = string | NativeMessage;
 
 interface Toast {
   id: number;
-  message: string;
+  message: ToastMessage;
   type: ToastType;
   opacity: Animated.Value;
 }
 
 interface ToastContextType {
-  showToast: (message: string, type?: ToastType, duration?: number) => void;
+  showToast: (message: ToastMessage, type?: ToastType, duration?: number) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -22,12 +25,19 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 let nextId = 0;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  useNativeLocale();
+  const { t } = useTranslation();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const timeoutsRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
-  const showToast = useCallback((message: string, type: ToastType = 'info', duration = 3000) => {
+  useEffect(() => {
+    const timeouts = timeoutsRef.current;
+    return () => { timeouts.forEach(clearTimeout); timeouts.clear(); };
+  }, []);
+
+  const showToast = useCallback((message: ToastMessage, type: ToastType = 'info', duration = 3000) => {
     const id = ++nextId;
     const opacity = new Animated.Value(0);
 
@@ -45,7 +55,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         duration: 200,
         useNativeDriver: true,
       }).start(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
+        setToasts((prev) => prev.filter((item) => item.id !== id));
       });
       timeoutsRef.current.delete(id);
     }, duration);
@@ -53,7 +63,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     timeoutsRef.current.set(id, timeout);
   }, []);
 
-  const value = useMemo(() => ({ showToast }), [showToast]);
+  const value = useLocalizedMemo(() => ({ showToast }), [showToast]);
 
   const typeColors: Record<ToastType, string> = {
     success: colors.success,
@@ -80,7 +90,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           >
             <View style={[styles.indicator, { backgroundColor: typeColors[toast.type] }]} />
             <Text style={[styles.message, { color: colors.text }]} numberOfLines={3}>
-              {toast.message}
+              {resolveNativeMessage(toast.message, t)}
             </Text>
           </Animated.View>
         ))}
@@ -91,7 +101,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 export function useToast() {
   const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used inside ToastProvider');
+  if (!ctx) throw new Error(translateNative('native.f149d227b28f7e61'));
   return ctx;
 }
 

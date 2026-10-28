@@ -1,0 +1,21 @@
+{
+  "native.04fb589d9c46972b": "Nur die Bestandsverknüpfung erneut versuchen?",
+  "native.078383ec46d40c2f": "Melde dich mit deinem Verzeichniskonto an.",
+  "native.0c60c0c6856b6903": "Aufträgen mit noch nicht aufgelösten alternativen Slicing-Dateien kann kein fester Drucker zugewiesen werden. Lass den Drucker unverändert oder ohne Zuweisung.",
+  "native.0c65b108307c5d36": "Bestandsverknüpfung erneut versuchen",
+  "native.1a5932500ebd8c6f": "Aktualisierung abgeschlossen. Das entfernte Gerät meldet Version {{version}}.",
+  "native.4ca8f2ae45ddb60b": "Bestandsverknüpfung repariert. Der physische NFC-Tag wurde nicht erneut beschrieben.",
+  "native.4d999eaa75bc989a": "Fortschritt von Slicing-Abläufen verfolgen",
+  "native.7356160c2a259d93": "Druckerkameras gemeinsam überwachen",
+  "native.88d0c23d4edeb85b": "Externe Kameraansichten einbinden",
+  "native.990a472990fbdf8d": "Der physische NFC-Tag wurde erfolgreich beschrieben. Verknüpfe Tag {{tag}} mit Spule #{{id}}, ohne ihn erneut zu beschreiben.",
+  "native.c13edffd24345730": "Kostenstellen und Abrechnung",
+  "native.c7482a2684ec7ea6": "Slicer-Pipelines",
+  "native.c76b0088d7977298": "Status der Verzeichnisanmeldung erneut prüfen",
+  "native.c8c49bef3c51e3ff": "Kameraintegrationen",
+  "native.e75b16b7c4dce790": "Pipeline-Durchläufe",
+  "native.ececbf64c1ab0472": "Kamerawand",
+  "native.ef6149f2bdee70f3": "Physischer Schreibvorgang erfolgreich; Bestandsverknüpfung fehlgeschlagen",
+  "native.f2aa245433a562b7": "Automatisierte Slicing-Abläufe verwalten",
+  "native.f981ae40b78c0d40": "Berichtsänderungen konnten nicht gespeichert werden: {{error}}. Lass diesen Bildschirm geöffnet und versuche die Änderung erneut, bevor du die App neu startest."
+}

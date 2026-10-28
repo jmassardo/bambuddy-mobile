@@ -26,6 +26,7 @@ export const authApi = {
   login: async (data: { username: string; password: string }) =>
     request<AuthenticatedLoginResponse>('/auth/login', {
       method: 'POST',
+      credentials: 'include',
       body: JSON.stringify(data),
     }),
 
@@ -36,6 +37,7 @@ export const authApi = {
   }) =>
     request<AuthenticatedLoginResponse>('/auth/2fa/verify', {
       method: 'POST',
+      credentials: 'include',
       body: JSON.stringify(data),
     }),
 
@@ -44,10 +46,22 @@ export const authApi = {
   getCurrentUser: async () =>
     request<AuthenticatedUserResponse>('/auth/me'),
 
-  setupAuth: async (data: { username: string; password: string }) =>
-    request<{ access_token: string; token_type: string }>('/auth/setup', {
+  setupAuth: async (data: { auth_enabled: boolean; admin_username?: string; admin_password?: string }) =>
+    request<{ auth_enabled: boolean; admin_created?: boolean }>('/auth/setup', {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+
+  disableAuth: async () => request<{ auth_enabled: boolean }>('/auth/disable', { method: 'POST' }),
+
+  changeOwnPassword: async (current_password: string, new_password: string) =>
+    request<{ message: string }>('/users/me/change-password', {
+      method: 'POST', body: JSON.stringify({ current_password, new_password }),
+    }),
+
+  sendEmailOTP: async (pre_auth_token: string) =>
+    request<{ message: string; pre_auth_token?: string }>('/auth/2fa/email/send', {
+      method: 'POST', credentials: 'include', body: JSON.stringify({ pre_auth_token }),
     }),
 
   getWebSocketToken: async () =>
@@ -159,7 +173,8 @@ export const authApi = {
       body: JSON.stringify({ password }),
     }),
 
-  getOIDCProviders: async () => request<OIDCProvider[]>('/auth/oidc/providers'),
+  getOIDCProviders: async () =>
+    request<Pick<OIDCProvider, 'id' | 'name' | 'has_icon' | 'is_autologin'>[]>('/auth/oidc/providers'),
 
   getOIDCProvidersAll: async () =>
     request<OIDCProvider[]>('/auth/oidc/providers/all'),
@@ -202,6 +217,7 @@ export const authApi = {
   exchangeOIDCToken: async (oidcToken: string) =>
     request<LoginResponse>('/auth/oidc/exchange', {
       method: 'POST',
+      credentials: 'include',
       body: JSON.stringify({ oidc_token: oidcToken }),
     }),
 
