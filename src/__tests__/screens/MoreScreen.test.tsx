@@ -1,6 +1,14 @@
 import React from 'react';
+import { Pressable, Text } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import MoreScreen from '@/screens/MoreScreen';
+import {
+  LocalizationProvider,
+  createTranslator,
+  useNativeMessageState,
+  useTranslation,
+} from '@/i18n';
 
 const mockNavigate = jest.fn();
 const mockSetOptions = jest.fn();
@@ -125,6 +133,22 @@ function setupQueries(opts?: {
     }
     return { data: undefined, isLoading: false, isError: false };
   });
+}
+
+function ReactiveToastProbe() {
+  const [message, setMessage] = useNativeMessageState('');
+  const { setLanguage } = useTranslation();
+  mockShowToast.mockImplementation(value => setMessage(value));
+
+  return (
+    <>
+      <MoreScreen />
+      <Text testID="more-visible-toast">{message}</Text>
+      <Pressable testID="change-display-language" onPress={() => setLanguage('zh-CN')}>
+        <Text>Change display language</Text>
+      </Pressable>
+    </>
+  );
 }
 
 describe('MoreScreen', () => {
@@ -286,5 +310,50 @@ describe('MoreScreen', () => {
     }
     await fireEvent.press(screen.getByTestId('menu-item-Projects'));
     expect(mockNavigate).toHaveBeenCalledWith('Projects');
+  });
+
+  it.each([
+    {
+      name: 'unsupported external protocol',
+      url: 'ftp://example.test',
+      key: 'more.externalProtocol',
+      english: 'External links must start with http:// or https://',
+      rejects: false,
+    },
+    {
+      name: 'failed system browser launch',
+      url: 'https://example.test',
+      key: 'more.externalError',
+      english: 'Unable to open the external link.',
+      rejects: true,
+    },
+  ])('keeps visible $name feedback reactive without translating a server link name', async ({
+    url, key, english, rejects,
+  }) => {
+    const storage = jest.spyOn(AsyncStorage, 'getItem').mockResolvedValue(null);
+    try {
+      setupQueries({
+        externalLinks: [
+          { id: 1, name: 'Save', url, open_in_new_tab: true, custom_icon: null, sort_order: 1 },
+        ],
+      });
+      if (rejects) mockOpenURL.mockRejectedValueOnce(new Error('Browser unavailable'));
+      const screen = await render(
+        <LocalizationProvider>
+          <ReactiveToastProbe />
+        </LocalizationProvider>,
+      );
+      await screen.findByText('Settings');
+      await fireEvent.press(screen.getByTestId('menu-item-Save'));
+      await screen.findByText(english);
+
+      const translated = createTranslator('zh-CN')(key, { defaultValue: english });
+      expect(translated).not.toBe(english);
+      await fireEvent.press(screen.getByTestId('change-display-language'));
+      await screen.findByText(translated);
+      expect(screen.getByText('Save')).toBeTruthy();
+    } finally {
+      storage.mockRestore();
+    }
   });
 });

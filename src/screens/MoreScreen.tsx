@@ -16,7 +16,7 @@ import { BUILT_IN_NAV_ITEMS, canAccessNavigationItem, getNavigationLayout } from
 import { useCustomNavStore } from '@/store/navigationStore';
 import { uiPreferencesApi } from '@/api/uiPreferences';
 import { AnnouncementsEntry } from '@/components/common/AnnouncementBanner';
-import { useTranslation } from '@/i18n';
+import { nativeMessage, useTranslation } from '@/i18n';
 
 type GlobalRoutes = {
   Announcements: { id?: string } | undefined;
@@ -121,7 +121,7 @@ export default function MoreScreen() {
       const url = input.url.trim();
       if (!URL_PROTOCOL_REGEX.test(url)) {
         showToast(
-          t('more.externalProtocol', { defaultValue: 'External links must start with http:// or https://' }),
+          nativeMessage('more.externalProtocol', { defaultValue: 'External links must start with http:// or https://' }),
           'error',
         );
         return;
@@ -131,7 +131,7 @@ export default function MoreScreen() {
         try {
           await Linking.openURL(url);
         } catch {
-          showToast(t('more.externalError', { defaultValue: 'Unable to open the external link.' }), 'error');
+          showToast(nativeMessage('more.externalError', { defaultValue: 'Unable to open the external link.' }), 'error');
         }
         return;
       }
