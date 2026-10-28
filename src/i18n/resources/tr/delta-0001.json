@@ -1,0 +1,21 @@
+{
+  "native.04fb589d9c46972b": "Yalnızca envanter bağlantısı yeniden denensin mi?",
+  "native.078383ec46d40c2f": "Dizin hesabınızla giriş yapın.",
+  "native.0c60c0c6856b6903": "Çözümlenmemiş alternatif dilimlemeleri olan işlere sabit yazıcı atanamaz. Yazıcıyı değiştirmeyin veya atanmamış bırakın.",
+  "native.0c65b108307c5d36": "Envanter bağlantısını yeniden dene",
+  "native.1a5932500ebd8c6f": "Güncelleme tamamlandı. Uzak cihaz {{version}} sürümünü bildiriyor.",
+  "native.4ca8f2ae45ddb60b": "Envanter bağlantısı onarıldı. Fiziksel NFC etiketi yeniden yazılmadı.",
+  "native.4d999eaa75bc989a": "Dilimleme iş akışı ilerlemesini izle",
+  "native.7356160c2a259d93": "Yazıcı kameralarını birlikte izle",
+  "native.88d0c23d4edeb85b": "Harici kamera görüntüleyicilerini bağla",
+  "native.990a472990fbdf8d": "Fiziksel NFC yazma başarılı. {{tag}} etiketini yeniden yazmadan makara #{{id}} ile bağlayın.",
+  "native.c13edffd24345730": "Maliyet merkezleri ve ücretlendirme",
+  "native.c7482a2684ec7ea6": "Dilimleyici işlem hatları",
+  "native.c76b0088d7977298": "Dizin giriş durumunu yeniden dene",
+  "native.c8c49bef3c51e3ff": "Kamera entegrasyonları",
+  "native.e75b16b7c4dce790": "İşlem hattı çalıştırmaları",
+  "native.ececbf64c1ab0472": "Kamera duvarı",
+  "native.ef6149f2bdee70f3": "Fiziksel yazma başarılı; envanter bağlantısı başarısız",
+  "native.f2aa245433a562b7": "Otomatik dilimleme iş akışlarını yönet",
+  "native.f981ae40b78c0d40": "Rapor düzenlemeleri kaydedilemedi: {{error}}. Ekranı açık tutun ve uygulamayı yeniden başlatmadan önce düzenlemeyi yeniden deneyin."
+}

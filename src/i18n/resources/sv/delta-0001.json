@@ -1,0 +1,21 @@
+{
+  "native.04fb589d9c46972b": "Försök endast länka till lagret igen?",
+  "native.078383ec46d40c2f": "Logga in med ditt katalogkonto.",
+  "native.0c60c0c6856b6903": "Jobb med olösta alternativa skivade filer kan inte tilldelas en fast skrivare. Lämna skrivaren oförändrad eller utan tilldelning.",
+  "native.0c65b108307c5d36": "Försök länka till lagret igen",
+  "native.1a5932500ebd8c6f": "Uppdateringen slutfördes. Fjärrenheten rapporterar version {{version}}.",
+  "native.4ca8f2ae45ddb60b": "Lagerkopplingen reparerades. Den fysiska NFC-taggen skrevs inte om.",
+  "native.4d999eaa75bc989a": "Följ skivningsflödets förlopp",
+  "native.7356160c2a259d93": "Övervaka skrivarkameror tillsammans",
+  "native.88d0c23d4edeb85b": "Anslut externa kameravisare",
+  "native.990a472990fbdf8d": "Den fysiska NFC-skrivningen lyckades. Länka taggen {{tag}} till spole #{{id}} utan att skriva om den.",
+  "native.c13edffd24345730": "Kostnadsställen och debitering",
+  "native.c7482a2684ec7ea6": "Skivningsflöden",
+  "native.c76b0088d7977298": "Försök hämta kataloginloggningens status igen",
+  "native.c8c49bef3c51e3ff": "Kameraintegrationer",
+  "native.e75b16b7c4dce790": "Arbetsflödeskörningar",
+  "native.ececbf64c1ab0472": "Kameravägg",
+  "native.ef6149f2bdee70f3": "Fysisk skrivning lyckades; lagerkopplingen misslyckades",
+  "native.f2aa245433a562b7": "Hantera automatiserade skivningsflöden",
+  "native.f981ae40b78c0d40": "Kunde inte spara rapportändringar: {{error}}. Håll skärmen öppen och försök spara ändringen igen innan du startar om appen."
+}
