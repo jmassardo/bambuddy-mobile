@@ -211,6 +211,8 @@ the root postinstall using its own lockfile; do not override the native compiler
 globally. ESLint 10 uses flat configuration
 with `@eslint/compat` to adapt React Native's legacy rules; the npm ESLint
 override keeps those adapted plugins on the same lint runtime.
+Both npm projects explicitly disable legacy peer resolution so machine-wide
+settings cannot silently generate lockfiles that fail on clean CI runners.
 
 For local React Native setup guidance, see the official [React Native environment setup docs](https://reactnative.dev/docs/set-up-your-environment).
 
