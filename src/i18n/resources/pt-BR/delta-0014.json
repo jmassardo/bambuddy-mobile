@@ -1,0 +1,5 @@
+{
+  "native.a8354e59f5691fa8": "Execuções finalizadas removidas: {{count}}",
+  "native.bd707a01c933cc1e": "Importados: {{archived}}, com falha: {{failed}}",
+  "native.c7e528a90299efbd": "Execução #{{id}} atualizada"
+}

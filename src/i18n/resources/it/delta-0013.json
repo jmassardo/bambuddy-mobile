@@ -1,0 +1,12 @@
+{
+  "native.197a317960cf55b6": "Scorte basse al {{threshold}}%",
+  "native.2c6f1553291f3699": "Provider: {{count}}",
+  "native.2d8f4b1110eef95b": "Stampanti virtuali: {{count}}",
+  "native.8114475cf643fbbc": "Posizioni: {{count}}",
+  "native.8f615a72dd98661e": "Camere configurate: {{count}}",
+  "native.c4bfec3810af5347": "Chiavi: {{keys}} • Token camera: {{tokens}}",
+  "native.cb19f6798e4c8df9": "Prese intelligenti: {{count}}",
+  "native.d605514f8d9014a3": "Dispositivi: {{count}}",
+  "native.d9dd8c0c1c350e4c": "Profili: {{count}}",
+  "native.f509a8cbfea53808": "Link personalizzati: {{count}}"
+}
