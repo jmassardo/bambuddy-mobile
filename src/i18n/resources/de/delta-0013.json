@@ -1,0 +1,12 @@
+{
+  "native.197a317960cf55b6": "Niedriger Bestand bei {{threshold}}%",
+  "native.2c6f1553291f3699": "Anbieter: {{count}}",
+  "native.2d8f4b1110eef95b": "Virtuelle Drucker: {{count}}",
+  "native.8114475cf643fbbc": "Lagerorte: {{count}}",
+  "native.8f615a72dd98661e": "{{count}} konfiguriert",
+  "native.c4bfec3810af5347": "Schlüssel: {{keys}} • Kamera-Tokens: {{tokens}}",
+  "native.cb19f6798e4c8df9": "Smarte Steckdosen: {{count}}",
+  "native.d605514f8d9014a3": "Geräte: {{count}}",
+  "native.d9dd8c0c1c350e4c": "Profile: {{count}}",
+  "native.f509a8cbfea53808": "Benutzerdefinierte Links: {{count}}"
+}
