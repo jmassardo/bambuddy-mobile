@@ -1,0 +1,21 @@
+{
+  "native.04fb589d9c46972b": "Réessayer uniquement l’association à l’inventaire ?",
+  "native.078383ec46d40c2f": "Connectez-vous avec votre compte d’annuaire.",
+  "native.0c60c0c6856b6903": "Les tâches dont les variantes de découpe ne sont pas résolues ne peuvent pas être affectées à une imprimante fixe. Laissez l’imprimante inchangée ou non affectée.",
+  "native.0c65b108307c5d36": "Réessayer l’association à l’inventaire",
+  "native.1a5932500ebd8c6f": "Mise à jour terminée. L’appareil distant indique la version {{version}}.",
+  "native.4ca8f2ae45ddb60b": "Association à l’inventaire réparée. L’étiquette NFC physique n’a pas été réécrite.",
+  "native.4d999eaa75bc989a": "Suivre l’avancement des flux de découpe",
+  "native.7356160c2a259d93": "Surveiller toutes les caméras des imprimantes",
+  "native.88d0c23d4edeb85b": "Connecter des visionneuses de caméra externes",
+  "native.990a472990fbdf8d": "L’écriture NFC physique a réussi. Associez l’étiquette {{tag}} à la bobine #{{id}} sans la réécrire.",
+  "native.c13edffd24345730": "Centres de coûts et facturation",
+  "native.c7482a2684ec7ea6": "Pipelines de découpe",
+  "native.c76b0088d7977298": "Revérifier l’état de connexion à l’annuaire",
+  "native.c8c49bef3c51e3ff": "Intégrations de caméras",
+  "native.e75b16b7c4dce790": "Exécutions des pipelines",
+  "native.ececbf64c1ab0472": "Mur de caméras",
+  "native.ef6149f2bdee70f3": "Écriture physique réussie ; échec de l’association à l’inventaire",
+  "native.f2aa245433a562b7": "Gérer les flux de découpe automatisés",
+  "native.f981ae40b78c0d40": "Impossible d’enregistrer les modifications du rapport : {{error}}. Gardez cet écran ouvert et réessayez la modification avant de redémarrer l’application."
+}
