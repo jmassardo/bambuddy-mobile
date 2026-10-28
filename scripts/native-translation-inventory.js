@@ -10,7 +10,7 @@ const sourceRoot = path.join(project, 'src');
 const locales = ['en', 'de', 'es', 'fr', 'ja', 'it', 'ko', 'nl', 'pt-BR', 'zh-CN', 'zh-TW', 'sv', 'tr', 'ru', 'uk'];
 const uiProperties = /^(title|label|subtitle|placeholder|message|description|helper|helperText|error|hint|accessibilityLabel|accessibilityHint|confirmLabel|cancelLabel|dismissLabel|emptyTitle|emptyMessage|buttonText|prefix|suffix|text)$/;
 const technicalLiterals = new Set([
-  'AMS', 'AMS HT', 'AMS Pro', 'AMS 2 Pro', 'NFC', 'RFID', 'QR', 'QR Code', 'API', 'API Key', 'IP',
+  'AMS', 'AMS HT', 'AMS Pro', 'AMS 2 Pro', 'NFC', 'RFID', 'QR', 'API', 'IP', 'ID',
   'MQTT', 'HTTP', 'HTTPS', 'FTP', 'FTPS', 'RTSP', 'RTSPS', 'MJPEG', 'TCP', 'UDP', 'LAN', 'Wi-Fi',
   'JSON', 'CSV', 'GCODE', 'G-Code', '3MF', 'STL', 'OBJ', 'STEP', 'PNG', 'JPEG', 'JPG', 'MP4',
   'PLA', 'PETG', 'ABS', 'ASA', 'TPU', 'PA', 'PC', 'PVA', 'HIPS', 'PET', 'PPS', 'PEEK', 'PEKK',
@@ -18,13 +18,13 @@ const technicalLiterals = new Set([
   'USD', 'EUR', 'GBP', 'CHF', 'JPY', 'CNY', 'CAD', 'AUD', 'INR', 'HKD', 'KRW', 'SEK', 'NOK',
   'DKK', 'PLN', 'BRL', 'TWD', 'SGD', 'NZD', 'MXN', 'BZD', 'MYR', 'CZK', 'THB', 'ZAR', 'TRY',
   'RUB', 'HUF', 'ILS', 'UAH', 'IDR', 'PHP', 'GB', 'MB', 'KB', 'mm', 'cm', 'kg', 'g', 'kWh',
-  'W', 'V', 'A', 'Hz', 'FPS', 'mm/s', 'mm³/s', '°C', '°F', 'HH:MM', 'HH:mm', 'MM/DD/YYYY',
+  'W', 'V', 'A', 's', 'h', 'm', 'Z', 'AM', 'PM', 'USB', 'GET', 'PUT', 'POST', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'Hz', 'FPS', 'mm/s', 'mm³/s', '°C', '°F', 'HH:MM', 'HH:mm', 'MM/DD/YYYY',
   'DD/MM/YYYY', 'YYYY-MM-DD', 'YYYY/MM/DD', 'K', 'N', 'BambuBuddy', 'BamBuddy', 'Bambu Lab',
   'Bambu Studio', 'OrcaSlicer', 'PrusaSlicer', 'SuperSlicer', 'SpoolBuddy', 'Spoolman', 'Tasmota',
   'Home Assistant', 'Prometheus', 'Grafana', 'Obico', 'GitHub', 'Google', 'Apple', 'Android',
   'iOS', 'Telegram', 'Discord', 'Slack', 'Pushover', 'Pushbullet', 'Gotify', 'ntfy', 'Apprise',
   'Face ID', 'Touch ID', 'X1', 'X1C', 'X1E', 'X2D', 'P1P', 'P1S', 'P2S', 'A1', 'A1 mini',
-  'H2D', 'H2D Pro', 'H2C', 'H2S', 'H2D Pro', 'H2S Pro', 'Beta', 'Alpha',
+  'H2D', 'H2D Pro', 'H2C', 'H2S', 'H2D Pro', 'H2S Pro',
 ]);
 
 function visit(node, callback) {
@@ -56,7 +56,8 @@ function jsxWhitespace(text) {
   const lines = text.replace(/\r/g, '').split('\n');
   return lines.map((line, index) => {
     const expanded = line.replace(/\t/g, ' ');
-    return (index ? expanded.replace(/^ +/, '') : expanded).replace(index < lines.length - 1 ? / +$/ : /$^/, '');
+    const leading = index ? expanded.replace(/^ +/, '') : expanded;
+    return index < lines.length - 1 ? leading.replace(/ +$/, '') : leading;
   }).filter(line => line.length).join(' ');
 }
 function decodeEntities(value) {
@@ -68,9 +69,10 @@ function decodeEntities(value) {
 }
 function exclusion(text) {
   if (!/[A-Za-z]/.test(text.replace(/\{\{\w+\}\}/g, ''))) return 'Only interpolated data, structural punctuation, numeric values or symbols; not English prose.';
-  if (technicalLiterals.has(text)) return 'Product/protocol/material identifier, currency code, format pattern or literal unit; preserve exactly.';
+  if (technicalLiterals.has(text) || technicalLiterals.has(text.toUpperCase())) return 'Product/protocol/material identifier, currency code, format pattern or literal unit; preserve exactly.';
+  if (/^[a-z][a-z\d]*(?:_[a-z\d]+)+$/i.test(text)) return 'Machine-readable identifier; translate its UI label, not its stored/wire value.';
   if (/^(?:https?:|rtsp:|rtsps:|bambuddy:|mailto:|\/api\/|\/dev\/)/i.test(text) || /^[\w.+-]+@[\w.-]+\.[a-z]+$/i.test(text)) return 'URL, address or protocol example; preserve exactly.';
-  if (/^#[\da-f]{3,8}$/i.test(text) || /^[\d.,+\-– /]*[a-zA-Z]{1,3}(?:\/s)?$/.test(text)) return 'Color literal or numeric measurement/size example; preserve exactly.';
+  if (/^#[\da-f]{3,8}$/i.test(text) || /^[\d.,+\-– /]*\d[\d.,+\-– /]*[a-zA-Z]{1,3}(?:\/s)?$/.test(text)) return 'Color literal or numeric measurement/size example; preserve exactly.';
   if (/^\*?\.[a-z\d., *]+$/i.test(text) || /^(?:[a-z\d_-]+\.)+(?:local|com|org|net|cool)$/i.test(text)) return 'Filename pattern or host example; preserve exactly.';
   if (/^[A-Z]\d[A-Z\d]*(?: (?:Pro|mini))?$/.test(text)) return 'Hardware model identifier; preserve exactly.';
   return null;
@@ -90,6 +92,11 @@ function loadExistingCatalogs() {
       exports,
       require(request) {
         if (request === './nativeCatalog') return load('nativeCatalog');
+        if (request === './resources/generated') {
+          const directory = path.join(sourceRoot, 'i18n', 'resources', 'en');
+          const en = fs.existsSync(directory) ? Object.assign({}, ...fs.readdirSync(directory).filter(item => item.endsWith('.json')).map(item => JSON.parse(fs.readFileSync(path.join(directory, item), 'utf8')))) : {};
+          return { resourceCatalogs: { en } };
+        }
         throw new Error(`Catalog inventory cannot execute dependency ${request}`);
       },
     }, { filename });
@@ -126,7 +133,17 @@ function extractInventory() {
     const reserved = relative.startsWith('src/navigation/') || relative === 'src/screens/MoreScreen.tsx';
     const variables = new Map();
     const wrappers = new Map();
+    const uiHelpers = new Map();
+    const messageSetters = new Set();
     visit(file, node => {
+      if (ts.isVariableDeclaration(node) && ts.isArrayBindingPattern(node.name) && node.initializer && ts.isCallExpression(node.initializer) && /^(?:React\.)?(?:useState|useNativeMessageState)$/.test(node.initializer.expression.getText(file))) {
+        const [value, setter] = node.name.elements;
+        const type = node.initializer.typeArguments?.[0]?.getText(file);
+        if (value && setter && /error|message|feedback|warning|validation/i.test(value.getText(file)) && (!type || !/[^stringnuldefi| \n]/.test(type))) {
+          messageSetters.add(setter.getText(file));
+          uiExpression(node.initializer.arguments[0], 'feedback-message');
+        }
+      }
       if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
         const values = variables.get(node.name.text) ?? [];
         values.push(node);
@@ -137,13 +154,21 @@ function extractInventory() {
       if (!ts.isArrowFunction(node) && !ts.isFunctionExpression(node) && !ts.isFunctionDeclaration(node)) return;
       const owner = ts.isVariableDeclaration(node.parent) ? node.parent.name.getText(file) : node.name?.getText(file);
       if (!owner || !node.body) return;
+      if (/<[A-Z]|get\s+(?:label|title)\(|\{\s*[^{}]*\b(?:label|title)\b[,}]/.test(node.body.getText(file)) || /\bt\(/.test(node.body.getText(file))) {
+        const indexes = node.parameters.flatMap((parameter, index) => {
+          const name = parameter.name.getText(file);
+          return uiProperties.test(name) || /^(labels|titles)$/.test(name) ? [index] : [];
+        });
+        if (indexes.length) uiHelpers.set(owner, indexes);
+      }
       visit(node.body, child => {
         if (!ts.isCallExpression(child) || !/(?:^|\.)t$/.test(child.expression.getText(file))) return;
         const options = child.arguments[1];
         if (!options || !ts.isObjectLiteralExpression(options)) return;
-        const fallback = options.properties.find(property => ts.isPropertyAssignment(property) && propertyName(property.name, file) === 'defaultValue');
-        if (!fallback || !ts.isIdentifier(fallback.initializer)) return;
-        const index = node.parameters.findIndex(parameter => parameter.name.getText(file) === fallback.initializer.text);
+        const fallback = options.properties.find(property => (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property)) && propertyName(property.name, file) === 'defaultValue');
+        const fallbackValue = fallback && (ts.isShorthandPropertyAssignment(fallback) ? fallback.name : fallback.initializer);
+        if (!fallbackValue || !ts.isIdentifier(fallbackValue)) return;
+        const index = node.parameters.findIndex(parameter => parameter.name.getText(file) === fallbackValue.text);
         if (index >= 0) wrappers.set(owner, index);
       });
     });
@@ -257,6 +282,12 @@ function extractInventory() {
         if (ts.isStringLiteral(node.initializer)) report(node.initializer, decodeEntities(node.initializer.text), 'jsx-attribute', { attribute: node.name.getText(file) });
         else if (ts.isJsxExpression(node.initializer)) uiExpression(node.initializer.expression, 'jsx-attribute-expression', { attribute: node.name.getText(file) });
       }
+      if (ts.isJsxAttribute(node) && /^(options|choices)$/.test(node.name.getText(file)) && node.initializer && ts.isJsxExpression(node.initializer)) {
+        const values = unparen(node.initializer.expression);
+        if (values && ts.isArrayLiteralExpression(values)) for (const element of values.elements.filter(literal)) {
+          report(element, element.text, 'finite-ui-option', { manualMigration: true });
+        }
+      }
       if (ts.isJsxExpression(node) && (ts.isJsxElement(node.parent) || ts.isJsxFragment(node.parent))) {
         uiExpression(node.expression, 'jsx-expression');
         if (node.expression) visit(node.expression, child => {
@@ -284,6 +315,10 @@ function extractInventory() {
         if (value && ts.isObjectLiteralExpression(value)) for (const property of value.properties) {
           if (ts.isPropertyAssignment(property)) uiExpression(property.initializer, 'ui-label-dictionary', { dictionary: node.name.text });
         }
+        if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && /(?:options|choices)$/i.test(node.name.text)) {
+          const optionValues = unparen(node.initializer);
+          if (optionValues && ts.isArrayLiteralExpression(optionValues)) for (const element of optionValues.elements.filter(literal)) report(element, element.text, 'finite-ui-option', { manualMigration: true });
+        }
       }
       if (ts.isReturnStatement(node) && node.expression) {
         const owner = owningName(node, file);
@@ -297,8 +332,18 @@ function extractInventory() {
       }
       if (!ts.isCallExpression(node)) return;
       const name = node.expression.getText(file);
-      if (/(?:^|\.)t$/.test(name)) {
-        const options = node.arguments[1];
+      if (/^(tr|label|fieldLabel|translateLabel)$/.test(name) && !wrappers.has(name)) {
+        const index = literal(node.arguments[1]) ? 1 : 0;
+        uiExpression(node.arguments[index], 'wrapped-translation-default', { wrapper: name });
+      }
+      if (uiHelpers.has(name)) for (const index of uiHelpers.get(name)) {
+        const argument = unparen(node.arguments[index]);
+        if (argument && ts.isArrayLiteralExpression(argument)) for (const element of argument.elements.filter(literal)) report(element, element.text, 'helper-ui-argument', { helper: name, argument: index });
+        else uiExpression(argument, 'helper-ui-argument', { helper: name, argument: index });
+      }
+      if (/(?:^|\.)t$/.test(name) || name === 'translateNative' || name === 'nativeMessage') {
+        let options = unparen(node.arguments[1]);
+        if (options && ts.isArrowFunction(options)) options = unparen(options.body);
         const fallback = options && ts.isObjectLiteralExpression(options) && options.properties.find(property => ts.isPropertyAssignment(property) && propertyName(property.name, file) === 'defaultValue');
         if (fallback) {
           const defaults = finiteValues(fallback.initializer);
@@ -319,14 +364,16 @@ function extractInventory() {
           }
         }
       } else if (wrappers.has(name)) {
-        uiExpression(node.arguments[wrappers.get(name)], 'wrapped-translation-default', { wrapper: name });
+        const argument = node.arguments[wrappers.get(name)];
+        uiExpression(argument, 'wrapped-translation-default', { wrapper: name });
+        if (argument && !finiteValues(argument).length && !(ts.isCallExpression(argument) && ['translateNative', 'nativeMessage'].includes(argument.expression.getText(file)))) review.push({ ...occurrence(node, 'dynamic-facade-input'), reason: 'Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.' });
       } else if (name === 'Object.entries' && node.arguments[0] && ts.isObjectLiteralExpression(node.arguments[0])) {
         for (const property of node.arguments[0].properties) if (ts.isPropertyAssignment(property)) {
           uiExpression(property.initializer, 'ui-entry-dictionary', { manualMigration: true });
         }
       } else if (/errorMessage|ErrorMessage|errorText|ErrorText|parseError|formatError|errorToMessage|mutationError/i.test(name)) {
         node.arguments.forEach(argument => uiExpression(argument, 'app-error-fallback'));
-      } else if (/(?:showToast|showError|showSuccess|setError|setMessage|setStatusMessage|showAlert|showConfirm|confirmAction|Alert\.alert)$/.test(name)) {
+      } else if (messageSetters.has(name) || /(?:showToast|showError|showSuccess|setError|setMessage|setStatusMessage|showAlert|showConfirm|confirmAction|Alert\.alert)$/.test(name)) {
         node.arguments.slice(0, name === 'Alert.alert' ? 2 : 1).forEach(argument => uiExpression(argument, 'feedback-message'));
       } else if (/^render(?:\w*)(?:Field|Stat|Metric|Setting|Toggle|Section|Info|Label|Button|Row)$/.test(name)) {
         node.arguments.slice(0, 1).forEach(argument => uiExpression(argument, 'helper-label-argument', { manualMigration: true }));
@@ -361,6 +408,7 @@ function extractInventory() {
     // labels. These require explicit source review before a migration can pass.
     visit(file, node => {
       if (!literal(node) || !/[A-Za-z] [A-Za-z]/.test(node.text) || existingEnglish.has(node.text)) return;
+      if ((ts.isPropertyAssignment(node.parent) || ts.isMethodDeclaration(node.parent) || ts.isGetAccessor(node.parent)) && node.parent.name === node) return;
       if (ts.isLiteralTypeNode(node.parent) || ts.isImportDeclaration(node.parent) || ts.isTaggedTemplateExpression(node.parent)) return;
       if (/^(?:\s*<[\w!]|[\s\S]*\b(?:document\.|window\.|function\s+\w+\s*\())/.test(node.text)) return;
       if (ts.isCallExpression(node.parent) && /^(?:console\.|logger\.|log\.)/.test(node.parent.expression.getText(file))) return;
@@ -372,7 +420,19 @@ function extractInventory() {
       report(node, node.text, 'indirect-app-prose', { manualMigration: true });
     });
   }
-  for (const addition of JSON.parse(fs.readFileSync(path.join(__dirname, 'native-translation-additions.json'), 'utf8'))) {
+  const additions = JSON.parse(fs.readFileSync(path.join(__dirname, 'native-translation-additions.json'), 'utf8'));
+  const schemaFile = 'src/data/slicer/process-schema.json';
+  const schema = JSON.parse(fs.readFileSync(path.join(project, schemaFile), 'utf8'));
+  for (const [field, option] of Object.entries(schema)) {
+    for (const property of ['label', 'tooltip', 'sidetext', 'enum_labels']) {
+      for (const english of [].concat(option[property] ?? [])) if (typeof english === 'string' && !exclusion(english)) additions.push({ file: schemaFile, key: `${field}.${property}`, english });
+    }
+  }
+  const treeFile = 'src/data/slicer/process-ui-tree.json';
+  for (const page of JSON.parse(fs.readFileSync(path.join(project, treeFile), 'utf8'))) {
+    for (const english of [page.page, ...page.groups.map(group => group.group)]) if (!exclusion(english)) additions.push({ file: treeFile, key: 'page/group', english });
+  }
+  for (const addition of additions) {
     const canonical = `shared\0${addition.english}`;
     if (!entries.has(canonical)) {
       const existingCatalogKey = existingEnglish.get(addition.english);
@@ -383,9 +443,9 @@ function extractInventory() {
       });
     }
     entries.get(canonical).occurrences.push({
-      file: addition.file, line: 0, column: 0, kind: 'coordinated-source-addition',
+      file: addition.file, line: 0, column: 0, kind: addition.file.includes('/data/') ? 'static-metadata-caption' : 'coordinated-source-addition',
       existingKey: addition.key, owner: path.basename(addition.file, '.tsx'),
-      reserved: false, source: 'Coordinated source-entry branch; reconcile after parent cherry-pick.',
+      reserved: false, source: addition.file.includes('/data/') ? `Read-only canonical metadata display field: ${addition.key}. Wire values and English search anchors must remain unchanged.` : 'Coordinated source-entry branch; reconcile after parent cherry-pick.',
     });
   }
   const sorted = [...entries.values()].sort((a, b) => a.key.localeCompare(b.key));
