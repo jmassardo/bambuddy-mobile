@@ -200,10 +200,19 @@ Forecasts exclude unanchored history for reset spools and fall back to consumpti
 ## Requirements
 
 - A self-hosted Bambuddy server instance
-- Node.js 22+
+- Node.js from `.nvmrc` (26); supported LTS alternatives are 22.18+ and 24.11+
 - Ruby 3.1+ with Bundler
 - Xcode, CocoaPods, and an iOS simulator/device for iOS development
 - Android Studio and Android SDK for Android development
+
+Native Metro/Reanimated compilation stays on its supported Babel 7 compiler.
+Babel 8 developer tooling is isolated in `tools/build-tools` and installed by
+the root postinstall using its own lockfile; do not override the native compiler
+globally. ESLint 10 uses flat configuration
+with `@eslint/compat` to adapt React Native's legacy rules; the npm ESLint
+override keeps those adapted plugins on the same lint runtime.
+Both npm projects explicitly disable legacy peer resolution so machine-wide
+settings cannot silently generate lockfiles that fail on clean CI runners.
 
 For local React Native setup guidance, see the official [React Native environment setup docs](https://reactnative.dev/docs/set-up-your-environment).
 
