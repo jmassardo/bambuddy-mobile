@@ -1,5 +1,7 @@
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 import { localizedStatus } from '@/utils/statusLabel';
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
@@ -47,11 +49,11 @@ const DEFAULT_FORM: UserFormState = {
 };
 
 export default function UsersScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Users'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('nav.users'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('nav.users') });
+  }, [navigation, titleLocale]);
 
   const { colors } = useTheme();
   const { authEnabled, isAdmin, user: currentUser, hasPermission } = useAuth();
@@ -158,9 +160,9 @@ export default function UsersScreen() {
     onSuccess: async () => {
       await invalidateUsers();
       resetCreateState();
-      showToast(translateNative('native.1b83329311564cd5'), 'success');
+      showToast(nativeMessage('native.1b83329311564cd5'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.5f08a22f988b47b6'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.5f08a22f988b47b6'), 'error'),
   });
 
   const updateMutation = useMutation({
@@ -174,24 +176,24 @@ export default function UsersScreen() {
     onSuccess: async () => {
       await invalidateUsers();
       closeEdit();
-      showToast(translateNative('native.0c147492b47fcf9e'), 'success');
+      showToast(nativeMessage('native.0c147492b47fcf9e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.d73761ce692dd794'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.d73761ce692dd794'), 'error'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (userId: number) => api.deleteUser(userId),
     onSuccess: async () => {
       await invalidateUsers();
-      showToast(translateNative('native.49427fd128a5a9b7'), 'success');
+      showToast(nativeMessage('native.49427fd128a5a9b7'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.b9bd4a803eab5aea'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.b9bd4a803eab5aea'), 'error'),
   });
 
   const resetPasswordMutation = useMutation({
     mutationFn: (userId: number) => api.resetUserPassword({ user_id: userId }),
-    onSuccess: data => showToast(pickString(data, ['message'], translateNative('native.d0604eb29f05821f')), 'success'),
-    onError: (error: Error) => showToast(error.message || translateNative('native.55fde6654e6acd96'), 'error'),
+    onSuccess: data => showToast(pickString(data, ['message'], nativeMessage('native.d0604eb29f05821f')), 'success'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.55fde6654e6acd96'), 'error'),
   });
 
   const provisionLdapMutation = useMutation({
@@ -199,9 +201,9 @@ export default function UsersScreen() {
     onSuccess: async data => {
       await invalidateUsers();
       resetCreateState();
-      showToast(translateNative('native.251d74fd49246426', { value0: String(pickString(data, ['username'], translateNative('native.54112fb1f004c9ee'))) }), 'success');
+      showToast(nativeMessage('native.251d74fd49246426', () => ({ value0: String(pickString(data, ['username'], translateNative('native.54112fb1f004c9ee'))) })), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.eae083d66bd13878'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.eae083d66bd13878'), 'error'),
   });
 
   const users = useLocalizedMemo(() => ((usersQuery.data ?? []) as ApiRecord[]), [usersQuery.data]);
@@ -237,10 +239,10 @@ export default function UsersScreen() {
     mutationFn: (id: number) => api.deleteGroup(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
-      showToast(translateNative('native.2e6143709b1a2452'), 'success');
+      showToast(nativeMessage('native.2e6143709b1a2452'), 'success');
       setDeleteGroupId(null);
     },
-    onError: (e: Error) => showToast(e.message || translateNative('native.0f33269c89fb3ba3'), 'error'),
+    onError: (e: Error) => showToast(e.message || nativeMessage('native.0f33269c89fb3ba3'), 'error'),
   });
 
   if (!canRead) {

@@ -1,4 +1,5 @@
-import { translateNative, useNativeLocale } from '@/i18n';
+import { nativeMessage, translateNative, useNativeLocale } from '@/i18n';
+
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -102,10 +103,10 @@ function SmartPlugCardMobile({
           onPress={async () => {
             const result = await statusQuery.refetch();
             if (result.data?.reachable) {
-              showToast(translateNative('native.de14f048ee7530b7', { value0: String(plug.name) }), 'success');
+              showToast(nativeMessage('native.de14f048ee7530b7', () => ({ value0: String(plug.name) })), 'success');
               return;
             }
-            showToast(translateNative('native.e730acab1882c891', { value0: String(plug.name) }), 'error');
+            showToast(nativeMessage('native.e730acab1882c891', () => ({ value0: String(plug.name) })), 'error');
           }}
           disabled={statusQuery.isFetching}
           loading={statusQuery.isFetching}

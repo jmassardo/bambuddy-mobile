@@ -243,6 +243,6 @@ export function stripExtension(name: string | null | undefined) {
   return name.replace(/\.(gcode|3mf)$/i, '');
 }
 
-export function getErrorMessage(error: unknown, fallback: string) {
+export function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T): string | T {
   return error instanceof ApiError ? error.message : fallback;
 }

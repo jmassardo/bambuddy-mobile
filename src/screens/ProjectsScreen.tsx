@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 import { localizedStatus } from '@/utils/statusLabel';
 
 import React, { useState } from 'react';
@@ -83,12 +84,12 @@ function projectCoverUrl(project: ApiRecord): string | null {
 }
 
 export default function ProjectsScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Projects'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('nav.projects'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('nav.projects') });
+  }, [navigation, titleLocale]);
 
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -141,9 +142,9 @@ export default function ProjectsScreen() {
     onSuccess: async () => {
       await invalidateProjects();
       resetModal();
-      showToast(translateNative('native.04436e6c81ceca7e'), 'success');
+      showToast(nativeMessage('native.04436e6c81ceca7e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.ea91f938ed518cfc'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.ea91f938ed518cfc'), 'error'),
   });
 
   const updateMutation = useMutation({
@@ -166,18 +167,18 @@ export default function ProjectsScreen() {
     onSuccess: async () => {
       await invalidateProjects();
       resetModal();
-      showToast(translateNative('native.ad41c4498a8814e8'), 'success');
+      showToast(nativeMessage('native.ad41c4498a8814e8'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.d7fb3bf7219f6906'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.d7fb3bf7219f6906'), 'error'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.deleteProject(id),
     onSuccess: async () => {
       await invalidateProjects();
-      showToast(translateNative('native.9af814479d2f1915'), 'success');
+      showToast(nativeMessage('native.9af814479d2f1915'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.53bb076551334fcb'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.53bb076551334fcb'), 'error'),
   });
 
   const coverMutation = useMutation({
@@ -191,7 +192,7 @@ export default function ProjectsScreen() {
     },
     onSuccess: async () => {
       await invalidateProjects();
-      showToast(translateNative('native.a001f391d7026f60'), 'success');
+      showToast(nativeMessage('native.a001f391d7026f60'), 'success');
     },
     onError: (error: unknown) => {
       if (
@@ -200,7 +201,7 @@ export default function ProjectsScreen() {
       ) {
         return;
       }
-      showToast(error instanceof Error ? error.message : translateNative('native.298916fc664e3b34'), 'error');
+      showToast(error instanceof Error ? error.message : nativeMessage('native.298916fc664e3b34'), 'error');
     },
   });
 
@@ -208,9 +209,9 @@ export default function ProjectsScreen() {
     mutationFn: (projectId: number) => api.deleteProjectCoverImage(projectId),
     onSuccess: async () => {
       await invalidateProjects();
-      showToast(translateNative('native.234e26d9c0701b32'), 'success');
+      showToast(nativeMessage('native.234e26d9c0701b32'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.d1f9ecb867336a95'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.d1f9ecb867336a95'), 'error'),
   });
 
   const projects = useLocalizedMemo(() => ((projectsQuery.data ?? []) as ApiRecord[]), [projectsQuery.data]);

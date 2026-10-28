@@ -1,4 +1,5 @@
-import { NativeTranslation, nativeEnglishSuffix, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeEnglishSuffix, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
@@ -417,12 +418,12 @@ function AssignTypeModal({
 }
 
 export default function MaintenanceScreen() {
-  useNativeLocale();
-  const { t } = useTranslation();
+  const titleLocale = useNativeLocale();
+  useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Maintenance'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('nav.maintenance'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('nav.maintenance') });
+  }, [navigation, titleLocale]);
 
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -477,18 +478,18 @@ export default function MaintenanceScreen() {
       api.updateMaintenanceItem(id, { enabled }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['maintenanceOverview'] });
-      showToast(translateNative('native.934080249f318e84'), 'success');
+      showToast(nativeMessage('native.934080249f318e84'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.3ababee768306619'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.3ababee768306619'), 'error'),
   });
 
   const performMutation = useMutation({
     mutationFn: (id: number) => api.performMaintenance(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['maintenanceOverview'] });
-      showToast(translateNative('native.9cdadec4570ec0f3'), 'success');
+      showToast(nativeMessage('native.9cdadec4570ec0f3'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.5beffef460dfb2e7'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.5beffef460dfb2e7'), 'error'),
   });
 
   const createTypeMutation = useMutation({
@@ -501,9 +502,9 @@ export default function MaintenanceScreen() {
       await invalidateMaintenance();
       setShowTypeModal(false);
       setEditingType(null);
-      showToast(failures.length ? t('maintenance.assignmentFailed', { defaultValue: 'Type created. Some assignments failed: {{errors}}', errors: failures.join('; ') }) : t('maintenance.createdAssigned', { defaultValue: 'Type created and selected printers assigned.' }), failures.length ? 'error' : 'success');
+      showToast(failures.length ? nativeMessage('maintenance.assignmentFailed', () => ({ defaultValue: 'Type created. Some assignments failed: {{errors}}', errors: failures.join('; ') })) : nativeMessage('maintenance.createdAssigned', () => ({ defaultValue: 'Type created and selected printers assigned.' })), failures.length ? 'error' : 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.84943eb909edef54'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.84943eb909edef54'), 'error'),
   });
 
   const updateTypeMutation = useMutation({
@@ -513,9 +514,9 @@ export default function MaintenanceScreen() {
       await invalidateMaintenance();
       setShowTypeModal(false);
       setEditingType(null);
-      showToast(translateNative('native.a178120d96309cd1'), 'success');
+      showToast(nativeMessage('native.a178120d96309cd1'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.1ab6b21f4f93574a'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.1ab6b21f4f93574a'), 'error'),
   });
 
   const deleteTypeMutation = useMutation({
@@ -523,9 +524,9 @@ export default function MaintenanceScreen() {
     onSuccess: async () => {
       await invalidateMaintenance();
       setPendingDeleteType(null);
-      showToast(translateNative('native.14d2898cd564e329'), 'success');
+      showToast(nativeMessage('native.14d2898cd564e329'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.89ffe7a3642fe5df'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.89ffe7a3642fe5df'), 'error'),
   });
 
   const assignTypeMutation = useMutation({
@@ -534,9 +535,9 @@ export default function MaintenanceScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['maintenanceOverview'] });
       setAssignPrinter(null);
-      showToast(translateNative('native.91f5d5b8467e0c4d'), 'success');
+      showToast(nativeMessage('native.91f5d5b8467e0c4d'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.cfca4abd199b8a86'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.cfca4abd199b8a86'), 'error'),
   });
 
   const printers = useLocalizedMemo(() => {

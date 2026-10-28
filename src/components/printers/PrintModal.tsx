@@ -1,5 +1,6 @@
 import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
 
+
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -988,7 +989,7 @@ export function PrintModal(props: PrintModalProps) {
       ]);
       stagedFile.current = null;
       showToast(
-        tr(editing ? translateNative('native.9fcb68bbc1cf1516') : translateNative('native.025c8d487e12a680')),
+        editing ? nativeMessage('native.9fcb68bbc1cf1516') : nativeMessage('native.025c8d487e12a680'),
         'success',
       );
       onSuccess?.();

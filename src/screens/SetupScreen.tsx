@@ -1,5 +1,6 @@
 import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
 
+
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
@@ -20,12 +21,12 @@ import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
 
 export default function SetupScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Setup'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('native.6c92cbd87d3884af'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('native.6c92cbd87d3884af') });
+  }, [navigation, titleLocale]);
   const { colors } = useTheme();
   const { requiresSetup, authEnabled, refreshAuth } = useAuth();
   const { showToast } = useToast();
@@ -55,7 +56,7 @@ export default function SetupScreen() {
       return response;
     },
     onSuccess: () => {
-      showToast(translateNative('native.5c6f1b85bd5918c3'), 'success');
+      showToast(nativeMessage('native.5c6f1b85bd5918c3'), 'success');
       navigation.reset({
         index: 0,
         routes: enableAuth ? [{ name: 'Login' }] : [{ name: 'Main', params: { screen: 'Dashboard' } }],

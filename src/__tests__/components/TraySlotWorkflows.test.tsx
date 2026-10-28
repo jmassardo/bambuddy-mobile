@@ -9,7 +9,11 @@ import { printerControlsApi as device } from '@/api/printerControls';
 import type { AMSTray, InventorySpool, PrinterStatus, SpoolAssignment } from '@/types/api';
 
 const mockToast = jest.fn();
-jest.mock('@/contexts/ToastContext', () => ({ useToast: () => ({ showToast: mockToast }) }));
+jest.mock('@/contexts/ToastContext', () => {
+  const { resolveNativeMessage } = jest.requireActual<typeof import('@/i18n')>('@/i18n');
+  const showToast = (message: Parameters<typeof resolveNativeMessage>[0], ...args: unknown[]) => mockToast(resolveNativeMessage(message), ...args);
+  return { useToast: () => ({ showToast }) };
+});
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ hasPermission: () => true }) }));
 jest.mock('@/theme', () => ({ useTheme: () => ({ colors: new Proxy({}, { get: () => '#888888' }) }) }));
 jest.mock('@/components/printers/LinkSpoolModal', () => ({ LinkSpoolModal: () => null }));

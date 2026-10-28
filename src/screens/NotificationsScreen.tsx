@@ -1,4 +1,5 @@
-import { nativeLabelTuple, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeLabelTuple, nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
@@ -33,7 +34,7 @@ const DEFAULT_PREFERENCES: PreferenceState = {
 };
 
 export default function NotificationsScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Notifications'>>();
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -42,7 +43,7 @@ export default function NotificationsScreen() {
   const client = useQueryClient();
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
   const [dirty, setDirty] = useState(false);
-  React.useLayoutEffect(() => { navigation.setOptions({ get title() { return translateNative('notifications.title', { defaultValue: 'Notifications' }); } }); }, [navigation, t]);
+  React.useLayoutEffect(() => { navigation.setOptions({ title: translateNative('notifications.title', { defaultValue: 'Notifications' }) }); }, [navigation, t, titleLocale]);
   const auth = useQuery({ queryKey: ['advancedAuthStatus'], queryFn: () => api.getAdvancedAuthStatus() });
   const settings = useQuery({ queryKey: useServerSettingsKey(), queryFn: () => api.getSettings() });
   const personal = useQuery({ queryKey: ['userEmailPreferences'], queryFn: () => api.getUserEmailPreferences() });
@@ -56,7 +57,7 @@ export default function NotificationsScreen() {
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ['userEmailPreferences'] });
       setDirty(false);
-      showToast(t('notifications.preferencesSaved', { defaultValue: 'Email notification preferences saved.' }), 'success');
+      showToast(nativeMessage('notifications.preferencesSaved', () => ({ defaultValue: 'Email notification preferences saved.' })), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
@@ -128,7 +129,7 @@ function PushNotificationToggleCard() {
       if (!value) await disablePushNotifications();
       else if (await requestPermission()) await enablePushNotifications();
     } catch (error) {
-      showToast(error instanceof Error ? error.message : t('notifications.pushError', { defaultValue: 'Unable to change push notifications.' }), 'error');
+      showToast(error instanceof Error ? error.message : nativeMessage('notifications.pushError', () => ({ defaultValue: 'Unable to change push notifications.' })), 'error');
     } finally { setPending(false); }
   };
   return (

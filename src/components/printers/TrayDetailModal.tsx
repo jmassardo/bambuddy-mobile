@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -58,7 +59,7 @@ interface TrayDetailModalProps {
   onClose: () => void;
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
@@ -205,22 +206,22 @@ export function TrayDetailModal({
     },
     onSuccess: async () => {
       await invalidatePrinter();
-      showToast(translateNative('native.c6dd82fbd6e54a42'), 'success');
+      showToast(nativeMessage('native.c6dd82fbd6e54a42'), 'success');
       onClose();
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.829a9674aee7addf')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.829a9674aee7addf')), 'error'),
   });
 
   const unloadMutation = useMutation({
     mutationFn: () => device.unload(printerId, context ? unloadTrayId(context.amsId, context.trayId) : undefined),
     onSuccess: async () => {
       await invalidatePrinter();
-      showToast(translateNative('native.972d19d6ac4e4bed'), 'success');
+      showToast(nativeMessage('native.972d19d6ac4e4bed'), 'success');
       onClose();
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.9287d7cc8c0f025b')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.9287d7cc8c0f025b')), 'error'),
   });
 
   const refreshMutation = useMutation({
@@ -231,21 +232,21 @@ export function TrayDetailModal({
     },
     onError: error => {
       setRfidBaseline(null);
-      showToast(getErrorMessage(error, t('device.rfidFailed', { defaultValue: 'Device RFID reread failed.' })), 'error');
+      showToast(getErrorMessage(error, nativeMessage('device.rfidFailed', () => ({ defaultValue: 'Device RFID reread failed.' }))), 'error');
     },
   });
   useEffect(() => {
     if (rfidBaseline == null || refreshMutation.isPending) return;
     if ((statusQuery.data?.last_ams_update ?? 0) > rfidBaseline && statusQuery.data?.ams_status_main !== 2) {
       setRfidBaseline(null);
-      showToast(t('device.rfidCompleted', { defaultValue: 'AMS status refreshed after RFID reread.' }), 'success');
+      showToast(nativeMessage('device.rfidCompleted', () => ({ defaultValue: 'AMS status refreshed after RFID reread.' })), 'success');
     }
   }, [rfidBaseline, refreshMutation.isPending, showToast, statusQuery.data?.last_ams_update, statusQuery.data?.ams_status_main, t]);
   useEffect(() => {
     if (rfidBaseline == null) return;
     const timer = setTimeout(() => {
       setRfidBaseline(null);
-      showToast(t('device.rfidTimeout', { defaultValue: 'RFID command sent, but no completion was reported. Check the tray and retry.' }), 'error');
+      showToast(nativeMessage('device.rfidTimeout', () => ({ defaultValue: 'RFID command sent, but no completion was reported. Check the tray and retry.' })), 'error');
     }, 60000);
     return () => clearTimeout(timer);
   }, [rfidBaseline, showToast, t]);
@@ -260,20 +261,20 @@ export function TrayDetailModal({
         invalidatePrinter(),
         queryClient.invalidateQueries({ queryKey: ['inventoryAssignments'] }),
       ]);
-      showToast(translateNative('native.f8a5f62810c9582a'), 'success');
+      showToast(nativeMessage('native.f8a5f62810c9582a'), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.4e6a92e509672538')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.4e6a92e509672538')), 'error'),
   });
 
   const unlinkSpoolMutation = useMutation({
     mutationFn: (spoolId: number) => api.unlinkSpool(spoolId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['linkedSpools'] });
-      showToast(translateNative('native.5d414fdd0a28404e'), 'success');
+      showToast(nativeMessage('native.5d414fdd0a28404e'), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.b307e4fa223b56a6')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.b307e4fa223b56a6')), 'error'),
   });
 
   const color = useLocalizedMemo(() => parseFilamentColor(tray?.tray_color), [tray?.tray_color]);
@@ -388,10 +389,10 @@ export function TrayDetailModal({
     },
     onSuccess: async () => {
       await invalidatePrinter();
-      showToast(translateNative('native.b297e9684a57dfa9'), 'success');
+      showToast(nativeMessage('native.b297e9684a57dfa9'), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.520b27b07ee69257')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.520b27b07ee69257')), 'error'),
   });
 
   const stopDryingMutation = useMutation({
@@ -401,10 +402,10 @@ export function TrayDetailModal({
     },
     onSuccess: async () => {
       await invalidatePrinter();
-      showToast(translateNative('native.384c285ec2af8fe7'), 'success');
+      showToast(nativeMessage('native.384c285ec2af8fe7'), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.995b9681e38b91a0')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.995b9681e38b91a0')), 'error'),
   });
 
   if (!tray || !context) return null;

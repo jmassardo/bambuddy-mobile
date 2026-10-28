@@ -1,4 +1,5 @@
-import { NativeTranslation, nativeEnglishSuffix, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeEnglishSuffix, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
@@ -319,11 +320,11 @@ export function comparePrinters(
 }
 
 export default function PrintersDashboardScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<MainTabNavigationProp<'Dashboard'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('nav.printers'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('nav.printers') });
+  }, [navigation, titleLocale]);
 
   const { colors } = useTheme();
   const { hasAnyPermission, hasPermission } = useAuth();
@@ -368,7 +369,7 @@ export default function PrintersDashboardScreen() {
         }
       } catch {
         if (!cancelled) {
-          showToast(translateNative('native.1b9b68d107b6538a'), 'warning');
+          showToast(nativeMessage('native.1b9b68d107b6538a'), 'warning');
         }
       }
     };
@@ -541,14 +542,14 @@ export default function PrintersDashboardScreen() {
   const handleSortChange = (nextSort: PrinterSortMode) => {
     setSortBy(nextSort);
     void AsyncStorage.setItem(PRINTER_SORT_STORAGE_KEY, nextSort).catch(() => {
-      showToast(translateNative('native.6c7950190204ade9'), 'warning');
+      showToast(nativeMessage('native.6c7950190204ade9'), 'warning');
     });
   };
 
   const handleSecondarySortChange = (nextSecondary: PrinterSortSecondaryMode) => {
     setSortSecondary(nextSecondary);
     void AsyncStorage.setItem(PRINTER_SORT_SECONDARY_KEY, nextSecondary).catch(() => {
-      showToast(translateNative('native.f07a09411b4f8940'), 'warning');
+      showToast(nativeMessage('native.f07a09411b4f8940'), 'warning');
     });
   };
   const applicableSelected = (action: FleetBulkAction) => selectedPrinterIds.filter(id =>
@@ -607,12 +608,12 @@ export default function PrintersDashboardScreen() {
                 ? translateNative('native.80f57346541d7270')
                 : translateNative('native.df99d810856b6ad4');
       showToast(
-        translateNative('native.e534e060ea657a9e', { value0: String(actionLabel), value1: String(successCount), value2: String(nativeEnglishSuffix(successCount === 1 ? '' : 's')), value3: String(failureCount ? translateNative('native.1f9e52119c5cffe7', { value0: String(failureCount) }) : '') }),
+        nativeMessage('native.e534e060ea657a9e', () => ({ value0: String(actionLabel), value1: String(successCount), value2: String(nativeEnglishSuffix(successCount === 1 ? '' : 's')), value3: String(failureCount ? translateNative('native.1f9e52119c5cffe7', { value0: String(failureCount) }) : '') })),
         failureCount ? 'warning' : 'success',
       );
     },
     onError: (error: Error) => {
-      showToast(error.message || translateNative('native.d19e6842d6ef9a5b'), 'error');
+      showToast(error.message || nativeMessage('native.d19e6842d6ef9a5b'), 'error');
     },
   });
   const confirmBulk = (action: FleetBulkAction) => Alert.alert(

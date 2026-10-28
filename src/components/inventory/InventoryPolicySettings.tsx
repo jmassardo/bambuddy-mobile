@@ -1,4 +1,5 @@
-import { nativeLabelTuple, translateNative, useNativeLocale } from '@/i18n';
+import { nativeLabelTuple, nativeMessage, translateNative, useNativeLocale } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -62,7 +63,7 @@ export function AmsThresholdSettings() {
     },
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ['settings'] });
-      showToast(translateNative('native.2ea8f962809f8cfd'), 'success');
+      showToast(nativeMessage('native.2ea8f962809f8cfd'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
@@ -134,9 +135,7 @@ export function SpoolmanPolicySettings() {
         ),
       );
       showToast(
-        operation === 'save'
-          ? translateNative('native.2326ab2b176807c6')
-          : translateNative('native.9b7191420530dcc0'),
+        operation === 'save' ? nativeMessage('native.2326ab2b176807c6') : nativeMessage('native.9b7191420530dcc0'),
         'success',
       );
     },

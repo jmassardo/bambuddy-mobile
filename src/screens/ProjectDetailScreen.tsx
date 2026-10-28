@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 import { localizedStatus } from '@/utils/statusLabel';
 
 import React, { useState } from 'react';
@@ -48,12 +49,12 @@ function isProjectModelFile(file: ApiRecord) {
 }
 
 export default function ProjectDetailScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'ProjectDetail'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('screen.project'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('screen.project') });
+  }, [navigation, titleLocale]);
 
   const route = useRoute<RootRouteProp<'ProjectDetail'>>();
   const projectId = Number(route.params?.id);
@@ -112,7 +113,7 @@ export default function ProjectDetailScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['projects'] });
       await queryClient.invalidateQueries({ queryKey: ['projectTemplates'] });
-      showToast(t('projects.templateSaved', { defaultValue: 'Project saved as template.' }), 'success');
+      showToast(nativeMessage('projects.templateSaved', () => ({ defaultValue: 'Project saved as template.' })), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
@@ -135,9 +136,9 @@ export default function ProjectDetailScreen() {
       await queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['projects'] });
       setEditingNotes(false);
-      showToast(translateNative('native.ad41c4498a8814e8'), 'success');
+      showToast(nativeMessage('native.ad41c4498a8814e8'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.d7fb3bf7219f6906'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.d7fb3bf7219f6906'), 'error'),
   });
 
   const createBomMutation = useMutation({
@@ -155,9 +156,9 @@ export default function ProjectDetailScreen() {
       setShowBomModal(false);
       setEditingBom(null);
       setBomForm(DEFAULT_BOM);
-      showToast(translateNative('native.bb1279768a3c155a'), 'success');
+      showToast(nativeMessage('native.bb1279768a3c155a'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.ed5114b3fbdbf493'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.ed5114b3fbdbf493'), 'error'),
   });
 
   const updateBomMutation = useMutation({
@@ -175,9 +176,9 @@ export default function ProjectDetailScreen() {
       setShowBomModal(false);
       setEditingBom(null);
       setBomForm(DEFAULT_BOM);
-      showToast(translateNative('native.7e9becfb0c1bbd28'), 'success');
+      showToast(nativeMessage('native.7e9becfb0c1bbd28'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.7308072b0d57cb64'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.7308072b0d57cb64'), 'error'),
   });
 
   const toggleBomMutation = useMutation({
@@ -186,9 +187,9 @@ export default function ProjectDetailScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['projectBOM', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-      showToast(translateNative('native.7e9becfb0c1bbd28'), 'success');
+      showToast(nativeMessage('native.7e9becfb0c1bbd28'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.7308072b0d57cb64'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.7308072b0d57cb64'), 'error'),
   });
 
   const deleteBomMutation = useMutation({
@@ -196,9 +197,9 @@ export default function ProjectDetailScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['projectBOM', projectId] });
       await queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-      showToast(translateNative('native.1ab1fe70a69212c1'), 'success');
+      showToast(nativeMessage('native.1ab1fe70a69212c1'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.0254a5aa91f01964'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.0254a5aa91f01964'), 'error'),
   });
 
   const project = (projectQuery.data ?? null) as ApiRecord | null;
@@ -466,7 +467,7 @@ export default function ProjectDetailScreen() {
                       variant="secondary"
                       onPress={() =>
                         void Linking.openURL(api.getLibraryFileDownloadUrl(pickNumber(file, ['id']))).catch(() => {
-                          showToast(translateNative('native.621f9d863b59e34f'), 'error');
+                          showToast(nativeMessage('native.621f9d863b59e34f'), 'error');
                         })
                       }
                     />

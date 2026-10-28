@@ -1,4 +1,5 @@
-import { NativeTranslation, nativeLabelTuple, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { NativeTranslation, nativeLabelTuple, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -182,7 +183,7 @@ export function InventoryForecast({
       await refresh();
       setEditSku(null);
       setCartSku(null);
-      showToast(translateNative('native.3185deb507128db2'), 'success');
+      showToast(nativeMessage('native.3185deb507128db2'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
@@ -524,7 +525,7 @@ function ShoppingList({
       await onSaved();
       setConfirm(null);
       setEditing(null);
-      showToast(translateNative('native.c26b44650ae70076'), 'success');
+      showToast(nativeMessage('native.c26b44650ae70076'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });

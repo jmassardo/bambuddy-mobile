@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "scope": "App-authored React Native UI; arbitrary server/user text, URLs, filenames, wire IDs, code comparisons and literal units are preserved.",
-  "resourceClosure": "English source/runtime closure only. All14 foreign locales require every base and twelve-delta chunk; fallback is not completion.",
+  "resourceClosure": "English source/runtime closure only. All14 foreign locales require every base and fourteen-delta chunk; fallback is not completion.",
   "original": [
     {
       "file": "src/components/archives/ArchiveBrowseControls.tsx",
@@ -15,7 +15,7 @@
       "source": "t(`archives.collection.${collection}`, {\n                  defaultValue: labels[collection],\n                })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "collection/sort labels are finite local getter tables; collection and sort wire IDs stay unchanged.",
-      "currentFileDigest": "82815556ea93f2431aa665e09425b9b52e903975811e75706bcfa851e85448a4",
+      "currentFileDigest": "1b8acd038690bd5fca7dd53fcc615be6861f380f758b9120c9fb3f08b047e2a3",
       "status": "resolved"
     },
     {
@@ -30,7 +30,7 @@
       "source": "t(`archives.sort.${sort}`, { defaultValue: labels[sort] })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "collection/sort labels are finite local getter tables; collection and sort wire IDs stay unchanged.",
-      "currentFileDigest": "82815556ea93f2431aa665e09425b9b52e903975811e75706bcfa851e85448a4",
+      "currentFileDigest": "1b8acd038690bd5fca7dd53fcc615be6861f380f758b9120c9fb3f08b047e2a3",
       "status": "resolved"
     },
     {
@@ -45,7 +45,7 @@
       "source": "t(`archives.metadata.${field}`, {\n              defaultValue: field.replace(/_/g, ' '),\n            })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Explicit fieldLabels getters replace inferred underscore captions. Unknown backend media warnings render raw, not through an alias lookup.",
-      "currentFileDigest": "5fddc6689d7eb3cd5bd47ce403ff44b19f79caa1cc30648da434a2a226b2044b",
+      "currentFileDigest": "6852f0eed893a590ee35ea557cf34b5749c3e31ef65667207c2358701904ff65",
       "status": "resolved"
     },
     {
@@ -60,7 +60,7 @@
       "source": "t(`archives.metadata.${field}`, {\n                defaultValue: field.replace(/_/g, ' '),\n              })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Explicit fieldLabels getters replace inferred underscore captions. Unknown backend media warnings render raw, not through an alias lookup.",
-      "currentFileDigest": "5fddc6689d7eb3cd5bd47ce403ff44b19f79caa1cc30648da434a2a226b2044b",
+      "currentFileDigest": "6852f0eed893a590ee35ea557cf34b5749c3e31ef65667207c2358701904ff65",
       "status": "resolved"
     },
     {
@@ -75,7 +75,7 @@
       "source": "t(`archives.mediaWarning.${warning}`, {\n                defaultValue: warning.replace(/_/g, ' '),\n              })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Explicit fieldLabels getters replace inferred underscore captions. Unknown backend media warnings render raw, not through an alias lookup.",
-      "currentFileDigest": "5fddc6689d7eb3cd5bd47ce403ff44b19f79caa1cc30648da434a2a226b2044b",
+      "currentFileDigest": "6852f0eed893a590ee35ea557cf34b5749c3e31ef65667207c2358701904ff65",
       "status": "resolved"
     },
     {
@@ -90,7 +90,7 @@
       "source": "t(`library.uploadStatus.${file.status}`, {defaultValue: file.status})",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "File status uses bounded localizedStatus. Filenames/backend error text remain raw.",
-      "currentFileDigest": "4007ea5b8ad1d83cf1b4e53355a4b68867a278a18a1ee34aaee17238c5cfbcd0",
+      "currentFileDigest": "d957bc72857f84efd5d51c9fcde60b24dd86b15c918420164072116c3ba83136",
       "status": "resolved"
     },
     {
@@ -105,7 +105,7 @@
       "source": "t(`slice.${text}`, { defaultValue: text })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Private source-authored caption factory in SliceModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "currentFileDigest": "501c2af32580b19806d0e67c8ffca23305a0fe9539a5bc62787e42cd452da8fb",
+      "currentFileDigest": "3f45473a2c78d31f9689d5768578ebf9653bc958ba19862d3eb926a70cc6e95d",
       "status": "resolved"
     },
     {
@@ -525,7 +525,7 @@
       "source": "t(`printing.${label.replace(/\\W/g, '')}`, { defaultValue: label })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "currentFileDigest": "84e7cac6070601c9a11e7e4e16bd1b01c8c560455bbd8ba56ad8f2f9002c59c7",
+      "currentFileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d",
       "status": "resolved"
     },
     {
@@ -600,7 +600,7 @@
       "source": "t(`device.dryingReason.${code}`, { defaultValue: dryingReasonText(code) })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Known dryingReasonText messages render directly, without a second alias lookup over backend content.",
-      "currentFileDigest": "f0af75698462edbb5f245d4969a2910723002ca0bacbd1ea622a0cb2a484f2ad",
+      "currentFileDigest": "6da5967bebed1450f13f4649c745f8a1796877a39342bfbc4d6a2dcc7ee4d161",
       "status": "resolved"
     },
     {
@@ -960,7 +960,7 @@
       "source": "t(`integrations.check.${check.id}`, { defaultValue: check.id.replace(/_/g, ' ') })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Known checks/help use local caption getters. Unknown backend check IDs and diagnostic details remain raw.",
-      "currentFileDigest": "57f9867d77c5cf7729574515bcc1c98f99e45fa6b3f766986faa5a5570dc0747",
+      "currentFileDigest": "80a455a674823a9f3a60b29f3e4b6d7f89f1562a53383fa9bd8be439b7498cb1",
       "status": "resolved"
     },
     {
@@ -975,7 +975,7 @@
       "source": "t(`integrations.help.${check.id}`, { defaultValue: diagnosticHelp[check.id] || 'Check printer LAN settings, firewall access and server logs, then retry.' })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Known checks/help use local caption getters. Unknown backend check IDs and diagnostic details remain raw.",
-      "currentFileDigest": "57f9867d77c5cf7729574515bcc1c98f99e45fa6b3f766986faa5a5570dc0747",
+      "currentFileDigest": "80a455a674823a9f3a60b29f3e4b6d7f89f1562a53383fa9bd8be439b7498cb1",
       "status": "resolved"
     },
     {
@@ -1005,7 +1005,7 @@
       "source": "t(`pipeline.${s}`, { defaultValue: s })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Private chrome is authored. Preflight kinds use bounded issueCaptions via localizedEnum. Expected/actual values and printer names stay raw.",
-      "currentFileDigest": "0b825a32d8ccde08c331b8ea6a02e0aa80b9c383fb764f7c327e7edabdd20f8d",
+      "currentFileDigest": "2ba3fa625738d4f30502f32ced593e50d9190eac71866f0983f5b7745ef5a4e0",
       "status": "resolved"
     },
     {
@@ -1155,7 +1155,7 @@
       "source": "t(`fleet.state.${item.key}`, { defaultValue: item.label })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "currentFileDigest": "0c5554160801bfad0040004ab01ed3977f3b6ccbce919624c6576f860ebf2c79",
+      "currentFileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b",
       "status": "resolved"
     },
     {
@@ -1170,7 +1170,7 @@
       "source": "t(`fleet.state.${item.key}`, { defaultValue: item.label })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "currentFileDigest": "0c5554160801bfad0040004ab01ed3977f3b6ccbce919624c6576f860ebf2c79",
+      "currentFileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b",
       "status": "resolved"
     },
     {
@@ -1185,7 +1185,7 @@
       "source": "t(`fleet.state.${item.key}`, { defaultValue: item.label })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "currentFileDigest": "0c5554160801bfad0040004ab01ed3977f3b6ccbce919624c6576f860ebf2c79",
+      "currentFileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b",
       "status": "resolved"
     },
     {
@@ -1200,7 +1200,7 @@
       "source": "t(`fleet.sortDescription.${option.key}`, { defaultValue: option.description })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "currentFileDigest": "0c5554160801bfad0040004ab01ed3977f3b6ccbce919624c6576f860ebf2c79",
+      "currentFileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b",
       "status": "resolved"
     },
     {
@@ -1215,7 +1215,7 @@
       "source": "t(`fleet.sort.${option.key}`, { defaultValue: option.label })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "currentFileDigest": "0c5554160801bfad0040004ab01ed3977f3b6ccbce919624c6576f860ebf2c79",
+      "currentFileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b",
       "status": "resolved"
     },
     {
@@ -1230,7 +1230,7 @@
       "source": "t(`library.tagAction.${action}`, {defaultValue: {add: 'Add selected tags', remove: 'Remove selected tags', replace: 'Replace all tags'}[action]})",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Tag-action captions use a closed three-way getter table; actual tags and filenames remain raw.",
-      "currentFileDigest": "986e4ca8ed322581ab12e65dd37a1c453ad1c468ad5f751db2793df6e445012e",
+      "currentFileDigest": "9b3ea5e6c75cf7dbaecd79b9cd4500b2c55f86530142546c57527730bd6fc2d4",
       "status": "resolved"
     },
     {
@@ -1305,7 +1305,7 @@
       "source": "t(`notifications.personal.${key}`, { defaultValue: title })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Private source-authored caption factory in NotificationsScreen: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "currentFileDigest": "867a3ca3fca4ff8faa40684760fca8206c02a6f9a2e992b2b693235e7e434481",
+      "currentFileDigest": "e516e5a3f526da71b28c70cdf861280a71bb37d47275472ade8a7be00ef1c99b",
       "status": "resolved"
     },
     {
@@ -1320,7 +1320,7 @@
       "source": "t(`notifications.personal.${key}`, { defaultValue: title })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Private source-authored caption factory in NotificationsScreen: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "currentFileDigest": "867a3ca3fca4ff8faa40684760fca8206c02a6f9a2e992b2b693235e7e434481",
+      "currentFileDigest": "e516e5a3f526da71b28c70cdf861280a71bb37d47275472ade8a7be00ef1c99b",
       "status": "resolved"
     },
     {
@@ -1335,7 +1335,7 @@
       "source": "t(`pipelineRuns.${s}`, { defaultValue: s })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Private chrome is authored. Run/job statuses use bounded localizedStatus, never generic backend aliases.",
-      "currentFileDigest": "256577e068a914f340a517d64223cc5216ef9b2a9427d4b40beb2ff93970bc7e",
+      "currentFileDigest": "665c182c75ebcfa241e6ab26912b26b9ea3d27b28b6ea83351a7388262285eb7",
       "status": "resolved"
     },
     {
@@ -1410,7 +1410,7 @@
       "source": "t(`queue.${label.replace(/\\W/g, '')}`, { defaultValue: label })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Private title/dialog/chrome callsites are authored. Batch status uses bounded mappings; job names/backend errors stay raw.",
-      "currentFileDigest": "1ab1e1947c72c9ac73a9ba01e71e81bc65bd6589d1e3d48e5e9e316c64210fd9",
+      "currentFileDigest": "6524a6732119548b9c06008f159b61fe25c38b5105a40978519336896788453b",
       "status": "resolved"
     },
     {
@@ -1425,7 +1425,7 @@
       "source": "t(`pipelineManagement.${s}`, { defaultValue: s })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Private source-authored caption factory in SlicerPipelinesScreen: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "currentFileDigest": "0460ad408d8fe1acf4b940992c736b04efab5648fd9fcc1c02d5965c4f7fab82",
+      "currentFileDigest": "7e5e40e47bcda0a529a5fabc38892dd76686f5561ae9584df45c9a7a82f47fde",
       "status": "resolved"
     },
     {
@@ -1440,17 +1440,17 @@
       "source": "t(`pipelineManagement.${s}`, { defaultValue: s })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Private source-authored caption factory in SlicerPipelinesScreen: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "currentFileDigest": "0460ad408d8fe1acf4b940992c736b04efab5648fd9fcc1c02d5965c4f7fab82",
+      "currentFileDigest": "7e5e40e47bcda0a529a5fabc38892dd76686f5561ae9584df45c9a7a82f47fde",
       "status": "resolved"
     }
   ],
   "current": [
     {
       "file": "src/components/archives/ArchiveBrowseControls.tsx",
-      "line": 129,
+      "line": 130,
       "column": 24,
-      "start": 4587,
-      "end": 4698,
+      "start": 4603,
+      "end": 4714,
       "kind": "dynamic-translation-default",
       "owner": "ArchiveBrowseControls",
       "reserved": false,
@@ -1458,14 +1458,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "9dc76bcbf118ea2421bcc801bbcd10de66c441e1563dfd05fc287dd8dc356702",
       "disposition": "collection/sort labels are finite local getter tables; collection and sort wire IDs stay unchanged.",
-      "fileDigest": "82815556ea93f2431aa665e09425b9b52e903975811e75706bcfa851e85448a4"
+      "fileDigest": "1b8acd038690bd5fca7dd53fcc615be6861f380f758b9120c9fb3f08b047e2a3"
     },
     {
       "file": "src/components/archives/ArchiveBrowseControls.tsx",
-      "line": 184,
+      "line": 185,
       "column": 22,
-      "start": 6364,
-      "end": 6422,
+      "start": 6380,
+      "end": 6438,
       "kind": "dynamic-translation-default",
       "owner": "ArchiveBrowseControls",
       "reserved": false,
@@ -1473,14 +1473,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "c3f274471b68e649b08549a6b8f81a69677c9d997a9b21329b752661489754d2",
       "disposition": "collection/sort labels are finite local getter tables; collection and sort wire IDs stay unchanged.",
-      "fileDigest": "82815556ea93f2431aa665e09425b9b52e903975811e75706bcfa851e85448a4"
+      "fileDigest": "1b8acd038690bd5fca7dd53fcc615be6861f380f758b9120c9fb3f08b047e2a3"
     },
     {
       "file": "src/components/archives/ArchiveDetailTools.tsx",
-      "line": 110,
+      "line": 111,
       "column": 20,
-      "start": 3685,
-      "end": 3781,
+      "start": 3701,
+      "end": 3797,
       "kind": "dynamic-translation-default",
       "owner": "EmbeddedArchiveProjectPage",
       "reserved": false,
@@ -1488,14 +1488,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "38943629b011b2006dd7cd9ff3ea428ffa70665dc349b1713ee08746ed8a1ad7",
       "disposition": "Explicit fieldLabels getters replace inferred underscore captions. Unknown backend media warnings render raw, not through an alias lookup.",
-      "fileDigest": "5fddc6689d7eb3cd5bd47ce403ff44b19f79caa1cc30648da434a2a226b2044b"
+      "fileDigest": "6852f0eed893a590ee35ea557cf34b5749c3e31ef65667207c2358701904ff65"
     },
     {
       "file": "src/components/archives/ArchiveDetailTools.tsx",
-      "line": 122,
+      "line": 123,
       "column": 16,
-      "start": 4133,
-      "end": 4233,
+      "start": 4149,
+      "end": 4249,
       "kind": "dynamic-translation-default",
       "owner": "EmbeddedArchiveProjectPage",
       "reserved": false,
@@ -1503,14 +1503,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "08441c2ea2fda42d282aaab44189242a5e743baa31e81c8aae2108788f6f43b1",
       "disposition": "Explicit fieldLabels getters replace inferred underscore captions. Unknown backend media warnings render raw, not through an alias lookup.",
-      "fileDigest": "5fddc6689d7eb3cd5bd47ce403ff44b19f79caa1cc30648da434a2a226b2044b"
+      "fileDigest": "6852f0eed893a590ee35ea557cf34b5749c3e31ef65667207c2358701904ff65"
     },
     {
       "file": "src/components/files/AssetPreviewModal.tsx",
-      "line": 84,
+      "line": 85,
       "column": 80,
-      "start": 4506,
-      "end": 4719,
+      "start": 4507,
+      "end": 4720,
       "kind": "dynamic-translation-default",
       "owner": "asset",
       "reserved": false,
@@ -1518,14 +1518,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "e11dc892af6f8d4e10c563a877921ffb0cdc91637d738bd8e59c18f752e01411",
       "disposition": "Conditional authored missing-source/toolpath messages use lazy native descriptors. Source URLs/IDs and backend errors stay raw.",
-      "fileDigest": "31f2fc13d1bbc6697910dd32fa5d3c51e366b44d52f24e28d43460453e718222"
+      "fileDigest": "8c98a113889f90babfeb73d1ea36cae6b702e4e5467b581b9b86843f5f1e0abb"
     },
     {
       "file": "src/components/files/SliceModal.tsx",
-      "line": 63,
+      "line": 64,
       "column": 35,
-      "start": 1889,
-      "end": 1931,
+      "start": 1905,
+      "end": 1947,
       "kind": "dynamic-translation-default",
       "owner": "label",
       "reserved": false,
@@ -1533,7 +1533,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "8961c97c9d8df424c971b3bad5657af1be74c1b66d2a289970f09e783fc64502",
       "disposition": "Private source-authored caption factory in SliceModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "501c2af32580b19806d0e67c8ffca23305a0fe9539a5bc62787e42cd452da8fb"
+      "fileDigest": "3f45473a2c78d31f9689d5768578ebf9653bc958ba19862d3eb926a70cc6e95d"
     },
     {
       "file": "src/components/finance/FinancePolicySection.tsx",
@@ -1732,10 +1732,10 @@
     },
     {
       "file": "src/components/printers/PrintModal.tsx",
-      "line": 204,
+      "line": 205,
       "column": 5,
-      "start": 5804,
-      "end": 5870,
+      "start": 5805,
+      "end": 5871,
       "kind": "dynamic-translation-default",
       "owner": "tr",
       "reserved": false,
@@ -1743,14 +1743,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "951be1637dfdb71ce951a765364a7fe2339946647a026824dd58d9485c3df830",
       "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "84e7cac6070601c9a11e7e4e16bd1b01c8c560455bbd8ba56ad8f2f9002c59c7"
+      "fileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d"
     },
     {
       "file": "src/components/printers/PrintModal.tsx",
-      "line": 588,
+      "line": 589,
       "column": 44,
-      "start": 19185,
-      "end": 19234,
+      "start": 19186,
+      "end": 19235,
       "kind": "unknown-translation-key",
       "owner": "close",
       "reserved": false,
@@ -1759,14 +1759,14 @@
       "reason": "No existing English value; explicitly resolve before completeness can pass.",
       "id": "80d45153f4a5bf2a400be58952b0d7c446143c989051ca9c5304dab3894b1e81",
       "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "84e7cac6070601c9a11e7e4e16bd1b01c8c560455bbd8ba56ad8f2f9002c59c7"
+      "fileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d"
     },
     {
       "file": "src/components/printers/PrintModal.tsx",
-      "line": 652,
+      "line": 653,
       "column": 51,
-      "start": 21369,
-      "end": 21399,
+      "start": 21370,
+      "end": 21400,
       "kind": "unknown-translation-key",
       "owner": "upload",
       "reserved": false,
@@ -1775,29 +1775,14 @@
       "reason": "No existing English value; explicitly resolve before completeness can pass.",
       "id": "5cc302721a5c78cb4a757100bd7ceac4c75508eb78c73a89e496053a2b1a100a",
       "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "84e7cac6070601c9a11e7e4e16bd1b01c8c560455bbd8ba56ad8f2f9002c59c7"
+      "fileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d"
     },
     {
       "file": "src/components/printers/PrintModal.tsx",
-      "line": 991,
-      "column": 9,
-      "start": 34422,
-      "end": 34523,
-      "kind": "dynamic-facade-input",
-      "owner": "submit",
-      "reserved": false,
-      "source": "tr(editing ? translateNative('native.9fcb68bbc1cf1516') : translateNative('native.025c8d487e12a680'))",
-      "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
-      "id": "fbfaecd75c4f538409b431054baaa34c50013237c1db507d9585f5dc5f5ae759",
-      "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "84e7cac6070601c9a11e7e4e16bd1b01c8c560455bbd8ba56ad8f2f9002c59c7"
-    },
-    {
-      "file": "src/components/printers/PrintModal.tsx",
-      "line": 1045,
+      "line": 1046,
       "column": 24,
-      "start": 36219,
-      "end": 36396,
+      "start": 36212,
+      "end": 36389,
       "kind": "dynamic-facade-input",
       "owner": "PrintModal",
       "reserved": false,
@@ -1805,14 +1790,14 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "0779022402f6a8c2cb7cbd336cffa8a633861a391e35069804501dd3598cb75c",
       "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "84e7cac6070601c9a11e7e4e16bd1b01c8c560455bbd8ba56ad8f2f9002c59c7"
+      "fileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d"
     },
     {
       "file": "src/components/printers/PrintModal.tsx",
-      "line": 1651,
+      "line": 1652,
       "column": 53,
-      "start": 63941,
-      "end": 64236,
+      "start": 63934,
+      "end": 64229,
       "kind": "dynamic-facade-input",
       "owner": "PrintModal",
       "reserved": false,
@@ -1820,14 +1805,14 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "e588101918faa84ec89f3e6d60244fe29d0fd7a772ccca7f6a3dd529b8bd97bf",
       "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "84e7cac6070601c9a11e7e4e16bd1b01c8c560455bbd8ba56ad8f2f9002c59c7"
+      "fileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d"
     },
     {
       "file": "src/components/printers/PrintModal.tsx",
-      "line": 1812,
+      "line": 1813,
       "column": 20,
-      "start": 70669,
-      "end": 70921,
+      "start": 70662,
+      "end": 70914,
       "kind": "dynamic-facade-input",
       "owner": "PrintModal",
       "reserved": false,
@@ -1835,7 +1820,7 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "455cf07ee33ff66659b075dd888c64d275bc30cdc79ac129e24295884a7dc2b3",
       "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "84e7cac6070601c9a11e7e4e16bd1b01c8c560455bbd8ba56ad8f2f9002c59c7"
+      "fileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d"
     },
     {
       "file": "src/components/queue/GanttTimeline.tsx",
@@ -2323,10 +2308,10 @@
     },
     {
       "file": "src/components/settings/VirtualPrinterIntegration.tsx",
-      "line": 39,
+      "line": 40,
       "column": 27,
-      "start": 2038,
-      "end": 2263,
+      "start": 2054,
+      "end": 2279,
       "kind": "dynamic-translation-default",
       "owner": "VirtualPrinterDiagnostics",
       "reserved": false,
@@ -2334,14 +2319,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "0a509ab52841a333177252b2bfbe3b9cf1bf574b9044fd88f64784db0e34e09d",
       "disposition": "Known checks/help use local caption getters. Unknown backend check IDs and diagnostic details remain raw.",
-      "fileDigest": "57f9867d77c5cf7729574515bcc1c98f99e45fa6b3f766986faa5a5570dc0747"
+      "fileDigest": "80a455a674823a9f3a60b29f3e4b6d7f89f1562a53383fa9bd8be439b7498cb1"
     },
     {
       "file": "src/components/settings/VirtualPrinterIntegration.tsx",
-      "line": 46,
+      "line": 47,
       "column": 68,
-      "start": 3193,
-      "end": 3349,
+      "start": 3209,
+      "end": 3365,
       "kind": "dynamic-translation-default",
       "owner": "VirtualPrinterDiagnostics",
       "reserved": false,
@@ -2349,7 +2334,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "e39b796aab987300dda18dba72dbfeb51a0e87a49f7b221dfe2d386bdef1021b",
       "disposition": "Known checks/help use local caption getters. Unknown backend check IDs and diagnostic details remain raw.",
-      "fileDigest": "57f9867d77c5cf7729574515bcc1c98f99e45fa6b3f766986faa5a5570dc0747"
+      "fileDigest": "80a455a674823a9f3a60b29f3e4b6d7f89f1562a53383fa9bd8be439b7498cb1"
     },
     {
       "file": "src/components/slicing/ProcessSettingsEditor.tsx",
@@ -2578,10 +2563,10 @@
     },
     {
       "file": "src/components/slicing/RunWithPipelineModal.tsx",
-      "line": 39,
+      "line": 40,
       "column": 31,
-      "start": 2422,
-      "end": 2461,
+      "start": 2438,
+      "end": 2477,
       "kind": "dynamic-translation-default",
       "owner": "text",
       "reserved": false,
@@ -2589,7 +2574,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "14445d642d492f11a60b90e71d9785e748b5efa11bb33f6ccd66387b4c01a77c",
       "disposition": "Private chrome is authored. Preflight kinds use bounded issueCaptions via localizedEnum. Expected/actual values and printer names stay raw.",
-      "fileDigest": "0b825a32d8ccde08c331b8ea6a02e0aa80b9c383fb764f7c327e7edabdd20f8d"
+      "fileDigest": "2ba3fa625738d4f30502f32ced593e50d9190eac71866f0983f5b7745ef5a4e0"
     },
     {
       "file": "src/components/slicing/SlicerSetupSection.tsx",
@@ -2683,10 +2668,10 @@
     },
     {
       "file": "src/screens/DashboardScreen.tsx",
-      "line": 723,
+      "line": 724,
       "column": 109,
-      "start": 29429,
-      "end": 29487,
+      "start": 29459,
+      "end": 29517,
       "kind": "dynamic-translation-default",
       "owner": "PrintersDashboardScreen",
       "reserved": false,
@@ -2694,14 +2679,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "c68af151039de6491c21667c26ffc953a87d58182c7b45c325be1caf19acb068",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "fileDigest": "0c5554160801bfad0040004ab01ed3977f3b6ccbce919624c6576f860ebf2c79"
+      "fileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b"
     },
     {
       "file": "src/screens/DashboardScreen.tsx",
-      "line": 727,
+      "line": 728,
       "column": 333,
-      "start": 30713,
-      "end": 30785,
+      "start": 30743,
+      "end": 30815,
       "kind": "dynamic-translation-default",
       "owner": "PrintersDashboardScreen",
       "reserved": false,
@@ -2709,14 +2694,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "f66e8d5a8deb3ea07ec02b0f732f2472e4f23a7c86baf98f05831cb6f78f1e09",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "fileDigest": "0c5554160801bfad0040004ab01ed3977f3b6ccbce919624c6576f860ebf2c79"
+      "fileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b"
     },
     {
       "file": "src/screens/DashboardScreen.tsx",
-      "line": 837,
+      "line": 838,
       "column": 80,
-      "start": 36772,
-      "end": 36844,
+      "start": 36802,
+      "end": 36874,
       "kind": "dynamic-translation-default",
       "owner": "PrintersDashboardScreen",
       "reserved": false,
@@ -2724,14 +2709,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "f66e8d5a8deb3ea07ec02b0f732f2472e4f23a7c86baf98f05831cb6f78f1e09",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "fileDigest": "0c5554160801bfad0040004ab01ed3977f3b6ccbce919624c6576f860ebf2c79"
+      "fileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b"
     },
     {
       "file": "src/screens/DashboardScreen.tsx",
-      "line": 870,
+      "line": 871,
       "column": 43,
-      "start": 39369,
-      "end": 39447,
+      "start": 39399,
+      "end": 39477,
       "kind": "dynamic-translation-default",
       "owner": "PrintersDashboardScreen",
       "reserved": false,
@@ -2739,14 +2724,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "7d0180167e43611401ae7cd70ba3fec25a59905d29e849872d22a10746230df2",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "fileDigest": "0c5554160801bfad0040004ab01ed3977f3b6ccbce919624c6576f860ebf2c79"
+      "fileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b"
     },
     {
       "file": "src/screens/DashboardScreen.tsx",
-      "line": 879,
+      "line": 880,
       "column": 26,
-      "start": 39805,
-      "end": 39866,
+      "start": 39835,
+      "end": 39896,
       "kind": "dynamic-translation-default",
       "owner": "PrintersDashboardScreen",
       "reserved": false,
@@ -2754,14 +2739,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "db954fd47ee75b294d1132e8e2e57e135fdcdf38fc79bfc62b6b096997deac11",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "fileDigest": "0c5554160801bfad0040004ab01ed3977f3b6ccbce919624c6576f860ebf2c79"
+      "fileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b"
     },
     {
       "file": "src/screens/FilesScreen.tsx",
       "line": 1627,
       "column": 92,
-      "start": 91298,
-      "end": 91561,
+      "start": 91387,
+      "end": 91650,
       "kind": "dynamic-translation-default",
       "owner": "FilesScreen",
       "reserved": false,
@@ -2769,7 +2754,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "bfeef0f2cd72be1bab61da6194d7c3cdeeeecaecbbcbea54472a3c83d1467f74",
       "disposition": "Tag-action captions use a closed three-way getter table; actual tags and filenames remain raw.",
-      "fileDigest": "986e4ca8ed322581ab12e65dd37a1c453ad1c468ad5f751db2793df6e445012e"
+      "fileDigest": "9b3ea5e6c75cf7dbaecd79b9cd4500b2c55f86530142546c57527730bd6fc2d4"
     },
     {
       "file": "src/screens/FinanceScreen.tsx",
@@ -2863,10 +2848,10 @@
     },
     {
       "file": "src/screens/NotificationsScreen.tsx",
-      "line": 99,
+      "line": 100,
       "column": 71,
-      "start": 6090,
-      "end": 6149,
+      "start": 6142,
+      "end": 6201,
       "kind": "dynamic-translation-default",
       "owner": "NotificationsScreen",
       "reserved": false,
@@ -2874,14 +2859,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "ded07e0febfec1f48a842412373917ba4e2deb1f2d5c9c6ee5db2bc9b86e660a",
       "disposition": "Private source-authored caption factory in NotificationsScreen: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "867a3ca3fca4ff8faa40684760fca8206c02a6f9a2e992b2b693235e7e434481"
+      "fileDigest": "e516e5a3f526da71b28c70cdf861280a71bb37d47275472ade8a7be00ef1c99b"
     },
     {
       "file": "src/screens/NotificationsScreen.tsx",
-      "line": 100,
+      "line": 101,
       "column": 45,
-      "start": 6202,
-      "end": 6261,
+      "start": 6254,
+      "end": 6313,
       "kind": "dynamic-translation-default",
       "owner": "NotificationsScreen",
       "reserved": false,
@@ -2889,14 +2874,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "ded07e0febfec1f48a842412373917ba4e2deb1f2d5c9c6ee5db2bc9b86e660a",
       "disposition": "Private source-authored caption factory in NotificationsScreen: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "867a3ca3fca4ff8faa40684760fca8206c02a6f9a2e992b2b693235e7e434481"
+      "fileDigest": "e516e5a3f526da71b28c70cdf861280a71bb37d47275472ade8a7be00ef1c99b"
     },
     {
       "file": "src/screens/PipelineRunsScreen.tsx",
       "line": 25,
       "column": 31,
-      "start": 1196,
-      "end": 1239,
+      "start": 1211,
+      "end": 1254,
       "kind": "dynamic-translation-default",
       "owner": "text",
       "reserved": false,
@@ -2904,7 +2889,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "fb47b27e6f2d0852298dc35b1beb3277b618f454a403ba8f3fc8746ff8df5115",
       "disposition": "Private chrome is authored. Run/job statuses use bounded localizedStatus, never generic backend aliases.",
-      "fileDigest": "256577e068a914f340a517d64223cc5216ef9b2a9427d4b40beb2ff93970bc7e"
+      "fileDigest": "665c182c75ebcfa241e6ab26912b26b9ea3d27b28b6ea83351a7388262285eb7"
     },
     {
       "file": "src/screens/PrintLogScreen.tsx",
@@ -2968,10 +2953,10 @@
     },
     {
       "file": "src/screens/QueueScreen.tsx",
-      "line": 81,
+      "line": 82,
       "column": 5,
-      "start": 2545,
-      "end": 2608,
+      "start": 2561,
+      "end": 2624,
       "kind": "dynamic-translation-default",
       "owner": "tr",
       "reserved": false,
@@ -2979,14 +2964,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "45e46c2a92268c35bffedc8d3d2f404d3c44dd3c95330e58356995be9fe7c164",
       "disposition": "Private title/dialog/chrome callsites are authored. Batch status uses bounded mappings; job names/backend errors stay raw.",
-      "fileDigest": "1ab1e1947c72c9ac73a9ba01e71e81bc65bd6589d1e3d48e5e9e316c64210fd9"
+      "fileDigest": "6524a6732119548b9c06008f159b61fe25c38b5105a40978519336896788453b"
     },
     {
       "file": "src/screens/QueueScreen.tsx",
-      "line": 189,
+      "line": 190,
       "column": 33,
-      "start": 6540,
-      "end": 6549,
+      "start": 6589,
+      "end": 6598,
       "kind": "dynamic-facade-input",
       "owner": "confirm",
       "reserved": false,
@@ -2994,14 +2979,14 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "cc8a9966a1077d0cd62545d98f10bf7a1894d136acf2c96aeb78c4566b1fa729",
       "disposition": "Private title/dialog/chrome callsites are authored. Batch status uses bounded mappings; job names/backend errors stay raw.",
-      "fileDigest": "1ab1e1947c72c9ac73a9ba01e71e81bc65bd6589d1e3d48e5e9e316c64210fd9"
+      "fileDigest": "6524a6732119548b9c06008f159b61fe25c38b5105a40978519336896788453b"
     },
     {
       "file": "src/screens/QueueScreen.tsx",
-      "line": 451,
+      "line": 452,
       "column": 22,
-      "start": 14882,
-      "end": 15034,
+      "start": 14961,
+      "end": 15113,
       "kind": "dynamic-facade-input",
       "owner": "renderPending",
       "reserved": false,
@@ -3009,14 +2994,14 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "41b715065c1f858670673a0868be6ae290a2e99b2bcab031d2106d7e9a8c6d6a",
       "disposition": "Private title/dialog/chrome callsites are authored. Batch status uses bounded mappings; job names/backend errors stay raw.",
-      "fileDigest": "1ab1e1947c72c9ac73a9ba01e71e81bc65bd6589d1e3d48e5e9e316c64210fd9"
+      "fileDigest": "6524a6732119548b9c06008f159b61fe25c38b5105a40978519336896788453b"
     },
     {
       "file": "src/screens/SlicerPipelinesScreen.tsx",
-      "line": 22,
+      "line": 23,
       "column": 31,
-      "start": 892,
-      "end": 941,
+      "start": 908,
+      "end": 957,
       "kind": "dynamic-translation-default",
       "owner": "text",
       "reserved": false,
@@ -3024,14 +3009,14 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "5f23eb80bec58d7464ba7f4c230e2fcaffc8040d48198798805e4fa2c50e8407",
       "disposition": "Private source-authored caption factory in SlicerPipelinesScreen: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "0460ad408d8fe1acf4b940992c736b04efab5648fd9fcc1c02d5965c4f7fab82"
+      "fileDigest": "7e5e40e47bcda0a529a5fabc38892dd76686f5561ae9584df45c9a7a82f47fde"
     },
     {
       "file": "src/screens/SlicerPipelinesScreen.tsx",
-      "line": 135,
+      "line": 136,
       "column": 31,
-      "start": 4171,
-      "end": 4220,
+      "start": 4187,
+      "end": 4236,
       "kind": "dynamic-translation-default",
       "owner": "text",
       "reserved": false,
@@ -3039,7 +3024,8 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "5f23eb80bec58d7464ba7f4c230e2fcaffc8040d48198798805e4fa2c50e8407",
       "disposition": "Private source-authored caption factory in SlicerPipelinesScreen: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "0460ad408d8fe1acf4b940992c736b04efab5648fd9fcc1c02d5965c4f7fab82"
+      "fileDigest": "7e5e40e47bcda0a529a5fabc38892dd76686f5561ae9584df45c9a7a82f47fde"
     }
-  ]
+  ],
+  "followupReview": "Header effects now store plain titles and depend on locale; authored toasts carry explicit descriptors with typed raw-server fallbacks. Existing closed metadata callsites and wire values unchanged. Reserved MoreScreen toast coordination remains parent-owned."
 }

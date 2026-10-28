@@ -1,4 +1,5 @@
-import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import { localizedEnum } from '@/utils/statusLabel';
 
 const issueCaptions: Record<string, string> = {
@@ -83,7 +84,7 @@ export function RunWithPipelineModal(
       client.invalidateQueries({ queryKey: ['pipeline-runs'] });
       client.invalidateQueries({ queryKey: ['pipeline-latest-run'] });
       if (result.slice_job_id) trackJob(result.slice_job_id, props);
-      showToast(text('Pipeline run started'), 'success');
+      showToast(nativeMessage("native.4ae3fd07a27cdaf7"), 'success');
       props.onRunStarted?.(result.id);
       props.onClose();
     },

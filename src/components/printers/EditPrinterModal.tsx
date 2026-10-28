@@ -1,4 +1,5 @@
-import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -31,7 +32,7 @@ interface EditPrinterModalProps {
 
 type EditablePrinter = Printer & { notes?: string | null };
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
@@ -88,11 +89,11 @@ export function EditPrinterModal({
         queryClient.invalidateQueries({ queryKey: ['printer', printer.id] }),
         queryClient.invalidateQueries({ queryKey: ['printerStatus', printer.id] }),
       ]);
-      showToast(translateNative('native.a206e55ab1d4a78f'), 'success');
+      showToast(nativeMessage('native.a206e55ab1d4a78f'), 'success');
       onClose();
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.a55949c59db4d4a8')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.a55949c59db4d4a8')), 'error'),
   });
 
   const preflight = async () => {

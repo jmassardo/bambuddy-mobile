@@ -1,4 +1,5 @@
-import { NativeTranslation, nativeEnglishSuffix, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeEnglishSuffix, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React from 'react';
 import {
@@ -236,11 +237,11 @@ export default function SpoolBuddyScreen() {
     onSuccess: async () => {
       await invalidateDevices();
       closeCreateModal();
-      showToast(translateNative('native.68ffb94cd0c4779c'), 'success');
+      showToast(nativeMessage('native.68ffb94cd0c4779c'), 'success');
     },
     onError: (error: Error) =>
       showToast(
-        error.message || translateNative('native.bb087745ef7ad27b'),
+        error.message || nativeMessage('native.bb087745ef7ad27b'),
         'error',
       ),
   });
@@ -266,11 +267,11 @@ export default function SpoolBuddyScreen() {
     onSuccess: async () => {
       await invalidateDevices();
       closeEditModal();
-      showToast(translateNative('native.bb34d5b539f21c97'), 'success');
+      showToast(nativeMessage('native.bb34d5b539f21c97'), 'success');
     },
     onError: (error: Error) =>
       showToast(
-        error.message || translateNative('native.e0c46d263ba72498'),
+        error.message || nativeMessage('native.e0c46d263ba72498'),
         'error',
       ),
   });
@@ -280,11 +281,11 @@ export default function SpoolBuddyScreen() {
     onSuccess: async () => {
       await invalidateDevices();
       setPendingDeleteDevice(null);
-      showToast(translateNative('native.247639345a30b307'), 'success');
+      showToast(nativeMessage('native.247639345a30b307'), 'success');
     },
     onError: (error: Error) =>
       showToast(
-        error.message || translateNative('native.bfa672d17a397569'),
+        error.message || nativeMessage('native.bfa672d17a397569'),
         'error',
       ),
   });
@@ -299,10 +300,10 @@ export default function SpoolBuddyScreen() {
         : Promise.reject(new Error(translateNative('native.c98328becee2fef5'))),
     onSuccess: async () => {
       await invalidateSlots();
-      showToast(translateNative('native.2b12e94e5919627f'), 'success');
+      showToast(nativeMessage('native.2b12e94e5919627f'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || translateNative('native.d4e219b64be52525'), 'error'),
+      showToast(error.message || nativeMessage('native.d4e219b64be52525'), 'error'),
   });
 
   const deleteSlotMutation = useMutation({
@@ -310,10 +311,10 @@ export default function SpoolBuddyScreen() {
       api.deleteSpoolBuddySlot(deviceId, slotIndex),
     onSuccess: async () => {
       await invalidateSlots();
-      showToast(translateNative('native.b87ea5ac5db1a469'), 'success');
+      showToast(nativeMessage('native.b87ea5ac5db1a469'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || translateNative('native.66464f9fedfb30dd'), 'error'),
+      showToast(error.message || nativeMessage('native.66464f9fedfb30dd'), 'error'),
   });
 
   const assignSlotMutation = useMutation({
@@ -331,10 +332,10 @@ export default function SpoolBuddyScreen() {
       await invalidateSlots();
       await invalidateSpools();
       closeAssignModal();
-      showToast(translateNative('native.4714d4f6199f9c64'), 'success');
+      showToast(nativeMessage('native.4714d4f6199f9c64'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || translateNative('native.410ce58cbd32a366'), 'error'),
+      showToast(error.message || nativeMessage('native.410ce58cbd32a366'), 'error'),
   });
 
   const unassignSlotMutation = useMutation({
@@ -343,10 +344,10 @@ export default function SpoolBuddyScreen() {
     onSuccess: async () => {
       await invalidateSlots();
       await invalidateSpools();
-      showToast(translateNative('native.c3433976d24113dc'), 'success');
+      showToast(nativeMessage('native.c3433976d24113dc'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || translateNative('native.4e6a92e509672538'), 'error'),
+      showToast(error.message || nativeMessage('native.4e6a92e509672538'), 'error'),
   });
 
   const openEditModal = React.useCallback((device: ApiRecord) => {
@@ -368,7 +369,7 @@ export default function SpoolBuddyScreen() {
 
   const handleCreateDevice = React.useCallback(() => {
     if (!createForm.device_id.trim()) {
-      showToast(translateNative('native.b570bc67c3f526f1'), 'error');
+      showToast(nativeMessage('native.b570bc67c3f526f1'), 'error');
       return;
     }
     createSpoolBuddyMutation.mutate();
@@ -376,7 +377,7 @@ export default function SpoolBuddyScreen() {
 
   const handleSaveDevice = React.useCallback(() => {
     if (!editingDevice) {
-      showToast(translateNative('native.e27723c81c41bd6b'), 'error');
+      showToast(nativeMessage('native.e27723c81c41bd6b'), 'error');
       return;
     }
     updateSpoolBuddyMutation.mutate();
@@ -384,7 +385,7 @@ export default function SpoolBuddyScreen() {
 
   const handleAssignSpool = React.useCallback(() => {
     if (!slotForm.spoolId || Number(slotForm.spoolId) <= 0) {
-      showToast(translateNative('native.f81279366a1f8447'), 'error');
+      showToast(nativeMessage('native.f81279366a1f8447'), 'error');
       return;
     }
     assignSlotMutation.mutate();

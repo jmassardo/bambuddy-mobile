@@ -6,7 +6,7 @@ import { WebView } from 'react-native-webview';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 
 export default function ExternalLinkBrowserScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation =
     useNavigation<RootNavigationProp<'ExternalLinkBrowser'>>();
   const route = useRoute<RootRouteProp<'ExternalLinkBrowser'>>();
@@ -15,7 +15,7 @@ export default function ExternalLinkBrowserScreen() {
     navigation.setOptions({
       title: route.params.title?.trim() || translateNative('screen.externalLink'),
     });
-  }, [navigation, route.params.title]);
+  }, [navigation, route.params.title, titleLocale]);
 
   return (
     <View style={styles.container}>

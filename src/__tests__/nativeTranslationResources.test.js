@@ -49,6 +49,15 @@ describe('native translation resource contract', () => {
     expect(scanReferences("nativeLabelTuple(['wire', 'native.save'])", 'example.ts', english)).toEqual([]);
   });
 
+  it('rejects eager header getters and pretranslated authored toast strings', () => {
+    const english = { 'native.save': 'Save' };
+    expect(scanReferences("useLayoutEffect(() => navigation.setOptions({get title() {return translateNative('native.save')}}), [navigation])", 'example.ts', english)).not.toEqual([]);
+    expect(scanReferences("useLayoutEffect(() => navigation.setOptions({title: translateNative('native.save')}), [navigation, titleLocale])", 'example.ts', english)).toEqual([]);
+    expect(scanReferences("showToast(translateNative('native.save'))", 'example.ts', english)).not.toEqual([]);
+    expect(scanReferences("showToast(nativeMessage('native.save'))", 'example.ts', english)).toEqual([]);
+    expect(scanReferences("showToast(translateNative('native.save'))", 'src/screens/MoreScreen.tsx', english)).not.toEqual([]);
+  });
+
   it('keeps production authored boundaries catalogued and dynamic provenance reviewed', () => {
     expect(validateSource().failures).toEqual([]);
   });

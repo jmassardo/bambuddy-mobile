@@ -1,4 +1,5 @@
-import { translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
@@ -162,7 +163,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
   const enablePushNotifications = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     await requestPermission();
-    showToast(translateNative('native.1eb69982a267c1a3'), 'success');
+    showToast(nativeMessage('native.1eb69982a267c1a3'), 'success');
   }, [requestPermission, showToast]);
 
   const disablePushNotifications = useCallback(async () => {
@@ -184,7 +185,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
       loading: false,
     });
 
-    showToast(translateNative('native.25d102e5a7b64ea0'), 'info');
+    showToast(nativeMessage('native.25d102e5a7b64ea0'), 'info');
   }, [state.token, unregisterMutation, showToast]);
 
   const refreshStatus = useCallback(async () => {

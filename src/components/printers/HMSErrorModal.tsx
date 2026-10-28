@@ -1,4 +1,5 @@
-import { translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 import React from 'react';
 import {
   ActivityIndicator,
@@ -76,7 +77,7 @@ function getSeverityMeta(
   }
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   if (error instanceof Error && error.message) return error.message;
   return fallback;
 }
@@ -99,11 +100,11 @@ export function HMSErrorModal({
     mutationFn: () => api.clearHMSErrors(printerId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] });
-      showToast(translateNative('native.b267395294b5fe57'), 'success');
+      showToast(nativeMessage('native.b267395294b5fe57'), 'success');
       onClose();
     },
     onError: (error) => {
-      showToast(getErrorMessage(error, translateNative('native.b50d7530c8beee89')), 'error');
+      showToast(getErrorMessage(error, nativeMessage('native.b50d7530c8beee89')), 'error');
     },
   });
 
@@ -211,7 +212,7 @@ export function HMSErrorModal({
                     <Pressable
                       onPress={() => {
                         void Linking.openURL('https://wiki.bambulab.com/en/hms/home').catch(() => {
-                          showToast(translateNative('native.e2cdfa9e275ffb65'), 'error');
+                          showToast(nativeMessage('native.e2cdfa9e275ffb65'), 'error');
                         });
                       }}
                       style={styles.linkRow}

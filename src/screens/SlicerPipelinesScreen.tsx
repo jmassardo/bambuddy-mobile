@@ -1,4 +1,5 @@
-import { useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useState } from 'react';
 import { Alert, ScrollView } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -158,7 +159,7 @@ function PipelineRow({
     onSuccess: () => {
       refresh();
       setEditing(false);
-      showToast(text('Pipeline saved'), 'success');
+      showToast(nativeMessage("native.ef8bc3a85815fbce"), 'success');
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   });

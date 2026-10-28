@@ -95,6 +95,7 @@ function directory(dir) {
         }
       }
       if (!ts.isPropertyAssignment(node) || !/^(?:label|title|subtitle|message|description|hint|accessibilityLabel|confirmLabel|cancelLabel)$/.test(node.name.getText(file))) return;
+      if (ts.isObjectLiteralExpression(node.parent) && ts.isCallExpression(node.parent.parent) && node.parent.parent.expression.getText(file).endsWith('.setOptions')) return;
       if (!ts.isCallExpression(node.initializer) || !['t', 'translateNative'].includes(node.initializer.expression.getText(file))) return;
       const args = node.initializer.arguments.map(argument => argument.getText(file)).join(', ');
       subscriptions.push({ start: node.getStart(file), end: node.end, replacement: `get ${node.name.getText(file)}() { return translateNative(${args}); }` });

@@ -1,4 +1,5 @@
-import { NativeTranslation, nativeEnglishSuffix, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeEnglishSuffix, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
@@ -34,12 +35,12 @@ import { formatDateTime, pickArray, pickBoolean, pickNumber, pickRecord, pickStr
 type ImportResult = MakerworldImportResponse & { model_id: number; source_url: string };
 
 export default function MakerWorldScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'MakerWorld'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('nav.makerworld'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('nav.makerworld') });
+  }, [navigation, titleLocale]);
 
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -72,9 +73,9 @@ export default function MakerWorldScreen() {
       if (currentInput.current.revision !== input.revision || currentInput.current.url !== input.url) return;
       setResolved(data as ApiRecord);
       setResolvedForUrl(input.url);
-      showToast(translateNative('native.61d328c067df6cbf'), 'success');
+      showToast(nativeMessage('native.61d328c067df6cbf'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.af7e412227ec7e7a'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.af7e412227ec7e7a'), 'error'),
   });
 
   const importMutation = useMutation({
@@ -107,9 +108,9 @@ export default function MakerWorldScreen() {
       }
     },
     onSuccess: outcome => {
-      showToast(t('makerworld.importSummary', { defaultValue: '{{success}} imported · {{failed}} failed', success: outcome.total - outcome.failed, failed: outcome.failed }), outcome.failed ? 'error' : 'success');
+      showToast(nativeMessage('makerworld.importSummary', () => ({ defaultValue: '{{success}} imported · {{failed}} failed', success: outcome.total - outcome.failed, failed: outcome.failed })), outcome.failed ? 'error' : 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.5aa20324f31cf7dc'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.5aa20324f31cf7dc'), 'error'),
     onSettled: async () => {
       await Promise.all(['makerworldRecent', 'libraryFiles', 'libraryFolders', 'libraryStats'].map(key =>
         queryClient.invalidateQueries({ queryKey: [key] })));
@@ -122,7 +123,7 @@ export default function MakerWorldScreen() {
       setResults(previous => previous.filter(item => item.library_file_id !== fileId));
       await Promise.all(['makerworldRecent', 'libraryFiles', 'libraryFolders', 'libraryStats'].map(key =>
         queryClient.invalidateQueries({ queryKey: [key] })));
-      showToast(t('makerworld.deleted', { defaultValue: 'Imported file moved to trash.' }), 'success');
+      showToast(nativeMessage('makerworld.deleted', () => ({ defaultValue: 'Imported file moved to trash.' })), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
@@ -159,7 +160,7 @@ export default function MakerWorldScreen() {
         importMutation.mutate({ requests, slice });
       }
     } catch {
-      showToast(t('makerworld.resolveFirst', { defaultValue: 'Resolve the current MakerWorld URL before importing.' }), 'error');
+      showToast(nativeMessage('makerworld.resolveFirst', () => ({ defaultValue: 'Resolve the current MakerWorld URL before importing.' })), 'error');
     }
   };
   const resultActions = (item: ApiRecord | ImportResult) => {

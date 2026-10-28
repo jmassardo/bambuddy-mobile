@@ -1,5 +1,6 @@
 import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
 
+
 import React, { useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -126,7 +127,7 @@ export function AssetPreviewModal({ source, onClose, onPrevious, onNext, onDelet
       const endpoint = source.photoFilename ? previewEndpoint(source) : source.fileId != null ? `/library/files/${source.fileId}/download` : `/archives/${source.archiveId}/${source.archiveSource !== false && mode !== 'gcode' ? 'source' : 'download'}`;
       await shareBlob(await requestBlob(endpoint), source.photoFilename ?? source.filename);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : t('library.downloadFailed', { defaultValue: 'Download failed.' }), 'error');
+      showToast(error instanceof Error ? error.message : nativeMessage('library.downloadFailed', () => ({ defaultValue: 'Download failed.' })), 'error');
     } finally { setBusy(false); }
   };
   return <Modal visible={source !== null} animationType="slide" onRequestClose={onClose}>

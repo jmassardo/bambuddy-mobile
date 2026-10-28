@@ -1,5 +1,6 @@
 import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
 
+
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
@@ -70,12 +71,12 @@ function parseOidcCallback(url: string) {
 }
 
 export default function LoginScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Login'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('native.62a155bdfe8d655f'); }, headerShown: false });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('native.62a155bdfe8d655f'), headerShown: false });
+  }, [navigation, titleLocale]);
   const { colors } = useTheme();
   const { login, loginWithToken, user, loading, requiresSetup } = useAuth();
   const { showToast } = useToast();
@@ -148,7 +149,7 @@ export default function LoginScreen() {
       if (!preAuthToken) throw new Error(translateNative('native.974f3faf99939c0e'));
       return authApi.sendEmailOTP(preAuthToken);
     },
-    onSuccess: response => { if (response.pre_auth_token) setPreAuthToken(response.pre_auth_token); setEmailDelivered(true); setError(''); showToast(translateNative('native.a95023ecfddfa1a7'), 'success'); },
+    onSuccess: response => { if (response.pre_auth_token) setPreAuthToken(response.pre_auth_token); setEmailDelivered(true); setError(''); showToast(nativeMessage('native.a95023ecfddfa1a7'), 'success'); },
     onError: (e: Error) => setError(e.message),
   });
 
@@ -166,13 +167,13 @@ export default function LoginScreen() {
       setStep('2fa');
       setCode('');
       setEmailDelivered(false);
-      showToast(translateNative('native.870eebb01f7654c7'), 'info');
+      showToast(nativeMessage('native.870eebb01f7654c7'), 'info');
       return;
     }
 
     if (loginResponse.access_token && loginResponse.user) {
       await loginWithToken(loginResponse.access_token, loginResponse.user as unknown as UserResponse, remember);
-      showToast(translateNative('native.644f5f4a64728210'), 'success');
+      showToast(nativeMessage('native.644f5f4a64728210'), 'success');
       return;
     }
 
@@ -186,7 +187,7 @@ export default function LoginScreen() {
     },
     onError: (exchangeError: Error) => {
       setError(exchangeError.message || nativeMessage('native.597e1bc3968499f1'));
-      showToast(exchangeError.message || translateNative('native.597e1bc3968499f1'), 'error');
+      showToast(exchangeError.message || nativeMessage('native.597e1bc3968499f1'), 'error');
     },
   });
 
@@ -207,14 +208,14 @@ export default function LoginScreen() {
         setAuthorizationUrl(null);
         console.warn('Rejected OIDC callback with missing or mismatched state.');
         setError(nativeMessage('native.f4e1f0f1250143f7'));
-        showToast(translateNative('native.597e1bc3968499f1'), 'error');
+        showToast(nativeMessage('native.597e1bc3968499f1'), 'error');
         return;
       }
 
       pendingOidcState.current = null;
       if (oidcError) {
         setError(nativeMessage('native.86eb9787f80f365c', () => ({ value0: String(oidcError.replace(/_/g, ' ')) })));
-        showToast(translateNative('native.597e1bc3968499f1'), 'error');
+        showToast(nativeMessage('native.597e1bc3968499f1'), 'error');
         return;
       }
       if (token) {
@@ -256,10 +257,10 @@ export default function LoginScreen() {
         setCode('');
         setEmailDelivered(false);
         setStep('2fa');
-        showToast(translateNative('native.870eebb01f7654c7'), 'info');
+        showToast(nativeMessage('native.870eebb01f7654c7'), 'info');
         return;
       }
-      showToast(translateNative('native.644f5f4a64728210'), 'success');
+      showToast(nativeMessage('native.644f5f4a64728210'), 'success');
     },
     onError: (mutationError: Error) => {
       setError(mutationError.message || nativeMessage('native.833aba5d6ce7de4d'));
@@ -272,7 +273,7 @@ export default function LoginScreen() {
       await api.forgotPassword({ email: forgotEmail.trim() });
     },
     onSuccess: () => {
-      showToast(translateNative('native.1ad99375097ad21d'), 'success');
+      showToast(nativeMessage('native.1ad99375097ad21d'), 'success');
       setStep('reset');
     },
     onError: (e: Error) => {
@@ -289,7 +290,7 @@ export default function LoginScreen() {
       await api.forgotPasswordConfirm(resetToken.trim(), newPassword);
     },
     onSuccess: () => {
-      showToast(translateNative('native.29cb7a0bcd54895b'), 'success');
+      showToast(nativeMessage('native.29cb7a0bcd54895b'), 'success');
       setStep('credentials');
       setResetToken('');
       setNewPassword('');
@@ -316,7 +317,7 @@ export default function LoginScreen() {
     onError: (mutationError: Error) => {
       pendingOidcState.current = null;
       setError(mutationError.message || nativeMessage('native.99c00110ba289e73'));
-      showToast(mutationError.message || translateNative('native.99c00110ba289e73'), 'error');
+      showToast(mutationError.message || nativeMessage('native.99c00110ba289e73'), 'error');
     },
   });
 

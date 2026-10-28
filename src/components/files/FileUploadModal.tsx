@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import { localizedStatus } from '@/utils/statusLabel';
@@ -39,7 +40,7 @@ interface SelectedFile {
   error?: string;
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   if (error instanceof Error && error.message) return error.message;
   return fallback;
 }
@@ -95,10 +96,10 @@ export function FileUploadModal({
     },
     onSuccess: () => {
       setProgress(100);
-      showToast(t('library.uploadsCompleted', {defaultValue: 'Uploads completed.'}), 'success');
+      showToast(nativeMessage('library.uploadsCompleted', () => ({defaultValue: 'Uploads completed.'})), 'success');
     },
     onError: (error) => {
-      showToast(getErrorMessage(error, translateNative('native.96886a0199fc382e')), 'error');
+      showToast(getErrorMessage(error, nativeMessage('native.96886a0199fc382e')), 'error');
     },
   });
 
@@ -118,7 +119,7 @@ export function FileUploadModal({
       setProgress(0);
     } catch (error) {
       if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) return;
-      showToast(getErrorMessage(error, translateNative('native.a1dd48da4ee28053')), 'error');
+      showToast(getErrorMessage(error, nativeMessage('native.a1dd48da4ee28053')), 'error');
     }
   };
 

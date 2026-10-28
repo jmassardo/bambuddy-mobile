@@ -1,4 +1,5 @@
-import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -323,12 +324,10 @@ export function KProfileManager() {
       setEditor(null);
       await refresh();
       showToast(
-        noteError
-          ? t('profiles.k.noteFailed', {
+        noteError ? nativeMessage('profiles.k.noteFailed', () => ({
               defaultValue: 'Profiles saved, but notes failed: {{error}}',
               error: noteError,
-            })
-          : t('profiles.k.saved', { defaultValue: 'K profiles saved.' }),
+            })) : nativeMessage('profiles.k.saved', () => ({ defaultValue: 'K profiles saved.' })),
         noteError ? 'error' : 'success',
       );
     },
@@ -357,11 +356,11 @@ export function KProfileManager() {
       setSelected([]);
       setSelecting(false);
       showToast(
-        t('profiles.k.deleted', {
+        nativeMessage('profiles.k.deleted', () => ({
           defaultValue: '{{count}} deleted. {{errors}}',
           count: result.deleted,
           errors: result.failures.join('; '),
-        }),
+        })),
         result.failures.length ? 'error' : 'success',
       );
     },
@@ -390,7 +389,7 @@ export function KProfileManager() {
       setPendingImport(null);
       await refresh();
       showToast(
-        t('profiles.k.imported', { defaultValue: 'K profiles imported.' }),
+        nativeMessage('profiles.k.imported', () => ({ defaultValue: 'K profiles imported.' })),
         'success',
       );
     },

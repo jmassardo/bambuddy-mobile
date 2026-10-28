@@ -1,4 +1,5 @@
-import { nativeLabelTuple, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { nativeLabelTuple, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useState } from 'react';
 import { Linking, View } from 'react-native';
@@ -151,7 +152,7 @@ export function InventoryDirectory({
       setSelected([]);
       setEditing(undefined);
       setImportJson(null);
-      showToast(translateNative('native.19e2db0a704753e4'), 'success');
+      showToast(nativeMessage('native.19e2db0a704753e4'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
@@ -248,7 +249,7 @@ export function InventoryDirectory({
               onPress={() => {
                 const url = text(row, 'website');
                 if (!/^https?:\/\//i.test(url))
-                  return showToast(translateNative('native.44c535f23fb43be6'), 'error');
+                  return showToast(nativeMessage('native.44c535f23fb43be6'), 'error');
                 Linking.openURL(url).catch((error: Error) =>
                   showToast(error.message, 'error'),
                 );

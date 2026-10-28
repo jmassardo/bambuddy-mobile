@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useCallback, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
@@ -90,11 +91,11 @@ function toRecord(value: unknown): ApiRecord | null {
 }
 
 export default function CloudProfilesScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Profiles'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('native.95ea1511baa9417b'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('native.95ea1511baa9417b') });
+  }, [navigation, titleLocale]);
 
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -203,7 +204,7 @@ export default function CloudProfilesScreen() {
       setCompareVisible(false);
       setDetailVisible(false);
       setSelectedCloudProfile(null);
-      showToast(translateNative('native.502f213e8add42fb'), 'success');
+      showToast(nativeMessage('native.502f213e8add42fb'), 'success');
     },
   });
 
@@ -212,14 +213,14 @@ export default function CloudProfilesScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['orcaCloudStatus'] });
       await queryClient.invalidateQueries({ queryKey: ['orcaCloudProfiles'] });
-      showToast(translateNative('native.c0008c470c9683b9'), 'success');
+      showToast(nativeMessage('native.c0008c470c9683b9'), 'success');
     },
   });
 
   const cloudSyncMutation = useMutation({
     mutationFn: () => api.syncCloudProfiles(),
     onSuccess: async data => {
-      const message = pickString(data, ['message'], translateNative('native.3cd0f76541dbec4e'));
+      const message = pickString(data, ['message'], nativeMessage('native.3cd0f76541dbec4e'));
       showToast(message, 'success');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['cloudProfileSyncStatus'] }),
@@ -229,11 +230,11 @@ export default function CloudProfilesScreen() {
     },
     onError: error => {
       if (error instanceof ApiError && error.status === 404) {
-        showToast(translateNative('native.31f56b889cad7f45'), 'error');
+        showToast(nativeMessage('native.31f56b889cad7f45'), 'error');
         return;
       }
       showToast(
-        error instanceof Error ? error.message : translateNative('native.62f6d6151446c8c9'),
+        error instanceof Error ? error.message : nativeMessage('native.62f6d6151446c8c9'),
         'error',
       );
     },
@@ -244,38 +245,38 @@ export default function CloudProfilesScreen() {
       api.updateCloudProfileSync(settingId, enabled),
     onSuccess: async (_, variables) => {
       showToast(
-        variables.enabled ? translateNative('native.4dc72b404df27b5a') : translateNative('native.55ed37bc0cec26f9'),
+        variables.enabled ? nativeMessage('native.4dc72b404df27b5a') : nativeMessage('native.55ed37bc0cec26f9'),
         'success',
       );
       await queryClient.invalidateQueries({ queryKey: ['cloudPerProfileSync', tab] });
     },
     onError: error => {
-      showToast(error.message || translateNative('native.18131f8f50ab6234'), 'error');
+      showToast(error.message || nativeMessage('native.18131f8f50ab6234'), 'error');
     },
   });
 
   const syncSingleProfileMutation = useMutation({
     mutationFn: (settingId: string) => api.syncSingleCloudProfile(settingId),
     onSuccess: async () => {
-      showToast(translateNative('native.2cb737360995f7d6'), 'success');
+      showToast(nativeMessage('native.2cb737360995f7d6'), 'success');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['cloudProfiles'] }),
         queryClient.invalidateQueries({ queryKey: ['cloudPerProfileSync', tab] }),
       ]);
     },
     onError: error => {
-      showToast(error.message || translateNative('native.9d0b4a07729ea96d'), 'error');
+      showToast(error.message || nativeMessage('native.9d0b4a07729ea96d'), 'error');
     },
   });
 
   const clearProfileErrorMutation = useMutation({
     mutationFn: (settingId: string) => api.clearCloudProfileSyncError(settingId),
     onSuccess: async () => {
-      showToast(translateNative('native.c3cef319a2fde8de'), 'success');
+      showToast(nativeMessage('native.c3cef319a2fde8de'), 'success');
       await queryClient.invalidateQueries({ queryKey: ['cloudPerProfileSync', tab] });
     },
     onError: error => {
-      showToast(error.message || translateNative('native.ada9835f4c6e29ba'), 'error');
+      showToast(error.message || nativeMessage('native.ada9835f4c6e29ba'), 'error');
     },
   });
 

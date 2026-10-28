@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import { localizedStatus } from '@/utils/statusLabel';
 
 import React, { useState } from 'react';
@@ -66,11 +67,11 @@ export function VirtualPrinterGlobalSetup({ canEdit }: { canEdit: boolean }) {
   return <SectionCard title={t('integrations.vpSetup', { defaultValue: 'Slicer trust and archive naming' })}>
     {certificate.data ? <>
       <Text selectable style={{ color: colors.text }}><NativeTranslation id="native.965da0c7cebd5a49" values={{ value0: (certificate.data.fingerprint_sha256) }} /></Text>
-      <PrimaryButton label={t('integrations.copyCA', { defaultValue: 'Copy CA certificate' })} variant="secondary" onPress={() => { Clipboard.setString(certificate.data!.pem); showToast(t('integrations.copied', { defaultValue: 'Copied to clipboard.' }), 'success'); }} />
+      <PrimaryButton label={t('integrations.copyCA', { defaultValue: 'Copy CA certificate' })} variant="secondary" onPress={() => { Clipboard.setString(certificate.data!.pem); showToast(nativeMessage('integrations.copied', () => ({ defaultValue: 'Copied to clipboard.' })), 'success'); }} />
       <PrimaryButton label={t('integrations.shareCA', { defaultValue: 'Share / save CA certificate' })} variant="secondary" disabled={sharing} loading={sharing} onPress={async () => {
         setSharing(true);
         try { await shareBlob(new Blob([certificate.data!.pem], { type: 'application/x-pem-file', lastModified: Date.now() }), 'bambuddy-ca.crt'); }
-        catch (error) { showToast(error instanceof Error ? error.message : translateNative('native.ea642b2d8190451d'), 'error'); }
+        catch (error) { showToast(error instanceof Error ? error.message : nativeMessage('native.ea642b2d8190451d'), 'error'); }
         finally { setSharing(false); }
       }} />
     </> : null}
@@ -87,5 +88,5 @@ export function VirtualPrinterAddress({ disabled }: { disabled: boolean }) {
   const { t } = useTranslation();
   const address = useQuery({ queryKey: ['vpTailscale'], queryFn: integrationsApi.tailscale });
   if (disabled || !address.data?.available || !address.data.fqdn) return null;
-  return <PrimaryButton label={t('integrations.copyAddress', { defaultValue: 'Copy slicer address: {{address}}', address: address.data.fqdn })} variant="secondary" onPress={() => { Clipboard.setString(address.data!.fqdn); showToast(t('integrations.copied', { defaultValue: 'Copied to clipboard.' }), 'success'); }} />;
+  return <PrimaryButton label={t('integrations.copyAddress', { defaultValue: 'Copy slicer address: {{address}}', address: address.data.fqdn })} variant="secondary" onPress={() => { Clipboard.setString(address.data!.fqdn); showToast(nativeMessage('integrations.copied', () => ({ defaultValue: 'Copied to clipboard.' })), 'success'); }} />;
 }

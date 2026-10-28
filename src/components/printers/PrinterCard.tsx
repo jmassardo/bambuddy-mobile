@@ -1,4 +1,5 @@
-import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
@@ -219,10 +220,10 @@ export function PrinterCard({
     },
     onSuccess: async (_, action) => {
       await invalidatePrinterQueries();
-      showToast(translateNative('native.bf4d8ef589e7fea8', { value0: String(action) }), 'success');
+      showToast(nativeMessage('native.bf4d8ef589e7fea8', () => ({ value0: String(action) })), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.057caadfef404064')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.057caadfef404064')), 'error'),
   });
   const confirmPrintAction = (action: 'pause' | 'resume' | 'stop') => {
     Alert.alert(
@@ -244,9 +245,9 @@ export function PrinterCard({
     },
     onSuccess: async (_, command) => {
       await invalidatePrinterQueries();
-      showToast(t('fleet.transportSent', { defaultValue: '{{command}} requested for {{printer}}.', command, printer: printer.name }), 'success');
+      showToast(nativeMessage('fleet.transportSent', () => ({ defaultValue: '{{command}} requested for {{printer}}.', command, printer: printer.name })), 'success');
     },
-    onError: error => showToast(getErrorMessage(error, t('fleet.transportFailed', { defaultValue: 'Printer transport command failed.' })), 'error'),
+    onError: error => showToast(getErrorMessage(error, nativeMessage('fleet.transportFailed', () => ({ defaultValue: 'Printer transport command failed.' }))), 'error'),
   });
 
   const lightMutation = useMutation({
@@ -254,34 +255,32 @@ export function PrinterCard({
     onSuccess: async () => {
       await invalidatePrinterQueries();
       showToast(
-        status?.chamber_light
-          ? translateNative('native.b7f99a005cd8c13a')
-          : translateNative('native.ddaab30a09d7974e'),
+        status?.chamber_light ? nativeMessage('native.b7f99a005cd8c13a') : nativeMessage('native.ddaab30a09d7974e'),
         'success',
       );
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.7dfae4b67f12c34d')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.7dfae4b67f12c34d')), 'error'),
   });
 
   const speedMutation = useMutation({
     mutationFn: async (mode: number) => api.setPrintSpeed(printer.id, mode),
     onSuccess: async () => {
       await invalidatePrinterQueries();
-      showToast(translateNative('native.d6bfbabf9cc21bd9'), 'success');
+      showToast(nativeMessage('native.d6bfbabf9cc21bd9'), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.314b832477b6a5e3')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.314b832477b6a5e3')), 'error'),
   });
 
   const clearPlateMutation = useMutation({
     mutationFn: async () => api.clearPlate(printer.id),
     onSuccess: async () => {
       await invalidatePrinterQueries();
-      showToast(translateNative('native.56e6d48a7c32e573'), 'success');
+      showToast(nativeMessage('native.56e6d48a7c32e573'), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.4ff3522ac25145ed')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.4ff3522ac25145ed')), 'error'),
   });
 
   const calibrateMutation = useMutation({
@@ -289,16 +288,12 @@ export function PrinterCard({
     onSuccess: async (_, axes) => {
       await invalidatePrinterQueries();
       showToast(
-        axes === 'z'
-          ? translateNative('native.d6a31ed51697c3be')
-          : axes === 'all'
-            ? translateNative('native.ee8c26dd8eaa822c')
-            : translateNative('native.33dd054dc4ccf586'),
+        axes === 'z' ? nativeMessage('native.d6a31ed51697c3be') : axes === 'all' ? nativeMessage('native.ee8c26dd8eaa822c') : nativeMessage('native.33dd054dc4ccf586'),
         'success',
       );
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.63a718e698f55b36')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.63a718e698f55b36')), 'error'),
   });
 
   const maintenanceMutation = useMutation({
@@ -307,14 +302,12 @@ export function PrinterCard({
     onSuccess: async (_, nextIsActive) => {
       await invalidatePrinterQueries();
       showToast(
-        nextIsActive
-          ? translateNative('native.714590bfc443618f', { value0: String(printer.name) })
-          : translateNative('native.24e8f04048088c89', { value0: String(printer.name) }),
+        nextIsActive ? nativeMessage('native.714590bfc443618f', () => ({ value0: String(printer.name) })) : nativeMessage('native.24e8f04048088c89', () => ({ value0: String(printer.name) })),
         'success',
       );
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.10b514e28f1f7747')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.10b514e28f1f7747')), 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -324,18 +317,18 @@ export function PrinterCard({
         queryClient.invalidateQueries({ queryKey: ['printers'] }),
         invalidatePrinterQueries(),
       ]);
-      showToast(translateNative('native.61fb3457172f324c', { value0: String(printer.name) }), 'success');
+      showToast(nativeMessage('native.61fb3457172f324c', () => ({ value0: String(printer.name) })), 'success');
       if (typeof navigation.canGoBack === 'function' && navigation.canGoBack()) {
         navigation.goBack();
       }
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.41757ef8044aced8')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.41757ef8044aced8')), 'error'),
   });
 
   const handleRefresh = useCallback(async () => {
     await invalidatePrinterQueries();
-    showToast(translateNative('native.a5792391a74b9538'), 'success');
+    showToast(nativeMessage('native.a5792391a74b9538'), 'success');
   }, [invalidatePrinterQueries, showToast]);
 
   const handleTrayPress = useCallback(
@@ -356,9 +349,9 @@ export function PrinterCard({
     try {
       await api.performMaintenance(item.id);
       await queryClient.invalidateQueries({ queryKey: ['maintenanceTasks'] });
-      showToast(translateNative('native.1c17545f084994f2', { value0: String(item.maintenance_type_name) }), 'success');
+      showToast(nativeMessage('native.1c17545f084994f2', () => ({ value0: String(item.maintenance_type_name) })), 'success');
     } catch (error) {
-      showToast(getErrorMessage(error, translateNative('native.b2692be38053333a')), 'error');
+      showToast(getErrorMessage(error, nativeMessage('native.b2692be38053333a')), 'error');
     }
   }, [queryClient, selectedMaintenanceItem, showToast]);
 

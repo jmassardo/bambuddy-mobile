@@ -1,4 +1,5 @@
-import { translateNative } from '@/i18n';
+import { nativeMessage, translateNative } from '@/i18n';
+
 
 // WebSocket hook for real-time printer status updates
 // Ported from the web frontend's useWebSocket.ts
@@ -150,7 +151,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
           }
           if (message.printer_name || message.printer_id !== undefined) {
             const printer = message.printer_name || `Printer ${message.printer_id}`;
-            showToast(translateNative('native.d49b2c60fac8fd7f', { value0: String(printer) }), 'info', 4000);
+            showToast(nativeMessage('native.d49b2c60fac8fd7f', () => ({ value0: String(printer) })), 'info', 4000);
           }
           break;
         }
@@ -161,7 +162,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
             .filter(Boolean);
           if (slots?.length) {
             const printer = message.printer_name || `Printer ${message.printer_id}`;
-            showToast(translateNative('native.91b51e74a03c2b46', { value0: String(printer), value1: String(slots.join(', ')) }), 'warning');
+            showToast(nativeMessage('native.91b51e74a03c2b46', () => ({ value0: String(printer), value1: String(slots.join(', ')) })), 'warning');
           }
           break;
         }
@@ -171,7 +172,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
           debouncedInvalidate('archiveStats');
           if (message.printer_name || message.printer_id !== undefined) {
             const printer = message.printer_name || `Printer ${message.printer_id}`;
-            showToast(translateNative('native.7a493cb216ef2608', { value0: String(printer) }), 'success', 5000);
+            showToast(nativeMessage('native.7a493cb216ef2608', () => ({ value0: String(printer) })), 'success', 5000);
           }
           break;
         }
@@ -186,13 +187,13 @@ export function useWebSocket(options?: UseWebSocketOptions) {
             : message.data?.hms_errors
               ? translateNative('native.913372efc470fc5e')
               : '';
-          showToast(translateNative('native.6460d2d6a054aabb', { value0: String(printer), value1: String(extra) }), 'error', 5000);
+          showToast(nativeMessage('native.6460d2d6a054aabb', () => ({ value0: String(printer), value1: String(extra) })), 'error', 5000);
           break;
         }
 
         case 'printer_offline': {
           const printer = message.printer_name || `Printer ${message.printer_id}`;
-          showToast(translateNative('native.91ed2fd436aee660', { value0: String(printer) }), 'warning', 6000);
+          showToast(nativeMessage('native.91ed2fd436aee660', () => ({ value0: String(printer) })), 'warning', 6000);
           break;
         }
 

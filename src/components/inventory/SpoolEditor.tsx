@@ -1,4 +1,5 @@
-import { NativeTranslation, nativeLabelTuple, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { NativeTranslation, nativeLabelTuple, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
@@ -340,7 +341,7 @@ export function SpoolEditor({
       await client.invalidateQueries({ queryKey: ['inventorySpools'] });
       onSaved();
       onClose();
-      showToast(translateNative('native.e0134d75121b52ab'), 'success');
+      showToast(nativeMessage('native.e0134d75121b52ab'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });

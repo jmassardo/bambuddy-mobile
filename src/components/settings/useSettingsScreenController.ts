@@ -1,4 +1,4 @@
-import { translateNative, useLocalizedMemo, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useTranslation } from '@/i18n';
 
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -374,9 +374,9 @@ export function useSettingsScreenController() {
     onSuccess: async data => {
       setDraft(data);
       await queryClient.invalidateQueries({ queryKey: ['settings'] });
-      showToast(translateNative('native.a96fba96493a34e8'), 'success');
+      showToast(nativeMessage('native.a96fba96493a34e8'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.424e9407b3b7d9bd'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.424e9407b3b7d9bd'), 'error'),
   });
 
   const saveNavigationOrderMutation = useMutation({
@@ -392,7 +392,7 @@ export function useSettingsScreenController() {
         getNavigationOrderDraft(data.default_sidebar_order),
       );
       await queryClient.invalidateQueries({ queryKey: ['settings'] });
-      showToast(translateNative('native.ada23a4f6650daf7'), 'success');
+      showToast(nativeMessage('native.ada23a4f6650daf7'), 'success');
     },
     onError: (error: Error) => {
       const persistedOrder = settingsQuery.data?.default_sidebar_order ?? '';
@@ -402,7 +402,7 @@ export function useSettingsScreenController() {
       }));
       setNavigationOrderDraft(getNavigationOrderDraft(persistedOrder));
       showToast(
-        error.message || translateNative('native.c4cf55e343cacc7a'),
+        error.message || nativeMessage('native.c4cf55e343cacc7a'),
         'error',
       );
     },
@@ -414,16 +414,16 @@ export function useSettingsScreenController() {
       setCreatedApiKey(pickString(data, ['key'], ''));
       setNewApiKeyName('');
       await queryClient.invalidateQueries({ queryKey: ['apiKeys'] });
-      showToast(translateNative('native.6d6650ee1cd31ae8'), 'success');
+      showToast(nativeMessage('native.6d6650ee1cd31ae8'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.61b9d1cdee4b1c0b'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.61b9d1cdee4b1c0b'), 'error'),
   });
 
   const deleteApiKeyMutation = useMutation({
     mutationFn: async (id: number) => api.deleteApiKey(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['apiKeys'] });
-      showToast(translateNative('native.b157226b0fc21424'), 'success');
+      showToast(nativeMessage('native.b157226b0fc21424'), 'success');
     },
   });
 
@@ -438,18 +438,18 @@ export function useSettingsScreenController() {
       setCameraTokenInfoVisible(true);
       setCameraTokenForm(EMPTY_CAMERA_TOKEN_FORM);
       await queryClient.invalidateQueries({ queryKey: ['cameraTokens'] });
-      showToast(translateNative('native.ac8d1586afec0ef2'), 'success');
+      showToast(nativeMessage('native.ac8d1586afec0ef2'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.f47ece762fbe5dfb'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.f47ece762fbe5dfb'), 'error'),
   });
 
   const revokeCameraTokenMutation = useMutation({
     mutationFn: async (id: number) => api.revokeLongLivedCameraToken(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['cameraTokens'] });
-      showToast(translateNative('native.4ae2b7a7f2fe0e95'), 'success');
+      showToast(nativeMessage('native.4ae2b7a7f2fe0e95'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.1eaac4918532cd60'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.1eaac4918532cd60'), 'error'),
   });
 
   const createExternalLinkMutation = useMutation({
@@ -459,18 +459,18 @@ export function useSettingsScreenController() {
       setExternalLinkModalVisible(false);
       setEditingExternalLink(null);
       setExternalLinkForm(EMPTY_EXTERNAL_LINK_FORM);
-      showToast(translateNative('native.1bce4c5563e5fe7c'), 'success');
+      showToast(nativeMessage('native.1bce4c5563e5fe7c'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.f5f90b83064cd506'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.f5f90b83064cd506'), 'error'),
   });
 
   const reorderExternalLinksMutation = useMutation({
     mutationFn: async (ids: number[]) => api.reorderExternalLinks(ids),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalLinks'] });
-      showToast(translateNative('native.4d8102426f448bc9'), 'success');
+      showToast(nativeMessage('native.4d8102426f448bc9'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.e5ea64ae2565f10c'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.e5ea64ae2565f10c'), 'error'),
   });
 
   const updateExternalLinkMutation = useMutation({
@@ -480,9 +480,9 @@ export function useSettingsScreenController() {
       setExternalLinkModalVisible(false);
       setEditingExternalLink(null);
       setExternalLinkForm(EMPTY_EXTERNAL_LINK_FORM);
-      showToast(translateNative('native.ae0bb6f18b946206'), 'success');
+      showToast(nativeMessage('native.ae0bb6f18b946206'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.460749be4d5f8447'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.460749be4d5f8447'), 'error'),
   });
 
   const deleteExternalLinkMutation = useMutation({
@@ -490,9 +490,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalLinks'] });
       setPendingDeleteExternalLink(null);
-      showToast(translateNative('native.338e5ae015ba56fd'), 'success');
+      showToast(nativeMessage('native.338e5ae015ba56fd'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.a5cdd1e075f4267b'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.a5cdd1e075f4267b'), 'error'),
   });
 
   const createExternalCameraMutation = useMutation({
@@ -500,9 +500,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
       closeExternalCameraModal();
-      showToast(translateNative('native.26ec9877789dd244'), 'success');
+      showToast(nativeMessage('native.26ec9877789dd244'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.179ea52e17cff3e7'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.179ea52e17cff3e7'), 'error'),
   });
 
   const updateExternalCameraMutation = useMutation({
@@ -511,9 +511,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
       closeExternalCameraModal();
-      showToast(translateNative('native.441e9ab6ab4a1c35'), 'success');
+      showToast(nativeMessage('native.441e9ab6ab4a1c35'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.cfacaccdf6e6191d'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.cfacaccdf6e6191d'), 'error'),
   });
 
   const deleteExternalCameraMutation = useMutation({
@@ -521,15 +521,15 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
       setPendingDeleteExternalCamera(null);
-      showToast(translateNative('native.6c9a3fee2ec66043'), 'success');
+      showToast(nativeMessage('native.6c9a3fee2ec66043'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.c5a4a89464ab3634'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.c5a4a89464ab3634'), 'error'),
   });
 
   const testExternalCameraMutation = useMutation({
     mutationFn: api.testExternalCamera,
-    onSuccess: result => showToast(result.message || translateNative('native.4bbbf0d5a40e8366'), result.success ? 'success' : 'error'),
-    onError: (error: Error) => showToast(error.message || translateNative('native.7247ad75b4623ac0'), 'error'),
+    onSuccess: result => showToast(result.message || nativeMessage('native.4bbbf0d5a40e8366'), result.success ? 'success' : 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.7247ad75b4623ac0'), 'error'),
   });
 
   const backupMutation = useMutation({
@@ -537,9 +537,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['localBackupStatus'] });
       await queryClient.invalidateQueries({ queryKey: ['localBackups'] });
-      showToast(translateNative('native.0b4a52beceb81ba2'), 'success');
+      showToast(nativeMessage('native.0b4a52beceb81ba2'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.54edc84b3d2415c0'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.54edc84b3d2415c0'), 'error'),
   });
 
   const exportBackupMutation = useMutation({
@@ -547,17 +547,17 @@ export function useSettingsScreenController() {
       const blob = await api.exportBackup();
       await shareBlob(blob, 'bambuddy-backup.zip');
     },
-    onSuccess: () => showToast(translateNative('native.83353293d7d7dda9'), 'success'),
-    onError: (error: Error) => showToast(error.message || translateNative('native.2658122a3608c697'), 'error'),
+    onSuccess: () => showToast(nativeMessage('native.83353293d7d7dda9'), 'success'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.2658122a3608c697'), 'error'),
   });
 
   const githubBackupMutation = useMutation({
     mutationFn: async () => api.triggerGitHubBackup(),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['githubBackupStatus'] });
-      showToast(translateNative('native.1c8ce130a003a27f'), 'success');
+      showToast(nativeMessage('native.1c8ce130a003a27f'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.8e9c033fa0ad5377'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.8e9c033fa0ad5377'), 'error'),
   });
 
   const saveGitHubBackupMutation = useMutation({
@@ -587,9 +587,9 @@ export function useSettingsScreenController() {
       setGithubBackupForm(current => ({ ...current, access_token: '' }));
       await queryClient.invalidateQueries({ queryKey: ['githubBackupConfig'] });
       await queryClient.invalidateQueries({ queryKey: ['githubBackupStatus'] });
-      showToast(translateNative('native.8c39d87eb7c2e6b2'), 'success');
+      showToast(nativeMessage('native.8c39d87eb7c2e6b2'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.ec6dbe52cd249819'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.ec6dbe52cd249819'), 'error'),
   });
 
   const virtualPrinterControl = useMutation({
@@ -598,7 +598,7 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['virtualPrinterList'] });
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.14b5505c2f74cfed'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.14b5505c2f74cfed'), 'error'),
   });
 
   const saveVirtualPrinterMutation = useMutation({
@@ -620,9 +620,9 @@ export function useSettingsScreenController() {
       setVirtualPrinterModalVisible(false);
       setEditingVirtualPrinter(null);
       setVirtualPrinterForm(EMPTY_VIRTUAL_PRINTER_FORM);
-      showToast(translateNative('native.b29426730dbc63f4'), 'success');
+      showToast(nativeMessage('native.b29426730dbc63f4'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.812d6533fb84ee13'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.812d6533fb84ee13'), 'error'),
   });
 
   const deleteVirtualPrinterMutation = useMutation({
@@ -630,18 +630,18 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['virtualPrinterList'] });
       setPendingDeleteVirtualPrinter(null);
-      showToast(translateNative('native.cec7ccc368b4396c'), 'success');
+      showToast(nativeMessage('native.cec7ccc368b4396c'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.18fe6aa1022b78ba'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.18fe6aa1022b78ba'), 'error'),
   });
 
   const calibrateSpoolbuddyMutation = useMutation({
     mutationFn: async (deviceId: string) => api.calibrateSpoolBuddy(deviceId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['spoolbuddyDevices'] });
-      showToast(translateNative('native.c84b2eb2e0483f66'), 'success');
+      showToast(nativeMessage('native.c84b2eb2e0483f66'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.c1344bc2bd9c1f92'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.c1344bc2bd9c1f92'), 'error'),
   });
 
   const saveSMTPMutation = useMutation({
@@ -649,15 +649,15 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['smtpSettings'] });
       await queryClient.invalidateQueries({ queryKey: ['advancedAuthStatus'] });
-      showToast(translateNative('native.61843626dacca185'), 'success');
+      showToast(nativeMessage('native.61843626dacca185'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.7f0dc0c806e30fbf'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.7f0dc0c806e30fbf'), 'error'),
   });
 
   const testSMTPMutation = useMutation({
     mutationFn: async (recipient: string) => api.testSMTP({ test_recipient: recipient }),
     onSuccess: data => showToast(data.message, data.success ? 'success' : 'error'),
-    onError: (error: Error) => showToast(error.message || translateNative('native.2f428eaa1e5a1bc9'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.2f428eaa1e5a1bc9'), 'error'),
   });
 
   const testMqttMutation = useMutation({
@@ -665,23 +665,21 @@ export function useSettingsScreenController() {
     onSuccess: data => {
       const ok = pickBoolean(data, ['ok', 'success']);
       showToast(
-        ok
-          ? pickString(data, ['message'], translateNative('native.cdf865bd855e6896'))
-          : pickString(data, ['error', 'message'], translateNative('native.cc8ad0db2cba46cf')),
+        ok ? pickString(data, ['message'], nativeMessage('native.cdf865bd855e6896')) : pickString(data, ['error', 'message'], nativeMessage('native.cc8ad0db2cba46cf')),
         ok ? 'success' : 'error',
       );
       void mqttStatusQuery.refetch();
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.2c20f46f81c2255e'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.2c20f46f81c2255e'), 'error'),
   });
 
   const toggleAdvancedAuthMutation = useMutation({
     mutationFn: async (enabled: boolean) => (enabled ? api.enableAdvancedAuth() : api.disableAdvancedAuth()),
     onSuccess: async data => {
       await queryClient.invalidateQueries({ queryKey: ['advancedAuthStatus'] });
-      showToast(data.message || translateNative('native.fe92f52a52a7824c'), 'success');
+      showToast(data.message || nativeMessage('native.fe92f52a52a7824c'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.ffa2864432743c70'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.ffa2864432743c70'), 'error'),
   });
 
   const saveLDAPMutation = useMutation({
@@ -689,9 +687,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['settings'] });
       await queryClient.invalidateQueries({ queryKey: ['ldapStatus'] });
-      showToast(translateNative('native.dea41a3bcb4489df'), 'success');
+      showToast(nativeMessage('native.dea41a3bcb4489df'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.9fbf0b69aeb0ede3'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.9fbf0b69aeb0ede3'), 'error'),
   });
 
   const toggleLDAPMutation = useMutation({
@@ -699,24 +697,24 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['settings'] });
       await queryClient.invalidateQueries({ queryKey: ['ldapStatus'] });
-      showToast(translateNative('native.bb42644cf1995874'), 'success');
+      showToast(nativeMessage('native.bb42644cf1995874'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.ad553314511dac0a'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.ad553314511dac0a'), 'error'),
   });
 
   const testLDAPMutation = useMutation({
     mutationFn: async () => api.testLDAP(),
     onSuccess: data => showToast(data.message, data.success ? 'success' : 'error'),
-    onError: (error: Error) => showToast(error.message || translateNative('native.43df2e7612c2fcdc'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.43df2e7612c2fcdc'), 'error'),
   });
 
   const testSpoolmanMutation = useMutation({
     mutationFn: async () => api.connectSpoolman(),
     onSuccess: async data => {
       await queryClient.invalidateQueries({ queryKey: ['spoolmanStatus'] });
-      showToast(pickString(data, ['message'], translateNative('native.2f217ec354df7f0c')), 'success');
+      showToast(pickString(data, ['message'], nativeMessage('native.2f217ec354df7f0c')), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.4c9891efc51d03e7'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.4c9891efc51d03e7'), 'error'),
   });
 
   const saveSpoolmanAutoSyncMutation = useMutation({
@@ -737,9 +735,9 @@ export function useSettingsScreenController() {
         spoolman_enabled: pickBoolean(data, ['enabled'], Boolean(current.spoolman_enabled)),
         spoolman_url: pickString(data, ['url'], String(current.spoolman_url ?? '')),
       }));
-      showToast(translateNative('native.1230bbeb20193065'), 'success');
+      showToast(nativeMessage('native.1230bbeb20193065'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.973324fb4b801bce'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.973324fb4b801bce'), 'error'),
   });
 
   const syncSpoolmanMutation = useMutation({
@@ -757,21 +755,21 @@ export function useSettingsScreenController() {
       const skippedCount = pickNumber(data, ['skipped_count'], 0);
       const errorCount = pickArray(data, ['errors']).length;
       showToast(
-        translateNative('native.d2ae80a4b671dfa8', { value0: String(addedCount), value1: String(updatedCount), value2: String(removedCount), value3: String(skippedCount), value4: String(errorCount) }),
+        nativeMessage('native.d2ae80a4b671dfa8', () => ({ value0: String(addedCount), value1: String(updatedCount), value2: String(removedCount), value3: String(skippedCount), value4: String(errorCount) })),
         pickBoolean(data, ['success'], errorCount === 0) ? 'success' : 'warning',
       );
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.ec46ca1f1c10149f'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.ec46ca1f1c10149f'), 'error'),
   });
 
   const createKProfileMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => api.createKProfile(data),
     onSuccess: async () => {
       closeKProfileModal();
-      showToast(translateNative('native.3c5b423b0738bc9b'), 'success');
+      showToast(nativeMessage('native.3c5b423b0738bc9b'), 'success');
       await queryClient.invalidateQueries({ queryKey: ['kprofiles'] });
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.5412a05cbd0e86a8'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.5412a05cbd0e86a8'), 'error'),
   });
 
   const updateKProfileMutation = useMutation({
@@ -779,10 +777,10 @@ export function useSettingsScreenController() {
       api.updateKProfile(id, payload),
     onSuccess: async () => {
       closeKProfileModal();
-      showToast(translateNative('native.7ab702401dbdc22e'), 'success');
+      showToast(nativeMessage('native.7ab702401dbdc22e'), 'success');
       await queryClient.invalidateQueries({ queryKey: ['kprofiles'] });
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.53096a3a093d58cf'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.53096a3a093d58cf'), 'error'),
   });
 
   const deleteKProfileMutation = useMutation({
@@ -792,10 +790,10 @@ export function useSettingsScreenController() {
     },
     onSuccess: async () => {
       setPendingDeleteKProfile(null);
-      showToast(translateNative('native.08a5cfe47619ae8c'), 'success');
+      showToast(nativeMessage('native.08a5cfe47619ae8c'), 'success');
       await queryClient.invalidateQueries({ queryKey: ['kprofiles'] });
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.8beb369bf81f975b'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.8beb369bf81f975b'), 'error'),
   });
 
   const createLocationMutation = useMutation({
@@ -809,9 +807,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['storageLocations'] });
       closeLocationModal();
-      showToast(translateNative('native.f47cdf69d194d0ce'), 'success');
+      showToast(nativeMessage('native.f47cdf69d194d0ce'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.dcc9da07cd444eef'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.dcc9da07cd444eef'), 'error'),
   });
 
   const updateLocationMutation = useMutation({
@@ -825,9 +823,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['storageLocations'] });
       closeLocationModal();
-      showToast(translateNative('native.9bd2bfb48da09c09'), 'success');
+      showToast(nativeMessage('native.9bd2bfb48da09c09'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.55b7154967388a6e'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.55b7154967388a6e'), 'error'),
   });
 
   const deleteLocationMutation = useMutation({
@@ -835,9 +833,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['storageLocations'] });
       setPendingDeleteLocation(null);
-      showToast(translateNative('native.3a782562bcb4063a'), 'success');
+      showToast(nativeMessage('native.3a782562bcb4063a'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.58c8fbefc3e65695'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.58c8fbefc3e65695'), 'error'),
   });
 
   const testObicoMutation = useMutation({
@@ -845,13 +843,11 @@ export function useSettingsScreenController() {
     onSuccess: result => {
       const ok = pickBoolean(result, ['ok', 'success']);
       showToast(
-        ok
-          ? pickString(result, ['message'], translateNative('native.00b8f188e1e8984d'))
-          : pickString(result, ['error', 'message'], translateNative('native.cca78f351d627cab')),
+        ok ? pickString(result, ['message'], nativeMessage('native.00b8f188e1e8984d')) : pickString(result, ['error', 'message'], nativeMessage('native.cca78f351d627cab')),
         ok ? 'success' : 'error',
       );
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.79b067811630792b'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.79b067811630792b'), 'error'),
   });
 
   const createOIDCProviderMutation = useMutation({
@@ -859,9 +855,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['oidcProvidersAll'] });
       closeProviderModal();
-      showToast(translateNative('native.d43afdeb16fd894e'), 'success');
+      showToast(nativeMessage('native.d43afdeb16fd894e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.5ff958b8cbd755a9'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.5ff958b8cbd755a9'), 'error'),
   });
 
   const updateOIDCProviderMutation = useMutation({
@@ -869,9 +865,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['oidcProvidersAll'] });
       closeProviderModal();
-      showToast(translateNative('native.3dfe03058ebb31d5'), 'success');
+      showToast(nativeMessage('native.3dfe03058ebb31d5'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.b851c6a9d544b9a1'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.b851c6a9d544b9a1'), 'error'),
   });
 
   const deleteOIDCProviderMutation = useMutation({
@@ -879,9 +875,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['oidcProvidersAll'] });
       setProviderDeleteTarget(null);
-      showToast(translateNative('native.62d50fad184ff79a'), 'success');
+      showToast(nativeMessage('native.62d50fad184ff79a'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.deb317a5ccdc5fe1'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.deb317a5ccdc5fe1'), 'error'),
   });
 
   const createSmartPlugMutation = useMutation({
@@ -889,9 +885,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['smartPlugs'] });
       closePlugModal();
-      showToast(translateNative('native.0cb3ea167d4a3614'), 'success');
+      showToast(nativeMessage('native.0cb3ea167d4a3614'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.5187d2f0d2b0e85a'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.5187d2f0d2b0e85a'), 'error'),
   });
 
   const updateSmartPlugMutation = useMutation({
@@ -899,9 +895,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['smartPlugs'] });
       closePlugModal();
-      showToast(translateNative('native.10d03ed59c49e74c'), 'success');
+      showToast(nativeMessage('native.10d03ed59c49e74c'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.c5894066fd03d93e'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.c5894066fd03d93e'), 'error'),
   });
 
   const deleteSmartPlugMutation = useMutation({
@@ -909,9 +905,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['smartPlugs'] });
       setPlugDeleteTarget(null);
-      showToast(translateNative('native.9d5b6c98dbf5839f'), 'success');
+      showToast(nativeMessage('native.9d5b6c98dbf5839f'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.9e1bd0cc1bc5bef8'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.9e1bd0cc1bc5bef8'), 'error'),
   });
 
   const enableTOTPMutation = useMutation({
@@ -922,9 +918,9 @@ export function useSettingsScreenController() {
       setShowTOTPSetup(false);
       queryClient.removeQueries({ queryKey: ['totp-setup'] });
       await queryClient.invalidateQueries({ queryKey: ['2fa-status'] });
-      showToast(translateNative('native.5b92e726cd528f42'), 'success');
+      showToast(nativeMessage('native.5b92e726cd528f42'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.824433be39b3e835'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.824433be39b3e835'), 'error'),
   });
 
   const disableTOTPMutation = useMutation({
@@ -934,9 +930,9 @@ export function useSettingsScreenController() {
       setTotpCode('');
       setTotpDisableCode('');
       await queryClient.invalidateQueries({ queryKey: ['2fa-status'] });
-      showToast(data.message || translateNative('native.05aaa12602581b95'), 'success');
+      showToast(data.message || nativeMessage('native.05aaa12602581b95'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.ffa795a26d485fd3'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.ffa795a26d485fd3'), 'error'),
   });
 
   const regenerateBackupCodesMutation = useMutation({
@@ -946,9 +942,9 @@ export function useSettingsScreenController() {
       setShowTOTPRegen(false);
       setTotpRegenCode('');
       await queryClient.invalidateQueries({ queryKey: ['2fa-status'] });
-      showToast(data.message || translateNative('native.431c0e7bdf5a8b10'), 'success');
+      showToast(data.message || nativeMessage('native.431c0e7bdf5a8b10'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.86c9505b4d084a44'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.86c9505b4d084a44'), 'error'),
   });
 
   const enableEmailOTPRequestMutation = useMutation({
@@ -956,9 +952,9 @@ export function useSettingsScreenController() {
     onSuccess: data => {
       setEmailSetupToken(data.setup_token);
       setEmailSetupCode('');
-      showToast(data.message || translateNative('native.a95023ecfddfa1a7'), 'success');
+      showToast(data.message || nativeMessage('native.a95023ecfddfa1a7'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.d81acc3fde7c1f56'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.d81acc3fde7c1f56'), 'error'),
   });
 
   const confirmEnableEmailOTPMutation = useMutation({
@@ -967,9 +963,9 @@ export function useSettingsScreenController() {
       setEmailSetupToken(null);
       setEmailSetupCode('');
       await queryClient.invalidateQueries({ queryKey: ['2fa-status'] });
-      showToast(data.message || translateNative('native.481f4416f7922a7e'), 'success');
+      showToast(data.message || nativeMessage('native.481f4416f7922a7e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.237d28c40dc2a047'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.237d28c40dc2a047'), 'error'),
   });
 
   const disableEmailOTPMutation = useMutation({
@@ -978,18 +974,18 @@ export function useSettingsScreenController() {
       setShowDisableEmail2FA(false);
       setEmailDisablePassword('');
       await queryClient.invalidateQueries({ queryKey: ['2fa-status'] });
-      showToast(data.message || translateNative('native.42a7787962b6d17e'), 'success');
+      showToast(data.message || nativeMessage('native.42a7787962b6d17e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.a27c0f3252cb71f9'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.a27c0f3252cb71f9'), 'error'),
   });
 
   const unlinkOIDCLinkMutation = useMutation({
     mutationFn: async (providerId: number) => api.deleteOIDCLink(providerId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['oidc-links'] });
-      showToast(translateNative('native.407b74d1d9eb2dcc'), 'success');
+      showToast(nativeMessage('native.407b74d1d9eb2dcc'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.22366ca6f7306793'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.22366ca6f7306793'), 'error'),
   });
 
   const saveCustomNavMutation = useMutation({
@@ -1144,11 +1140,11 @@ export function useSettingsScreenController() {
 
   function handleSaveCustomNav() {
     if (!customNavForm.name.trim() || !customNavForm.url.trim()) {
-      showToast(translateNative('native.7f83a218e693fb47'), 'error');
+      showToast(nativeMessage('native.7f83a218e693fb47'), 'error');
       return;
     }
     if (!/^https?:\/\//i.test(customNavForm.url.trim())) {
-      showToast(translateNative('native.e7b44e941f0d51db'), 'error');
+      showToast(nativeMessage('native.e7b44e941f0d51db'), 'error');
       return;
     }
     useCustomNavStore.getState().updateItem(
@@ -1162,7 +1158,7 @@ export function useSettingsScreenController() {
       },
     );
     closeCustomNavModal();
-    showToast(editingCustomNav ? translateNative('native.4f151cac11ab950b') : translateNative('native.0563ba4276789195'), 'success');
+    showToast(editingCustomNav ? nativeMessage('native.4f151cac11ab950b') : nativeMessage('native.0563ba4276789195'), 'success');
   }
 
   function closeExternalCameraModal() {
@@ -1271,7 +1267,7 @@ export function useSettingsScreenController() {
 
   function handleSaveLocation() {
     if (!locationForm.name.trim()) {
-      showToast(translateNative('native.66d8b73d097a9630'), 'error');
+      showToast(nativeMessage('native.66d8b73d097a9630'), 'error');
       return;
     }
 
@@ -1284,11 +1280,11 @@ export function useSettingsScreenController() {
 
   const handleProviderSave = () => {
     if (!providerForm.name.trim() || !providerForm.issuer_url.trim() || !providerForm.client_id.trim()) {
-      showToast(translateNative('native.33f2e3f6dc9fa158'), 'error');
+      showToast(nativeMessage('native.33f2e3f6dc9fa158'), 'error');
       return;
     }
     if (!editingProvider && !providerForm.client_secret.trim()) {
-      showToast(translateNative('native.aa640b1d0878624a'), 'error');
+      showToast(nativeMessage('native.aa640b1d0878624a'), 'error');
       return;
     }
 
@@ -1313,23 +1309,23 @@ export function useSettingsScreenController() {
 
   const handlePlugSave = () => {
     if (!plugForm.name.trim()) {
-      showToast(translateNative('native.cf0d0fdf444e5dfd'), 'error');
+      showToast(nativeMessage('native.cf0d0fdf444e5dfd'), 'error');
       return;
     }
     if (plugForm.plug_type === 'tasmota' && !plugForm.ip_address.trim()) {
-      showToast(translateNative('native.2fb4c46c10cf759a'), 'error');
+      showToast(nativeMessage('native.2fb4c46c10cf759a'), 'error');
       return;
     }
     if (plugForm.plug_type === 'homeassistant' && !plugForm.ha_entity_id.trim()) {
-      showToast(translateNative('native.5cb4a3f50dbc2594'), 'error');
+      showToast(nativeMessage('native.5cb4a3f50dbc2594'), 'error');
       return;
     }
     if (plugForm.plug_type === 'mqtt' && !plugForm.mqtt_power_topic.trim()) {
-      showToast(translateNative('native.4f72811988f81635'), 'error');
+      showToast(nativeMessage('native.4f72811988f81635'), 'error');
       return;
     }
     if (plugForm.plug_type === 'rest' && (!plugForm.rest_on_url.trim() || !plugForm.rest_off_url.trim())) {
-      showToast(translateNative('native.dfed918cbad9e3ac'), 'error');
+      showToast(nativeMessage('native.dfed918cbad9e3ac'), 'error');
       return;
     }
 
@@ -1359,11 +1355,11 @@ export function useSettingsScreenController() {
 
   const handleSaveSMTP = () => {
     if (!smtpForm.smtp_host.trim() || !smtpForm.smtp_from_email.trim()) {
-      showToast(translateNative('native.8f7390e3c52dfdda'), 'error');
+      showToast(nativeMessage('native.8f7390e3c52dfdda'), 'error');
       return;
     }
     if (smtpForm.smtp_auth_enabled && !smtpForm.smtp_username?.trim()) {
-      showToast(translateNative('native.af2fd493f6c189bb'), 'error');
+      showToast(nativeMessage('native.af2fd493f6c189bb'), 'error');
       return;
     }
     saveSMTPMutation.mutate({
@@ -1377,11 +1373,11 @@ export function useSettingsScreenController() {
 
   const handleSaveLDAP = () => {
     if (!ldapForm.ldap_server_url.trim()) {
-      showToast(translateNative('native.4994df2fd458b626'), 'error');
+      showToast(nativeMessage('native.4994df2fd458b626'), 'error');
       return;
     }
     if (!ldapForm.ldap_search_base.trim()) {
-      showToast(translateNative('native.35197a9e06010855'), 'error');
+      showToast(nativeMessage('native.35197a9e06010855'), 'error');
       return;
     }
 
@@ -1403,7 +1399,7 @@ export function useSettingsScreenController() {
 
   const handleSaveExternalLink = () => {
     if (!externalLinkForm.name.trim() || !externalLinkForm.url.trim()) {
-      showToast(translateNative('native.7f83a218e693fb47'), 'error');
+      showToast(nativeMessage('native.7f83a218e693fb47'), 'error');
       return;
     }
     if (editingExternalLink) {
@@ -1420,11 +1416,11 @@ export function useSettingsScreenController() {
     const normalizedName = externalCameraForm.name.trim();
     const normalizedStreamUrl = externalCameraForm.stream_url.trim();
     if (!normalizedName || !normalizedStreamUrl) {
-      showToast(translateNative('native.81d0dc306dfb1285'), 'error');
+      showToast(nativeMessage('native.81d0dc306dfb1285'), 'error');
       return;
     }
     if (!/^(https?|rtsp):\/\//i.test(normalizedStreamUrl)) {
-      showToast(translateNative('native.cfd1c83280b4c011'), 'error');
+      showToast(nativeMessage('native.cfd1c83280b4c011'), 'error');
       return;
     }
     const parsedPrinterId = Number(externalCameraForm.printer_id);
@@ -1447,7 +1443,7 @@ export function useSettingsScreenController() {
 
   const handleSaveVirtualPrinter = () => {
     if (!virtualPrinterForm.name.trim()) {
-      showToast(translateNative('native.4c132ed022f83d2c'), 'error');
+      showToast(nativeMessage('native.4c132ed022f83d2c'), 'error');
       return;
     }
     saveVirtualPrinterMutation.mutate();
@@ -1455,15 +1451,15 @@ export function useSettingsScreenController() {
 
   const handleSaveKProfile = () => {
     if (!kprofileModal.form.nozzle_id.trim()) {
-      showToast(translateNative('native.ab1868b4c46618a2'), 'error');
+      showToast(nativeMessage('native.ab1868b4c46618a2'), 'error');
       return;
     }
     if (!kprofileModal.form.filament_id.trim()) {
-      showToast(translateNative('native.07b22d9518894db6'), 'error');
+      showToast(nativeMessage('native.07b22d9518894db6'), 'error');
       return;
     }
     if (!kprofileModal.form.k_value.trim()) {
-      showToast(translateNative('native.007eff4f0c241763'), 'error');
+      showToast(nativeMessage('native.007eff4f0c241763'), 'error');
       return;
     }
 
@@ -1514,11 +1510,11 @@ export function useSettingsScreenController() {
 
   const handleSaveGitHubBackup = () => {
     if (!githubBackupForm.repository_url.trim()) {
-      showToast(translateNative('native.47ad9f736b60936c'), 'error');
+      showToast(nativeMessage('native.47ad9f736b60936c'), 'error');
       return;
     }
     if (!githubBackupConfigQuery.data && !githubBackupForm.access_token.trim()) {
-      showToast(translateNative('native.d105305868b3602e'), 'error');
+      showToast(nativeMessage('native.d105305868b3602e'), 'error');
       return;
     }
     saveGitHubBackupMutation.mutate();

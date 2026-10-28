@@ -1,4 +1,4 @@
-import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import { localizedStatus } from '@/utils/statusLabel';
 import React, { useState } from 'react';
 import { Alert, ScrollView } from 'react-native';
@@ -73,7 +73,7 @@ export function PipelineRunsScreen() {
       kind === 'cancel' ? slicingApi.cancel(run.id) : slicingApi.retry(run.id),
     onSuccess: result => {
       invalidate();
-      showToast(`${text('Run updated')} #${result.id}`, 'success');
+      showToast(nativeMessage('pipelineRuns.updatedToast', { defaultValue: 'Run updated #{{id}}', id: result.id }), 'success');
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   });
@@ -83,7 +83,7 @@ export function PipelineRunsScreen() {
       setOffset(0);
       invalidate();
       showToast(
-        `${result.deleted} ${text('terminal runs cleared')}`,
+        nativeMessage('pipelineRuns.clearedToast', { defaultValue: '{{count}} terminal runs cleared', count: result.deleted }),
         'success',
       );
     },

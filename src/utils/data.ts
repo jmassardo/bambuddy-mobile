@@ -35,7 +35,9 @@ function firstValue(source: unknown, paths: string[]): unknown {
   return undefined;
 }
 
-export function pickString(source: unknown, paths: string[], fallback = ''): string {
+export function pickString(source: unknown, paths: string[]): string;
+export function pickString<T extends string | import('@/i18n').NativeMessage>(source: unknown, paths: string[], fallback: T): string | T;
+export function pickString(source: unknown, paths: string[], fallback: string | import('@/i18n').NativeMessage = ''): string | import('@/i18n').NativeMessage {
   const value = firstValue(source, paths);
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);

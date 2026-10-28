@@ -1,4 +1,5 @@
-import { translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -73,11 +74,11 @@ function extractSpoolId(value: string) {
 }
 
 export default function ScannerScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Scanner'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('native.5fde9a627feaf209'); }, headerShown: false });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('native.5fde9a627feaf209'), headerShown: false });
+  }, [navigation, titleLocale]);
   const route = useRoute<RootRouteProp<'Scanner'>>();
   const { mode } = (route.params ?? {}) as { mode?: string };
   const { colors } = useTheme();
@@ -104,7 +105,7 @@ export default function ScannerScreen() {
       const scannedServerUrl = parseServerUrl(data);
       if (mode === 'server' || scannedServerUrl) {
         if (!scannedServerUrl) {
-          showToast(translateNative('native.df6b1b526ca88536'), 'warning');
+          showToast(nativeMessage('native.df6b1b526ca88536'), 'warning');
           setHandled(false);
           return;
         }
@@ -114,7 +115,7 @@ export default function ScannerScreen() {
 
       const spoolId = extractSpoolId(data);
       if (spoolId) {
-        showToast(translateNative('native.539a4279ec497356', { value0: String(spoolId) }), 'success');
+        showToast(nativeMessage('native.539a4279ec497356', () => ({ value0: String(spoolId) })), 'success');
         navigation.reset({
           index: 0,
           routes: [{ name: 'Inventory', params: { spool: spoolId } }],
@@ -122,11 +123,11 @@ export default function ScannerScreen() {
         return;
       }
 
-      showToast(translateNative('native.29e1912cf1b5f745'), 'warning');
+      showToast(nativeMessage('native.29e1912cf1b5f745'), 'warning');
       setHandled(false);
     } catch (error) {
       showToast(
-        error instanceof Error ? error.message : translateNative('native.115b8e6f5c633cac'),
+        error instanceof Error ? error.message : nativeMessage('native.115b8e6f5c633cac'),
         'error',
       );
       setHandled(false);
@@ -143,7 +144,7 @@ export default function ScannerScreen() {
       const status = await api.getAuthStatus();
       setServerConnected(true);
       setPendingServerUrl(null);
-      showToast(translateNative('native.00221374e03d28d4'), 'success');
+      showToast(nativeMessage('native.00221374e03d28d4'), 'success');
       if (status.requires_setup) {
         navigation.reset({ index: 0, routes: [{ name: 'Setup' }] });
         return;
@@ -160,7 +161,7 @@ export default function ScannerScreen() {
       setPendingServerUrl(null);
       setHandled(false);
       showToast(
-        error instanceof Error ? error.message : translateNative('native.115b8e6f5c633cac'),
+        error instanceof Error ? error.message : nativeMessage('native.115b8e6f5c633cac'),
         'error',
       );
     }

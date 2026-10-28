@@ -1,4 +1,5 @@
-import { NativeTranslation, nativeLabelTuple, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeLabelTuple, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useState } from 'react';
 import {
@@ -315,9 +316,9 @@ export default function InventoryScreen() {
       if (variables.operation === 'import') setCsv(null);
       else if (variables.operation !== 'export') setSelected([]);
       showToast(
-        t('inventory.actionComplete', {
+        nativeMessage('inventory.actionComplete', () => ({
           defaultValue: 'Inventory action complete.',
-        }),
+        })),
         'success',
       );
     },
@@ -342,11 +343,9 @@ export default function InventoryScreen() {
       )
         return;
       showToast(
-        error instanceof Error
-          ? error.message
-          : t('inventory.import.failed', {
+        error instanceof Error ? error.message : nativeMessage('inventory.import.failed', () => ({
               defaultValue: 'Unable to preview CSV.',
-            }),
+            })),
         'error',
       );
     }

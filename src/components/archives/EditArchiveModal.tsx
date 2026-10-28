@@ -1,4 +1,5 @@
-import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -57,7 +58,7 @@ interface SelectOption {
   helper?: string;
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
@@ -282,11 +283,11 @@ export function EditArchiveModal({
     },
     onSuccess: async () => {
       await invalidateArchiveQueries();
-      showToast(translateNative('native.263bbce85bde3aef'), 'success');
+      showToast(nativeMessage('native.263bbce85bde3aef'), 'success');
       onSaved?.();
       onClose();
     },
-    onError: error => showToast(getErrorMessage(error, translateNative('native.2209c790c4b8ea65')), 'error'),
+    onError: error => showToast(getErrorMessage(error, nativeMessage('native.2209c790c4b8ea65')), 'error'),
   });
 
   const uploadPhotoMutation = useMutation({
@@ -300,9 +301,9 @@ export function EditArchiveModal({
     onSuccess: async nextPhotos => {
       setPhotos(nextPhotos);
       await invalidateArchiveQueries();
-      showToast(translateNative('native.7b1106f0bfc4156f'), 'success');
+      showToast(nativeMessage('native.7b1106f0bfc4156f'), 'success');
     },
-    onError: error => showToast(getErrorMessage(error, translateNative('native.c450951dfd4a358d')), 'error'),
+    onError: error => showToast(getErrorMessage(error, nativeMessage('native.c450951dfd4a358d')), 'error'),
   });
 
   const deletePhotoMutation = useMutation({
@@ -315,9 +316,9 @@ export function EditArchiveModal({
       setPhotos(nextPhotos);
       setPendingPhotoDelete(null);
       await invalidateArchiveQueries();
-      showToast(translateNative('native.fe5b6b06f65e3dd4'), 'success');
+      showToast(nativeMessage('native.fe5b6b06f65e3dd4'), 'success');
     },
-    onError: error => showToast(getErrorMessage(error, translateNative('native.7b4fada8f2819f53')), 'error'),
+    onError: error => showToast(getErrorMessage(error, nativeMessage('native.7b4fada8f2819f53')), 'error'),
   });
 
   const handlePhotoPick = async (source: 'camera' | 'gallery') => {
@@ -334,12 +335,12 @@ export function EditArchiveModal({
       }
       const asset = result.assets?.[0];
       if (!asset) {
-        showToast(translateNative('native.d6a3777d24ec7466'), 'warning');
+        showToast(nativeMessage('native.d6a3777d24ec7466'), 'warning');
         return;
       }
       uploadPhotoMutation.mutate(asset);
     } catch (error) {
-      showToast(getErrorMessage(error, translateNative('native.57a0bea0571bde29')), 'error');
+      showToast(getErrorMessage(error, nativeMessage('native.57a0bea0571bde29')), 'error');
     }
   };
 

@@ -1,4 +1,5 @@
-import { translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -274,7 +275,7 @@ export function PresetEditor({
         client.invalidateQueries({ queryKey: ['cloudProfileDetail'] }),
       ]);
       showToast(
-        t('profiles.saved', { defaultValue: 'Preset changes saved.' }),
+        nativeMessage('profiles.saved', () => ({ defaultValue: 'Preset changes saved.' })),
         'success',
       );
       onClose();
@@ -291,10 +292,10 @@ export function PresetEditor({
   const switchMode = (next: string) => {
     if (Object.keys(fieldErrors).length) {
       showToast(
-        t('profiles.fixFieldErrors', {
+        nativeMessage('profiles.fixFieldErrors', () => ({
           defaultValue:
             'Correct invalid field values before changing editor mode.',
-        }),
+        })),
         'error',
       );
       return;
@@ -474,10 +475,10 @@ export function PresetEditor({
             onApply={(template, templateType) => {
               if (type !== templateType) {
                 showToast(
-                  t('profiles.templateTypeMismatch', {
+                  nativeMessage('profiles.templateTypeMismatch', () => ({
                     defaultValue:
                       'Select a template matching this preset type.',
-                  }),
+                  })),
                   'error',
                 );
                 return;

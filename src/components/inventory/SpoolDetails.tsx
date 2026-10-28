@@ -1,4 +1,5 @@
-import { NativeTranslation, nativeLabelTuple, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeLabelTuple, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -214,7 +215,7 @@ export function SpoolDetails({
       setConfirm(null);
       setAssign(false);
       if (operation === 'delete') onClose();
-      showToast(translateNative('native.59ecb8f28d814a80'), 'success');
+      showToast(nativeMessage('native.59ecb8f28d814a80'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });

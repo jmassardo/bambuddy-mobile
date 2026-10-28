@@ -1,4 +1,5 @@
-import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -83,7 +84,7 @@ function assetToUpload(asset: Asset) {
 }
 
 export default function ArchiveDetailScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'ArchiveDetail'>>();
   const rootNavigation = useNavigation<AppNavigationProp>();
   const route = useRoute<RootRouteProp<'ArchiveDetail'>>();
@@ -188,7 +189,7 @@ export default function ArchiveDetailScreen() {
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
-      get title() { return translateNative('screen.archive'); },
+      title: translateNative('screen.archive'),
       headerRight: archive
         ? () => (
             <Pressable
@@ -204,7 +205,7 @@ export default function ArchiveDetailScreen() {
           )
         : undefined,
     });
-  }, [archive, authorization.update, colors.text, navigation]);
+  }, [archive, authorization.update, colors.text, navigation, titleLocale]);
 
   const invalidateArchiveQueries = async () => {
     await Promise.all([
@@ -219,10 +220,10 @@ export default function ArchiveDetailScreen() {
     mutationFn: () => api.restoreArchive(archiveId),
     onSuccess: async () => {
       await invalidateArchiveQueries();
-      showToast(translateNative('native.94c4e38a30a38e9c'), 'success');
+      showToast(nativeMessage('native.94c4e38a30a38e9c'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || translateNative('native.e6b3b6d22e1e5ef8'), 'error'),
+      showToast(error.message || nativeMessage('native.e6b3b6d22e1e5ef8'), 'error'),
   });
   const shareFileMutation = useMutation({
     mutationFn: async () => {
@@ -236,10 +237,10 @@ export default function ArchiveDetailScreen() {
       api.uploadArchivePhoto(archiveId, file),
     onSuccess: async () => {
       await invalidateArchiveQueries();
-      showToast(translateNative('native.78fb6d80bb76df36'), 'success');
+      showToast(nativeMessage('native.78fb6d80bb76df36'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || translateNative('native.aeb62a0d1541f540'), 'error'),
+      showToast(error.message || nativeMessage('native.aeb62a0d1541f540'), 'error'),
   });
 
   const deletePhotoMutation = useMutation({
@@ -249,10 +250,10 @@ export default function ArchiveDetailScreen() {
       await invalidateArchiveQueries();
       setPendingPhotoDelete(null);
       setFullscreenPhoto(null);
-      showToast(translateNative('native.fe5b6b06f65e3dd4'), 'success');
+      showToast(nativeMessage('native.fe5b6b06f65e3dd4'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || translateNative('native.94df862b86b9fe1c'), 'error'),
+      showToast(error.message || nativeMessage('native.94df862b86b9fe1c'), 'error'),
   });
 
   const pickPhoto = async (source: 'camera' | 'gallery') => {
@@ -267,18 +268,18 @@ export default function ArchiveDetailScreen() {
           : await launchImageLibrary({ mediaType: 'photo', selectionLimit: 1 });
       const selectedAsset = result.assets?.[0];
       if (!selectedAsset) {
-        showToast(translateNative('native.d6a3777d24ec7466'), 'warning');
+        showToast(nativeMessage('native.d6a3777d24ec7466'), 'warning');
         return;
       }
       const file = assetToUpload(selectedAsset);
       if (!file) {
-        showToast(translateNative('native.d6a3777d24ec7466'), 'warning');
+        showToast(nativeMessage('native.d6a3777d24ec7466'), 'warning');
         return;
       }
       await uploadPhotoMutation.mutateAsync(file);
     } catch (error) {
       showToast(
-        error instanceof Error ? error.message : translateNative('native.9a2c1d9d95dcd8a6'),
+        error instanceof Error ? error.message : nativeMessage('native.9a2c1d9d95dcd8a6'),
         'error',
       );
     }

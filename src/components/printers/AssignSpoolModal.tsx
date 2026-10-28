@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -34,7 +35,7 @@ interface AssignSpoolModalProps {
   onClose: () => void;
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
@@ -93,7 +94,7 @@ export function AssignSpoolModal({
         queryClient.invalidateQueries({ queryKey: ['spoolmanSlotBindings'] }),
         queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] }),
       ]);
-      showToast(t('device.spoolmanAssigned', { defaultValue: 'Spoolman spool assigned to this slot.' }), 'success');
+      showToast(nativeMessage('device.spoolmanAssigned', () => ({ defaultValue: 'Spoolman spool assigned to this slot.' })), 'success');
       onClose();
     },
     onError: error => showToast(error.message, 'error'),
@@ -173,15 +174,11 @@ export function AssignSpoolModal({
         queryClient.invalidateQueries({ queryKey: ['inventorySpools'] }),
         queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] }),
       ]);
-      showToast(assignment.pending_config
-        ? t('device.assignedAwaitingInsert', { defaultValue: 'Spool assigned; printer configuration is waiting for insertion.' })
-        : assignment.configured
-          ? t('device.assignedConfigured', { defaultValue: 'Spool assigned and printer slot configured.' })
-          : t('device.assignedNotConfirmed', { defaultValue: 'Spool assigned; printer configuration has not been confirmed.' }), 'success');
+      showToast(assignment.pending_config ? nativeMessage('device.assignedAwaitingInsert', () => ({ defaultValue: 'Spool assigned; printer configuration is waiting for insertion.' })) : assignment.configured ? nativeMessage('device.assignedConfigured', () => ({ defaultValue: 'Spool assigned and printer slot configured.' })) : nativeMessage('device.assignedNotConfirmed', () => ({ defaultValue: 'Spool assigned; printer configuration has not been confirmed.' })), 'success');
       onClose();
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.410ce58cbd32a366')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.410ce58cbd32a366')), 'error'),
   });
 
   return (

@@ -1,4 +1,5 @@
-import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import { Alert, Image, StyleSheet, Text, View } from 'react-native';
@@ -323,9 +324,9 @@ export function ArchiveDetailTools({
           onPress={() => {
             Clipboard.setString(archiveWorkflows.downloadUrl(archive.id));
             showToast(
-              t('archives.linkCopied', {
+              nativeMessage('archives.linkCopied', () => ({
                 defaultValue: 'Download link copied.',
-              }),
+              })),
               'success',
             );
           }}

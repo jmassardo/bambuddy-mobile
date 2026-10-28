@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
@@ -121,7 +122,7 @@ async function getVirtualPrinterList(): Promise<VirtualPrinterListResponse> {
 }
 
 export default function VirtualPrintersScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'VirtualPrinters'>>();
   const { colors } = useTheme();
   const tr = useIntegrationTranslation();
@@ -137,8 +138,8 @@ export default function VirtualPrintersScreen() {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('nav.virtual-printers'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('nav.virtual-printers') });
+  }, [navigation, titleLocale]);
 
   const printersQuery = useQuery<VirtualPrinterListResponse>({
     queryKey: VIRTUAL_PRINTERS_QUERY_KEY,
@@ -169,7 +170,7 @@ export default function VirtualPrintersScreen() {
     },
     onError: (error: Error) => {
       showToast(
-        error.message || translateNative('native.14b5505c2f74cfed'),
+        error.message || nativeMessage('native.14b5505c2f74cfed'),
         'error',
       );
     },
@@ -204,10 +205,10 @@ export default function VirtualPrintersScreen() {
         queryKey: VIRTUAL_PRINTERS_QUERY_KEY,
       });
       closeModal();
-      showToast(translateNative('native.b29426730dbc63f4'), 'success');
+      showToast(nativeMessage('native.b29426730dbc63f4'), 'success');
     },
     onError: (error: Error) => {
-      showToast(error.message || translateNative('native.812d6533fb84ee13'), 'error');
+      showToast(error.message || nativeMessage('native.812d6533fb84ee13'), 'error');
     },
   });
 
@@ -218,10 +219,10 @@ export default function VirtualPrintersScreen() {
         queryKey: VIRTUAL_PRINTERS_QUERY_KEY,
       });
       setPendingDelete(null);
-      showToast(translateNative('native.cec7ccc368b4396c'), 'success');
+      showToast(nativeMessage('native.cec7ccc368b4396c'), 'success');
     },
     onError: (error: Error) => {
-      showToast(error.message || translateNative('native.18fe6aa1022b78ba'), 'error');
+      showToast(error.message || nativeMessage('native.18fe6aa1022b78ba'), 'error');
     },
   });
 
@@ -258,15 +259,15 @@ export default function VirtualPrintersScreen() {
 
   function handleSave() {
     if (!form.name.trim()) {
-      showToast(translateNative('native.4c132ed022f83d2c'), 'error');
+      showToast(nativeMessage('native.4c132ed022f83d2c'), 'error');
       return;
     }
     if (form.mode === 'proxy' && !form.targetPrinterId) {
-      showToast(translateNative('native.533e6830957bbfed'), 'error');
+      showToast(nativeMessage('native.533e6830957bbfed'), 'error');
       return;
     }
     if (form.accessCode && form.accessCode.length !== 8) {
-      showToast(tr('Access code must be exactly eight characters.'), 'error');
+      showToast(nativeMessage("native.c69a269540f4cbcf"), 'error');
       return;
     }
     saveMutation.mutate();

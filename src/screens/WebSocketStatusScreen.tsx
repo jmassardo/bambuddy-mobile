@@ -24,7 +24,7 @@ import { formatPreferredTime } from '@/utils/preferences';
 type ConnectionState = 'connected' | 'reconnecting' | 'disconnected';
 
 export default function WebSocketStatusScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'WebSocketStatus'>>();
   const { colors } = useTheme();
 
@@ -33,8 +33,8 @@ export default function WebSocketStatusScreen() {
   const [autoRefreshEnabled, _setAutoRefreshEnabled] = useState(false);
 
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('screen.websocketStatus'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('screen.websocketStatus') });
+  }, [navigation, titleLocale]);
 
   const connectionState: ConnectionState = useLocalizedMemo(() => {
     if (isConnected) return 'connected';

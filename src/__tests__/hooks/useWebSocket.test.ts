@@ -32,9 +32,11 @@ jest.mock('@/api/server', () => ({
   },
 }));
 
-jest.mock('@/contexts/ToastContext', () => ({
-  useToast: () => ({ showToast: mockShowToast }),
-}));
+jest.mock('@/contexts/ToastContext', () => {
+  const { resolveNativeMessage } = jest.requireActual<typeof import('@/i18n')>('@/i18n');
+  const showToast = (message: Parameters<typeof resolveNativeMessage>[0], ...args: unknown[]) => mockShowToast(resolveNativeMessage(message), ...args);
+  return { useToast: () => ({ showToast }) };
+});
 
 const mockConnectivityConnected = jest.fn(() => true);
 

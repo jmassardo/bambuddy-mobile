@@ -1,4 +1,6 @@
-import { translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
+
 import { localizedStatus } from '@/utils/statusLabel';
 
 import React, { useState } from 'react';
@@ -121,13 +123,13 @@ export function formatKProfileDetail(item: ApiRecord): {
 }
 
 export default function ProfilesScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const navigation = useNavigation<RootNavigationProp<'Profiles'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('nav.profiles'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('nav.profiles') });
+  }, [navigation, titleLocale]);
 
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -225,7 +227,7 @@ export default function ProfilesScreen() {
     mutationFn: () => api.cloudLogin(email.trim(), password, region),
     onSuccess: data => {
       if (pickBoolean(data, ['success'])) {
-        showToast(translateNative('native.3b542c56b013acab'), 'success');
+        showToast(nativeMessage('native.3b542c56b013acab'), 'success');
         void refreshAll();
         return;
       }
@@ -233,38 +235,38 @@ export default function ProfilesScreen() {
         setCloudStep('code');
         setTfaKey(pickString(data, ['tfa_key']) || undefined);
         setVerificationType(pickString(data, ['verification_type'], 'email'));
-        showToast(translateNative('native.552ee7c59de72d81'), 'info');
+        showToast(nativeMessage('native.552ee7c59de72d81'), 'info');
         return;
       }
-      showToast(pickString(data, ['message'], translateNative('native.d285dcb0d0a54ef6')), 'error');
+      showToast(pickString(data, ['message'], nativeMessage('native.d285dcb0d0a54ef6')), 'error');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.d285dcb0d0a54ef6'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.d285dcb0d0a54ef6'), 'error'),
   });
 
   const cloudVerifyMutation = useMutation({
     mutationFn: () => api.cloudVerify(email.trim(), code.trim(), tfaKey, region),
     onSuccess: data => {
       if (pickBoolean(data, ['success'])) {
-        showToast(translateNative('native.3b542c56b013acab'), 'success');
+        showToast(nativeMessage('native.3b542c56b013acab'), 'success');
         setCloudStep('login');
         setCode('');
         void refreshAll();
         return;
       }
-      showToast(pickString(data, ['message'], translateNative('native.c70d003a4ff315cc')), 'error');
+      showToast(pickString(data, ['message'], nativeMessage('native.c70d003a4ff315cc')), 'error');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.c70d003a4ff315cc'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.c70d003a4ff315cc'), 'error'),
   });
 
   const cloudTokenMutation = useMutation({
     mutationFn: () => api.cloudSetToken(token.trim(), region),
     onSuccess: () => {
-      showToast(translateNative('native.e5a51db520712234'), 'success');
+      showToast(nativeMessage('native.e5a51db520712234'), 'success');
       setCloudStep('login');
       setToken('');
       void refreshAll();
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.1054d2b1a09039b8'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.1054d2b1a09039b8'), 'error'),
   });
 
   const cloudLogoutMutation = useMutation({
@@ -279,14 +281,14 @@ export default function ProfilesScreen() {
       setCompareVisible(false);
       setDetailVisible(false);
       setSelectedCloudProfile(null);
-      showToast(translateNative('native.502f213e8add42fb'), 'success');
+      showToast(nativeMessage('native.502f213e8add42fb'), 'success');
     },
   });
 
   const cloudSyncMutation = useMutation({
     mutationFn: () => api.syncCloudProfiles(),
     onSuccess: async data => {
-      const message = pickString(data, ['message'], translateNative('native.3cd0f76541dbec4e'));
+      const message = pickString(data, ['message'], nativeMessage('native.3cd0f76541dbec4e'));
       showToast(message, 'success');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['cloudProfileSyncStatus'] }),
@@ -295,11 +297,11 @@ export default function ProfilesScreen() {
     },
     onError: error => {
       if (error instanceof ApiError && error.status === 404) {
-        showToast(translateNative('native.31f56b889cad7f45'), 'error');
+        showToast(nativeMessage('native.31f56b889cad7f45'), 'error');
         return;
       }
       showToast(
-        error instanceof Error ? error.message : translateNative('native.62f6d6151446c8c9'),
+        error instanceof Error ? error.message : nativeMessage('native.62f6d6151446c8c9'),
         'error',
       );
     },
@@ -310,7 +312,7 @@ export default function ProfilesScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['orcaCloudStatus'] });
       await queryClient.invalidateQueries({ queryKey: ['orcaCloudProfiles'] });
-      showToast(translateNative('native.c0008c470c9683b9'), 'success');
+      showToast(nativeMessage('native.c0008c470c9683b9'), 'success');
     },
   });
 

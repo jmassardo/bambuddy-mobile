@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 import { localizedStatus } from '@/utils/statusLabel';
 
 import React from 'react';
@@ -116,7 +117,7 @@ function stringifyDebugValue(value: unknown) {
   }
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
@@ -274,9 +275,9 @@ export default function PrinterDetailScreen() {
       await queryClient.invalidateQueries({
         queryKey: ['printerStatus', printerId],
       });
-      showToast(translateNative('native.bf4d8ef589e7fea8', { value0: String(action) }), 'success');
+      showToast(nativeMessage('native.bf4d8ef589e7fea8', () => ({ value0: String(action) })), 'success');
     },
-    onError: () => showToast(translateNative('native.057caadfef404064'), 'error'),
+    onError: () => showToast(nativeMessage('native.057caadfef404064'), 'error'),
   });
 
   const confirmPrintAction = (action: 'pause' | 'resume' | 'stop') => Alert.alert(
@@ -294,9 +295,9 @@ export default function PrinterDetailScreen() {
       await queryClient.invalidateQueries({
         queryKey: ['printerStatus', printerId],
       });
-      showToast(translateNative('native.d6bfbabf9cc21bd9'), 'success');
+      showToast(nativeMessage('native.d6bfbabf9cc21bd9'), 'success');
     },
-    onError: () => showToast(translateNative('native.314b832477b6a5e3'), 'error'),
+    onError: () => showToast(nativeMessage('native.314b832477b6a5e3'), 'error'),
   });
 
   const xyJogMutation = useMutation({
@@ -305,7 +306,7 @@ export default function PrinterDetailScreen() {
       void invalidatePrinterStatus();
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.9c4bffb9f78a482f')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.9c4bffb9f78a482f')), 'error'),
   });
 
   const zJogMutation = useMutation({
@@ -314,7 +315,7 @@ export default function PrinterDetailScreen() {
       void invalidatePrinterStatus();
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.50e4c820a549ac54')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.50e4c820a549ac54')), 'error'),
   });
 
   const homeMutation = useMutation({
@@ -322,10 +323,10 @@ export default function PrinterDetailScreen() {
       api.homeAxes(printerId, axes),
     onSuccess: async (_, { label }) => {
       await invalidatePrinterStatus();
-      showToast(translateNative('native.1abaf60be83f775b', { value0: String(label) }), 'success');
+      showToast(nativeMessage('native.1abaf60be83f775b', () => ({ value0: String(label) })), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.9bd8aedeaed7801b')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.9bd8aedeaed7801b')), 'error'),
   });
 
   const heaterHistory = useLocalizedMemo(() => {

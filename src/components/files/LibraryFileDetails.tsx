@@ -1,4 +1,5 @@
-import { useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
@@ -48,7 +49,7 @@ export function LibraryFileDetails({ fileId }: {fileId: number}) {
   }, [fileId, query.data]);
   const save = useMutation({
     mutationFn: () => filesApi.updateLibraryFile(fileId, { notes, external_url: url.trim() }),
-    onSuccess: async () => { await refresh(); showToast(t('library.detailsSaved', { defaultValue: 'File details saved.' }), 'success'); },
+    onSuccess: async () => { await refresh(); showToast(nativeMessage('library.detailsSaved', () => ({ defaultValue: 'File details saved.' })), 'success'); },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
   const upload = useMutation({

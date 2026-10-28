@@ -1,4 +1,5 @@
-import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 import { localizedStatus } from '@/utils/statusLabel';
 
 import React, { useState } from 'react';
@@ -163,7 +164,7 @@ export default function QueueScreen() {
   };
   const perform = async (
     run: () => Promise<unknown>,
-    success = tr('Queue updated'),
+    success = nativeMessage('native.c7ff3b59e9fc6cec'),
   ) => {
     if (busy) return;
     setBusy(true);
@@ -174,7 +175,7 @@ export default function QueueScreen() {
       setConfirmation(null);
     } catch (e) {
       showToast(
-        e instanceof Error ? e.message : tr('Unable to update queue'),
+        e instanceof Error ? e.message : nativeMessage("native.b12da6ed094e6a17"),
         'error',
       );
       await refresh();
@@ -194,7 +195,7 @@ export default function QueueScreen() {
       await queueApi.startQueueItem(id, { skipFilamentCheck: bypass });
       setShortage(null);
       await refresh();
-      showToast(tr('Queue item started'), 'success');
+      showToast(nativeMessage("native.0b53124e898b6945"), 'success');
     } catch (e) {
       if (
         e instanceof ApiError &&
@@ -220,7 +221,7 @@ export default function QueueScreen() {
         });
       } else
         showToast(
-          e instanceof Error ? e.message : tr('Unable to start item'),
+          e instanceof Error ? e.message : nativeMessage("native.c67d3259e78e9d8c"),
           'error',
         );
     } finally {
@@ -682,11 +683,11 @@ export default function QueueScreen() {
                     async () => {
                       const result = await queueApi.resumeQueueAfterFailure(id);
                       showToast(
-                        t('queue.resumeCounts', {
+                        nativeMessage('queue.resumeCounts', () => ({
                           defaultValue:
                             '{{acknowledged}} failures acknowledged; {{restored}} jobs restored.',
                           ...result,
-                        }),
+                        })),
                         'success',
                       );
                     },
@@ -918,12 +919,12 @@ export default function QueueScreen() {
                         else deleted++;
                       }
                       showToast(
-                        t('queue.clearedCounts', {
+                        nativeMessage('queue.clearedCounts', () => ({
                           defaultValue:
                             '{{deleted}} records deleted; {{kept}} retained for orders.',
                           deleted,
                           kept,
-                        }),
+                        })),
                         'success',
                       );
                     },
@@ -988,10 +989,10 @@ export default function QueueScreen() {
         onSave={(update: PrintQueueItemUpdate) => {
           if (update.printer_id != null && !allowFixedPrinterAssignment) {
             showToast(
-              t('printing.unresolvedVariantAssignment', {
+              nativeMessage('printing.unresolvedVariantAssignment', () => ({
                 defaultValue:
                   'Jobs with unresolved alternative slices cannot be assigned a fixed printer. Leave the printer unchanged or unassigned.',
-              }),
+              })),
               'error',
             );
             return;

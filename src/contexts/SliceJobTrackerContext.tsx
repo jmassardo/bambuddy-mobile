@@ -1,4 +1,5 @@
-import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, {
   createContext,
@@ -161,16 +162,15 @@ export function SliceJobTrackerProvider({
           'sliceFilamentReqs',
         ].forEach(name => client.invalidateQueries({ queryKey: [name] }));
         showToast(
-          t('slice.job.completed', {
+          nativeMessage('slice.job.completed', () => ({
             defaultValue: '{{name}}: slicing complete',
             name: activeTracked[i].sourceName,
-          }),
+          })),
           'success',
         );
       } else
         showToast(
-          state.error_detail ||
-            t('slice.job.failed', { defaultValue: 'Slicing failed' }),
+          state.error_detail || nativeMessage('slice.job.failed', () => ({ defaultValue: 'Slicing failed' })),
           'error',
         );
     });

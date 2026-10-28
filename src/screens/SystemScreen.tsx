@@ -84,7 +84,7 @@ function DiagnosticDetails({
 }
 
 export default function SystemScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'System'>>();
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -92,9 +92,9 @@ export default function SystemScreen() {
   const client = useQueryClient();
   React.useLayoutEffect(() => {
     navigation.setOptions({
-      get title() { return translateNative('system.title', { defaultValue: 'System' }); },
+      title: translateNative('system.title', { defaultValue: 'System' }),
     });
-  }, [navigation, t]);
+  }, [navigation, t, titleLocale]);
   const info = useQuery({
     queryKey: ['systemInfo'],
     queryFn: systemApi.getSystemInfo,

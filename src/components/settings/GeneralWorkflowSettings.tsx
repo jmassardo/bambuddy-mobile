@@ -1,4 +1,5 @@
-import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import { Text } from 'react-native';
@@ -37,9 +38,9 @@ export function GeneralWorkflowSettings({
     onSuccess: data => {
       queryClient.setQueryData(['archive-purge-settings'], data);
       controller.actions.showToast(
-        t('workflow.retentionSaved', {
+        nativeMessage('workflow.retentionSaved', () => ({
           defaultValue: 'Archive retention saved.',
-        }),
+        })),
         'success',
       );
     },

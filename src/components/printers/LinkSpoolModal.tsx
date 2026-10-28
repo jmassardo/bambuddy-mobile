@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useState } from 'react';
 import {
@@ -31,7 +32,7 @@ interface LinkSpoolModalProps {
   onClose: () => void;
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
@@ -129,11 +130,11 @@ export function LinkSpoolModal({
         queryClient.invalidateQueries({ queryKey: ['linkedSpools'] }),
         queryClient.invalidateQueries({ queryKey: ['inventorySpools'] }),
       ]);
-      showToast(translateNative('native.53171f4f772b9cf1'), 'success');
+      showToast(nativeMessage('native.53171f4f772b9cf1'), 'success');
       onClose();
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.c856ed965f92d0e5')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.c856ed965f92d0e5')), 'error'),
   });
 
   return (

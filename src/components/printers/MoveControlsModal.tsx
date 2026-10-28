@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useCallback, useState } from 'react';
 import {
@@ -35,7 +36,7 @@ interface MoveControlsModalProps {
   onClose: () => void;
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
@@ -104,7 +105,7 @@ export function MoveControlsModal({
       invalidatePrinter();
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.9c4bffb9f78a482f')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.9c4bffb9f78a482f')), 'error'),
   });
 
   const bedJogMutation = useMutation({
@@ -113,7 +114,7 @@ export function MoveControlsModal({
       invalidatePrinter();
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.ab4f39ea15a67387')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.ab4f39ea15a67387')), 'error'),
   });
 
   const extruderJogMutation = useMutation({
@@ -122,7 +123,7 @@ export function MoveControlsModal({
       invalidatePrinter();
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.3eb496c5612f2529')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.3eb496c5612f2529')), 'error'),
   });
 
   const homeMutation = useMutation({
@@ -130,12 +131,12 @@ export function MoveControlsModal({
     onSuccess: async (_, axes) => {
       await invalidatePrinter();
       showToast(
-        axes === 'all' ? translateNative('native.ee8c26dd8eaa822c') : translateNative('native.33dd054dc4ccf586'),
+        axes === 'all' ? nativeMessage('native.ee8c26dd8eaa822c') : nativeMessage('native.33dd054dc4ccf586'),
         'success',
       );
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.9bd8aedeaed7801b')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.9bd8aedeaed7801b')), 'error'),
   });
 
   const controlsDisabled = useLocalizedMemo(

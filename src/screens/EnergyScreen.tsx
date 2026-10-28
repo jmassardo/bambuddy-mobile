@@ -207,15 +207,15 @@ function getPrinterRows(stats: unknown): PrinterEnergyRow[] {
 }
 
 export default function EnergyScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Energy'>>();
   const { colors } = useTheme();
   const [range, setRange] = useState<RangeKey>('30d');
   const [selectedPrinterId, setSelectedPrinterId] = useState<number | null>(null);
 
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('nav.energy'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('nav.energy') });
+  }, [navigation, titleLocale]);
 
   const params = useLocalizedMemo(() => getEnergyRangeParams(range), [range]);
 

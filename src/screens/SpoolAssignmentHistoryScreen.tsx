@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
@@ -47,11 +48,11 @@ const DEFAULT_FORM: AssignmentFormState = {
 };
 
 export default function SpoolAssignmentHistoryScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'SpoolAssignmentHistory'>>();
   useEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('screen.assignmentHistory'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('screen.assignmentHistory') });
+  }, [navigation, titleLocale]);
 
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -106,10 +107,10 @@ export default function SpoolAssignmentHistoryScreen() {
       await invalidateAll();
       setShowAssignModal(false);
       setForm(DEFAULT_FORM);
-      showToast(translateNative('native.2956cafb935d053d'), 'success');
+      showToast(nativeMessage('native.2956cafb935d053d'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || translateNative('native.410ce58cbd32a366'), 'error'),
+      showToast(error.message || nativeMessage('native.410ce58cbd32a366'), 'error'),
   });
 
   const unassignMutation = useMutation({
@@ -117,10 +118,10 @@ export default function SpoolAssignmentHistoryScreen() {
       api.unassignSpool(data.printer_id, data.ams_id, data.tray_id),
     onSuccess: async () => {
       await invalidateAll();
-      showToast(translateNative('native.c3433976d24113dc'), 'success');
+      showToast(nativeMessage('native.c3433976d24113dc'), 'success');
     },
     onError: (error: Error) =>
-      showToast(error.message || translateNative('native.4e6a92e509672538'), 'error'),
+      showToast(error.message || nativeMessage('native.4e6a92e509672538'), 'error'),
   });
 
   const invalidateAll = async () => {

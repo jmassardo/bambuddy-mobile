@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -67,10 +68,10 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
       api.createGroup(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
-      showToast(translateNative('native.00f5543c500a07f1'), 'success');
+      showToast(nativeMessage('native.00f5543c500a07f1'), 'success');
       onClose();
     },
-    onError: (e: Error) => showToast(e.message || translateNative('native.6c088ccde2680d11'), 'error'),
+    onError: (e: Error) => showToast(e.message || nativeMessage('native.6c088ccde2680d11'), 'error'),
   });
 
   const updateMutation = useMutation({
@@ -79,15 +80,15 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
       queryClient.invalidateQueries({ queryKey: ['group', groupId] });
-      showToast(translateNative('native.fbbfac54275c4d10'), 'success');
+      showToast(nativeMessage('native.fbbfac54275c4d10'), 'success');
       onClose();
     },
-    onError: (e: Error) => showToast(e.message || translateNative('native.ac34986bfc7eb5b9'), 'error'),
+    onError: (e: Error) => showToast(e.message || nativeMessage('native.ac34986bfc7eb5b9'), 'error'),
   });
 
   const handleSave = () => {
     if (!name.trim()) {
-      showToast(translateNative('native.d48cbe1212fe60bd'), 'error');
+      showToast(nativeMessage('native.d48cbe1212fe60bd'), 'error');
       return;
     }
     if (isEditing) {

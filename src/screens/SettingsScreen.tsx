@@ -12,7 +12,7 @@ import { useSettingsScreenController } from '@/components/settings/useSettingsSc
 import { SettingsSearchFocusProvider, SettingsSearchSelection, useSettingsSearchTarget } from '@/components/settings/SettingsSearchFocus';
 
 export default function SettingsScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Settings'>>();
   const controller = useSettingsScreenController();
   const scroll = React.useRef<ScrollView>(null);
@@ -28,8 +28,8 @@ export default function SettingsScreen() {
   }, [searchTarget]);
 
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('nav.settings'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('nav.settings') });
+  }, [navigation, titleLocale]);
 
   if (controller.queries.settingsQuery.isLoading) {
     return <LoadingScreen message={translateNative('native.ae25c9ca72964893')} />;

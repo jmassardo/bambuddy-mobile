@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -119,7 +120,7 @@ function stripExtension(name: string | null | undefined) {
   return name.replace(/\.(gcode|3mf)$/i, '');
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
+function getErrorMessage<T extends string | import('@/i18n').NativeMessage>(error: unknown, fallback: T) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
@@ -664,7 +665,7 @@ function clampTranslationOffset(value: number, axisSize: number, scale: number) 
 }
 
 export default function CameraScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Camera'>>();
   const route = useRoute<RootRouteProp<'Camera'>>();
@@ -724,8 +725,8 @@ export default function CameraScreen() {
   const containerHeight = useSharedValue(0);
 
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('native.ac1081d67c0eb4a3'); }, headerShown: false });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('native.ac1081d67c0eb4a3'), headerShown: false });
+  }, [navigation, titleLocale]);
 
   const { id } = (route.params ?? {}) as { id?: string | number };
   const printerId = Number(id);
@@ -1024,12 +1025,12 @@ export default function CameraScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] });
       showToast(
-        statusQuery.data?.chamber_light ? translateNative('native.b7f99a005cd8c13a') : translateNative('native.ddaab30a09d7974e'),
+        statusQuery.data?.chamber_light ? nativeMessage('native.b7f99a005cd8c13a') : nativeMessage('native.ddaab30a09d7974e'),
         'success',
       );
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.f69f98dcdfcfaf2c')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.f69f98dcdfcfaf2c')), 'error'),
   });
 
   const plateToggleMutation = useMutation({
@@ -1044,12 +1045,12 @@ export default function CameraScreen() {
         queryClient.invalidateQueries({ queryKey: ['plateDetectionStatus', printerId] }),
       ]);
       showToast(
-        enabled ? translateNative('native.0ae62a1de5f2fea3') : translateNative('native.cdcebabd7ad60a2b'),
+        enabled ? nativeMessage('native.0ae62a1de5f2fea3') : nativeMessage('native.cdcebabd7ad60a2b'),
         'success',
       );
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.c315859611656487')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.c315859611656487')), 'error'),
   });
 
   const refreshCamera = useCallback(async () => {
@@ -1109,7 +1110,7 @@ export default function CameraScreen() {
       };
     },
     onError: error =>
-      showToast(getErrorMessage(error, translateNative('native.631c4c50ea927873')), 'error'),
+      showToast(getErrorMessage(error, nativeMessage('native.631c4c50ea927873')), 'error'),
   });
 
   const animatedStreamStyle = useAnimatedStyle(() => ({

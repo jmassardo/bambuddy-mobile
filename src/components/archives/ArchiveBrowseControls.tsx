@@ -1,4 +1,5 @@
-import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -348,7 +349,7 @@ export function ArchiveBatchDialog({
     onSuccess: async () => {
       await queryClient.invalidateQueries();
       showToast(
-        t('archives.updated', { defaultValue: 'Selected archives updated.' }),
+        nativeMessage('archives.updated', () => ({ defaultValue: 'Selected archives updated.' })),
         'success',
       );
       onClose();
@@ -469,10 +470,10 @@ export function ArchiveTagCatalog({ onClose }: { onClose: () => void }) {
       await queryClient.invalidateQueries();
       setEditing(null);
       showToast(
-        t('archives.tagsAffected', {
+        nativeMessage('archives.tagsAffected', () => ({
           defaultValue: '{{count}} archives updated',
           count: result.affected,
-        }),
+        })),
         'success',
       );
     },

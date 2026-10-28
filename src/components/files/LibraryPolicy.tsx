@@ -1,4 +1,5 @@
-import { useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { Switch, Text, View, StyleSheet } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -42,7 +43,7 @@ export function LibraryPolicy() {
         client.invalidateQueries({ queryKey: ['libraryTrashSettings'] }),
         client.invalidateQueries({ queryKey: ['libraryTrash'] }),
       ]);
-      showToast(t('library.policySaved', { defaultValue: 'Trash policy saved.' }), 'success');
+      showToast(nativeMessage('library.policySaved', () => ({ defaultValue: 'Trash policy saved.' })), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });

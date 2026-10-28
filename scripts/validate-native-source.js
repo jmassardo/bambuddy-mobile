@@ -14,6 +14,23 @@ function scanReferences(source, filename, english) {
     failures.push({ file: filename, line: file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1, key });
   }
   function visit(node) {
+    if (ts.isCallExpression(node) && /(?:^|\.)showToast$/.test(node.expression.getText(file)) && node.arguments[0]) {
+      function eager(part) {
+        if (ts.isCallExpression(part) && part.expression.getText(file) === 'nativeMessage') return false;
+        if (ts.isCallExpression(part) && ['t', 'translateNative', 'tr', 'label', 'text'].includes(part.expression.getText(file))) return true;
+        return ts.forEachChild(part, eager) === true;
+      }
+      const reservedMoreCall = filename === 'src/screens/MoreScreen.tsx' && /^t\(['"]more\.external(?:Protocol|Error)['"]/.test(node.arguments[0].getText(file));
+      if (eager(node.arguments[0]) && !reservedMoreCall) failures.push({ file: filename, reason: 'Authored toast translations must be queued as explicit nativeMessage descriptors.' });
+    }
+    if (ts.isCallExpression(node) && node.expression.getText(file).endsWith('.setOptions') && node.arguments[0] && ts.isObjectLiteralExpression(node.arguments[0])) {
+      const title = node.arguments[0].properties.find(property => property.name?.getText(file) === 'title');
+      if (title && /\b(?:t|translateNative)\(/.test(title.getText(file))) {
+        let effect = node.parent;
+        while (effect && !(ts.isCallExpression(effect) && /use(?:Layout)?Effect$/.test(effect.expression.getText(file)))) effect = effect.parent;
+        if (ts.isGetAccessor(title) || effect && !effect.arguments[1]?.getText(file).match(/\b(?:t|language|titleLocale)\b/)) failures.push({ file: filename, reason: 'Navigation spreads title options eagerly; assign a value in an effect subscribed to locale/t.' });
+      }
+    }
     if (ts.isCallExpression(node) && node.expression.getText(file) === 'nativeLabelTuple') {
       const tuple = node.arguments[0];
       const label = tuple && ts.isArrayLiteralExpression(tuple) && tuple.elements[1];

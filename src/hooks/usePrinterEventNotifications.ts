@@ -1,4 +1,5 @@
-import { translateNative } from '@/i18n';
+import { nativeMessage, translateNative } from '@/i18n';
+
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -30,7 +31,7 @@ export function usePrinterEventNotifications(options?: UsePrinterEventNotificati
     (msg: PrinterEventMessage) => {
       const printerName = msg.printer_name || `Printer ${msg.printer_id}`;
 
-      showToast(translateNative('native.d49b2c60fac8fd7f', { value0: String(printerName) }), 'info', 4000);
+      showToast(nativeMessage('native.d49b2c60fac8fd7f', () => ({ value0: String(printerName) })), 'info', 4000);
 
       queryClient.invalidateQueries({ queryKey: ['printerStatus', msg.printer_id] });
 
@@ -48,7 +49,7 @@ export function usePrinterEventNotifications(options?: UsePrinterEventNotificati
     (msg: PrinterEventMessage) => {
       const printerName = msg.printer_name || `Printer ${msg.printer_id}`;
 
-      showToast(translateNative('native.7a493cb216ef2608', { value0: String(printerName) }), 'success', 5000);
+      showToast(nativeMessage('native.7a493cb216ef2608', () => ({ value0: String(printerName) })), 'success', 5000);
 
       queryClient.invalidateQueries({ queryKey: ['archives'] });
       queryClient.invalidateQueries({ queryKey: ['archiveStats'] });
@@ -72,7 +73,7 @@ export function usePrinterEventNotifications(options?: UsePrinterEventNotificati
           ? translateNative('native.913372efc470fc5e')
           : '';
 
-      showToast(translateNative('native.6460d2d6a054aabb', { value0: String(printerName), value1: String(extra) }), 'error', 5000);
+      showToast(nativeMessage('native.6460d2d6a054aabb', () => ({ value0: String(printerName), value1: String(extra) })), 'error', 5000);
 
       queryClient.invalidateQueries({ queryKey: ['printerStatus', msg.printer_id] });
 
@@ -90,7 +91,7 @@ export function usePrinterEventNotifications(options?: UsePrinterEventNotificati
     (msg: PrinterEventMessage) => {
       const printerName = msg.printer_name || `Printer ${msg.printer_id}`;
 
-      showToast(translateNative('native.91ed2fd436aee660', { value0: String(printerName) }), 'warning', 6000);
+      showToast(nativeMessage('native.91ed2fd436aee660', () => ({ value0: String(printerName) })), 'warning', 6000);
 
       optionsRef.current?.onEvent?.({
         type: msg.type,
@@ -106,7 +107,7 @@ export function usePrinterEventNotifications(options?: UsePrinterEventNotificati
     (msg: PrinterEventMessage) => {
       const printerName = msg.printer_name || `Printer ${msg.printer_id}`;
 
-      showToast(translateNative('native.ae5ecc28ee980f88', { value0: String(printerName) }), 'warning', 4000);
+      showToast(nativeMessage('native.ae5ecc28ee980f88', () => ({ value0: String(printerName) })), 'warning', 4000);
 
       queryClient.invalidateQueries({ queryKey: ['printerStatus', msg.printer_id] });
 
@@ -144,7 +145,7 @@ export function usePrinterEventNotifications(options?: UsePrinterEventNotificati
             .filter(Boolean) as string[];
           if (slots?.length) {
             const printer = message.printer_name || `Printer ${message.printer_id}`;
-            showToast(translateNative('native.91b51e74a03c2b46', { value0: String(printer), value1: String(slots.join(', ')) }), 'warning', 5000);
+            showToast(nativeMessage('native.91b51e74a03c2b46', () => ({ value0: String(printer), value1: String(slots.join(', ')) })), 'warning', 5000);
           }
           break;
         }
@@ -153,7 +154,7 @@ export function usePrinterEventNotifications(options?: UsePrinterEventNotificati
             const hmsCode = message.data.hms_code as string | undefined;
             if (hmsCode) {
               const printer = message.printer_name || `Printer ${message.printer_id}`;
-              showToast(translateNative('native.fe42901559d4061c', { value0: String(printer), value1: String(String(hmsCode)) }), 'warning', 6000);
+              showToast(nativeMessage('native.fe42901559d4061c', () => ({ value0: String(printer), value1: String(String(hmsCode)) })), 'warning', 6000);
             }
           }
           break;

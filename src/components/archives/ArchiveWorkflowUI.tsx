@@ -1,4 +1,5 @@
-import { translateNative, type Translate, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, type Translate, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -540,20 +541,16 @@ export function ArchiveIngestionPanel() {
       if (discard) {
         const result = await archiveWorkflows.discardAll();
         showToast(
-          t('archives.discardedCount', {
+          nativeMessage('archives.discardedCount', () => ({
             defaultValue: '{{count}} discarded',
             count: result.discarded,
-          }),
+          })),
           'success',
         );
       } else {
         const result = await archiveWorkflows.acceptAll();
         showToast(
-          `${result.archived} ${t('archives.imported', {
-            defaultValue: 'Imported',
-          })}, ${result.failed} ${t('archives.failed', {
-            defaultValue: 'failed',
-          })}`,
+          nativeMessage('archives.acceptedToast', { defaultValue: '{{archived}} Imported, {{failed}} failed', archived: result.archived, failed: result.failed }),
           result.failed ? 'warning' : 'success',
         );
       }

@@ -1,5 +1,6 @@
 import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState } from '@/i18n';
 
+
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
@@ -29,11 +30,11 @@ function normalizeUrl(input: string) {
 }
 
 export default function ServerConfigScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'ServerSetup'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('native.992d78618ce5a620'); }, headerShown: false });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('native.992d78618ce5a620'), headerShown: false });
+  }, [navigation, titleLocale]);
   const { colors } = useTheme();
   const { setServerConnected, login } = useAuth();
   const { showToast } = useToast();
@@ -62,12 +63,12 @@ export default function ServerConfigScreen() {
       }
     },
     onSuccess: () => {
-      showToast(translateNative('native.9065f81fe5b7eb53'), 'success');
+      showToast(nativeMessage('native.9065f81fe5b7eb53'), 'success');
       // RootNavigator automatically handles navigation based on auth state
     },
     onError: (mutationError: Error) => {
       setError(mutationError.message || nativeMessage('native.55719db16dfe438e'));
-      showToast(translateNative('native.df9a9d2cedce22b6'), 'error');
+      showToast(nativeMessage('native.df9a9d2cedce22b6'), 'error');
     },
   });
 
@@ -92,11 +93,11 @@ export default function ServerConfigScreen() {
       }
     },
     onSuccess: () => {
-      showToast(translateNative('native.9467d8471c5bbd03'), 'success');
+      showToast(nativeMessage('native.9467d8471c5bbd03'), 'success');
     },
     onError: (mutationError: Error) => {
       setError(mutationError.message || nativeMessage('native.1760122192f776c5'));
-      showToast(translateNative('native.87328f4a81f3980a'), 'error');
+      showToast(nativeMessage('native.87328f4a81f3980a'), 'error');
     },
   });
 

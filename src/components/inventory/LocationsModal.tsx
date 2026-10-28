@@ -1,4 +1,5 @@
-import { nativeEnglishSuffix, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import { nativeEnglishSuffix, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -91,24 +92,24 @@ export function LocationsModal({
     },
     onSuccess: async () => {
       await invalidate();
-      showToast(editing ? translateNative('native.414d3e19519b8318') : translateNative('native.1b519ba12fb62958'), 'success');
+      showToast(editing ? nativeMessage('native.414d3e19519b8318') : nativeMessage('native.1b519ba12fb62958'), 'success');
       setEditing(null);
       setName('');
       setIdentifier('');
       setAddress('');
       setNotes('');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.2d103780243fc7b1'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.2d103780243fc7b1'), 'error'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.deleteLocation(id),
     onSuccess: async () => {
       await invalidate();
-      showToast(translateNative('native.9b6e5697acc85502'), 'success');
+      showToast(nativeMessage('native.9b6e5697acc85502'), 'success');
       setDeleteTarget(null);
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.9b6978d48d356ab6'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.9b6978d48d356ab6'), 'error'),
   });
 
   const assignMutation = useMutation({
@@ -119,11 +120,11 @@ export function LocationsModal({
       }),
     onSuccess: async (_data, locationName) => {
       await invalidate();
-      showToast(translateNative('native.257233fbba0a822e', { value0: String(selectedSpoolIds.length), value1: String(nativeEnglishSuffix(selectedSpoolIds.length === 1 ? '' : 's')), value2: String(locationName) }), 'success');
+      showToast(nativeMessage('native.257233fbba0a822e', () => ({ value0: String(selectedSpoolIds.length), value1: String(nativeEnglishSuffix(selectedSpoolIds.length === 1 ? '' : 's')), value2: String(locationName) })), 'success');
       onAssigned?.(locationName);
       onClose();
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.a4a084ce15decf5c'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.a4a084ce15decf5c'), 'error'),
   });
 
   const startEdit = (location: StorageLocation) => {

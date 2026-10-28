@@ -1,4 +1,5 @@
-import { nativeLabelTuple, translateNative, useNativeLocale } from '@/i18n';
+import { nativeLabelTuple, nativeMessage, translateNative, useNativeLocale } from '@/i18n';
+
 
 import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -105,7 +106,7 @@ export function InventoryBulkEditor({
       }
       onSaved();
       onClose();
-      showToast(translateNative('native.6d9e1632aaa9e75c'), 'success');
+      showToast(nativeMessage('native.6d9e1632aaa9e75c'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });

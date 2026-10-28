@@ -1,4 +1,5 @@
-import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useState } from 'react';
 import { Alert, Linking, StyleSheet, View } from 'react-native';
@@ -76,7 +77,7 @@ export function MaintenanceControls({
         queryKey: ['maintenanceOverview'],
       });
       showToast(
-        t('maintenance.updated', { defaultValue: 'Maintenance updated.' }),
+        nativeMessage('maintenance.updated', () => ({ defaultValue: 'Maintenance updated.' })),
         'success',
       );
     },
@@ -223,10 +224,10 @@ export function RestoreMaintenanceDefaults() {
         client.invalidateQueries({ queryKey: ['maintenanceOverview'] }),
       ]);
       showToast(
-        t('maintenance.restored', {
+        nativeMessage('maintenance.restored', () => ({
           defaultValue: '{{count}} default types restored.',
           count: result.restored,
-        }),
+        })),
         'success',
       );
     },

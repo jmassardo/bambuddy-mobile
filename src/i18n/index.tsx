@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { I18nManager, Platform, Settings } from 'react-native';
 import { availableLanguages, catalogs, english, resourceEnglish, type Language } from './catalog';
 import { getFormattingPreferences, setFormattingPreferences } from '@/utils/preferences';
 import { useFormattingPreferences } from '@/hooks/useFormattingPreferences';
@@ -19,7 +20,32 @@ export function resolveLanguage(value: string): Language {
 }
 
 export function deviceLanguage(): Language {
-  return resolveLanguage(Intl.DateTimeFormat().resolvedOptions().locale);
+  const supported = (values: unknown[]): Language | undefined => {
+    for (const value of values) {
+      if (typeof value !== 'string' || !value.trim()) continue;
+      const language = resolveLanguage(value.split('@')[0]);
+      if (language !== 'en' || /^en(?:[-_@]|$)/i.test(value)) return language;
+    }
+    return undefined;
+  };
+  if (Platform.OS === 'ios') {
+    try {
+      const preferred: unknown = Settings.get('AppleLanguages');
+      const language = supported(Array.isArray(preferred) ? preferred : []);
+      if (language) return language;
+      const locale = supported([Settings.get('AppleLocale')]);
+      if (locale) return locale;
+    } catch { /* Native settings may be unavailable in non-native hosts. */ }
+  }
+  try {
+    const language = supported([I18nManager.getConstants().localeIdentifier]);
+    if (language) return language;
+  } catch { /* Fall back to the runtime locale when native constants are absent. */ }
+  try {
+    return resolveLanguage(Intl.DateTimeFormat().resolvedOptions().locale);
+  } catch {
+    return 'en';
+  }
 }
 
 export function createTranslator(language: Language): Translate {
@@ -149,6 +175,9 @@ export function nativeMessage(key: string, options: NativeMessage['options'] = {
 }
 function messageOptions(message: NativeMessage): TranslationOptions {
   return typeof message.options === 'function' ? message.options() : message.options;
+}
+export function resolveNativeMessage(message: string | NativeMessage, t: Translate = translateNative): string {
+  return typeof message === 'string' ? message : t(message.key, messageOptions(message));
 }
 export function useNativeMessageState(initial: string | NativeMessage | (() => string | NativeMessage)): readonly [string, (next: React.SetStateAction<string> | NativeMessage) => void];
 export function useNativeMessageState<T extends string | null | undefined>(initial: T | NativeMessage | (() => T | NativeMessage)): readonly [T, (next: React.SetStateAction<T> | NativeMessage) => void];

@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useNativeLocale } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useNativeLocale } from '@/i18n';
+
 
 import Clipboard from '@react-native-clipboard/clipboard';
 import React from 'react';
@@ -175,7 +176,7 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
             <>
               <Image source={{ uri: `data:image/png;base64,${queries.totpSetupQuery.data.qr_code_b64}` }} style={settingsStyles.qrImage} />
               <Text style={[settingsStyles.helper, { color: controller.colors.textSecondary }]}><NativeTranslation id="native.c15bdc4f796c8839" values={{ value0: (queries.totpSetupQuery.data.secret) }} /></Text>
-              <PrimaryButton label={translateNative('native.b8c035c74a218893')} variant="secondary" onPress={() => { Clipboard.setString(queries.totpSetupQuery.data?.secret ?? ''); actions.showToast(translateNative('native.29e3310e288ebfcc'), 'success'); }} />
+              <PrimaryButton label={translateNative('native.b8c035c74a218893')} variant="secondary" onPress={() => { Clipboard.setString(queries.totpSetupQuery.data?.secret ?? ''); actions.showToast(nativeMessage('native.29e3310e288ebfcc'), 'success'); }} />
               <TextField label={translateNative('native.c137dc7718a985e1')} value={totpCode} onChangeText={actions.setTotpCode} keyboardType="number-pad" />
               <PrimaryButton label={mutations.enableTOTPMutation.isPending ? translateNative('native.dc7b7a02345f8232') : translateNative('native.b6e88f2416d4ef5e')} onPress={() => void mutations.enableTOTPMutation.mutateAsync(totpCode)} disabled={totpCode.trim().length !== 6 || mutations.enableTOTPMutation.isPending} loading={mutations.enableTOTPMutation.isPending} />
             </>

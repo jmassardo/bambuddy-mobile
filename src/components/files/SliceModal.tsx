@@ -1,4 +1,5 @@
-import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -270,7 +271,7 @@ function SliceForm(props: SliceModalProps) {
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ['slicer-pipelines'] });
       setSaveName(null);
-      showToast(label('Pipeline saved'), 'success');
+      showToast(nativeMessage("native.ef8bc3a85815fbce"), 'success');
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   });

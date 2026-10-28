@@ -1,4 +1,4 @@
-import { NativeTranslation, nativeEnglishSuffix, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeEnglishSuffix, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
 
 import React, { useState } from 'react';
 import { CommonActions, useNavigation, useRoute } from '@react-navigation/native';
@@ -147,14 +147,14 @@ const FILE_FILTER_LABELS: Record<string, string> = {
 };
 
 export default function FilesScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const { hasPermission, hasAnyPermission, user, authEnabled } = useAuth();
   const route = useRoute();
   const navigation = useNavigation<MainTabNavigationProp<'Files'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('nav.files'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('nav.files') });
+  }, [navigation, titleLocale]);
 
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -487,9 +487,9 @@ export default function FilesScreen() {
       await invalidateFiles();
       setShowNewFolder(false);
       setNewFolderName('');
-      showToast(translateNative('native.35e4528dec8aeae1'), 'success');
+      showToast(nativeMessage('native.35e4528dec8aeae1'), 'success');
     },
-    onError: () => showToast(translateNative('native.ded3af424ae140b5'), 'error'),
+    onError: () => showToast(nativeMessage('native.ded3af424ae140b5'), 'error'),
   });
 
   const renameMutation = useMutation({
@@ -500,9 +500,9 @@ export default function FilesScreen() {
       if (renameItem && isFolderEntry(renameItem)) setFolderStack(current => current.map(node => node.id === id ? {...node, name} : node));
       setRenameItem(null);
       setRenameValue('');
-      showToast(translateNative('native.8049d6ada9011113'), 'success');
+      showToast(nativeMessage('native.8049d6ada9011113'), 'success');
     },
-    onError: () => showToast(translateNative('native.7c2f1349dac2379a'), 'error'),
+    onError: () => showToast(nativeMessage('native.7c2f1349dac2379a'), 'error'),
   });
 
   const moveMutation = useMutation({
@@ -515,9 +515,9 @@ export default function FilesScreen() {
       await invalidateFiles();
       setSelectedIds([]);
       setMoveIds([]);
-      showToast(translateNative('native.612f3dd2a9f1b9ff'), 'success');
+      showToast(nativeMessage('native.612f3dd2a9f1b9ff'), 'success');
     },
-    onError: () => showToast(translateNative('native.3a3dd3e839c47af8'), 'error'),
+    onError: () => showToast(nativeMessage('native.3a3dd3e839c47af8'), 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -526,9 +526,9 @@ export default function FilesScreen() {
       await invalidateFiles();
       setDeleteIds([]);
       setSelectedIds([]);
-      showToast(translateNative('native.825be032481daa0e'), 'success');
+      showToast(nativeMessage('native.825be032481daa0e'), 'success');
     },
-    onError: () => showToast(translateNative('native.8e23be4162cc1cf0'), 'error'),
+    onError: () => showToast(nativeMessage('native.8e23be4162cc1cf0'), 'error'),
   });
 
   const addToQueueMutation = useMutation({
@@ -536,9 +536,9 @@ export default function FilesScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['queue'] });
       setSelectedIds([]);
-      showToast(translateNative('native.7faebfd65339b60d'), 'success');
+      showToast(nativeMessage('native.7faebfd65339b60d'), 'success');
     },
-    onError: () => showToast(translateNative('native.3f7c6eac894bb8bd'), 'error'),
+    onError: () => showToast(nativeMessage('native.3f7c6eac894bb8bd'), 'error'),
   });
 
   const restoreMutation = useMutation({
@@ -550,9 +550,9 @@ export default function FilesScreen() {
     onSuccess: async () => {
       await invalidateFiles();
       setSelectedIds([]);
-      showToast(translateNative('native.4f3d6e3b93e95084'), 'success');
+      showToast(nativeMessage('native.4f3d6e3b93e95084'), 'success');
     },
-    onError: () => showToast(translateNative('native.80604c16e12e7148'), 'error'),
+    onError: () => showToast(nativeMessage('native.80604c16e12e7148'), 'error'),
   });
 
   const permanentDeleteMutation = useMutation({
@@ -565,9 +565,9 @@ export default function FilesScreen() {
       await invalidateFiles();
       setHardDeleteIds([]);
       setSelectedIds([]);
-      showToast(translateNative('native.7da66fec4eca1452'), 'success');
+      showToast(nativeMessage('native.7da66fec4eca1452'), 'success');
     },
-    onError: () => showToast(translateNative('native.bb311eae68c5a840'), 'error'),
+    onError: () => showToast(nativeMessage('native.bb311eae68c5a840'), 'error'),
   });
 
   const emptyTrashMutation = useMutation({
@@ -576,9 +576,9 @@ export default function FilesScreen() {
       await invalidateFiles();
       setConfirmEmptyTrash(false);
       setSelectedIds([]);
-      showToast(translateNative('native.4f9f706371bef501'), 'success');
+      showToast(nativeMessage('native.4f9f706371bef501'), 'success');
     },
-    onError: () => showToast(translateNative('native.308850f9b57f233b'), 'error'),
+    onError: () => showToast(nativeMessage('native.308850f9b57f233b'), 'error'),
   });
 
   const createExternalFolderMutation = useMutation({
@@ -597,9 +597,9 @@ export default function FilesScreen() {
       setExternalFolderPath('');
       setExternalFolderReadonly(true);
       setExternalShowHidden(false);
-      showToast(translateNative('native.5e5da7a2e625abe4'), 'success');
+      showToast(nativeMessage('native.5e5da7a2e625abe4'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.9018dcae186afff4'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.9018dcae186afff4'), 'error'),
   });
 
   const deleteExternalFolderMutation = useMutation({
@@ -607,18 +607,18 @@ export default function FilesScreen() {
     onSuccess: async () => {
       await invalidateFiles();
       setPendingExternalFolderDelete(null);
-      showToast(translateNative('native.0e1631a624a09bc2'), 'success');
+      showToast(nativeMessage('native.0e1631a624a09bc2'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.81009fe41e79bdd1'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.81009fe41e79bdd1'), 'error'),
   });
 
   const scanExternalFolderMutation = useMutation({
     mutationFn: (id: number) => api.scanExternalFolder(id),
     onSuccess: async () => {
       await invalidateFiles();
-      showToast(translateNative('native.6c3059aed24019f6'), 'success');
+      showToast(nativeMessage('native.6c3059aed24019f6'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.5c9de7cc896caf11'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.5c9de7cc896caf11'), 'error'),
   });
 
   const purgeOldFilesMutation = useMutation({
@@ -626,9 +626,9 @@ export default function FilesScreen() {
     onSuccess: async () => {
       await invalidateFiles();
       setShowPurgeModal(false);
-      showToast(translateNative('native.77724c578b0a318c'), 'success');
+      showToast(nativeMessage('native.77724c578b0a318c'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.e5bb628163e5667c'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.e5bb628163e5667c'), 'error'),
   });
 
   const saveTagMutation = useMutation({
@@ -640,9 +640,9 @@ export default function FilesScreen() {
       await invalidateFiles();
       setEditingTagId(null);
       setTagDraftName('');
-      showToast(editingTagId != null ? translateNative('native.456b580959453b15') : translateNative('native.c002863ede345943'), 'success');
+      showToast(editingTagId != null ? nativeMessage('native.456b580959453b15') : nativeMessage('native.c002863ede345943'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.e40f988f2e02e620'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.e40f988f2e02e620'), 'error'),
   });
 
   const deleteTagMutation = useMutation({
@@ -652,9 +652,9 @@ export default function FilesScreen() {
       setPendingTagDelete(null);
       setSelectedTagIds(current => current.filter(tagId => tagId !== id));
       setTagEditorSelectedIds(current => current.filter(tagId => tagId !== id));
-      showToast(translateNative('native.4693760b83b555d2'), 'success');
+      showToast(nativeMessage('native.4693760b83b555d2'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.48e8681aabb0d448'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.48e8681aabb0d448'), 'error'),
   });
 
   const assignTagsMutation = useMutation({
@@ -662,9 +662,9 @@ export default function FilesScreen() {
     onSuccess: async () => {
       await invalidateFiles();
       setTagEditorFileIds([]);
-      showToast(translateNative('native.27c68793a06f166e'), 'success');
+      showToast(nativeMessage('native.27c68793a06f166e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.8920fa1c688bdd8a'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.8920fa1c688bdd8a'), 'error'),
   });
   const createSelectionTagMutation = useMutation({
     mutationFn: () => filesApi.createLibraryTag(tagDraftName.trim()),
@@ -740,7 +740,7 @@ export default function FilesScreen() {
   });
   const thumbnailMutation = useMutation({
     mutationFn: (ids?: number[]) => filesApi.generateLibraryThumbnails(ids ? {file_ids: ids} : {all_missing: true}),
-    onSuccess: async result => { await invalidateFiles(); showToast(t('library.thumbnailsResult', {defaultValue: '{{success}} thumbnails generated; {{failed}} failed.', success: result.succeeded, failed: result.failed}), result.failed ? 'error' : 'success'); },
+    onSuccess: async result => { await invalidateFiles(); showToast(nativeMessage('library.thumbnailsResult', () => ({defaultValue: '{{success}} thumbnails generated; {{failed}} failed.', success: result.succeeded, failed: result.failed})), result.failed ? 'error' : 'success'); },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
   const combineMutation = useMutation({
@@ -748,13 +748,13 @@ export default function FilesScreen() {
     onSuccess: async result => {
       await invalidateFiles(); setCombineIds([]); setSelectedIds([]);
       if (sliceCombined) { setSliceSourceId(result.id); setSliceSourceName(result.filename); setSliceAutoArrange(true); setShowSliceModal(true); }
-      showToast(t('library.combined', {defaultValue: 'Combined 3MF created.'}), 'success');
+      showToast(nativeMessage('library.combined', () => ({defaultValue: 'Combined 3MF created.'})), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
   const groupMutation = useMutation({
     mutationFn: () => filesApi.groupLibraryVersions(selectedIds),
-    onSuccess: async () => { await invalidateFiles(); setSelectedIds([]); showToast(t('library.versionsGrouped', { defaultValue: 'Sliced files grouped as versions.' }), 'success'); },
+    onSuccess: async () => { await invalidateFiles(); setSelectedIds([]); showToast(nativeMessage('library.versionsGrouped', () => ({ defaultValue: 'Sliced files grouped as versions.' })), 'success'); },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
   const linkProjectMutation = useMutation({
@@ -766,14 +766,14 @@ export default function FilesScreen() {
     onSuccess: async () => {
       await Promise.all([invalidateFiles(), ...['projects', 'project', 'projectDetail', 'projectFolders', 'projectFiles', 'projectLibraryFiles', 'projectFileProgress', 'projectActionArchives'].map(key => queryClient.invalidateQueries({queryKey: [key]}))]);
       setSelectedIds([]);
-      showToast(t('library.linkedProject', {defaultValue: 'Library items linked to project.'}), 'success');
+      showToast(nativeMessage('library.linkedProject', () => ({defaultValue: 'Library items linked to project.'})), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
   const downloadFile = async (item: ApiRecord) => {
-    showToast(t('library.downloading', { defaultValue: 'Downloading original file…' }), 'info');
+    showToast(nativeMessage('library.downloading', () => ({ defaultValue: 'Downloading original file…' })), 'info');
     try { await shareBlob(await filesApi.downloadFileBlob(Number(pickId(item))), pickString(item, ['filename', 'name'])); }
-    catch (error) { showToast(error instanceof Error ? error.message : t('library.downloadFailed', { defaultValue: 'Download failed.' }), 'error'); }
+    catch (error) { showToast(error instanceof Error ? error.message : nativeMessage('library.downloadFailed', () => ({ defaultValue: 'Download failed.' })), 'error'); }
   };
   const canEdit = (item: ApiRecord) => !authEnabled || hasPermission('library:update_all') || (hasPermission('library:update_own') && user?.id === pickNumber(item, ['created_by_id']));
   const canDelete = (item: ApiRecord) => isFolderEntry(item)

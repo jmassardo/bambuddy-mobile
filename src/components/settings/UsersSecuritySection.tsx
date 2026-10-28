@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import Clipboard from '@react-native-clipboard/clipboard';
 import React from 'react';
@@ -201,7 +202,7 @@ export function UsersSecuritySection({ controller }: { controller: SettingsScree
                 variant="secondary"
                 onPress={() => {
                   Clipboard.setString(backupCodes.join('\n'));
-                  controller.actions.showToast(translateNative('native.09df16ef022f5a4b'), 'success');
+                  controller.actions.showToast(nativeMessage('native.09df16ef022f5a4b'), 'success');
                 }}
               />
             </SectionCard>

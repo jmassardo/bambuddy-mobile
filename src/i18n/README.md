@@ -1,7 +1,12 @@
 # Native localization
 
 Mount `LocalizationProvider` above the native shell (including toast/dialog providers).
-It detects the device locale, supports the same 15 language choices as the server,
+It detects native preferred languages (iOS `Settings.get('AppleLanguages')`, then
+`AppleLocale`; public `I18nManager` locale constants on supported native hosts),
+and only then falls back to `Intl`. This avoids Hermes/app-bundle English defaults
+overriding an actually Spanish device. Stored explicit selections still take
+precedence after loading, and reset returns to current native preferences.
+It supports the same 15 language choices as the server,
 and persists the **display** language in AsyncStorage. Notification language remains
 a separate server setting. No upstream translation assets are copied: the bundled
 catalog is authored for this mobile application. Upstream assets are AGPL-3.0;
@@ -114,14 +119,14 @@ source commit, not later rewritten line numbers.
 
 ## Completed source migration and additive resources
 
-The immutable base remains 5,667 resource keys in 38 chunks. Twelve append-only
-`delta-0001`–`delta-0012` chunks add 946 keys, giving **6,613 keys / 50 files per
+The immutable base remains 5,667 resource keys in 38 chunks. Fourteen append-only
+`delta-0001`–`delta-0014` chunks add 959 keys, giving **6,626 keys / 52 files per
 locale**. This includes display labels, help text and enum captions from the
 existing checked-in slicer schema/tree; canonical metadata, wire values, option
 identifiers and original English search anchors are not rewritten.
 
 Source/runtime migration is separate from resource authoring. Every non-English
-locale must contain all twelve deltas; fallback does not satisfy this requirement.
+locale must contain all fourteen deltas; fallback does not satisfy this requirement.
 After integrating resource authors, regenerate Metro's explicit static imports:
 
 ```sh
@@ -130,7 +135,7 @@ node scripts/validate-native-translations.js
 node scripts/validate-native-source.js
 ```
 
-The final registry contains 750 files (15 locales × 50). Resource validation uses
+The final registry contains 780 files (15 locales × 52). Resource validation uses
 `--locale de`, **not** `--locale=de`, and also verifies runtime import coverage.
 Never renumber or edit the assigned English/context chunks.
 
@@ -156,6 +161,13 @@ Never renumber or edit the assigned English/context chunks.
   than translated snapshots. A lazy options factory re-evaluates nested caption
   getters/formatters on language changes. Set a raw string for backend errors:
   raw strings remain raw, even when they equal an English catalog value.
+* `showToast(nativeMessage(key, values), type)` keeps authored notices reactive
+  for their entire visible lifetime. Use a lazy options factory for nested
+  translated captions. `showToast(serverError.message, 'error')` deliberately
+  stores a raw string; it is never matched against English catalog text.
+* Navigation spreads `setOptions` eagerly. Assign a plain translated `title` in
+  an effect with `t` or `useNativeLocale()` in its dependency list. A title getter
+  alone is not reactive.
 
 Shared text/buttons/inputs/options/toasts do not intercept arbitrary strings.
 Translate authored labels at their source. Keep printer/project names, filenames,
@@ -179,3 +191,9 @@ When adding UI, inventory genuine static prose, append resource chunks, author
 all locales, and explicitly re-audit any changed dynamic facade before updating
 its approval. Do not blanket-approve new reviews or translate arbitrary runtime
 strings to make the gate pass.
+
+The post-migration follow-up adds complete settings-summary templates and three
+counted toast templates in immutable deltas 13/14. All 14 foreign locales must
+author these 13 additional entries. Reserved parent-owned MoreScreen toast calls
+are coordinated separately; the toast gate temporarily exempts only its two
+known `more.externalProtocol` / `more.externalError` calls.

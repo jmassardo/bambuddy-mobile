@@ -1,4 +1,5 @@
-import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
@@ -64,10 +65,10 @@ export function ProjectTransferActions({ projectId }: { projectId?: number }) {
         await shareBlob(new Blob([JSON.stringify(exports, null, 2)], { type: 'application/json', lastModified: Date.now() }), 'bambuddy_projects.json');
       }
     },
-    onSuccess: () => showToast(t('projects.transferSuccess', { defaultValue: 'Project transfer completed.' }), 'success'),
+    onSuccess: () => showToast(nativeMessage('projects.transferSuccess', () => ({ defaultValue: 'Project transfer completed.' })), 'success'),
     onError: (error: unknown) => {
       if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) return;
-      showToast(error instanceof Error ? error.message : t('projects.transferError', { defaultValue: 'Project transfer failed.' }), 'error');
+      showToast(error instanceof Error ? error.message : nativeMessage('projects.transferError', () => ({ defaultValue: 'Project transfer failed.' })), 'error');
     },
     onSettled: async () => { await queryClient.invalidateQueries({ queryKey: ['projects'] }); },
   });

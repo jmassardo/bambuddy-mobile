@@ -1,4 +1,5 @@
 import { translateNative } from '@/i18n';
+import { localizedStatus } from '@/utils/statusLabel';
 
 import type {
   KProfile,
@@ -261,34 +262,34 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
     case 'general':
       return `${pickString(settings, ['language'], 'en')} • ${pickString(settings, ['date_format'], 'system')}`;
     case 'plugs':
-      return `${(queries.smartPlugs ?? []).length} smart plugs`;
+      return translateNative('settings.summary.plugs', { defaultValue: '{{count}} smart plugs', count: (queries.smartPlugs ?? []).length });
     case 'notifications':
-      return `${(queries.notificationProviders ?? []).length} providers`;
+      return translateNative('settings.summary.providers', { defaultValue: '{{count}} providers', count: (queries.notificationProviders ?? []).length });
     case 'queue':
       return pickBoolean(settings, ['preheat_enabled']) ? translateNative('native.2ec4b547f7d1df5b') : translateNative('native.84fbff152ecea1e7');
     case 'filament':
-      return `Low stock ${pickNumber(settings, ['low_stock_threshold'], 20)}%`;
+      return translateNative('settings.summary.stock', { defaultValue: 'Low stock {{threshold}}%', threshold: pickNumber(settings, ['low_stock_threshold'], 20) });
     case 'kprofiles':
-      return `${(queries.kprofiles ?? []).length} profiles`;
+      return translateNative('settings.summary.profiles', { defaultValue: '{{count}} profiles', count: (queries.kprofiles ?? []).length });
     case 'network':
-      return `External URL set • Prometheus ${pickBoolean(settings, ['prometheus_enabled']) ? translateNative('native.6786e575ee872370') : translateNative('native.08e76ba2b69926c4')}`;
+      return translateNative('native.47939e09554555ed', { value0: pickBoolean(settings, ['prometheus_enabled']) ? translateNative('native.6786e575ee872370') : translateNative('native.08e76ba2b69926c4') });
     case 'mqtt': {
       const mqtt = queries.mqttStatus;
-      if (!mqtt) return 'Checking…';
-      return `${mqtt.enabled ? 'Enabled' : 'Disabled'} • ${mqtt.connected ? 'Connected' : 'Disconnected'} • ${mqtt.broker}:${mqtt.port}`;
+      if (!mqtt) return translateNative('native.4d09977f8d9eacf6');
+      return `${mqtt.enabled ? translateNative('common.enabled') : translateNative('common.disabled')} • ${localizedStatus(mqtt.connected ? 'Connected' : 'Disconnected')} • ${mqtt.broker}:${mqtt.port}`;
     }
     case 'navigation':
       return pickString(settings, ['default_sidebar_order']) ? translateNative('native.37be3bba93bb8283') : translateNative('native.ac77ddfd82114632');
     case 'custom-navigation':
-      return `${(queries.customNavItems ?? []).length} custom links`;
+      return translateNative('settings.summary.links', { defaultValue: '{{count}} custom links', count: (queries.customNavItems ?? []).length });
     case 'apikeys':
-      return `${(queries.apiKeys ?? []).length} keys • ${(queries.cameraTokens ?? []).length} camera tokens`;
+      return translateNative('settings.summary.keys', { defaultValue: '{{keys}} keys • {{tokens}} camera tokens', keys: (queries.apiKeys ?? []).length, tokens: (queries.cameraTokens ?? []).length });
     case 'external-cameras':
-      return `${(queries.externalCameras ?? []).length} configured`;
+      return translateNative('settings.summary.cameras', { defaultValue: '{{count}} configured', count: (queries.externalCameras ?? []).length });
     case 'virtual-printer':
-      return `${(queries.virtualPrinters ?? []).length} virtual printers`;
+      return translateNative('settings.summary.printers', { defaultValue: '{{count}} virtual printers', count: (queries.virtualPrinters ?? []).length });
     case 'spoolbuddy':
-      return `${(queries.spoolbuddyDevices ?? []).length} devices`;
+      return translateNative('settings.summary.devices', { defaultValue: '{{count}} devices', count: (queries.spoolbuddyDevices ?? []).length });
     case 'failure-detection':
       return pickBoolean(queries.obicoStatus, ['enabled']) ? translateNative('common.enabled') : translateNative('common.disabled');
     case 'users':
@@ -296,7 +297,7 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
     case 'backup':
       return pickString(queries.githubBackupStatus, ['last_backup_status'], translateNative('native.942bcda081837f61'));
     case 'storage-locations':
-      return `${(queries.storageLocations ?? []).length} locations`;
+      return translateNative('settings.summary.locations', { defaultValue: '{{count}} locations', count: (queries.storageLocations ?? []).length });
     default:
       return '';
   }

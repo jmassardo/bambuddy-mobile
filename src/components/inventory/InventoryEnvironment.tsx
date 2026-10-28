@@ -1,4 +1,5 @@
-import { nativeLabelTuple, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { nativeLabelTuple, nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -294,7 +295,7 @@ export function EnvironmentDefaults({ onClose }: { onClose: () => void }) {
         ].map(key => client.invalidateQueries({ queryKey: [key] })),
       );
       setReset(false);
-      showToast(translateNative('native.7fe6b43129f2bdef'), 'success');
+      showToast(nativeMessage('native.7fe6b43129f2bdef'), 'success');
       onClose();
     },
     onError: (error: Error) => showToast(error.message, 'error'),
@@ -557,7 +558,7 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
       setEditing(undefined);
       setConfirmation(null);
       setRelated([]);
-      showToast(translateNative('native.db0f2c07aaea6913'), 'success');
+      showToast(nativeMessage('native.db0f2c07aaea6913'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });

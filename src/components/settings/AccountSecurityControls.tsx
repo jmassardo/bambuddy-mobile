@@ -31,7 +31,7 @@ export function AccountSecurityControls() {
       return authApi.changeOwnPassword(current, password);
     },
     onSuccess: async response => {
-      const result = t('auth.passwordChanged', { defaultValue: 'Password changed. Please sign in again.' });
+      const result = nativeMessage('auth.passwordChanged', { defaultValue: 'Password changed. Please sign in again.' });
       setMessage(response.message || result); showToast(result, 'success'); clear(); await logout();
     },
     onError: (e: Error) => setMessage(e.message),

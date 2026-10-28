@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useState } from 'react';
 import { localizedStatus } from '@/utils/statusLabel';
@@ -148,7 +149,7 @@ function SimpleModal({
 }
 
 export default function ArchivesScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<MainTabNavigationProp<'Archives'>>();
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -201,14 +202,14 @@ export default function ArchivesScreen() {
   React.useLayoutEffect(() => {
     navigation.setOptions({
        
-      get title() { return translateNative('nav.archives'); },
+      title: translateNative('nav.archives'),
       headerRight: () => (
         <Pressable onPress={() => setShowExportModal(true)} style={styles.headerButton} hitSlop={8}>
           <Download size={18} color={colors.text} strokeWidth={2} />
         </Pressable>
       ),
     });
-  }, [colors.text, navigation]);
+  }, [colors.text, navigation, titleLocale]);
 
   const archivesQuery = useQuery({
     queryKey: ['archives'],
@@ -261,7 +262,7 @@ export default function ArchivesScreen() {
     },
     onSuccess: updated => {
       queryClient.setQueryData<Archive[]>(['archives'], current => current?.map(item => item.id === updated.id ? { ...item, is_favorite: updated.is_favorite } : item));
-      showToast(t('archives.favoriteUpdated', { defaultValue: 'Favorite updated.' }), 'success');
+      showToast(nativeMessage('archives.favoriteUpdated', () => ({ defaultValue: 'Favorite updated.' })), 'success');
     },
     onError: (error: Error, _id, context) => {
       if (context?.previous) queryClient.setQueryData(['archives'], context.previous);
@@ -374,10 +375,10 @@ export default function ArchivesScreen() {
       await shareBlob(blob, `${filenameBase}.${exportFormat}`);
     },
     onSuccess: () => {
-      showToast(translateNative('native.6e87274835985d3c', { value0: String(exportFormat.toUpperCase()) }), 'success');
+      showToast(nativeMessage('native.6e87274835985d3c', () => ({ value0: String(exportFormat.toUpperCase()) })), 'success');
       setShowExportModal(false);
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.7a6f24449f5fce9c'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.7a6f24449f5fce9c'), 'error'),
   });
 
   const purgeMutation = useMutation({
@@ -389,9 +390,9 @@ export default function ArchivesScreen() {
       ]);
       setShowPurgeConfirm(false);
       setShowPurgeModal(false);
-      showToast(translateNative('native.6bf1e766e03e262e'), 'success');
+      showToast(nativeMessage('native.6bf1e766e03e262e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.0f6a5a92ddb86572'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.0f6a5a92ddb86572'), 'error'),
   });
   const qrExportMutation = useMutation({
     mutationFn: async () => {
@@ -478,16 +479,16 @@ export default function ArchivesScreen() {
               onOutcome={canUpdate(item) && item.status === 'completed' && item.confirm_requested && item.user_verdict == null ? () => setOutcomeId(item.id) : undefined}
               onTimelapse={() => {
                 if (!item.timelapse_path) {
-                  showToast(translateNative('native.e7606e7c893b7ccf'), 'warning');
+                  showToast(nativeMessage('native.e7606e7c893b7ccf'), 'warning');
                   return;
                 }
                 Linking.openURL(api.getArchiveTimelapse(item.id)).catch(() => {
-                  showToast(translateNative('native.650451ed93d5493d'), 'error');
+                  showToast(nativeMessage('native.650451ed93d5493d'), 'error');
                 });
               }}
               onPhotos={() => {
                 if (!item.photos?.length) {
-                  showToast(translateNative('native.9776cec29f9bab40'), 'warning');
+                  showToast(nativeMessage('native.9776cec29f9bab40'), 'warning');
                   return;
                 }
                 setPhotosArchive(item);
@@ -825,7 +826,7 @@ export default function ArchivesScreen() {
               if (!qrArchive) return;
               const value = archiveWorkflows.downloadUrl(qrArchive.id);
               Clipboard.setString(value);
-              showToast(translateNative('native.360bb86764f9f35c'), 'success');
+              showToast(nativeMessage('native.360bb86764f9f35c'), 'success');
             }}
           />
         </View>
@@ -839,7 +840,7 @@ export default function ArchivesScreen() {
               onPress={() => {
                 if (!qrArchive) return;
                 Clipboard.setString(api.getArchiveTimelapse(qrArchive.id));
-                showToast(translateNative('native.dd45e6b8a952826c'), 'success');
+                showToast(nativeMessage('native.dd45e6b8a952826c'), 'success');
               }}
             />
           </View>

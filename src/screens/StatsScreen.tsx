@@ -1,4 +1,5 @@
-import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 
 import React, { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -170,12 +171,12 @@ function isValidUserFilter(userId: number | null, isAdminFilter: boolean, usersL
 }
 
 export default function StatsScreen() {
-  useNativeLocale();
+  const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Stats'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ get title() { return translateNative('native.826ae2f32f3bf893'); } });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('native.826ae2f32f3bf893') });
+  }, [navigation, titleLocale]);
 
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -197,7 +198,7 @@ export default function StatsScreen() {
       if (saved.range === 'custom' && !validCustomRange(saved.dateFrom ?? '', saved.dateTo ?? '')) return;
       setRange(saved.range);
       setCustomDates({ dateFrom: saved.dateFrom, dateTo: saved.dateTo });
-    }).catch(() => showToast(t('stats.rangeLoadFailed', { defaultValue: 'Unable to load saved timeframe.' }), 'warning'));
+    }).catch(() => showToast(nativeMessage('stats.rangeLoadFailed', () => ({ defaultValue: 'Unable to load saved timeframe.' })), 'warning'));
     return () => { active = false; };
   }, [showToast, t]);
   const params = range === 'custom' ? customDates : reportRange(range);
@@ -249,7 +250,7 @@ export default function StatsScreen() {
   React.useEffect(() => {
     if (!isUserFilterValid && selectedUserId !== null) {
       setUserFilterValidated(false);
-      showToast(translateNative('native.287099fa63715304'), 'warning');
+      showToast(nativeMessage('native.287099fa63715304'), 'warning');
       setSelectedUserId(null);
     } else if (userFilterValidated && !isUserFilterValid) {
       setUserFilterValidated(true);
@@ -290,8 +291,8 @@ export default function StatsScreen() {
       }
       await shareBlob(new Blob([reportCsv(archivesQuery.data ?? [], queryParams)], { type: 'text/csv', lastModified: Date.now() }), `${filenameBase}.csv`);
     },
-    onSuccess: (_data, format) => showToast(translateNative('native.6e87274835985d3c', { value0: String(format.toUpperCase()) }), 'success'),
-    onError: (error: Error) => showToast(error.message || translateNative('native.49c7fbf6dffe8c58'), 'error'),
+    onSuccess: (_data, format) => showToast(nativeMessage('native.6e87274835985d3c', () => ({ value0: String(format.toUpperCase()) })), 'success'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.49c7fbf6dffe8c58'), 'error'),
   });
 
   const statsSummaryMutation = useMutation({
@@ -312,17 +313,17 @@ export default function StatsScreen() {
       const blob = new Blob([csv], blobOptions);
       await shareBlob(blob, `${filenameBase}.csv`);
     },
-    onSuccess: () => showToast(translateNative('native.70b44dbe91e4cb71'), 'success'),
-    onError: () => showToast(translateNative('native.9ebf6f64f2513714'), 'error'),
+    onSuccess: () => showToast(nativeMessage('native.70b44dbe91e4cb71'), 'success'),
+    onError: () => showToast(nativeMessage('native.9ebf6f64f2513714'), 'error'),
   });
 
   const recalculateCostsMutation = useMutation({
     mutationFn: api.recalculateCosts,
     onSuccess: async result => {
       await refreshAll();
-      showToast(result.message || translateNative('native.e4f729d601bbc009'), 'success');
+      showToast(result.message || nativeMessage('native.e4f729d601bbc009'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || translateNative('native.87040dbe0adb91fc'), 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.87040dbe0adb91fc'), 'error'),
   });
 
   const archives = useLocalizedMemo(
