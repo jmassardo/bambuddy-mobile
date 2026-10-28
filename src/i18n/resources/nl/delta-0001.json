@@ -1,0 +1,21 @@
+{
+  "native.04fb589d9c46972b": "Alleen de voorraadkoppeling opnieuw proberen?",
+  "native.078383ec46d40c2f": "Log in met je directoryaccount.",
+  "native.0c60c0c6856b6903": "Opdrachten met nog niet bepaalde alternatieve slicebestanden kunnen niet aan een vaste printer worden toegewezen. Laat de printer ongewijzigd of zonder toewijzing.",
+  "native.0c65b108307c5d36": "Voorraadkoppeling opnieuw proberen",
+  "native.1a5932500ebd8c6f": "Update voltooid. Het externe apparaat meldt versie {{version}}.",
+  "native.4ca8f2ae45ddb60b": "Voorraadkoppeling hersteld. De fysieke NFC-tag is niet opnieuw beschreven.",
+  "native.4d999eaa75bc989a": "Voortgang van slicewerkstromen volgen",
+  "native.7356160c2a259d93": "Printercamera's gezamenlijk bewaken",
+  "native.88d0c23d4edeb85b": "Externe cameraweergaven koppelen",
+  "native.990a472990fbdf8d": "De fysieke NFC-tag is succesvol beschreven. Koppel tag {{tag}} aan spoel #{{id}} zonder deze opnieuw te beschrijven.",
+  "native.c13edffd24345730": "Kostenplaatsen en facturering",
+  "native.c7482a2684ec7ea6": "Slicer-pipelines",
+  "native.c76b0088d7977298": "Status van directoryaanmelding opnieuw controleren",
+  "native.c8c49bef3c51e3ff": "Camera-integraties",
+  "native.e75b16b7c4dce790": "Pipeline-uitvoeringen",
+  "native.ececbf64c1ab0472": "Camerawand",
+  "native.ef6149f2bdee70f3": "Fysieke schrijfactie geslaagd; voorraadkoppeling mislukt",
+  "native.f2aa245433a562b7": "Geautomatiseerde slicewerkstromen beheren",
+  "native.f981ae40b78c0d40": "Rapportwijzigingen konden niet worden opgeslagen: {{error}}. Houd dit scherm open en probeer de wijziging opnieuw voordat je de app opnieuw start."
+}
