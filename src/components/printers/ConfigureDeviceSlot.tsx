@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -5,7 +6,7 @@ import { api } from '@/api/client';
 import { printerControlsApi as device } from '@/api/printerControls';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type { AMSTray, KProfile, UnifiedPreset } from '@/types/api';
@@ -14,6 +15,7 @@ import { deviceSlotTrayId, presetIdentity, requireInteger } from './deviceContro
 export function ConfigureDeviceSlot({ printerId, amsId, trayId: addressedTrayId, tray, preset, onSaved }: {
   printerId: number; amsId: number; trayId: number; tray: AMSTray; preset: UnifiedPreset; onSaved: () => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
@@ -100,7 +102,7 @@ export function ConfigureDeviceSlot({ printerId, amsId, trayId: addressedTrayId,
     <TextField label={t('device.nozzleDiameter', { defaultValue: 'Nozzle diameter mm' })} value={diameter} onChangeText={value => { setDiameter(value); setKProfile(null); }} keyboardType="decimal-pad" />
     <PrimaryButton label={t('device.defaultK', { defaultValue: 'Default K profile' })} variant={kProfile ? 'secondary' : 'primary'} onPress={() => setKProfile(null)} />
     {profiles.data?.profiles.map(profile => <PrimaryButton key={`${profile.extruder_id}-${profile.slot_id}`}
-      label={`${profile.name} · K=${profile.k_value} · ${profile.extruder_id === 1 ? 'L' : 'R'}`}
+      label={translateNative('native.9d9bf2787411f2ad', { value0: String(profile.name), value1: String(profile.k_value), value2: String(profile.extruder_id === 1 ? 'L' : 'R') })}
       variant={kProfile === profile ? 'primary' : 'secondary'} onPress={() => setKProfile(profile)} />)}
     {profiles.error || cloudDetail.error || localPreset.error ? <Text style={{ color: colors.error }}>{profiles.error?.message || cloudDetail.error?.message || localPreset.error?.message}</Text> : null}
     <PrimaryButton label={t('device.configureAndSave', { defaultValue: 'Configure printer and save profile association' })} disabled={!allowed} loading={save.isPending}

@@ -1,8 +1,10 @@
+import { nativeMessage, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, View, StyleSheet } from 'react-native';
 import { PrimaryButton, SectionCard } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 
@@ -31,6 +33,7 @@ export function ReportLayout({
   children: React.ReactNode;
   summaries: Record<string, string>;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const widgets = React.Children.toArray(children).filter(
@@ -44,7 +47,7 @@ export function ReportLayout({
   const [preferences, setPreferences] = useState<Preference[]>(defaults);
   const [loaded, setLoaded] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useNativeMessageState('');
   const [expanded, setExpanded] = useState<string[]>([]);
   const label = (value: string) =>
     t(`stats.layout.${value}`, { defaultValue: value });
@@ -73,7 +76,7 @@ export function ReportLayout({
         ]);
       })
       .catch(() => {
-        if (active) setError(label('Unable to load layout'));
+        if (active) setError(nativeMessage('Unable to load layout'));
       })
       .finally(() => {
         if (active) setLoaded(true);
@@ -88,7 +91,7 @@ export function ReportLayout({
     setPreferences(next);
     if (loaded)
       AsyncStorage.setItem('statistics-layout-v2', JSON.stringify(next)).catch(
-        () => setError(label('Unable to save layout')),
+        () => setError(nativeMessage('Unable to save layout')),
       );
   }
   function toggle(id: string, key: 'hidden' | 'compact') {

@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale } from '@/i18n';
+
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError, getAuthToken, loadAuthToken, setAuthToken } from '../api/client';
 import { useServerStore } from '../api/server';
@@ -34,6 +36,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  useNativeLocale();
   const serverUrl = useServerStore((s) => s.serverUrl);
   const [user, setUser] = useState<UserResponse | null>(null);
   const [authEnabled, setAuthEnabled] = useState(false);
@@ -182,6 +185,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  if (!ctx) throw new Error(translateNative('native.02411d11004370dd'));
   return ctx;
 }

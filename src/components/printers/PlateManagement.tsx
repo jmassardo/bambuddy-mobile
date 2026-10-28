@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import { Alert, Image, StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -7,7 +8,7 @@ import { useMediaToken } from '@/hooks/useStreamToken';
 import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
 import { CameraMessage } from './CameraControls';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import type { PlateDetectionROI, PlateReference, Printer } from '@/types/api';
 import { validPlateRoi } from '@/utils/cameraIntegrations';
 import { spacing } from '@/theme/tokens';
@@ -17,6 +18,7 @@ const defaultRoi = { x: 0.15, y: 0.35, w: 0.7, h: 0.55 };
 function ReferenceEditor({ printerId, reference, canEdit, refresh }: {
   printerId: number; reference: PlateReference; canEdit: boolean; refresh: () => Promise<void>;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { isReady, token } = useMediaToken();
   const [label, setLabel] = useState(reference.label);
@@ -43,6 +45,7 @@ function ReferenceEditor({ printerId, reference, canEdit, refresh }: {
 }
 
 export function PlateManagement({ printer }: { printer: Printer }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('printers:update');

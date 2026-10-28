@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import React from 'react';
 import { Gauge, Layers, Lightbulb, Move, Pause, Play, RefreshCw, RotateCcw, Square, Wrench } from 'lucide-react-native';
 import { useTheme } from '@/theme';
@@ -58,14 +59,15 @@ export function PrinterCardControlsSection({
   onStop,
   onClearPlate,
 }: PrinterCardControlsSectionProps) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
     <>
-      <SectionLabel label="Controls" />
+      <SectionLabel label={translateNative('native.c507912584538fba')} />
       <View style={styles.controlsGrid}>
         <ControlButton
-          label={status?.chamber_light ? 'Light on' : 'Light off'}
+          label={status?.chamber_light ? translateNative('native.3223780c3829bf80') : translateNative('native.70be0ac45805b8e0')}
           icon={
             <Lightbulb
               size={16}
@@ -81,7 +83,7 @@ export function PrinterCardControlsSection({
           iconOnly
         />
         <ControlButton
-          label="Move"
+          label={translateNative('native.1d6be0f4dfecdadb')}
           icon={<Move size={16} color={colors.text} strokeWidth={2} />}
           onPress={onShowMoveMenu}
           disabled={!canControlPrinter}
@@ -91,7 +93,7 @@ export function PrinterCardControlsSection({
           iconOnly
         />
         <ControlButton
-          label="Calibrate"
+          label={translateNative('native.4f57ba167860cec0')}
           icon={<RotateCcw size={16} color={colors.text} strokeWidth={2} />}
           onPress={onShowCalibrateMenu}
           disabled={!canControlPrinter}
@@ -111,7 +113,7 @@ export function PrinterCardControlsSection({
           iconOnly
         />
         <ControlButton
-          label="Refresh"
+          label={translateNative('common.refresh')}
           icon={<RefreshCw size={16} color={colors.text} strokeWidth={2} />}
           onPress={onRefresh}
           backgroundColor={colors.surfaceElevated}
@@ -121,7 +123,7 @@ export function PrinterCardControlsSection({
         />
         {isPrintingWithObjects ? (
           <ControlButton
-            label="Skip objects"
+            label={translateNative('native.7395d6eda8b9e1ed')}
             icon={<Layers size={16} color={colors.text} strokeWidth={2} />}
             onPress={onShowSkipObjects}
             disabled={!canSkipObjects}
@@ -134,7 +136,7 @@ export function PrinterCardControlsSection({
       </View>
       <View style={styles.controlActionsRow}>
         <ControlButton
-          label={isPaused ? 'Resume' : 'Pause'}
+          label={isPaused ? translateNative('native.b68738f908376c9e') : translateNative('native.362b1658df45e7f1')}
           icon={
             isPaused ? (
               <Play size={16} color={colors.textInverse} strokeWidth={2} />
@@ -150,7 +152,7 @@ export function PrinterCardControlsSection({
           iconOnly
         />
         <ControlButton
-          label="Stop"
+          label={translateNative('common.stop')}
           icon={<Square size={16} color={colors.textInverse} strokeWidth={2} />}
           onPress={onStop}
           disabled={!canPrintControl || actionPending}
@@ -161,7 +163,7 @@ export function PrinterCardControlsSection({
         />
         {status?.awaiting_plate_clear ? (
           <ControlButton
-            label="Clear plate"
+            label={translateNative('native.a9858a59831574c7')}
             icon={<Wrench size={15} color={PAUSE_AMBER} strokeWidth={2} />}
             onPress={onClearPlate}
             disabled={!canClearPlate || clearPlatePending}

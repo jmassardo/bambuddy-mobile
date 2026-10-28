@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -5,12 +6,13 @@ import { printerControlsApi as device } from '@/api/printerControls';
 import { request, requestText } from '@/api/http';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { blobToDataUrl, shareBlob } from '@/utils/share';
 
 function SDPreview({ printerId, path }: { printerId: number; path: string }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const [plate, setPlate] = useState(1);
@@ -47,6 +49,7 @@ function SDPreview({ printerId, path }: { printerId: number; path: string }) {
 export function PrinterSDBrowser({ visible, printerId, onClose }: {
   visible: boolean; printerId: number; onClose: () => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
@@ -96,7 +99,7 @@ export function PrinterSDBrowser({ visible, printerId, onClose }: {
             accessibilityLabel={file.name} accessibilityState={{ selected: selected.includes(file.path) }}
             onPress={() => file.is_directory ? setPath(file.path) : setSelected(previous => previous.includes(file.path) ? previous.filter(item => item !== file.path) : [...previous, file.path])}>
             <Text style={{ color: colors.text }}>{file.is_directory ? '▸' : selected.includes(file.path) ? '☑' : '☐'} {file.name}</Text>
-            <Text style={{ color: colors.textSecondary }}>{file.is_directory ? '' : `${file.size.toLocaleString()} B`} {file.modified}</Text>
+            <Text style={{ color: colors.textSecondary }}>{file.is_directory ? '' : translateNative('native.ddb6052bac0eb805', { value0: String(file.size.toLocaleString()) })} {file.modified}</Text>
           </Pressable>
           {!file.is_directory ? <PrimaryButton label={t('common.preview', { defaultValue: 'Preview' })} variant="secondary" onPress={() => setPreview(preview === file.path ? null : file.path)} /> : null}
         </View>)}

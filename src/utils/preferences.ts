@@ -1,3 +1,5 @@
+import { translateNative } from '@/i18n';
+
 export type DateFormat = 'system' | 'us' | 'eu' | 'iso';
 export type TimeFormat = 'system' | '12h' | '24h';
 export interface FormattingPreferences {
@@ -7,10 +9,18 @@ export interface FormattingPreferences {
   currency: string;
 }
 let preferences: FormattingPreferences = { dateFormat: 'system', timeFormat: 'system', currency: 'USD' };
+const preferenceListeners = new Set<() => void>();
 export function setFormattingPreferences(value: Partial<FormattingPreferences>) {
-  preferences = { ...preferences, ...value };
+  const next = { ...preferences, ...value };
+  if ((Object.keys(next) as Array<keyof FormattingPreferences>).every(key => Object.is(next[key], preferences[key]))) return;
+  preferences = next;
+  preferenceListeners.forEach(listener => listener());
 }
 export function getFormattingPreferences(): Readonly<FormattingPreferences> { return preferences; }
+export function subscribeFormattingPreferences(listener: () => void) {
+  preferenceListeners.add(listener);
+  return () => { preferenceListeners.delete(listener); };
+}
 
 export function parseServerDate(value: string | number | Date): Date {
   if (value instanceof Date) return value;
@@ -58,7 +68,7 @@ export function formatTimeInput(date: Date, format = preferences.timeFormat): st
   const hours = date.getHours();
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return resolved === '12h'
-    ? `${hours % 12 || 12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`
+    ? `${hours % 12 || 12}:${minutes} ${hours < 12 ? "AM" : "PM"}`
     : `${String(hours).padStart(2, '0')}:${minutes}`;
 }
 
@@ -71,7 +81,7 @@ export function getDatePlaceholder(format = preferences.dateFormat): string {
 }
 export function getTimePlaceholder(format = preferences.timeFormat): string {
   const hour12 = format === '12h' || (format === 'system' && new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hour12);
-  return hour12 ? 'HH:MM AM/PM' : 'HH:MM';
+  return hour12 ? translateNative('native.ee4cf4803879ad2f') : 'HH:MM';
 }
 
 export function formatPreferredDateTime(value: unknown): string {

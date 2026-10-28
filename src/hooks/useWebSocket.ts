@@ -1,3 +1,5 @@
+import { translateNative } from '@/i18n';
+
 // WebSocket hook for real-time printer status updates
 // Ported from the web frontend's useWebSocket.ts
 
@@ -148,7 +150,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
           }
           if (message.printer_name || message.printer_id !== undefined) {
             const printer = message.printer_name || `Printer ${message.printer_id}`;
-            showToast(`${printer}: Print started`, 'info', 4000);
+            showToast(translateNative('native.d49b2c60fac8fd7f', { value0: String(printer) }), 'info', 4000);
           }
           break;
         }
@@ -159,7 +161,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
             .filter(Boolean);
           if (slots?.length) {
             const printer = message.printer_name || `Printer ${message.printer_id}`;
-            showToast(`${printer}: Missing spool assignment for ${slots.join(', ')}`, 'warning');
+            showToast(translateNative('native.91b51e74a03c2b46', { value0: String(printer), value1: String(slots.join(', ')) }), 'warning');
           }
           break;
         }
@@ -169,7 +171,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
           debouncedInvalidate('archiveStats');
           if (message.printer_name || message.printer_id !== undefined) {
             const printer = message.printer_name || `Printer ${message.printer_id}`;
-            showToast(`${printer}: Print completed`, 'success', 5000);
+            showToast(translateNative('native.7a493cb216ef2608', { value0: String(printer) }), 'success', 5000);
           }
           break;
         }
@@ -182,15 +184,15 @@ export function useWebSocket(options?: UseWebSocketOptions) {
           const extra = message.data?.error_message
             ? ` — ${String(message.data.error_message)}`
             : message.data?.hms_errors
-              ? ' — HMS errors detected'
+              ? translateNative('native.913372efc470fc5e')
               : '';
-          showToast(`${printer}: Print failed${extra}`, 'error', 5000);
+          showToast(translateNative('native.6460d2d6a054aabb', { value0: String(printer), value1: String(extra) }), 'error', 5000);
           break;
         }
 
         case 'printer_offline': {
           const printer = message.printer_name || `Printer ${message.printer_id}`;
-          showToast(`${printer}: Printer offline`, 'warning', 6000);
+          showToast(translateNative('native.91ed2fd436aee660', { value0: String(printer) }), 'warning', 6000);
           break;
         }
 
@@ -256,7 +258,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
         if (tokenMintFailuresRef.current >= MAX_TOKEN_MINT_RETRIES) {
           tokenMintShutdownRef.current = true;
           setIsLiveUpdatesAvailable(false);
-          addError('WebSocket: unable to mint auth token — live updates unavailable');
+          addError(translateNative('native.991538ab658e64ec'));
         }
         return;
       }
@@ -290,7 +292,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
       try {
         parsed = JSON.parse(event.data as string);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unknown parse error';
+        const message = err instanceof Error ? err.message : translateNative('native.f268574d28f75632');
         parseErrorCountRef.current += 1;
 
         const rawType = (() => {
@@ -343,7 +345,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
 
       if (event.code !== 1000 && event.code !== 1001) {
         addError(
-          `WebSocket closed unexpectedly (code ${event.code}, reason: ${event.reason || 'no reason'})`,
+          `WebSocket closed unexpectedly (code ${event.code}, reason: ${event.reason || translateNative('native.90292ec8dc976f6d')})`,
           undefined,
           event.code,
         );
@@ -365,7 +367,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
         const jitter = baseDelay * 0.3 * Math.random();
         reconnectTimeoutRef.current = setTimeout(() => connect(), baseDelay + jitter);
       } else {
-        addError('WebSocket: device offline — reconnect paused');
+        addError(translateNative('native.006f9c59c06aa671'));
       }
     };
 

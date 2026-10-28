@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { useEffect, useRef, useState } from 'react';
 import { AppState, FlatList, Pressable, StyleSheet, Text, View, type ViewToken } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueries, useQuery } from '@tanstack/react-query';
@@ -11,7 +13,7 @@ import { CameraSnapshot } from '@/components/printers/CameraSnapshot';
 import { ScopedCameraStream } from '@/components/printers/ScopedCameraStream';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type { PrinterStatus } from '@/types/api';
@@ -24,6 +26,7 @@ export function wallLiveIds(visible: readonly number[], statuses: ReadonlyMap<nu
 }
 
 export default function CameraWallScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission, authEnabled, user } = useAuth();
@@ -72,7 +75,7 @@ export default function CameraWallScreen() {
   });
   const byId = new Map((printers.data ?? []).map((printer, index) => [printer.id, statuses[index]?.data]));
   const live = wallLiveIds(visible, byId, settings.maxLive);
-  const visibleSet = useMemo(() => new Set(visible), [visible]);
+  const visibleSet = useLocalizedMemo(() => new Set(visible), [visible]);
   const viewability = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     setVisible(viewableItems.map(item => (item.item as { id: number }).id));
   }).current;
@@ -85,7 +88,7 @@ export default function CameraWallScreen() {
         <TextField label={t('camera.snapshotInterval', { defaultValue: 'Snapshot interval (2–60 seconds)' })} value={String(settings.interval)} keyboardType="number-pad" onChangeText={value => {
           if (/^\d+$/.test(value)) change({ interval: Math.min(60, Math.max(2, Number(value))) });
         }} />
-        <CameraChoices label={t('camera.statusOverlay', { defaultValue: 'Status overlay' })} options={['off', 'compact', 'full']} value={settings.overlay} onChange={overlay => change({ overlay })} />
+        <CameraChoices optionLabel={option => translateNative(String(option))} label={t('camera.statusOverlay', { defaultValue: 'Status overlay' })} options={['off', 'compact', 'full']} value={settings.overlay} onChange={overlay => change({ overlay })} />
         {printers.isError ? <PrimaryButton label={t('common.retry', { defaultValue: 'Retry' })} onPress={() => void printers.refetch()} /> : null}
       </View>
       <FlatList

@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import {
   errorCodes,
   isErrorWithCode,
@@ -18,7 +19,7 @@ export async function pickProfileJson(
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result));
       reader.onerror = () =>
-        reject(new Error('Unable to read selected JSON file.'));
+        reject(new Error(translateNative('native.61f61df044ab4d4a')));
       reader.readAsText(blob);
     });
     if (allowProfileArray) {

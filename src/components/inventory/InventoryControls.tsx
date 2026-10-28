@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import React, { useState } from 'react';
 import {
   Modal,
@@ -14,85 +15,47 @@ import {
   TextField,
 } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { useToast } from '@/contexts/ToastContext';
 
 export function useInventoryToast() {
-  const toast = useToast();
-  const { t } = useTranslation();
-  return {
-    ...toast,
-    showToast: (...args: Parameters<typeof toast.showToast>) =>
-      toast.showToast(
-        t(`inventory.feedback.${args[0]}`, { defaultValue: args[0] }),
-        args[1],
-        args[2],
-      ),
-  };
+  return useToast();
 }
 export function InventoryField(props: React.ComponentProps<typeof TextField>) {
-  const { t } = useTranslation();
+  useNativeLocale();
   return (
     <TextField
       {...props}
-      label={t(`inventory.field.${props.label}`, { defaultValue: props.label })}
     />
   );
 }
 export function InventorySearch(props: React.ComponentProps<typeof SearchBar>) {
-  const { t } = useTranslation();
+  useNativeLocale();
   return (
     <SearchBar
       {...props}
-      placeholder={t(`inventory.search.${props.placeholder}`, {
-        defaultValue: props.placeholder,
-      })}
     />
   );
 }
 export function InventorySection(
   props: React.ComponentProps<typeof SectionCard>,
 ) {
-  const { t } = useTranslation();
+  useNativeLocale();
   return (
     <SectionCard
       {...props}
-      title={
-        props.title
-          ? t(`inventory.heading.${props.title}`, { defaultValue: props.title })
-          : undefined
-      }
-      subtitle={
-        props.subtitle
-          ? t(`inventory.description.${props.subtitle}`, {
-              defaultValue: props.subtitle,
-            })
-          : undefined
-      }
     />
   );
 }
 export function InventoryConfirm(
   props: React.ComponentProps<typeof ConfirmModal>,
 ) {
-  const { t } = useTranslation();
+  useNativeLocale();
   return (
     <ConfirmModal
       {...props}
-      title={t(`inventory.confirm.${props.title}`, {
-        defaultValue: props.title,
-      })}
-      message={t(`inventory.confirm.${props.message}`, {
-        defaultValue: props.message,
-      })}
-      confirmLabel={t('common.confirm', {
-        defaultValue: props.confirmLabel ?? 'Confirm',
-      })}
-      cancelLabel={t('common.cancel', {
-        defaultValue: props.cancelLabel ?? 'Cancel',
-      })}
     />
   );
 }
@@ -106,8 +69,8 @@ export function InventoryModal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
-  const { t } = useTranslation();
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <ScrollView
@@ -120,34 +83,22 @@ export function InventoryModal({
           accessibilityRole="header"
           style={[styles.title, { color: colors.text }]}
         >
-          {t(`inventory.heading.${title}`, { defaultValue: title })}
+          {title}
         </Text>
-        <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
+        <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         {children}
       </ScrollView>
     </Modal>
   );
 }
 export function InventoryText({ children }: { children: React.ReactNode }) {
+  useNativeLocale();
   const { colors } = useTheme();
-  const { t } = useTranslation();
-  const translated = React.Children.map(children, child =>
-    typeof child === 'string'
-      ? t(`inventory.text.${child}`, { defaultValue: child })
-      : child,
-  );
-  return <Text style={{ color: colors.text }}>{translated}</Text>;
+  return <Text style={{ color: colors.text }}>{children}</Text>;
 }
 export function InventoryButton(props: React.ComponentProps<typeof AppButton>) {
-  const { t } = useTranslation();
-  return (
-    <AppButton
-      {...props}
-      label={t(`inventory.action.${props.label}`, {
-        defaultValue: props.label,
-      })}
-    />
-  );
+  useNativeLocale();
+  return <AppButton {...props} />;
 }
 const PrimaryButton = InventoryButton;
 export function Toggle({
@@ -159,14 +110,12 @@ export function Toggle({
   value: boolean;
   onChange: (value: boolean) => void;
 }) {
-  const { t } = useTranslation();
+  useNativeLocale();
   return (
     <View style={styles.row}>
       <InventoryText>{label}</InventoryText>
       <Switch
-        accessibilityLabel={t(`inventory.control.${label}`, {
-          defaultValue: label,
-        })}
+        accessibilityLabel={label}
         value={value}
         onValueChange={onChange}
       />
@@ -188,6 +137,7 @@ export function ChoiceField({
   options: Choice[];
   onChange: (value: string) => void;
 }) {
+  useNativeLocale();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   return (
@@ -196,7 +146,7 @@ export function ChoiceField({
         variant="secondary"
         label={`${label}: ${
           options.find(option => option.value === value)?.label ??
-          (value || 'None')
+          (value || translateNative('common.none'))
         }`}
         onPress={() => setOpen(true)}
       />
@@ -205,7 +155,7 @@ export function ChoiceField({
           <InventorySearch
             value={search}
             onChangeText={setSearch}
-            placeholder="Search choices"
+            placeholder={translateNative('native.8c968bed36fd34de')}
           />
           {options
             .filter(option =>
@@ -237,13 +187,13 @@ export function Fields({
   values: Record<string, string>;
   onChange: (key: string, value: string) => void;
 }) {
-  const { t } = useTranslation();
+  useNativeLocale();
   return (
     <>
       {fields.map(([key, label]) => (
         <TextField
           key={key}
-          label={t(`inventory.field.${key}`, { defaultValue: label })}
+          label={label}
           value={values[key] ?? ''}
           onChangeText={value => onChange(key, value)}
           autoCapitalize="none"

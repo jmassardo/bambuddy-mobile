@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -5,7 +6,7 @@ import { printersApi } from '@/api/printers';
 import { Button, Input } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
+
 import {
   PROVIDER_EVENTS, PROVIDER_FIELDS, type ProviderFormState,
 } from '@/utils/notificationProvider';
@@ -18,6 +19,7 @@ type Props = {
 export function NotificationToggle({ label, value, onChange }: {
   label: string; value: boolean; onChange: (value: boolean) => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   return (
     <View style={styles.row}>
@@ -30,6 +32,7 @@ export function NotificationToggle({ label, value, onChange }: {
 export function NotificationChoices({ label, value, choices, onChange }: {
   label: string; value: string; choices: readonly string[]; onChange: (value: string) => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   return (
@@ -46,6 +49,7 @@ export function NotificationChoices({ label, value, choices, onChange }: {
 }
 
 export function ProviderConfigFields({ form, setForm }: Props) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const update = (key: string, value: string) => setForm(current => ({
@@ -75,6 +79,7 @@ export function ProviderConfigFields({ form, setForm }: Props) {
 }
 
 export function ProviderDeliveryFields({ form, setForm }: Props) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const printers = useQuery({ queryKey: ['printers'], queryFn: printersApi.getPrinters });

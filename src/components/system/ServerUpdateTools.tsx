@@ -1,3 +1,5 @@
+import { localizedStatus } from '@/utils/statusLabel';
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { Linking, Text } from 'react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -14,9 +16,9 @@ import {
 } from '@/components/settings/backupWorkflow';
 import { useTheme } from '@/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
 
 export function ServerUpdateTools() {
+  useNativeLocale();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
   const { t } = useTranslation();
@@ -29,7 +31,7 @@ export function ServerUpdateTools() {
     enabled: false,
   });
   const settings = useQuery({
-    queryKey: ['settings'],
+    queryKey: useServerSettingsKey(),
     queryFn: settingsApi.getSettings,
     enabled: hasPermission('settings:read'),
   });
@@ -180,10 +182,9 @@ export function ServerUpdateTools() {
               ) : null}
               <Text selectable style={{ color: colors.text }}>
                 {directory
-                  ? `cd -- '${directory.replace(/'/g, "'\\''")}'\n`
-                  : '# First change to your Compose directory\n'}
-                docker compose pull{'\n'}docker compose up -d
-              </Text>
+                  ? translateNative('native.13c49389518d0754', { value0: String(directory.replace(/'/g, "'\\''")) })
+                  : translateNative('native.18046e31f005ea4f')}
+                {translateNative('native.4e183731b4f75fad')}{'\n'}{translateNative('native.2dd94d88806aec08')}</Text>
             </>
           ) : null}
           {method === 'ha_addon' ? (
@@ -242,7 +243,7 @@ export function ServerUpdateTools() {
           accessibilityLiveRegion="polite"
           style={{ color: status.data.error ? colors.error : colors.text }}
         >
-          {status.data.status} · {status.data.progress}% · {status.data.message}
+          {localizedStatus(status.data.status)} · {status.data.progress}% · {status.data.message}
           {'\n'}
           {status.data.error}
         </Text>
@@ -265,3 +266,4 @@ export function ServerUpdateTools() {
     </SectionCard>
   );
 }
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

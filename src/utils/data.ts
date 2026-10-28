@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import type { ThemeColors } from '../theme';
 import { formatPreferredCurrency, formatPreferredDate, formatPreferredDateTime, formatPreferredTime } from './preferences';
 
@@ -124,9 +125,9 @@ export function formatDuration(value: unknown): string {
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = Math.floor(seconds % 60);
 
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m ${remainingSeconds}s`;
-  return `${remainingSeconds}s`;
+  if (hours > 0) return translateNative('native.a4a25eac430cdce6', { value0: String(hours), value1: String(minutes) });
+  if (minutes > 0) return translateNative('native.e073d118fbeefc64', { value0: String(minutes), value1: String(remainingSeconds) });
+  return translateNative('native.37a0e64429ed9063', { value0: String(remainingSeconds) });
 }
 
 export function formatPercent(value: unknown, digits = 0): string {
@@ -139,7 +140,7 @@ export function formatPercent(value: unknown, digits = 0): string {
 export function formatWeight(value: unknown): string {
   const numeric = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : 0;
   if (!Number.isFinite(numeric) || numeric <= 0) return '—';
-  return numeric >= 1000 ? `${(numeric / 1000).toFixed(2)} kg` : `${numeric.toFixed(0)} g`;
+  return numeric >= 1000 ? translateNative('native.aaa320ab6ecaf04f', { value0: String((numeric / 1000).toFixed(2)) }) : translateNative('native.9c765a3ca5313e91', { value0: String(numeric.toFixed(0)) });
 }
 
 export function formatCurrency(value: unknown): string {

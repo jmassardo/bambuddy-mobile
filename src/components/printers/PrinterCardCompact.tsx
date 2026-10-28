@@ -1,10 +1,11 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { Image, Pressable, Text, type ImageSourcePropType, View } from 'react-native';
 import { Printer as PrinterIcon } from 'lucide-react-native';
 import { useTheme } from '@/theme';
 import type { Printer, PrinterStatus } from '@/types/api';
 import { PrimaryButton } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { getSeverityColor, PRINT_GREEN } from '@/components/printers/PrinterCard.helpers';
 import { filterKnownHMSErrors } from '@/components/printers/hmsErrorCatalog';
 import { styles } from '@/components/printers/PrinterCard.styles';
@@ -38,6 +39,7 @@ export function PrinterCardCompact({
   onPress,
   onLongPress,
 }: PrinterCardCompactProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const hmsErrors = filterKnownHMSErrors(status?.hms_errors ?? []);
@@ -83,7 +85,7 @@ export function PrinterCardCompact({
             style={[styles.compactModel, { color: colors.textSecondary }]}
             numberOfLines={1}
           >
-            {printer.model ?? 'Unknown'}
+            {printer.model ?? translateNative('native.ff12a040d13addb7')}
           </Text>
         </View>
       </View>

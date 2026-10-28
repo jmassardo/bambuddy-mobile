@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,7 +9,7 @@ import {
   InlineTabBar,
 } from '@/components/common/AppUI';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { presetTemplateOverrides } from '@/utils/profilePresets';
@@ -31,6 +32,7 @@ export function PresetTemplates({
   settings: Record<string, unknown>;
   onApply: (setting: Record<string, unknown>, type: string) => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { showToast } = useToast();

@@ -1,8 +1,8 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { RunWithPipelineModal } from '@/components/slicing/RunWithPipelineModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
 
 export function LibraryPipelineAction({
   fileId,
@@ -13,6 +13,7 @@ export function LibraryPipelineAction({
   filename: string;
   isFolder: boolean;
 }) {
+  useNativeLocale();
   const { hasPermission } = useAuth();
   const { t } = useTranslation();
   const [visible, setVisible] = useState(false);

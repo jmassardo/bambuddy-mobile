@@ -1,3 +1,5 @@
+import { translateNative } from '@/i18n';
+
 import type { InventoryRecord } from '@/types/api';
 
 export const text = (
@@ -128,9 +130,7 @@ export function parseNumber(
   const result = Number(value);
   if (!value.trim() || !Number.isFinite(result) || result < min || result > max)
     throw new Error(
-      `${label}: enter a number from ${min} to ${
-        max === Infinity ? '∞' : max
-      }.`,
+      translateNative('native.feff7f750fe823cf', { value0: String(label), value1: String(min), value2: String(max === Infinity ? '∞' : max) }),
     );
   return result;
 }
@@ -183,7 +183,7 @@ export function inventoryColorName(
   const readable = stored && !/^[A-Z]\d+-[A-Z]\d+$/.test(stored);
   if (readable && !row.color_name_is_synthesized) return stored;
   const hex = text(row, 'rgba').replace('#', '').toLowerCase();
-  if (hex.length === 8 && hex.endsWith('00')) return 'Clear';
+  if (hex.length === 8 && hex.endsWith('00')) return translateNative('native.1f62863691c7afa1');
   const matching = catalog.filter(
     entry =>
       text(entry, 'hex_color').replace('#', '').toLowerCase().slice(0, 6) ===

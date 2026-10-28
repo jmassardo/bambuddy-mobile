@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
@@ -43,7 +44,6 @@ import {
 } from '@/utils/slicerPrinterMatch';
 import type { PresetRef } from '@/types/api';
 import type { SettingValue } from '@/types/slicerSettings';
-import { useTranslation } from '@/i18n';
 
 export type SliceModalProps = SliceSourceProps & {
   visible: boolean;
@@ -51,11 +51,13 @@ export type SliceModalProps = SliceSourceProps & {
   defaultAutoArrange?: boolean;
 };
 export function SliceModal(props: SliceModalProps) {
+  useNativeLocale();
   return props.visible ? (
     <SliceForm key={`${props.sourceType}:${props.sourceId}`} {...props} />
   ) : null;
 }
 function SliceForm(props: SliceModalProps) {
+  useNativeLocale();
   const { visible, onClose, defaultAutoArrange = false } = props;
   const { t } = useTranslation();
   const label = (text: string) => t(`slice.${text}`, { defaultValue: text });
@@ -94,7 +96,7 @@ function SliceForm(props: SliceModalProps) {
     queryFn: slicingApi.models,
     enabled: visible,
   });
-  const index = useMemo(
+  const index = useLocalizedMemo(
     () =>
       models.data
         ? buildCompatibilityIndex(models.data)
@@ -102,7 +104,7 @@ function SliceForm(props: SliceModalProps) {
     [models.data],
   );
   const multi = !!plates.data?.is_multi_plate && plates.data.plates.length > 1;
-  const requestId = useMemo(
+  const requestId = useLocalizedMemo(
     () =>
       `${props.sourceType}-${props.sourceId}-${
         plate ?? 1
@@ -132,7 +134,7 @@ function SliceForm(props: SliceModalProps) {
     queryFn: slicingApi.pipelines,
     enabled: visible && hasPermission('pipelines:read'),
   });
-  const slots = useMemo<SourceFilament[]>(() => {
+  const slots = useLocalizedMemo<SourceFilament[]>(() => {
     const result = requirements.data?.filaments;
     const base = result?.length
       ? result
@@ -301,7 +303,7 @@ function SliceForm(props: SliceModalProps) {
         ) : null,
       )}
       {presets.data && (
-        <Copy>{`Bambu Cloud: ${presets.data.cloud_status} · Orca Cloud: ${presets.data.orca_cloud_status}`}</Copy>
+        <Copy>{translateNative('native.6f17b31f20db67bc', { value0: String(presets.data.cloud_status), value1: String(presets.data.orca_cloud_status) })}</Copy>
       )}
       <PrimaryButton
         label={label('Refresh presets')}

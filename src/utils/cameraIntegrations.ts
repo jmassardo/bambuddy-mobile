@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import type { CameraTokenScope, PlateDetectionROI } from '@/types/api';
 
 export const overlayFields = ['printer', 'model', 'filename', 'status', 'progress', 'layers', 'eta', 'nozzle', 'bed', 'chamber'] as const;
@@ -14,7 +15,7 @@ export interface OverlayOptions {
 export function serverPageUrl(server: string, path: string, params: URLSearchParams) {
   const origin = new URL(server);
   if (!/^https?:$/.test(origin.protocol) || origin.username || origin.password) {
-    throw new Error('Invalid server URL');
+    throw new Error(translateNative('native.983ab665cf617011'));
   }
   return `${origin.origin}${path}?${params.toString()}`;
 }

@@ -1,7 +1,7 @@
+import { nativeMessage, useNativeMessageState, useTranslation } from '@/i18n';
 import { useEffect, useState } from 'react';
 import { spoolbuddyApi } from '@/api/spoolbuddy';
 import type { SpoolBuddyDevice } from '@/types/api';
-import { useTranslation } from '@/i18n';
 
 export function useSpoolBuddyTare(
   device: SpoolBuddyDevice | undefined,
@@ -16,7 +16,7 @@ export function useSpoolBuddyTare(
   } | null>(null);
   const [zero, setZero] = useState<number | null>(null);
   const [step, setStep] = useState<'idle' | 'zero' | 'weight'>('idle');
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useNativeMessageState('');
   const id = device?.device_id;
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export function useSpoolBuddyTare(
     setZero(null);
     setStep('idle');
     setMessage('');
-  }, [id]);
+  }, [id, setMessage]);
 
   useEffect(() => {
     if (!waiting || !device || device.device_id !== waiting.id) return;
@@ -34,13 +34,13 @@ export function useSpoolBuddyTare(
     ) {
       setWaiting(null);
       setMessage(
-        t('spoolbuddy.tareConfirmed', {
+        nativeMessage('spoolbuddy.tareConfirmed', () => ({
           defaultValue: 'Tare confirmed by remote device.',
-        }),
+        })),
       );
       if (waiting.calibrating) setStep('weight');
     }
-  }, [device, waiting, t]);
+  }, [device, waiting, t, setMessage]);
 
   useEffect(() => {
     if (!waiting) return;
@@ -50,17 +50,17 @@ export function useSpoolBuddyTare(
     const timer = setTimeout(() => {
       setWaiting(null);
       setMessage(
-        t('spoolbuddy.tareTimeout', {
+        nativeMessage('spoolbuddy.tareTimeout', () => ({
           defaultValue:
             'Tare timed out after 15 seconds. Check that the SpoolBuddy daemon is running and connected, then retry.',
-        }),
+        })),
       );
     }, Math.max(0, waiting.deadline - Date.now()));
     return () => {
       clearInterval(poll);
       clearTimeout(timer);
     };
-  }, [waiting, t, refreshDevice]);
+  }, [waiting, t, refreshDevice, setMessage]);
 
   async function tare(raw: number | null, calibrating: boolean) {
     if (!device || !device.online)
@@ -75,9 +75,9 @@ export function useSpoolBuddyTare(
       );
     setZero(raw);
     setMessage(
-      t('spoolbuddy.waitingForTare', {
+      nativeMessage('spoolbuddy.waitingForTare', () => ({
         defaultValue: 'Waiting for remote tare acknowledgement…',
-      }),
+      })),
     );
     const pending = {
       id: device.device_id,
@@ -91,11 +91,9 @@ export function useSpoolBuddyTare(
     } catch (error) {
       setWaiting(null);
       setMessage(
-        error instanceof Error
-          ? error.message
-          : t('spoolbuddy.tareQueueFailed', {
+        error instanceof Error ? error.message : nativeMessage('spoolbuddy.tareQueueFailed', () => ({
               defaultValue: 'Unable to queue tare.',
-            }),
+            })),
       );
       throw error;
     }
@@ -106,10 +104,10 @@ export function useSpoolBuddyTare(
     setStep('idle');
     setZero(null);
     setMessage(
-      t('spoolbuddy.calibrationCancelled', {
+      nativeMessage('spoolbuddy.calibrationCancelled', () => ({
         defaultValue:
           'Calibration cancelled locally. A tare already queued on the device cannot be recalled.',
-      }),
+      })),
     );
   }
 

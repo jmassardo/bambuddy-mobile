@@ -1,12 +1,14 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton, ProgressBar, SectionCard, StatCard } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { formatCurrency, formatDuration, formatWeight, pickArray, pickNumber, pickRecord, pickString, type ApiRecord } from '@/utils/data';
 
 export function ProjectHierarchySummary({ project, onOpen }: { project: ApiRecord; onOpen: (id: number) => void }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const rollup = pickRecord(project, ['rollup_stats']);

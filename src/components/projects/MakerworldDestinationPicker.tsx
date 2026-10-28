@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -5,7 +6,7 @@ import { api } from '@/api/client';
 import { PrimaryButton, SearchBar } from '@/components/common/AppUI';
 import { ErrorState } from '@/components/common/StateScreens';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import { spacing } from '@/theme/tokens';
 import { makerworldDestinations } from '@/utils/makerworld';
 import { pickNumber, pickString, type ApiRecord } from '@/utils/data';
@@ -15,6 +16,7 @@ export function MakerworldDestinationPicker({ value, onChange, disabled }: {
   onChange: (id: number | null) => void;
   disabled: boolean;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const [visible, setVisible] = useState(false);

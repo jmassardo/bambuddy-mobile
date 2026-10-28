@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { archiveWorkflows } from '@/api/archiveWorkflows';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import {
@@ -45,6 +46,7 @@ export function ArchiveBrowseControls({
   options: ArchiveBrowseOptions;
   onChange: (options: ArchiveBrowseOptions) => void;
 }) {
+  useNativeLocale();
   const { t, language } = useTranslation();
   const { colors } = useTheme();
   const [calendar, setCalendar] = useState(false);
@@ -65,7 +67,7 @@ export function ArchiveBrowseControls({
       }),
     ),
   ].sort();
-  const counts = useMemo(() => {
+  const counts = useLocalizedMemo(() => {
     const result = new Map<
       string,
       { count: number; completed: number; rejected: number; failed: number }
@@ -95,23 +97,23 @@ export function ArchiveBrowseControls({
   const set = (patch: Partial<ArchiveBrowseOptions>) =>
     onChange({ ...options, ...patch });
   const labels: Record<string, string> = {
-    all: 'All archives',
-    recent: 'Last 24 hours',
-    'this-week': 'This week',
-    'this-month': 'This month',
-    favorites: 'Favorites',
-    'not-printed': 'Not printed',
-    printed: 'Printed',
-    failed: 'Failed prints',
-    duplicates: 'Duplicates',
-    newest: 'Newest',
-    oldest: 'Oldest',
-    name: 'Name A–Z',
-    'name-desc': 'Name Z–A',
-    time: 'Longest print',
-    filament: 'Most filament',
-    'size-desc': 'Largest file',
-    'size-asc': 'Smallest file',
+    get all() { return translateNative('native.d94e443f85c0eaec'); },
+    get recent() { return translateNative('native.f055d74c66b684a1'); },
+    get 'this-week'() { return translateNative('native.a24058a811a56e1e'); },
+    get 'this-month'() { return translateNative('native.bda7bf6842725a10'); },
+    get favorites() { return translateNative('native.3fb5e51ed78c61da'); },
+    get 'not-printed'() { return translateNative('native.1adf313a83c8a160'); },
+    get printed() { return translateNative('native.56da207160ea4000'); },
+    get failed() { return translateNative('native.0cdef5a95608faf1'); },
+    get duplicates() { return translateNative('native.d99f704d5b29adb4'); },
+    get newest() { return translateNative('native.4f6a34533ed98043'); },
+    get oldest() { return translateNative('native.ee5e0d151047f55c'); },
+    get name() { return translateNative('native.101d9a336fdf1be1'); },
+    get 'name-desc'() { return translateNative('native.aed1fa779e0de034'); },
+    get time() { return translateNative('native.3149ed83a0c40e1f'); },
+    get filament() { return translateNative('native.2165cbaeacb0adf9'); },
+    get 'size-desc'() { return translateNative('native.263ac52b56597f00'); },
+    get 'size-asc'() { return translateNative('native.014242f88b0c05a1'); },
   };
   return (
     <SectionCard
@@ -272,9 +274,7 @@ export function ArchiveBrowseControls({
                 return (
                   <Chip
                     key={day}
-                    label={`${offset + 1} · ${entry?.count ?? 0} (✓${
-                      entry?.completed ?? 0
-                    } / ✕${entry?.failed ?? 0} / R${entry?.rejected ?? 0})`}
+                    label={translateNative('native.1e64085b217e5389', { value0: String(offset + 1), value1: String(entry?.count ?? 0), value2: String(entry?.completed ?? 0), value3: String(entry?.failed ?? 0), value4: String(entry?.rejected ?? 0) })}
                     active={options.day === day}
                     onPress={() => set({ day })}
                   />
@@ -306,6 +306,7 @@ export function ArchiveBatchDialog({
   archives: Archive[];
   onClose: () => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -448,6 +449,7 @@ export function ArchiveBatchDialog({
 }
 
 export function ArchiveTagCatalog({ onClose }: { onClose: () => void }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { showToast } = useToast();

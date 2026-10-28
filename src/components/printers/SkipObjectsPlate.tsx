@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import { useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { WebView as NativeWebView } from 'react-native-webview';
 import { useQuery } from '@tanstack/react-query';
 import { requestBlob } from '@/api/http';
 import { blobToDataUrl } from '@/utils/share';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 
 interface PlateWebViewHandle { injectJavaScript: (script: string) => void }
@@ -38,6 +39,7 @@ export function plateDocument(top: string, pick: string) {
 export function SkipObjectsPlate({ printerId, printKey, selected, skipped, onSelect }: {
   printerId: number; printKey: string; selected: number[]; skipped: number[]; onSelect: (id: number) => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const ref = useRef<PlateWebViewHandle>(null);
@@ -49,7 +51,7 @@ export function SkipObjectsPlate({ printerId, printKey, selected, skipped, onSel
       return { top, pick };
     },
   });
-  const html = useMemo(() => images.data ? plateDocument(images.data.top, images.data.pick) : '', [images.data]);
+  const html = useLocalizedMemo(() => images.data ? plateDocument(images.data.top, images.data.pick) : '', [images.data]);
   const update = () => ref.current?.injectJavaScript(`window.selectIds&&window.selectIds(${JSON.stringify(selected)},${JSON.stringify(skipped)});true;`);
   useEffect(() => {
     ref.current?.injectJavaScript(`window.selectIds&&window.selectIds(${JSON.stringify(selected)},${JSON.stringify(skipped)});true;`);

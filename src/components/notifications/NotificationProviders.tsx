@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -6,7 +8,7 @@ import { notificationsApi } from '@/api/notifications';
 import { Button, Card, Input, SectionHeader } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { borderRadius, spacing } from '@/theme/tokens';
 import type { NotificationProvider, NotificationProviderCreate } from '@/types/api';
@@ -17,6 +19,7 @@ import {
 import { NotificationToggle, ProviderConfigFields, ProviderDeliveryFields } from './ProviderEditorFields';
 
 export function NotificationProviders() {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
@@ -25,7 +28,7 @@ export function NotificationProviders() {
   const [editing, setEditing] = useState<NotificationProvider | null>(null);
   const [visible, setVisible] = useState(false);
   const [deleting, setDeleting] = useState<NotificationProvider | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useNativeMessageState<string | null>(null);
   const providers = useQuery({ queryKey: ['notificationProviders'], queryFn: settingsApi.getNotificationProviders });
   const refresh = () => client.invalidateQueries({ queryKey: ['notificationProviders'] });
   const close = () => { setVisible(false); setError(null); draftTest.reset(); };
@@ -60,7 +63,7 @@ export function NotificationProviders() {
   return (
     <Card>
       <SectionHeader title={t('notifications.providers', { defaultValue: 'Notification providers' })}
-        action={hasPermission('notifications:create') ? { label: t('common.add', { defaultValue: 'Add' }), onPress: () => begin() } : undefined} />
+        action={hasPermission('notifications:create') ? { get label() { return translateNative('common.add', { defaultValue: 'Add' }); }, onPress: () => begin() } : undefined} />
       {providers.isLoading ? <Text style={{ color: colors.textSecondary }}>{t('common.loading', { defaultValue: 'Loading…' })}</Text> : null}
       {providers.error ? <Text style={{ color: colors.error }}>{providers.error.message}</Text> : null}
       {providers.data?.length === 0 ? <Text style={{ color: colors.textSecondary }}>{t('notifications.noProviders', { defaultValue: 'No providers configured.' })}</Text> : null}

@@ -1,4 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { useEffect, useState } from 'react';
+import { localizedStatus } from '@/utils/statusLabel';
 import {
   ActivityIndicator,
   Modal,
@@ -13,7 +16,7 @@ import { pick, types, isErrorWithCode, errorCodes } from '@react-native-document
 import { useMutation } from '@tanstack/react-query';
 import { FileUp, Upload, X } from 'lucide-react-native';
 import { filesApi } from '@/api/files';
-import { useTranslation } from '@/i18n';
+
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -47,6 +50,7 @@ export function FileUploadModal({
   onClose,
   onUploaded,
 }: FileUploadModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { showToast } = useToast();
@@ -66,7 +70,7 @@ export function FileUploadModal({
   const uploadMutation = useMutation({
     mutationFn: async () => {
       if (!selectedFiles.length) {
-        throw new Error('Choose a file to upload first.');
+        throw new Error(translateNative('native.437bcbb4c918bfbd'));
       }
 
       setProgress(0);
@@ -94,7 +98,7 @@ export function FileUploadModal({
       showToast(t('library.uploadsCompleted', {defaultValue: 'Uploads completed.'}), 'success');
     },
     onError: (error) => {
-      showToast(getErrorMessage(error, 'Unable to upload file.'), 'error');
+      showToast(getErrorMessage(error, translateNative('native.96886a0199fc382e')), 'error');
     },
   });
 
@@ -114,11 +118,11 @@ export function FileUploadModal({
       setProgress(0);
     } catch (error) {
       if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) return;
-      showToast(getErrorMessage(error, 'Unable to read the selected file.'), 'error');
+      showToast(getErrorMessage(error, translateNative('native.a1dd48da4ee28053')), 'error');
     }
   };
 
-  const progressWidth = useMemo(
+  const progressWidth = useLocalizedMemo(
     () => `${Math.max(0, Math.min(progress, 100))}%` as `${number}%`,
     [progress],
   );
@@ -129,10 +133,10 @@ export function FileUploadModal({
         <View style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
           <View style={[styles.header, { borderBottomColor: colors.borderSubtle }]}> 
             <View style={styles.headerTextWrap}>
-              <Text style={[styles.title, { color: colors.text }]}>Upload file</Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Choose a file from your device and upload it to Bambuddy.</Text>
+              <Text style={[styles.title, { color: colors.text }]}>{translateNative('native.8d67a08f65f2e968')}</Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{translateNative('native.10ce370bb70d42ca')}</Text>
             </View>
-            <Pressable disabled={uploadMutation.isPending} onPress={onClose} style={styles.closeButton} accessibilityLabel="Close" accessibilityRole="button">
+            <Pressable disabled={uploadMutation.isPending} onPress={onClose} style={styles.closeButton} accessibilityLabel={translateNative('common.close')} accessibilityRole="button">
               <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
@@ -154,7 +158,7 @@ export function FileUploadModal({
               <FileUp size={22} color={colors.accentLight} strokeWidth={2} />
               <View style={styles.filePickerTextWrap}>
                 <Text style={[styles.filePickerTitle, { color: colors.text }]}>{t('library.chooseFiles', {defaultValue: 'Choose files'})}</Text>
-                <Text style={[styles.filePickerSubtitle, { color: colors.textSecondary }]}>3MF, G-code, STL, ZIP, or any printable library asset</Text>
+                <Text style={[styles.filePickerSubtitle, { color: colors.textSecondary }]}>{translateNative('native.b83c4a8e4ef9dc35')}</Text>
               </View>
             </Pressable>
 
@@ -163,7 +167,7 @@ export function FileUploadModal({
                 <View key={file.uri} style={[styles.fileSummary, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
                   <Text style={[styles.fileName, { color: colors.text }]}>{file.name}</Text>
                   <Text style={[styles.fileMeta, { color: file.status === 'error' ? colors.error : colors.textSecondary }]}>
-                    {file.size != null ? formatFileSize(file.size) : ''} • {t(`library.uploadStatus.${file.status}`, {defaultValue: file.status})} • {file.progress}% {file.error}
+                    {file.size != null ? formatFileSize(file.size) : ''} •                     {localizedStatus(file.status)} • {file.progress}% {file.error}
                   </Text>
                   {file.status !== 'done' && !uploadMutation.isPending ? (
                     <Pressable onPress={() => setSelectedFiles(current => current.filter(value => value.uri !== file.uri))}>
@@ -197,7 +201,7 @@ export function FileUploadModal({
                     ]}
                   />
                 </View>
-                <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>{progress}% uploaded</Text>
+                <Text style={[styles.progressLabel, { color: colors.textSecondary }]}><NativeTranslation id="native.a29b901e1158605d" values={{ value0: (progress) }} /></Text>
               </View>
             ) : null}
           </View>
@@ -211,7 +215,7 @@ export function FileUploadModal({
                 { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
               ]}
             >
-              <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Cancel</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.text }]}>{translateNative('common.cancel')}</Text>
             </Pressable>
             <Pressable
               onPress={() => uploadMutation.mutate()}
@@ -235,7 +239,7 @@ export function FileUploadModal({
               ) : (
                 <Upload size={16} color={colors.textInverse} strokeWidth={2} />
               )}
-              <Text style={[styles.primaryButtonText, { color: colors.textInverse }]}>Upload</Text>
+              <Text style={[styles.primaryButtonText, { color: colors.textInverse }]}>{translateNative('common.upload')}</Text>
             </Pressable>
           </View>
         </View>

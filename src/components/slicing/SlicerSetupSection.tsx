@@ -1,7 +1,8 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { Box, Choice, Copy, Toggle } from './Controls';
 import { TextField } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import type { AppSettings } from '@/types/api';
 
 export type SlicerSetupValues = Pick<
@@ -15,7 +16,7 @@ export function validateSlicerSetup(
   settings: SlicerSetupValues,
 ): string | null {
   if (!['bambu_studio', 'orcaslicer'].includes(settings.preferred_slicer))
-    return 'Choose a supported slicer.';
+    return translateNative('native.f9198911468e1ee7');
   if (!settings.use_slicer_api) return null;
   const url =
     settings.preferred_slicer === 'orcaslicer'
@@ -24,14 +25,14 @@ export function validateSlicerSetup(
   if (url) {
     try {
       if (!['http:', 'https:'].includes(new URL(url).protocol))
-        return 'Use an HTTP(S) sidecar URL.';
+        return translateNative('native.55c57c5fc3bc7ad9');
     } catch {
-      return 'Use a valid HTTP(S) sidecar URL.';
+      return translateNative('native.d9726f0b6f76ae66');
     }
   }
   const timeout = settings.slicer_stall_timeout_minutes ?? 15;
   return !Number.isInteger(timeout) || timeout < 1 || timeout > 240
-    ? 'Stall timeout must be 1–240 minutes.'
+    ? translateNative('native.8179abd0e6938ab2')
     : null;
 }
 export function SlicerSetupSection({
@@ -43,6 +44,7 @@ export function SlicerSetupSection({
   onChange: (patch: Partial<SlicerSetupValues>) => void;
   disabled?: boolean;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const text = (s: string) => t(`slicerSetup.${s}`, { defaultValue: s });
   const key =

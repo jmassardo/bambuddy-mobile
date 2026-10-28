@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { WebView } from 'react-native-webview';
@@ -7,7 +8,7 @@ import { archiveWorkflows } from '@/api/archiveWorkflows';
 import { archivesApi } from '@/api/archives';
 import type { UploadableFile } from '@/api/http';
 import { useMediaToken } from '@/hooks/useStreamToken';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,6 +38,7 @@ const EditorWebView = WebView as React.ComponentType<
 >;
 
 export default function TimelapseEditorScreen() {
+  useNativeLocale();
   const route = useRoute<RootRouteProp<'TimelapseEditor'>>();
   const archiveId = route.params.archiveId;
   const { t } = useTranslation();
@@ -54,7 +56,7 @@ export default function TimelapseEditorScreen() {
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [playhead, setPlayhead] = useState(0);
-  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useNativeMessageState<string | null>(null);
   const [version, setVersion] = useState(0);
   const info = useQuery({
     queryKey: ['timelapseInfo', archiveId, version],
@@ -71,7 +73,7 @@ export default function TimelapseEditorScreen() {
       setSpeed(1);
     }
   }, [info.data]);
-  const range = useMemo(() => {
+  const range = useLocalizedMemo(() => {
     try {
       return {
         value: timelapseRange(start, end, info.data?.duration ?? 0, speed, t),
@@ -84,7 +86,7 @@ export default function TimelapseEditorScreen() {
       };
     }
   }, [start, end, info.data?.duration, speed, t]);
-  const preview = useMemo(() => {
+  const preview = useLocalizedMemo(() => {
     if (!isReady || !range.value) return null;
     return timelapsePreviewHtml({
       video: `${archivesApi.getArchiveTimelapse(archiveId)}${
@@ -98,7 +100,6 @@ export default function TimelapseEditorScreen() {
       muted,
     });
     // Token changes require rebuilding the authenticated media URL.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     archiveId,
     isReady,
@@ -182,10 +183,7 @@ export default function TimelapseEditorScreen() {
           defaultValue: 'Timelapse editor',
         })}
       >
-        <Text style={{ color: colors.text }}>
-          {info.data?.width} × {info.data?.height} · {info.data?.fps} fps ·{' '}
-          {info.data?.duration.toFixed(3)} s
-        </Text>
+        <Text style={{ color: colors.text }}><NativeTranslation id="native.0d8a74965832f288" values={{ value0: (info.data?.width), value1: (info.data?.height), value2: (info.data?.fps), value3: (info.data?.duration.toFixed(3)) }} /></Text>
         {preview ? (
           <EditorWebView
             ref={previewRef}
@@ -210,9 +208,9 @@ export default function TimelapseEditorScreen() {
             }}
             onError={() =>
               setPreviewError(
-                t('archives.videoError', {
+                nativeMessage('archives.videoError', () => ({
                   defaultValue: 'Video preview could not load.',
-                }),
+                })),
               )
             }
           />
@@ -275,7 +273,7 @@ export default function TimelapseEditorScreen() {
                 style={styles.thumbnail}
               />
               <PrimaryButton
-                label={`${frames.data.timestamps[index].toFixed(2)} s`}
+                label={translateNative('native.54419b92f3235625', { value0: String(frames.data.timestamps[index].toFixed(2)) })}
                 variant="secondary"
                 onPress={() =>
                   previewRef.current?.injectJavaScript(

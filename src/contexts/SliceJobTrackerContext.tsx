@@ -1,9 +1,10 @@
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, {
   createContext,
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -15,7 +16,7 @@ import { useServerStore } from '@/api/server';
 import { useToast } from '@/contexts/ToastContext';
 import { Box, Copy } from '@/components/slicing/Controls';
 import { PrimaryButton } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import type { SliceJobState } from '@/types/api';
 
 type Tracked = SliceSourceProps & {
@@ -28,7 +29,7 @@ const Context = createContext<{
   jobs: React.ReactNode;
 }>({
   trackJob: () => {
-    throw new Error('SliceJobTrackerProvider must be mounted.');
+    throw new Error(translateNative('native.f4dafabe7f7ae2bc'));
   },
   jobs: null,
 });
@@ -39,6 +40,7 @@ export function SliceJobTrackerProvider({
 }: {
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const server = useServerStore(s => s.serverUrl);
   const key = `slice-jobs:${server}`;
@@ -99,7 +101,7 @@ export function SliceJobTrackerProvider({
     if (loadedKey === key && tracking.key === key)
       AsyncStorage.setItem(key, JSON.stringify(tracking.jobs)).catch(() => {});
   }, [key, loadedKey, tracking]);
-  const activeTracked = useMemo(
+  const activeTracked = useLocalizedMemo(
     () => (tracking.key === key ? tracking.jobs : []),
     [key, tracking],
   );
@@ -206,16 +208,14 @@ export function SliceJobTrackerProvider({
           !!state && ['completed', 'failed'].includes(state.status);
         return (
           <Box key={job.jobId}>
-            <Copy>{`${job.sourceName} · ${
-              state?.status ?? 'pending'
-            } · ${Math.max(
+            <Copy>{translateNative('native.90a1873b6dc4f6dd', { value0: String(job.sourceName), value1: String(state?.status ?? 'pending'), value2: String(Math.max(
               0,
               Math.floor(
                 ((state?.completed_at ? Date.parse(state.completed_at) : now) -
                   job.enqueued) /
                   1000,
               ),
-            )}s`}</Copy>
+            )) })}</Copy>
             {progress && (
               <Copy>{`${progress.stage} · ${Math.round(
                 progress.total_percent,
@@ -225,7 +225,7 @@ export function SliceJobTrackerProvider({
             )}
             {state?.error_detail && <Copy>{state.error_detail}</Copy>}
             {state?.result && (
-              <Copy>{`${state.result.name} · ${state.result.print_time_seconds}s · ${state.result.filament_used_g}g`}</Copy>
+              <Copy>{translateNative('native.7d245224cea2f097', { value0: String(state.result.name), value1: String(state.result.print_time_seconds), value2: String(state.result.filament_used_g) })}</Copy>
             )}
             {state?.result &&
               'external_write_fallback' in state.result &&

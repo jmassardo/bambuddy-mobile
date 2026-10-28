@@ -1,3 +1,4 @@
+import { useNativeLocale } from '@/i18n';
 import React, { useCallback } from 'react';
 import type { PrintQueueItem } from '@/types/api';
 import { QueueItemCard } from './QueueItemCard';
@@ -52,6 +53,7 @@ export function DraggableQueueItem({
   dragIndex,
   dragTargetIndex,
 }: DraggableQueueItemProps) {
+  useNativeLocale();
   const handleReorder = useCallback((direction: 'up' | 'down') => {
     if (onReorder) {
       onReorder(direction);

@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import type {
   PresetRef,
   SliceRequest,
@@ -64,13 +65,13 @@ export function buildSliceRequest(config: {
     !c.filaments.length ||
     c.filaments.some(f => !f)
   )
-    throw new Error('Select every required preset.');
+    throw new Error(translateNative('native.b9d8dc89f99abdfc'));
   if (
     c.colours.some(
       v => v !== null && v !== '' && !/^#[a-f\d]{6}([a-f\d]{2})?$/i.test(v),
     )
   )
-    throw new Error('Use #RRGGBB or #RRGGBBAA colours.');
+    throw new Error(translateNative('native.039bf97465e66f12'));
   const embedded = c.embedded && c.canEmbed;
   return {
     printer_preset: c.printer,

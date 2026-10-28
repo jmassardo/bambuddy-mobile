@@ -1,3 +1,4 @@
+import { useNativeLocale } from '@/i18n';
 import React from 'react';
 import { Linking, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -54,6 +55,7 @@ export function markdownHtml(markdown: string): string {
 }
 
 export function FolderReadme({ markdown }: {markdown: string}) {
+  useNativeLocale();
   const { colors } = useTheme();
   return <ReadmeWebView
     originWhitelist={['*']}

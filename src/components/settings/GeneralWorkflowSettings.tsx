@@ -1,9 +1,11 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { Text } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PrimaryButton, SectionCard } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { workflowSettingsApi } from '@/api/workflowSettings';
 import type { ArchiveRetentionSettings } from '@/types/api';
 import { OptionChipsField, SwitchRow, settingsStyles } from './shared';
@@ -15,6 +17,7 @@ export function GeneralWorkflowSettings({
 }: {
   controller: SettingsScreenController;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { authEnabled, hasPermission } = useAuth();
   const canPurge = !authEnabled || hasPermission('archives:purge');
@@ -73,7 +76,7 @@ export function GeneralWorkflowSettings({
           value={String(draft.library_archive_mode ?? 'ask')}
           options={['always', 'never', 'ask'].map(key => ({
             key,
-            label: t(`workflow.${key}`, { defaultValue: key }),
+            get label() { return translateNative(`workflow.${key}`, { defaultValue: key }); },
           }))}
           onChange={value => set('library_archive_mode', value)}
         />

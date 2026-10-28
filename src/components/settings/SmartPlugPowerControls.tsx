@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { localizedStatus } from '@/utils/statusLabel';
 import React, { useRef, useState } from 'react';
 import { ScrollView, Text } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,7 +12,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import type { SmartPlug, SmartPlugStatus } from '@/types/api';
 import { SimpleModal, SwitchRow } from './shared';
-import { useTranslation } from '@/i18n';
+
 import { useIntegrationTranslation } from './useIntegrationTranslation';
 
 export function plugPowerState(status?: SmartPlugStatus, fallback?: string | null): 'ON' | 'OFF' | 'Unknown' {
@@ -23,6 +25,7 @@ export function canPowerAction(plug: SmartPlug, action: 'on' | 'off'): boolean {
 }
 
 export function PlugPowerControl({ plug, canControl }: { plug: SmartPlug; canControl: boolean }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const tr = useIntegrationTranslation();
@@ -45,13 +48,14 @@ export function PlugPowerControl({ plug, canControl }: { plug: SmartPlug; canCon
   });
   const state = plugPowerState(status.data, plug.last_state);
   return <>
-    <Text style={{ color: colors.text }}>{plug.name} • {tr(state)} • {status.data?.energy?.power == null ? '— W' : `${Math.round(status.data.energy.power)} W`}{status.data?.reachable === false ? ` • ${tr('unreachable')}` : ''}</Text>
+    <Text style={{ color: colors.text }}>{plug.name} • {localizedStatus(state)} • {status.data?.energy?.power == null ? translateNative('native.dc77df9cef5a67c2') : translateNative('native.170a1ba723f191c5', { value0: String(Math.round(status.data.energy.power)) })}{status.data?.reachable === false ? ` • ${tr('unreachable')}` : ''}</Text>
     {plug.plug_type === 'mqtt' ? <Text style={{ color: colors.textSecondary }}>{tr('MQTT monitor-only')}</Text> : (['on', 'off'] as const).map(action => <PrimaryButton key={action} label={tr(action === 'on' ? 'Turn on' : 'Turn off')} variant={action === 'off' ? 'danger' : 'secondary'} disabled={!canControl || !canPowerAction(plug, action) || power.isPending} onPress={() => setConfirm(action)} />)}
-    <ConfirmModal visible={confirm != null} title={t(`integrations.confirm_${confirm}`, { defaultValue: `Turn ${confirm ?? ''} {{name}}?`, name: plug.name })} message={t('integrations.powerImpact', { defaultValue: 'This changes power for {{name}}{{association}}.', name: plug.name, association: plug.printer_id ? tr(' and its associated printer or accessory') : '' })} confirmLabel={tr(confirm === 'off' ? 'Turn off' : 'Turn on')} onConfirm={() => { if (confirm && !powerBusy.current && canControl) { powerBusy.current = true; power.mutate(confirm); } }} onClose={() => setConfirm(null)} loading={power.isPending} />
+    <ConfirmModal visible={confirm != null} title={confirm === 'off' ? t('integrations.confirm_off', { defaultValue: 'Turn off {{name}}?', name: plug.name }) : t('integrations.confirm_on', { defaultValue: 'Turn on {{name}}?', name: plug.name })} message={t('integrations.powerImpact', { defaultValue: 'This changes power for {{name}}{{association}}.', name: plug.name, association: plug.printer_id ? tr(' and its associated printer or accessory') : '' })} confirmLabel={tr(confirm === 'off' ? 'Turn off' : 'Turn on')} onConfirm={() => { if (confirm && !powerBusy.current && canControl) { powerBusy.current = true; power.mutate(confirm); } }} onClose={() => setConfirm(null)} loading={power.isPending} />
   </>;
 }
 
 export function BulkPlugPower({ plugs, canControl }: { plugs: SmartPlug[]; canControl: boolean }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const tr = useIntegrationTranslation();
   const { t } = useTranslation();
@@ -80,6 +84,7 @@ export function BulkPlugPower({ plugs, canControl }: { plugs: SmartPlug[]; canCo
 }
 
 export function QuickSmartPlugPanel() {
+  useNativeLocale();
   const [visible, setVisible] = useState(false);
   const tr = useIntegrationTranslation();
   const { hasPermission } = useAuth();
@@ -96,10 +101,12 @@ export function QuickSmartPlugPanel() {
 }
 
 function PowerPanel({ plugs, canControl }: { plugs: SmartPlug[]; canControl: boolean }) {
+  useNativeLocale();
   return <ScrollView><BulkPlugPower plugs={plugs} canControl={canControl} />{plugs.map(plug => <SectionCard key={plug.id} title={plug.name}><PlugPowerControl plug={plug} canControl={canControl} /></SectionCard>)}</ScrollView>;
 }
 
 export function PrinterPowerIntegration({ printerId }: { printerId: number }) {
+  useNativeLocale();
   const { hasPermission } = useAuth();
   const tr = useIntegrationTranslation();
   const { showToast } = useToast();

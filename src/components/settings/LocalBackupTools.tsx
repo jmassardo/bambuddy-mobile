@@ -1,3 +1,5 @@
+import { NativeTranslation, nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,11 +24,12 @@ import {
   saveReportCollection,
   stopReportCollection,
 } from '@/components/system/bugReportCollection';
-import { useTranslation } from '@/i18n';
+
 import { spacing } from '@/theme/tokens';
 import { confirmBackupAction, requireBackupSuccess } from './backupWorkflow';
 
 export function LocalBackupTools() {
+  useNativeLocale();
   const { colors } = useTheme();
   const { logout, hasPermission } = useAuth();
   const { t } = useTranslation();
@@ -35,7 +38,7 @@ export function LocalBackupTools() {
   const client = useQueryClient();
   const [file, setFile] = useState<UploadableFile>();
   const [progress, setProgress] = useState(0);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useNativeMessageState('');
   const [restoreDone, setRestoreDone] = useState(false);
   const status = useQuery({
     queryKey: ['localBackupStatus'],
@@ -143,11 +146,9 @@ export function LocalBackupTools() {
         error.code !== errorCodes.OPERATION_CANCELED
       ) {
         setMessage(
-          error instanceof Error
-            ? error.message
-            : t('backup.local.selectError', {
+          error instanceof Error ? error.message : nativeMessage('backup.local.selectError', () => ({
                 defaultValue: 'Unable to select backup.',
-              }),
+              })),
         );
       }
     }
@@ -218,7 +219,7 @@ export function LocalBackupTools() {
             {'\n'}
             {t('backup.local.next', {
               defaultValue: 'Next: {{next}} · Timezone: {{timezone}}',
-              next: status.data?.next_run ?? 'Not scheduled',
+              next: status.data?.next_run ?? translateNative('native.ba3131e9720a27b0'),
               timezone: status.data?.timezone ?? 'Unavailable',
             })}
           </Text>
@@ -343,12 +344,7 @@ export function LocalBackupTools() {
           ) : null}
           {files.data?.map(item => (
             <View key={item.filename} style={styles.content}>
-              <Text selectable style={{ color: colors.text }}>
-                {item.filename}
-                {'\n'}
-                {formatDateTime(item.created_at)} · {item.size.toLocaleString()}{' '}
-                bytes
-              </Text>
+              <Text selectable style={{ color: colors.text }}><NativeTranslation id="native.f1c8bb0f2d5282b5" values={{ value0: (item.filename), value1: (formatDateTime(item.created_at)), value2: (item.size.toLocaleString()) }} /></Text>
               <PrimaryButton
                 label={t('backup.local.download', {
                   defaultValue: 'Download {{filename}}',

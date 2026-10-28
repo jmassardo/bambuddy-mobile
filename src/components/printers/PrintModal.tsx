@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -35,7 +37,7 @@ import { PrintSchedulePicker } from './PrintSchedulePicker';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import { spacing } from '@/theme/tokens';
 import type {
   LibraryFolderTree,
@@ -106,6 +108,7 @@ function VariantPlate({
   onDown: () => void;
   onRemove: () => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const plates = useQuery({
     queryKey: ['launchPlates', 'library', candidate.library_file_id],
@@ -143,11 +146,11 @@ function VariantPlate({
       <LaunchText>
         {declaredModel ||
           candidate.target_model ||
-          'Model metadata is missing: choose its intended model'}
+          translateNative('native.400a10f4c6666536')}
       </LaunchText>
       {!declaredModel && (
         <LaunchField
-          label="Candidate model (only for slices without model metadata)"
+          label={translateNative('native.4afa18e8fce782e5')}
           value={candidate.target_model ?? ''}
           onChange={target_model =>
             onChange({ ...candidate, target_model: target_model || undefined })
@@ -160,10 +163,10 @@ function VariantPlate({
           .join(' · ')}
       </LaunchText>
       <Choice
-        label="Candidate plate"
+        label={translateNative('native.5634370ac4286e4f')}
         value={candidate.plate_id ?? null}
         options={[
-          { value: null, label: 'Default plate' },
+          { value: null, get label() { return translateNative('native.d157d0800b72aab7'); } },
           ...(plates.data?.plates ?? []).map(p => ({
             value: p.index,
             label: `${p.index}: ${p.name ?? ''}`,
@@ -193,6 +196,7 @@ function VariantPlate({
 }
 
 export function PrintModal(props: PrintModalProps) {
+  useNativeLocale();
   const { visible, queueItem, requeue = false, onClose, onSuccess } = props;
   const editing = !!queueItem && !requeue;
   const { t } = useTranslation();
@@ -240,15 +244,15 @@ export function PrintModal(props: PrintModalProps) {
   const [interval, setInterval] = useState('5');
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  const [warning, setWarning] = useState('');
-  const [error, setError] = useState('');
+  const [warning, setWarning] = useNativeMessageState('');
+  const [error, setError] = useNativeMessageState('');
   const [progress, setProgress] = useState('');
   const stagedFile = useRef<number | null>(null);
   const submitted = useRef(new Set<string>());
   const batchId = useRef<number | null>(null);
   const initialized = useRef(false);
   const settings = useQuery({
-    queryKey: ['settings'],
+    queryKey: useServerSettingsKey(),
     queryFn: api.getSettings,
     enabled: visible,
   });
@@ -277,7 +281,7 @@ export function PrintModal(props: PrintModalProps) {
     queryFn: () => printLaunchApi.plates(source!),
     enabled: visible && !!source,
   });
-  const plates = useMemo(
+  const plates = useLocalizedMemo(
     () => platesQuery.data?.plates ?? [],
     [platesQuery.data],
   );
@@ -581,9 +585,7 @@ export function PrintModal(props: PrintModalProps) {
         stagedFile.current = null;
       } catch (e) {
         setError(
-          e instanceof Error
-            ? e.message
-            : tr('Unable to clean up staged upload'),
+          e instanceof Error ? e.message : nativeMessage('Unable to clean up staged upload'),
         );
         return;
       }
@@ -628,7 +630,7 @@ export function PrintModal(props: PrintModalProps) {
       if (!compatibleModels(uploadedModel, target?.model))
         throw new Error(
           tr(
-            `File targets ${uploadedModel}; selected printer is ${target?.model}.`,
+            translateNative('native.a2e3cc1e846c15ab', { value0: String(uploadedModel), value1: String(target?.model) }),
           ),
         );
       stagedFile.current = uploadedId;
@@ -647,7 +649,7 @@ export function PrintModal(props: PrintModalProps) {
         }
       }
       if (!(isErrorWithCode(e) && e.code === errorCodes.OPERATION_CANCELED))
-        setError(e instanceof Error ? e.message : tr('Upload failed'));
+        setError(e instanceof Error ? e.message : nativeMessage('Upload failed'));
     } finally {
       setBusy(false);
       setUploadProgress(null);
@@ -986,7 +988,7 @@ export function PrintModal(props: PrintModalProps) {
       ]);
       stagedFile.current = null;
       showToast(
-        tr(editing ? 'Queue item saved' : 'Print jobs queued'),
+        tr(editing ? translateNative('native.9fcb68bbc1cf1516') : translateNative('native.025c8d487e12a680')),
         'success',
       );
       onSuccess?.();
@@ -1014,10 +1016,10 @@ export function PrintModal(props: PrintModalProps) {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <LaunchText>
           {editing
-            ? 'Edit queued print'
+            ? translateNative('native.5f93040bef66c750')
             : requeue
-            ? 'Configure requeue'
-            : 'Configure print'}
+            ? translateNative('native.85ed8d3e341d9bea')
+            : translateNative('native.18beb94dfed4ef1c')}
         </LaunchText>
         <ScrollView contentContainerStyle={styles.content}>
           {error ? <LaunchText>{error}</LaunchText> : null}
@@ -1042,8 +1044,8 @@ export function PrintModal(props: PrintModalProps) {
               <PrimaryButton
                 label={tr(
                   browse
-                    ? 'Hide source browser'
-                    : 'Browse library / choose another source',
+                    ? translateNative('native.0377adf777fc6209')
+                    : translateNative('native.62593343ffbb8b10'),
                 )}
                 variant="secondary"
                 disabled={busy || submitted.current.size > 0}
@@ -1175,14 +1177,14 @@ export function PrintModal(props: PrintModalProps) {
           )}
           {!editing && (
             <Choice
-              label="Assignment"
+              label={translateNative('native.79c7ad3745d012d3')}
               value={targetMode}
               options={[
-                { value: 'printer', label: 'Specific printers' },
-                { value: 'model', label: 'Any compatible model' },
+                { value: 'printer', get label() { return translateNative('native.bd38c3380642d3ab'); } },
+                { value: 'model', get label() { return translateNative('native.17ccb66dcd26e373'); } },
                 {
                   value: 'variants',
-                  label: 'Alternative slices: one cross-model job',
+                  get label() { return translateNative('native.f191e309e3595bc1'); },
                 },
               ]}
               onChange={v => {
@@ -1195,14 +1197,10 @@ export function PrintModal(props: PrintModalProps) {
           {targetMode === 'variants' ? (
             <>
               <LaunchText>
-                Only one candidate prints. Preference order below; each
-                candidate retains its own plate.
-              </LaunchText>
+                {translateNative('native.e3abf75d00de0628')}</LaunchText>
               {editing ? (
                 <LaunchText>
-                  Existing alternatives are preserved. Requeue this run to
-                  change candidate plates and preference.
-                </LaunchText>
+                  {translateNative('native.6c7f661964ccc454')}</LaunchText>
               ) : (
                 candidates.map((candidate, i) => (
                   <VariantPlate
@@ -1268,10 +1266,10 @@ export function PrintModal(props: PrintModalProps) {
                   options={[
                     {
                       value: true,
-                      label: 'Selected',
+                      get label() { return translateNative('native.236fb1d1635f5eae'); },
                       disabled: !eligible.some(e => e.id === p.id),
                     },
-                    { value: false, label: 'Not selected' },
+                    { value: false, get label() { return translateNative('native.0b9c4b5d8c4ba832'); } },
                   ]}
                   onChange={v =>
                     setPrinterIds(current =>
@@ -1300,7 +1298,7 @@ export function PrintModal(props: PrintModalProps) {
             </>
           ) : (
             <Choice
-              label="Compatible model"
+              label={translateNative('native.4daf3b543d15b1ab')}
               value={model}
               options={Array.from(
                 new Set(
@@ -1312,10 +1310,10 @@ export function PrintModal(props: PrintModalProps) {
           )}
           {targetMode !== 'printer' && (
             <Choice
-              label="Target location"
+              label={translateNative('native.04059e6fbb2d5dff')}
               value={location}
               options={[
-                { value: '', label: 'Any location' },
+                { value: '', get label() { return translateNative('native.5a104da729e73cc8'); } },
                 ...Array.from(
                   new Set(
                     eligible
@@ -1376,11 +1374,11 @@ export function PrintModal(props: PrintModalProps) {
                       pickString(metadata.data, ['bed_type'], tr('Unknown'))
                     }`}</LaunchText>
                     <Choice
-                      label="Plate selection"
+                      label={translateNative('native.4bd9a6bd0ccffb8a')}
                       value={selected}
                       options={[
-                        { value: true, label: 'Selected' },
-                        { value: false, label: 'Not selected' },
+                        { value: true, get label() { return translateNative('native.236fb1d1635f5eae'); } },
+                        { value: false, get label() { return translateNative('native.0b9c4b5d8c4ba832'); } },
                       ]}
                       onChange={v => {
                         setQuantityDrafts(current => {
@@ -1401,7 +1399,7 @@ export function PrintModal(props: PrintModalProps) {
                     {selected && !editing && (
                       <LaunchField
                         numeric
-                        label="Copies (1–999)"
+                        label={translateNative('native.96dd0fb07a43c673')}
                         value={
                           quantityDrafts[String(id)] ??
                           String(quantities[String(id)])
@@ -1436,8 +1434,8 @@ export function PrintModal(props: PrintModalProps) {
                           }`}
                           value={r.force_color_match === true}
                           options={[
-                            { value: false, label: 'Off' },
-                            { value: true, label: 'On' },
+                            { value: false, get label() { return translateNative('native.eaa897b0631e7896', { defaultValue: 'Off' }); } },
+                            { value: true, get label() { return translateNative('native.c7e4e8a8db2bbe79', { defaultValue: 'On' }); } },
                           ]}
                           onChange={v =>
                             setForceMatches(current => ({
@@ -1458,7 +1456,7 @@ export function PrintModal(props: PrintModalProps) {
                             r.slot_id
                           }`}</LaunchText>
                           <Choice
-                            label="Available material / color"
+                            label={translateNative('native.01182cbb13a535e4')}
                             value={`${r.type}:${r.color}`}
                             options={(available.data ?? []).map(f => ({
                               value: `${f.type}:${f.color}`,
@@ -1524,9 +1522,7 @@ export function PrintModal(props: PrintModalProps) {
                             }`}</LaunchText>
                             {status?.fila_switch?.installed && (
                               <LaunchText>
-                                FTS installed: verify inlet A (left) / B (right)
-                                routing before launch.
-                              </LaunchText>
+                                {translateNative('native.3bc6603474ef3a9b')}</LaunchText>
                             )}
                             <View style={styles.row}>
                               <PrimaryButton
@@ -1602,17 +1598,13 @@ export function PrintModal(props: PrintModalProps) {
                                   options={[
                                     {
                                       value: -1,
-                                      label: 'Auto at dispatch / unmapped',
+                                      get label() { return translateNative('native.3d489c763ef53ed0'); },
                                     },
                                     ...trays.map(item => ({
                                       value: item.id,
-                                      label: `${item.label} ${item.type} ${
-                                        item.color
-                                      } · ${
-                                        inventory?.inventory_remain_g[
+                                      get label() { return translateNative('native.143ae2eb34076a00', { value0: String(item.label), value1: String(item.type), value2: String(item.color), value3: String(inventory?.inventory_remain_g[
                                           String(item.id)
-                                        ] ?? tr('Unknown')
-                                      }g`,
+                                        ] ?? tr('Unknown')) }); },
                                     })),
                                   ]}
                                   onChange={v =>
@@ -1640,7 +1632,7 @@ export function PrintModal(props: PrintModalProps) {
                                   options={[
                                     {
                                       value: 0,
-                                      label: 'Auto assign eligible position',
+                                      get label() { return translateNative('native.1f88d96181d64010'); },
                                     },
                                     ...rackOptions(
                                       status?.nozzle_rack,
@@ -1655,17 +1647,13 @@ export function PrintModal(props: PrintModalProps) {
                                       );
                                       return {
                                         value: o.position,
-                                        label: `R${o.position} · ${
-                                          o.description
-                                        }${
-                                          !o.eligible || used
+                                        get label() { return translateNative('native.e4ae05c1a89bb7e7', { value0: String(o.position), value1: String(o.description), value2: String(!o.eligible || used
                                             ? ` · ${tr(
                                                 used
-                                                  ? 'Assigned to another group'
-                                                  : 'Not eligible: diameter / flow / empty',
+                                                  ? translateNative('native.1369fa8a607aaf1f')
+                                                  : translateNative('native.13f2dbb7fac62736'),
                                               )}`
-                                            : ''
-                                        }`,
+                                            : '') }); },
                                         disabled: !o.eligible || used,
                                       };
                                     }),
@@ -1700,23 +1688,23 @@ export function PrintModal(props: PrintModalProps) {
                 );
               })}
               <Choice
-                label="Require exact filament color"
+                label={translateNative('native.8b0f806108afd0bb')}
                 value={exact}
                 options={[
-                  { value: false, label: 'Off' },
-                  { value: true, label: 'On' },
+                  { value: false, get label() { return translateNative('native.eaa897b0631e7896', { defaultValue: 'Off' }); } },
+                  { value: true, get label() { return translateNative('native.c7e4e8a8db2bbe79', { defaultValue: 'On' }); } },
                 ]}
                 onChange={setExact}
               />
             </>
           )}
           <Choice
-            label="Schedule"
+            label={translateNative('native.a115b382d619aba1')}
             value={mode}
             options={[
-              { value: 'asap', label: 'ASAP (priority queue)' },
-              { value: 'queue', label: 'Queue' },
-              { value: 'scheduled', label: 'Scheduled' },
+              { value: 'asap', get label() { return translateNative('native.329a6045382c4775'); } },
+              { value: 'queue', get label() { return translateNative('nav.queue'); } },
+              { value: 'scheduled', get label() { return translateNative('native.6ad7336d402e07da'); } },
             ]}
             onChange={setMode}
           />
@@ -1726,24 +1714,24 @@ export function PrintModal(props: PrintModalProps) {
           {printerIds.length > 1 && (
             <>
               <Choice
-                label="Stagger printer starts"
+                label={translateNative('native.84572c23410c05b4')}
                 value={stagger}
                 options={[
-                  { value: false, label: 'Off' },
-                  { value: true, label: 'On' },
+                  { value: false, get label() { return translateNative('native.eaa897b0631e7896', { defaultValue: 'Off' }); } },
+                  { value: true, get label() { return translateNative('native.c7e4e8a8db2bbe79', { defaultValue: 'On' }); } },
                 ]}
                 onChange={setStagger}
               />
               {stagger && (
                 <>
                   <LaunchField
-                    label="Printers per stagger group"
+                    label={translateNative('native.5d70afb0c42c1107')}
                     value={groupSize}
                     onChange={setGroupSize}
                     numeric
                   />
                   <LaunchField
-                    label="Interval minutes"
+                    label={translateNative('native.d6a5b24e18d62aa5')}
                     value={interval}
                     onChange={setInterval}
                     numeric
@@ -1780,7 +1768,7 @@ export function PrintModal(props: PrintModalProps) {
           />
           {billing && (
             <Choice<number | null>
-              label="Cost center"
+              label={translateNative('native.13c071128eed740f')}
               value={costCenterId}
               options={allowedCenters.map(c => ({
                 value: c.id,
@@ -1797,9 +1785,7 @@ export function PrintModal(props: PrintModalProps) {
           )}
           {budgetBlocked && (
             <LaunchText>
-              No usable budget: select an allowed cost center with sufficient
-              funds.
-            </LaunchText>
+              {translateNative('native.1a4d309f7650898a')}</LaunchText>
           )}
           <LaunchText>{`${tr('Total runs')}: ${
             targetMode === 'variants' ? 1 : totalRuns
@@ -1825,10 +1811,10 @@ export function PrintModal(props: PrintModalProps) {
           <PrimaryButton
             label={tr(
               editing
-                ? 'Save'
+                ? translateNative('common.save')
                 : submitted.current.size
-                ? 'Retry remaining requests'
-                : 'Submit print jobs',
+                ? translateNative('native.94c225f57e180a33')
+                : translateNative('native.afb963488111cb76'),
             )}
             disabled={busy || !canEdit || budgetBlocked}
             loading={busy}
@@ -1866,3 +1852,4 @@ const styles = StyleSheet.create({
   },
   preview: { width: '100%', height: 150, resizeMode: 'contain' },
 });
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

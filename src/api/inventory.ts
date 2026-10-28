@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import type {
   InventorySpool,
   InventoryUidLookupResult,
@@ -143,12 +144,12 @@ export const inventoryApi = {
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 404) throw error;
       return [
-        { value: 'ams_holder_74x33', label: 'AMS holder small (74 × 33 mm)' },
-        { value: 'ams_holder_75x55', label: 'AMS holder large (75 × 55 mm)' },
-        { value: 'box_40x30', label: 'Box label (40 × 30 mm)' },
-        { value: 'box_62x29', label: 'Box label (62 × 29 mm)' },
-        { value: 'avery_5160', label: 'Avery 5160 US Letter sheet' },
-        { value: 'avery_l7160', label: 'Avery L7160 A4 sheet' },
+        { value: 'ams_holder_74x33', get label() { return translateNative('native.11eb4f9d12dbdfee'); } },
+        { value: 'ams_holder_75x55', get label() { return translateNative('native.9ebb301d4a64795a'); } },
+        { value: 'box_40x30', get label() { return translateNative('native.54d9cd527e48db34'); } },
+        { value: 'box_62x29', get label() { return translateNative('native.b4fe4a45256372b3'); } },
+        { value: 'avery_5160', get label() { return translateNative('native.61d0b49799079255'); } },
+        { value: 'avery_l7160', get label() { return translateNative('native.b47a7751e9111fef'); } },
       ];
     }
   },
@@ -327,7 +328,7 @@ export const inventoryApi = {
       }
       return { kind: 'found', spool: match };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Lookup failed';
+      const message = error instanceof Error ? error.message : translateNative('native.001093ce7982ba2a');
       return { kind: 'lookup_error', uid: canonicalUid, message };
     }
   },

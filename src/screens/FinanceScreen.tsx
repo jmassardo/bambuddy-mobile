@@ -1,3 +1,19 @@
+import { translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+import { localizedEnum, localizedStatus } from '@/utils/statusLabel';
+
+const financeCaptions: Record<string, string> = {
+  get none() { return translateNative('finance.enum.none', { defaultValue: 'None' }); },
+  get monthly() { return translateNative('finance.enum.monthly', { defaultValue: 'Monthly' }); },
+  get total() { return translateNative('finance.enum.total', { defaultValue: 'Total' }); },
+  get deposit() { return translateNative('finance.enum.deposit', { defaultValue: 'Deposit' }); },
+  get withdraw() { return translateNative('finance.enum.withdraw', { defaultValue: 'Withdraw' }); },
+  get print_charge() { return translateNative('finance.enum.printCharge', { defaultValue: 'Print charge' }); },
+  get manual_adjustment() { return translateNative('finance.enum.adjustment', { defaultValue: 'Manual adjustment' }); },
+  get manual() { return financeCaptions.manual_adjustment; },
+  get center() { return translateNative('finance.enum.center', { defaultValue: 'Cost center' }); },
+  get edit() { return translateNative('common.edit'); },
+};
+
 import React, { useState } from 'react';
 import {
   Alert,
@@ -16,7 +32,7 @@ import { Input, PrimaryButton, SectionCard } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
+
 import type { FinanceCenter, FinanceTransaction } from '@/types/api';
 import {
   budgetPayload,
@@ -40,6 +56,7 @@ type Form = {
 };
 
 export default function FinanceScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission, user } = useAuth();
@@ -63,7 +80,7 @@ export default function FinanceScreen() {
   const [date, setDate] = useState('');
   const [formUser, setFormUser] = useState<number | null>(null);
   const [formCenter, setFormCenter] = useState<number | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useNativeMessageState('');
   const label = (value: string) =>
     t(`finance.${value}`, { defaultValue: value });
   const flags = useQuery({
@@ -276,7 +293,7 @@ export default function FinanceScreen() {
   ) => (
     <View style={styles.group}>
       {optional &&
-        button(selected === null ? 'All users ✓' : 'All users', () =>
+        button(selected === null ? translateNative('native.3407e20ab46ee139') : translateNative('native.c311af34acd4fa38'), () =>
           onSelect(null),
         )}
       {users.data?.map(u =>
@@ -345,14 +362,14 @@ export default function FinanceScreen() {
       >
         <SectionCard title={label('Finance')}>
           {rights.own &&
-            button('Personal view', () => {
+            button(translateNative('native.a317c749945f7a9b'), () => {
               setAdmin(false);
               setPage(0);
               setCenterFilter(null);
               setUserFilter(null);
             })}
           {rights.admin &&
-            button('Administration', () => {
+            button(translateNative('native.d199e05f6ee481a3'), () => {
               setAdmin(true);
               setPage(0);
               setCenterFilter(null);
@@ -379,12 +396,12 @@ export default function FinanceScreen() {
           )}
           {adminView &&
             rights.create &&
-            button('Create cost center', () => open({ kind: 'center' }))}
+            button(translateNative('native.6974a1d440f147fe'), () => open({ kind: 'center' }))}
           {adminView && rights.modify && (
             <>
-              {button('Deposit', () => open({ kind: 'deposit' }))}
-              {button('Withdraw', () => open({ kind: 'withdraw' }))}
-              {button('Manual print charge', () => open({ kind: 'manual' }))}
+              {button(translateNative('native.6ed18423008e7456'), () => open({ kind: 'deposit' }))}
+              {button(translateNative('native.8d71a170fb40b349'), () => open({ kind: 'withdraw' }))}
+              {button(translateNative('native.e4d580c00ea2352c'), () => open({ kind: 'manual' }))}
             </>
           )}
         </SectionCard>
@@ -416,7 +433,7 @@ export default function FinanceScreen() {
                 </Text>
                 <Text style={{ color: colors.text }}>
                   {label('Balance')}: {money(center.total_balance)} ·{' '}
-                  {label('Budget mode')}: {label(center.budget_mode)}
+                  {label('Budget mode')}: {localizedEnum(center.budget_mode, financeCaptions)}
                 </Text>
                 <Text style={{ color: colors.text }}>
                   {label('Limit')}:{' '}
@@ -441,11 +458,11 @@ export default function FinanceScreen() {
                   )}
                 {capabilities.budget &&
                   button(
-                    center.is_private ? 'Edit budget' : 'Edit name and budget',
+                    center.is_private ? translateNative('native.7a47d496cd5bc429') : translateNative('native.1131767551375f1c'),
                     () => open({ kind: 'center', center }),
                   )}
                 {capabilities.members &&
-                  button('Manage members', () => {
+                  button(translateNative('native.968969f70318161c'), () => {
                     setManageId(manageId === center.id ? null : center.id);
                     setMemberId(null);
                   })}
@@ -453,12 +470,12 @@ export default function FinanceScreen() {
                   rights.admin &&
                   !rights.modify &&
                   !center.is_private &&
-                  button('View members', () =>
+                  button(translateNative('native.15d0083fcd6f7d65'), () =>
                     setManageId(manageId === center.id ? null : center.id),
                   )}
                 {capabilities.delete &&
-                  button('Delete cost center', () =>
-                    confirm('Delete cost center?', () =>
+                  button(translateNative('native.3c777d07a5f8a864'), () =>
+                    confirm(translateNative('native.a0011555dacc9ab3'), () =>
                       financeApi.deleteCenter(center.id),
                     ),
                   )}
@@ -481,12 +498,12 @@ export default function FinanceScreen() {
                 </Text>
                 {rights.modify && !members.data?.is_private && (
                   <>
-                    {button('Edit entitlement', () => {
+                    {button(translateNative('native.8efd3fa69b90f63b'), () => {
                       setMemberId(member.user_id);
                       setCanPrint(member.can_print);
                     })}
-                    {button('Remove member', () =>
-                      confirm('Remove member?', () =>
+                    {button(translateNative('native.04c45bd0d22ccec0'), () =>
+                      confirm(translateNative('native.2400a63cea171045'), () =>
                         financeApi.removeMember(manageId, member.user_id),
                       ),
                     )}
@@ -504,7 +521,7 @@ export default function FinanceScreen() {
                   onValueChange={setCanPrint}
                 />
                 {button(
-                  'Add / update membership',
+                  translateNative('native.c1b89996f7dd2c0b'),
                   () => {
                     if (memberId !== null)
                       perform(() =>
@@ -539,7 +556,7 @@ export default function FinanceScreen() {
                 setCenterFilter(id);
                 setPage(0);
               },
-              'All centers',
+              translateNative('native.68e550f277f19f57'),
               true,
             )}
             {ledger.isPending && (
@@ -554,7 +571,7 @@ export default function FinanceScreen() {
               <View key={tx.id} style={styles.group}>
                 <Text style={{ color: colors.text }}>
                   {userName(tx.user_id)} · {centerName(tx.cost_center_id)} ·{' '}
-                  {label(tx.transaction_type)}
+                  {localizedEnum(tx.transaction_type, financeCaptions)}
                 </Text>
                 <Text style={{ color: colors.text }}>
                   {tx.description ?? '—'}
@@ -562,7 +579,7 @@ export default function FinanceScreen() {
                 {partialCharge(tx.description) && (
                   <Text style={{ color: colors.warning }}>
                     {label('Partial print')}:{' '}
-                    {label(partialCharge(tx.description)!)}
+                    {localizedStatus(partialCharge(tx.description)!)}
                   </Text>
                 )}
                 <Text style={{ color: colors.text }}>
@@ -572,11 +589,11 @@ export default function FinanceScreen() {
                 </Text>
                 {adminView && rights.modify && (
                   <>
-                    {button('Edit transaction', () =>
+                    {button(translateNative('native.01aa4cda23f2ebc1'), () =>
                       open({ kind: 'edit', transaction: tx }),
                     )}
-                    {button('Delete transaction', () =>
-                      confirm('Delete transaction?', () =>
+                    {button(translateNative('native.06c21f7f9974e894'), () =>
+                      confirm(translateNative('native.415f2f2fe723eb1a'), () =>
                         financeApi.deleteTransaction(tx.id),
                       ),
                     )}
@@ -593,9 +610,9 @@ export default function FinanceScreen() {
               {page + 1} / {Math.max(1, Math.ceil(filtered.length / 50))} ·{' '}
               {filtered.length}
             </Text>
-            {button('Previous page', () => setPage(p => p - 1), page === 0)}
+            {button(translateNative('native.d6c9a492f876c00e'), () => setPage(p => p - 1), page === 0)}
             {button(
-              'Next page',
+              translateNative('native.db362dbc4c37a111'),
               () => setPage(p => p + 1),
               (page + 1) * 50 >= filtered.length,
             )}
@@ -625,7 +642,7 @@ export default function FinanceScreen() {
           ]}
         >
           <Text style={{ color: colors.text }}>
-            {label(form?.kind ?? 'Finance')}
+            {form ? localizedEnum(form.kind, financeCaptions) : label('Finance')}
           </Text>
           {form?.kind === 'center' ? (
             <>
@@ -638,7 +655,7 @@ export default function FinanceScreen() {
                 />
               )}
               {['none', 'monthly', 'total'].map(value =>
-                button(`${value}${mode === value ? ' ✓' : ''}`, () =>
+                button(`${localizedEnum(value, financeCaptions)}${mode === value ? ' ✓' : ''}`, () =>
                   setMode(value as typeof mode),
                 ),
               )}
@@ -660,8 +677,8 @@ export default function FinanceScreen() {
                 formCenter,
                 setFormCenter,
                 form?.kind === 'manual'
-                  ? 'Select required center'
-                  : 'No center',
+                  ? translateNative('native.90e6e5896a04bbed')
+                  : translateNative('native.40f77e39c832b2e1'),
               )}
               <Input
                 label={label(
@@ -697,8 +714,8 @@ export default function FinanceScreen() {
               {error}
             </Text>
           )}
-          {button(mutation.isPending ? 'Saving…' : 'Save', save)}
-          {button('Cancel', () => setForm(null))}
+          {button(mutation.isPending ? translateNative('native.018c2002806e2312') : translateNative('common.save'), save)}
+          {button(translateNative('common.cancel'), () => setForm(null))}
         </ScrollView>
       </Modal>
     </>

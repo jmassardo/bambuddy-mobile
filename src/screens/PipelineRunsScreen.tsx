@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { localizedStatus } from '@/utils/statusLabel';
 import React, { useState } from 'react';
 import { Alert, ScrollView } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,7 +10,6 @@ import { useToast } from '@/contexts/ToastContext';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { Box, Choice, Copy, styles } from '@/components/slicing/Controls';
 import type { PipelineRun } from '@/types/api';
-import { useTranslation } from '@/i18n';
 
 export const terminalRun = (status: PipelineRun['status']) =>
   ['completed', 'failed', 'partial_failure', 'cancelled'].includes(status);
@@ -19,6 +20,7 @@ export const retryableRun = (run: PipelineRun) =>
   !!(run.source_library_file_id || run.source_archive_id);
 const pageSize = 20;
 export function PipelineRunsScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const text = (s: string) => t(`pipelineRuns.${s}`, { defaultValue: s });
   const { hasPermission } = useAuth();
@@ -135,7 +137,7 @@ export function PipelineRunsScreen() {
             'failed',
             'partial_failure',
             'cancelled',
-          ].map(v => ({ value: v, label: text(v) })),
+          ].map(v => ({ value: v, label: localizedStatus(v) })),
         ]}
       />
       <Choice
@@ -203,7 +205,7 @@ export function PipelineRunsScreen() {
           <PrimaryButton
             label={`#${run.id} ${
               run.pipeline_name ?? text('Deleted pipeline')
-            } · ${text(run.status)}`}
+            } · ${localizedStatus(run.status)}`}
             variant="secondary"
             onPress={() =>
               setExpanded(previous => {
@@ -255,8 +257,8 @@ export function PipelineRunsScreen() {
             <>
               <Copy>{`${text('Source')}: ${run.source_filename ?? '—'} · ${
                 run.source_library_file_id
-                  ? `library #${run.source_library_file_id}`
-                  : `archive #${run.source_archive_id}`
+                  ? translateNative('native.f461f1aa1081250b', { value0: String(run.source_library_file_id) })
+                  : translateNative('native.fa09b00863447464', { value0: String(run.source_archive_id) })
               }`}</Copy>
               <Copy>{`${text('Target')}: ${run.target_kind ?? '—'} · ${
                 run.target_model_class ?? run.target_printer_id ?? '—'
@@ -277,7 +279,7 @@ export function PipelineRunsScreen() {
               )}: ${run.sliced_library_file_id ?? '—'}`}</Copy>
               {run.jobs.map(job => (
                 <Box key={job.id}>
-                  <Copy>{`${text('Copy')} ${job.copy_index} · ${text(
+                  <Copy>{`${text('Copy')} ${job.copy_index} · ${localizedStatus(
                     job.status,
                   )} · ${
                     job.assigned_printer_name ??

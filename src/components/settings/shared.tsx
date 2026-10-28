@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale } from '@/i18n';
+
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { X } from 'lucide-react-native';
@@ -21,6 +23,7 @@ export function SimpleModal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -56,6 +59,7 @@ export function OptionChipsField<T extends string>({
   onChange: (value: T) => void;
   disabled?: boolean;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -87,6 +91,7 @@ export function SwitchRow({
   description?: string;
   disabled?: boolean;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -118,15 +123,15 @@ export function stringifyNumberField(value: unknown, fallback = '0') {
 export function describePlugConnection(plug: SmartPlug) {
   switch (plug.plug_type) {
     case 'tasmota':
-      return plug.ip_address || 'No IP address';
+      return plug.ip_address || translateNative('native.6ecf4bd83b441b87');
     case 'homeassistant':
-      return plug.ha_entity_id || 'No entity ID';
+      return plug.ha_entity_id || translateNative('native.de6ad8bb5f78d4a4');
     case 'mqtt':
-      return plug.mqtt_power_topic || plug.mqtt_topic || 'No MQTT topic';
+      return plug.mqtt_power_topic || plug.mqtt_topic || translateNative('native.ed3cc6e24995c2ba');
     case 'rest':
-      return plug.rest_on_url || plug.rest_off_url || 'No REST endpoint';
+      return plug.rest_on_url || plug.rest_off_url || translateNative('native.e9e7a1f9010a5172');
     default:
-      return 'Unknown connection';
+      return translateNative('native.294a53fb56d648ba');
   }
 }
 

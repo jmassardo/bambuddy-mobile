@@ -1,5 +1,6 @@
+import { translateNative, type Translate } from '@/i18n';
 import type { Archive } from '@/types/api';
-import type { Translate } from '@/i18n';
+
 import { parseServerDate } from '@/utils/preferences';
 
 export function mergeArchiveTags(
@@ -179,7 +180,7 @@ export function validateArchiveQuantities(
     throw new Error(
       t?.('archives.invalidQuantity', {
         defaultValue: 'Quantity must be a whole number from 0 to 10,000.',
-      }) ?? 'Quantity must be a whole number from 0 to 10,000.',
+      }) ?? translateNative('native.087fab4049fd3651'),
     );
   if (
     filament !== null &&
@@ -189,7 +190,7 @@ export function validateArchiveQuantities(
       t?.('archives.invalidFilament', {
         defaultValue:
           'Filament must be from 0 to 100,000 grams, or empty to clear.',
-      }) ?? 'Filament must be from 0 to 100,000 grams, or empty to clear.',
+      }) ?? translateNative('native.bc126ad7115b11fd'),
     );
   return { quantity: count, filament_used_grams: filament };
 }

@@ -1,5 +1,6 @@
 // Native translations authored for this app. No upstream translation assets are bundled.
 import { nativeCatalogs } from './nativeCatalog';
+import { resourceCatalogs } from './resources/generated';
 export const availableLanguages = [
   { key: 'en', label: 'English' }, { key: 'de', label: 'Deutsch' },
   { key: 'es', label: 'Español' }, { key: 'fr', label: 'Français' },
@@ -76,4 +77,9 @@ for (const language of Object.keys(rows) as Exclude<Language, 'en'>[]) {
 }
 for (const language of Object.keys(catalogs) as Language[]) {
   Object.assign(catalogs[language], nativeCatalogs[language]);
+}
+export const resourceEnglish = resourceCatalogs.en ?? {};
+catalogs.en = { ...english, ...resourceEnglish };
+for (const language of Object.keys(catalogs) as Language[]) {
+  if (language !== 'en') Object.assign(catalogs[language], resourceCatalogs[language]);
 }

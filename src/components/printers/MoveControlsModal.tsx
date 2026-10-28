@@ -1,4 +1,6 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -50,6 +52,7 @@ function AxisButton({
   disabled?: boolean;
   highlighted?: boolean;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -85,6 +88,7 @@ export function MoveControlsModal({
   isPrinting,
   onClose,
 }: MoveControlsModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -100,7 +104,7 @@ export function MoveControlsModal({
       invalidatePrinter();
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to move the print head.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.9c4bffb9f78a482f')), 'error'),
   });
 
   const bedJogMutation = useMutation({
@@ -109,7 +113,7 @@ export function MoveControlsModal({
       invalidatePrinter();
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to move the bed.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.ab4f39ea15a67387')), 'error'),
   });
 
   const extruderJogMutation = useMutation({
@@ -118,7 +122,7 @@ export function MoveControlsModal({
       invalidatePrinter();
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to jog the extruder.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.3eb496c5612f2529')), 'error'),
   });
 
   const homeMutation = useMutation({
@@ -126,15 +130,15 @@ export function MoveControlsModal({
     onSuccess: async (_, axes) => {
       await invalidatePrinter();
       showToast(
-        axes === 'all' ? 'Homing all axes started.' : 'Homing XY started.',
+        axes === 'all' ? translateNative('native.ee8c26dd8eaa822c') : translateNative('native.33dd054dc4ccf586'),
         'success',
       );
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to home the printer.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.9bd8aedeaed7801b')), 'error'),
   });
 
-  const controlsDisabled = useMemo(
+  const controlsDisabled = useLocalizedMemo(
     () =>
       isPrinting ||
       xyJogMutation.isPending ||
@@ -168,8 +172,7 @@ export function MoveControlsModal({
           <View style={styles.header}>
             <View style={styles.headerText}>
               <Text style={[styles.title, { color: colors.text }]}>
-                Move controls
-              </Text>
+                {translateNative('native.af4a454ab946b132')}</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                 {printerName}
               </Text>
@@ -194,32 +197,30 @@ export function MoveControlsModal({
                 ]}
               >
                 <Text style={[styles.bannerText, { color: colors.warning }]}>
-                  Movement controls are disabled while printing.
-                </Text>
+                  {translateNative('native.15a135deef56e2a3')}</Text>
               </View>
             ) : null}
 
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                XY jog
-              </Text>
+                {translateNative('native.ea31c57faf31a042')}</Text>
               <View style={styles.xyGrid}>
                 <View style={styles.gridSpacer} />
                 <AxisButton
-                  label="Up"
+                  label={translateNative('native.b1448a7f2cf1a8f1', { defaultValue: 'Up' })}
                   disabled={controlsDisabled}
                   onPress={() => xyJogMutation.mutate({ x: 0, y: stepSize })}
                   icon={<ArrowUp size={20} color={colors.text} strokeWidth={2} />}
                 />
                 <View style={styles.gridSpacer} />
                 <AxisButton
-                  label="Left"
+                  label={translateNative('native.dfc147c34c40d72b')}
                   disabled={controlsDisabled}
                   onPress={() => xyJogMutation.mutate({ x: -stepSize, y: 0 })}
                   icon={<ArrowLeft size={20} color={colors.text} strokeWidth={2} />}
                 />
                 <AxisButton
-                  label={homeMutation.isPending ? 'Homing' : 'Home'}
+                  label={homeMutation.isPending ? translateNative('native.54658c6f45606ca1') : translateNative('native.d286327177e6555f')}
                   disabled={controlsDisabled}
                   highlighted
                   onPress={() => homeMutation.mutate('xy')}
@@ -232,14 +233,14 @@ export function MoveControlsModal({
                   }
                 />
                 <AxisButton
-                  label="Right"
+                  label={translateNative('native.aa4ff71868bf788c')}
                   disabled={controlsDisabled}
                   onPress={() => xyJogMutation.mutate({ x: stepSize, y: 0 })}
                   icon={<ArrowRight size={20} color={colors.text} strokeWidth={2} />}
                 />
                 <View style={styles.gridSpacer} />
                 <AxisButton
-                  label="Down"
+                  label={translateNative('native.4ccb75b28fd68d27')}
                   disabled={controlsDisabled}
                   onPress={() => xyJogMutation.mutate({ x: 0, y: -stepSize })}
                   icon={<ArrowDown size={20} color={colors.text} strokeWidth={2} />}
@@ -253,18 +254,17 @@ export function MoveControlsModal({
                 <View style={styles.sectionIconRow}>
                   <Layers3 size={16} color={colors.textSecondary} strokeWidth={2} />
                   <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                    Bed / Z
-                  </Text>
+                    {translateNative('native.739beb5d86118bb9')}</Text>
                 </View>
                 <View style={styles.verticalControls}>
                   <AxisButton
-                    label="Up"
+                    label={translateNative('native.b1448a7f2cf1a8f1', { defaultValue: 'Up' })}
                     disabled={controlsDisabled}
                     onPress={() => bedJogMutation.mutate(-stepSize)}
                     icon={<ArrowUp size={20} color={colors.text} strokeWidth={2} />}
                   />
                   <AxisButton
-                    label="Down"
+                    label={translateNative('native.4ccb75b28fd68d27')}
                     disabled={controlsDisabled}
                     onPress={() => bedJogMutation.mutate(stepSize)}
                     icon={<ArrowDown size={20} color={colors.text} strokeWidth={2} />}
@@ -276,18 +276,17 @@ export function MoveControlsModal({
                 <View style={styles.sectionIconRow}>
                   <Package2 size={16} color={colors.textSecondary} strokeWidth={2} />
                   <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                    Extruder
-                  </Text>
+                    {translateNative('native.d059b480b1077242')}</Text>
                 </View>
                 <View style={styles.verticalControls}>
                   <AxisButton
-                    label="Retract"
+                    label={translateNative('native.0196976649c8f4eb')}
                     disabled={controlsDisabled}
                     onPress={() => extruderJogMutation.mutate(-stepSize)}
                     icon={<ArrowUp size={20} color={colors.text} strokeWidth={2} />}
                   />
                   <AxisButton
-                    label="Extrude"
+                    label={translateNative('native.684032286b6d28c6')}
                     disabled={controlsDisabled}
                     onPress={() => extruderJogMutation.mutate(stepSize)}
                     icon={<ArrowDown size={20} color={colors.text} strokeWidth={2} />}
@@ -298,8 +297,7 @@ export function MoveControlsModal({
 
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                Step size
-              </Text>
+                {translateNative('native.f5c4b97e1a1f194c')}</Text>
               <View style={styles.stepRow}>
                 {[1, 10, 50].map(step => {
                   const selected = step === stepSize;
@@ -326,9 +324,7 @@ export function MoveControlsModal({
                             color: selected ? colors.accentLight : colors.textSecondary,
                           },
                         ]}
-                      >
-                        {step}mm
-                      </Text>
+                      ><NativeTranslation id="native.281d5b92833317ed" values={{ value0: (step) }} /></Text>
                     </Pressable>
                   );
                 })}
@@ -336,7 +332,7 @@ export function MoveControlsModal({
             </View>
           </ScrollView>
 
-          <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
+          <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         </View>
       </View>
     </Modal>

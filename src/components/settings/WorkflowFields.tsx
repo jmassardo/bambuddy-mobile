@@ -1,8 +1,9 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { TextField } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import { settingsStyles } from './shared';
 import { SettingsSearchAnchor } from './SettingsSearchFocus';
 
@@ -27,6 +28,7 @@ export function WorkflowNumberField({
   placeholder?: string;
   disabled?: boolean;
 }) {
+  useNativeLocale();
   const [text, setText] = useState(String(value));
   const { colors } = useTheme();
   const { t } = useTranslation();

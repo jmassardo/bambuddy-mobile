@@ -1,8 +1,10 @@
+import { nativeMessage, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Input, PrimaryButton, SectionCard } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import {
   validCustomRange,
@@ -43,12 +45,13 @@ export function ReportRangeControls({
   scope: ReportScope;
   onApply: (range: ReportRange, scope?: ReportScope) => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const [custom, setCustom] = useState(value === 'custom');
   const [from, setFrom] = useState(scope.dateFrom ?? '');
   const [to, setTo] = useState(scope.dateTo ?? '');
-  const [error, setError] = useState('');
+  const [error, setError] = useNativeMessageState('');
   const label = (text: string) => t(`stats.${text}`, { defaultValue: text });
   useEffect(() => {
     if (value === 'custom') {
@@ -62,7 +65,7 @@ export function ReportRangeControls({
     AsyncStorage.setItem(
       reportRangeKey,
       JSON.stringify({ range, ...dates }),
-    ).catch(() => setError(label('Unable to retain timeframe')));
+    ).catch(() => setError(nativeMessage('Unable to retain timeframe')));
   }
   return (
     <SectionCard title={label('Report timeframe')}>
@@ -96,7 +99,7 @@ export function ReportRangeControls({
             label={label('Apply dates')}
             onPress={() => {
               if (!validCustomRange(from, to)) {
-                setError(label('Enter valid dates with From on or before To'));
+                setError(nativeMessage('Enter valid dates with From on or before To'));
                 return;
               }
               setError('');

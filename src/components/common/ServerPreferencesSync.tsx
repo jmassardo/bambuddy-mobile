@@ -19,7 +19,7 @@ export function ServerPreferencesSync() {
   const enabled = Boolean(serverUrl) && !loading && (!authEnabled || Boolean(user));
   const canReadSettings = !authEnabled || hasPermission('settings:read');
   const { data } = useQuery({
-    queryKey: ['settings'], queryFn: settingsApi.getSettings,
+    queryKey: useServerSettingsKey(), queryFn: settingsApi.getSettings,
     enabled: enabled && canReadSettings,
   });
   const { data: display } = useQuery({
@@ -55,3 +55,4 @@ export function ServerPreferencesSync() {
   }, [enabled, canReadSettings, hasSettings, announcementsEnabled, announcementsAllUsers, queryClient]);
   return null;
 }
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -33,6 +34,7 @@ export function ActionSheetModal({
   actions: ActionSheetAction[];
   onClose: () => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -60,7 +62,7 @@ export function ActionSheetModal({
                 styles.closeButton,
                 { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
               ]}
-              accessibilityLabel="Close"
+              accessibilityLabel={translateNative('common.close')}
               accessibilityRole="button"
             >
               <X size={18} color={colors.text} strokeWidth={2} />

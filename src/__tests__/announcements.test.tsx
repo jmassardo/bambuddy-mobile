@@ -168,7 +168,7 @@ it('refreshes visibility immediately after an authorized policy save', async () 
   const { wrapper, client } = setup();
   const screen = await render(<><ServerPreferencesSync /><AnnouncementBanner onReadMore={() => {}} /></>, { wrapper });
   await waitFor(() => expect(screen.getByText('Important: Release notes')).toBeTruthy());
-  await act(async () => { client.setQueryData(['settings'], { ...settings, announcements_enabled: false }); });
+  await act(async () => { client.setQueryData(['settings', useServerStore.getState().serverUrl], { ...settings, announcements_enabled: false }); });
   await waitFor(() => expect(screen.queryByText('Important: Release notes')).toBeNull());
   expect(list).toHaveBeenCalledTimes(2);
   await screen.unmount();

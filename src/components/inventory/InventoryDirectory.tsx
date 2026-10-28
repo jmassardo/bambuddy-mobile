@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import { nativeLabelTuple, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React, { useState } from 'react';
 import { Linking, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { inventoryManagementApi as management } from '@/api/inventoryManagement';
@@ -22,21 +24,21 @@ import {
 type Directory = 'catalog' | 'colors' | 'suppliers';
 const fields = {
   catalog: [
-    ['name', 'Name'],
-    ['weight', 'Core weight (g)'],
+    nativeLabelTuple(['name', 'Name']),
+    nativeLabelTuple(['weight', 'Core weight (g)']),
   ],
   colors: [
-    ['manufacturer', 'Manufacturer'],
-    ['material', 'Material'],
-    ['color_name', 'Color name'],
-    ['hex_color', 'Hex color (#RRGGBB or #RRGGBBAA)'],
-    ['extra_colors', 'Extra colors (comma-separated hex)'],
+    nativeLabelTuple(['manufacturer', 'Manufacturer']),
+    nativeLabelTuple(['material', 'Material']),
+    nativeLabelTuple(['color_name', 'Color name']),
+    nativeLabelTuple(['hex_color', 'Hex color (#RRGGBB or #RRGGBBAA)']),
+    nativeLabelTuple(['extra_colors', 'Extra colors (comma-separated hex)']),
   ],
   suppliers: [
-    ['name', 'Name'],
-    ['website', 'Website'],
-    ['customer_number', 'Customer number'],
-    ['note', 'Notes'],
+    nativeLabelTuple(['name', 'Name']),
+    nativeLabelTuple(['website', 'Website']),
+    nativeLabelTuple(['customer_number', 'Customer number']),
+    nativeLabelTuple(['note', 'Notes']),
   ],
 } as const;
 export const effectOptions = [
@@ -55,7 +57,7 @@ export const effectOptions = [
   'dual-color',
   'tri-color',
   'multicolor',
-].map(value => ({ value, label: value || 'None' }));
+].map(value => ({ value, label: value || translateNative('common.none') }));
 
 export function InventoryDirectory({
   kind,
@@ -64,6 +66,7 @@ export function InventoryDirectory({
   kind: Directory;
   onClose: () => void;
 }) {
+  useNativeLocale();
   const { showToast } = useToast();
   const { hasPermission, isAdmin } = useAuth();
   const canWrite = isAdmin || hasPermission('inventory:update');
@@ -79,7 +82,7 @@ export function InventoryDirectory({
   const [form, setForm] = useState<Record<string, string>>({});
   const [importJson, setImportJson] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<'delete' | 'reset' | null>(null);
-  const rows = useMemo(() => query.data ?? [], [query.data]);
+  const rows = useLocalizedMemo(() => query.data ?? [], [query.data]);
   const visible = rows.filter(
     row =>
       (!manufacturer || text(row, 'manufacturer') === manufacturer) &&
@@ -96,8 +99,8 @@ export function InventoryDirectory({
           fields[kind].map(([key]) => [key, form[key]?.trim() || null]),
         );
         if (kind === 'catalog') {
-          if (!form.name?.trim()) throw new Error('Name is required.');
-          row.weight = parseNumber(form.weight ?? '', 'Core weight', 0);
+          if (!form.name?.trim()) throw new Error(translateNative('native.a2b696acb8798693'));
+          row.weight = parseNumber(form.weight ?? '', translateNative('native.39774f0cafd36ef9'), 0);
         }
         if (kind === 'colors') {
           if (
@@ -106,7 +109,7 @@ export function InventoryDirectory({
             !/^#[a-f\d]{6}([a-f\d]{2})?$/i.test(form.hex_color ?? '')
           )
             throw new Error(
-              'Manufacturer, color name and valid hex color are required.',
+              translateNative('native.a4d585eab916692d'),
             );
           row.effect_type = form.effect_type || null;
         }
@@ -114,7 +117,7 @@ export function InventoryDirectory({
           kind === 'suppliers' &&
           (!form.name?.trim() || form.name.includes(';'))
         )
-          throw new Error('Enter a supplier name without semicolons.');
+          throw new Error(translateNative('native.e350ad7756e2823f'));
         return management.save(kind, row, editing ?? undefined);
       }
       if (action === 'delete') {
@@ -129,7 +132,7 @@ export function InventoryDirectory({
         ? records(imported)
         : records((imported as InventoryRecord)?.[kind]);
       if (!parsed.length)
-        throw new Error('JSON must contain an array of entries.');
+        throw new Error(translateNative('native.470477d60eb6a714'));
       for (const row of parsed) {
         const clean = Object.fromEntries(
           [
@@ -148,7 +151,7 @@ export function InventoryDirectory({
       setSelected([]);
       setEditing(undefined);
       setImportJson(null);
-      showToast('Saved.', 'success');
+      showToast(translateNative('native.19e2db0a704753e4'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
@@ -156,22 +159,22 @@ export function InventoryDirectory({
     <InventoryModal
       title={
         kind === 'catalog'
-          ? 'Spool core catalog'
+          ? translateNative('native.1dd36ca1babacbca')
           : kind === 'colors'
-          ? 'Color catalog'
-          : 'Suppliers'
+          ? translateNative('native.92df6ffa4d005959')
+          : translateNative('native.695ec3c3d8d36b4e')
       }
       onClose={onClose}
     >
       {query.isError && <InventoryText>{query.error.message}</InventoryText>}
-      <SearchBar value={search} onChangeText={setSearch} placeholder="Search" />
+      <SearchBar value={search} onChangeText={setSearch} placeholder={translateNative('common.search')} />
       {kind === 'colors' && (
         <ChoiceField
-          label="Manufacturer"
+          label={translateNative('native.449b81d143585902')}
           value={manufacturer}
           onChange={setManufacturer}
           options={[
-            { value: '', label: 'All' },
+            { value: '', get label() { return translateNative('common.all'); } },
             ...[...new Set(rows.map(row => text(row, 'manufacturer')))].map(
               value => ({ value, label: value }),
             ),
@@ -181,14 +184,14 @@ export function InventoryDirectory({
       {canWrite && (
         <>
           <PrimaryButton
-            label="Create"
+            label={translateNative('native.8c51de8cf3b30af0')}
             onPress={() => {
               setEditing(null);
               setForm({});
             }}
           />
           <Toggle
-            label="Select all visible"
+            label={translateNative('native.2422a7577810265f')}
             value={
               !!visible.length &&
               visible.every(row => selected.includes(number(row, 'id')))
@@ -198,7 +201,7 @@ export function InventoryDirectory({
             }
           />
           <PrimaryButton
-            label={`Delete selected (${selected.length})`}
+            label={translateNative('native.67a168df94dc71b4', { value0: String(selected.length) })}
             variant="danger"
             disabled={!selected.length}
             onPress={() => setConfirm('delete')}
@@ -223,7 +226,7 @@ export function InventoryDirectory({
           />
           {canWrite && (
             <PrimaryButton
-              label="Edit"
+              label={translateNative('common.edit')}
               variant="secondary"
               onPress={() => {
                 setEditing(number(row, 'id'));
@@ -240,12 +243,12 @@ export function InventoryDirectory({
           )}
           {kind === 'suppliers' && !!row.website && (
             <PrimaryButton
-              label="Open website"
+              label={translateNative('native.082b62276cf3e880')}
               variant="secondary"
               onPress={() => {
                 const url = text(row, 'website');
                 if (!/^https?:\/\//i.test(url))
-                  return showToast('Use an HTTP or HTTPS website.', 'error');
+                  return showToast(translateNative('native.44c535f23fb43be6'), 'error');
                 Linking.openURL(url).catch((error: Error) =>
                   showToast(error.message, 'error'),
                 );
@@ -257,7 +260,7 @@ export function InventoryDirectory({
       {kind !== 'suppliers' && (
         <>
           <PrimaryButton
-            label="Export JSON"
+            label={translateNative('native.acf1a2579eb4526f')}
             variant="secondary"
             onPress={() => {
               shareBlob(
@@ -272,18 +275,18 @@ export function InventoryDirectory({
           {canWrite && (
             <>
               <PrimaryButton
-                label="Import JSON"
+                label={translateNative('native.45f13f61652829e1')}
                 variant="secondary"
                 onPress={() => setImportJson('')}
               />
               <PrimaryButton
-                label="Reset defaults"
+                label={translateNative('native.ff12b7ccfde4724c')}
                 variant="danger"
                 onPress={() => setConfirm('reset')}
               />
               {kind === 'colors' && (
                 <PrimaryButton
-                  label="Sync FilamentColors catalog"
+                  label={translateNative('native.4cffdeb6d7d62ee7')}
                   loading={mutate.isPending}
                   onPress={() => mutate.mutate('sync')}
                 />
@@ -294,7 +297,7 @@ export function InventoryDirectory({
       )}
       {editing !== undefined && (
         <InventoryModal
-          title={editing === null ? 'Create entry' : 'Edit entry'}
+          title={editing === null ? translateNative('native.0da11545182c20b2') : translateNative('native.698859ba131b4982')}
           onClose={() => setEditing(undefined)}
         >
           <Fields
@@ -306,7 +309,7 @@ export function InventoryDirectory({
           />
           {kind === 'colors' && (
             <ChoiceField
-              label="Effect"
+              label={translateNative('native.2f544b829f6b875a')}
               value={form.effect_type ?? ''}
               options={effectOptions}
               onChange={value =>
@@ -315,7 +318,7 @@ export function InventoryDirectory({
             />
           )}
           <PrimaryButton
-            label="Save"
+            label={translateNative('common.save')}
             loading={mutate.isPending}
             onPress={() => mutate.mutate('save')}
           />
@@ -323,16 +326,16 @@ export function InventoryDirectory({
       )}
       {importJson !== null && (
         <InventoryModal
-          title="Import JSON entries"
+          title={translateNative('native.ae5e02f5ed670ad6')}
           onClose={() => setImportJson(null)}
         >
           <Fields
-            fields={[['json', 'Paste exported JSON array']]}
+            fields={[nativeLabelTuple(['json', 'native.de95654d9457bc13'])]}
             values={{ json: importJson }}
             onChange={(_key, value) => setImportJson(value)}
           />
           <PrimaryButton
-            label="Import"
+            label={translateNative('native.ee297a40ab51b625')}
             loading={mutate.isPending}
             onPress={() => mutate.mutate('import')}
           />
@@ -341,12 +344,12 @@ export function InventoryDirectory({
       <ConfirmModal
         visible={confirm !== null}
         title={
-          confirm === 'reset' ? 'Reset defaults?' : 'Delete selected entries?'
+          confirm === 'reset' ? translateNative('native.6f38496c080ff508') : translateNative('native.9237cf3c21f04db9')
         }
         message={
           confirm === 'reset'
-            ? 'The catalog will be reset to the built-in entries.'
-            : `${selected.length} entries will be removed. Linked supplier deletion may be refused by the server.`
+            ? translateNative('native.3063150c5705ef0f')
+            : translateNative('native.15db4ef96f3f867e', { value0: String(selected.length) })
         }
         onClose={() => setConfirm(null)}
         loading={mutate.isPending}

@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import React, { useState } from 'react';
 import { View } from 'react-native';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { Box, Choice, Copy, Toggle } from './Controls';
@@ -19,7 +20,6 @@ import {
   numericBound,
   serializeOverrides,
 } from '@/utils/slicerSettings';
-import { useTranslation } from '@/i18n';
 
 export const processSchema = Object.fromEntries(
   Object.entries(schemaData).map(([key, option]) => [
@@ -64,7 +64,7 @@ export function validateSetting(
     const text = part.trim();
     if (option.type === 'coBools') {
       if (!['0', '1', 'true', 'false'].includes(text))
-        return 'Use 0 or 1 for each filament.';
+        return translateNative('native.816053290e7d887a');
       continue;
     }
     if (
@@ -73,18 +73,18 @@ export function validateSetting(
         option.type,
       )
     )
-      return 'Percent is not allowed.';
+      return translateNative('native.69dd83d6b40a2bf3');
     const number = Number(text.replace(/%$/, ''));
-    if (!text || !Number.isFinite(number)) return 'Enter a finite number.';
+    if (!text || !Number.isFinite(number)) return translateNative('native.75b980eef60c5989');
     if (
       option.type === 'coInt' &&
       (!Number.isInteger(number) || !/^[+-]?\d+$/.test(text))
     )
-      return 'Enter a whole number.';
+      return translateNative('native.955aaaee32961e2c');
     const min = numericBound(option.min);
     const max = numericBound(option.max);
-    if (min !== undefined && number < min) return `Minimum ${min}`;
-    if (max !== undefined && number > max) return `Maximum ${max}`;
+    if (min !== undefined && number < min) return translateNative('native.23f9a42e6fa7aea2', { value0: String(min) });
+    if (max !== undefined && number > max) return translateNative('native.fb97ab6f8a51b852', { value0: String(max) });
   }
   return null;
 }
@@ -142,12 +142,13 @@ export function ProcessSettingsEditor({
   filamentChoices?: { label: string; value: string }[];
   onValidityChange?: (valid: boolean) => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const text = (s: string) => t(`processEditor.${s}`, { defaultValue: s });
   const [mode, setMode] = useState('simple');
   const [page, setPage] = useState(tree[0].page);
   const [search, setSearch] = useState('');
-  const effective = useMemo(
+  const effective = useLocalizedMemo(
     () => ({
       ...presetValues,
       ...Object.fromEntries(
@@ -268,7 +269,7 @@ export function ProcessSettingsEditor({
               if (!keys.length) return null;
               return (
                 <Box key={g.group}>
-                  <Copy>{`${p.page} / ${g.group}`}</Copy>
+                  <Copy>{`${text(p.page)} / ${text(g.group)}`}</Copy>
                   {keys.map(key => {
                     const option = processSchema[key];
                     const sourceValue = source.find(s => s.key === key);
@@ -283,12 +284,12 @@ export function ProcessSettingsEditor({
                     const locked = disabled || off.has(key);
                     return (
                       <Box key={key}>
-                        <Copy>{`${option.label}${
+                        <Copy>{`${text(option.label)}${
                           displaySidetext(option)
-                            ? ` (${displaySidetext(option)})`
+                            ? ` (${text(displaySidetext(option)!)})`
                             : ''
                         }`}</Copy>
-                        {!!option.tooltip && <Copy>{option.tooltip}</Copy>}
+                        {!!option.tooltip && <Copy>{text(option.tooltip)}</Copy>}
                         <Copy>{`${key} · ${text(
                           'preset',
                         )}: ${baselineForDisplay(option, presetValues[key])}${
@@ -298,7 +299,7 @@ export function ProcessSettingsEditor({
                         }`}</Copy>
                         {slotKeys.has(key) && filamentChoices.length ? (
                           <Choice
-                            label={option.label}
+                            label={text(option.label)}
                             value={current}
                             disabled={locked}
                             onChange={v => set(key, v)}
@@ -315,7 +316,7 @@ export function ProcessSettingsEditor({
                             {current.split(',').map((part, index) => (
                               <Toggle
                                 key={index}
-                                label={`${option.label} ${index + 1}`}
+                                label={`${text(option.label)} ${index + 1}`}
                                 value={
                                   part.trim() === '1' || part.trim() === 'true'
                                 }
@@ -342,25 +343,25 @@ export function ProcessSettingsEditor({
                           </View>
                         ) : option.type === 'coBool' ? (
                           <Toggle
-                            label={option.label}
+                            label={text(option.label)}
                             value={current === '1' || current === 'true'}
                             disabled={locked}
                             onChange={v => set(key, v)}
                           />
                         ) : option.type === 'coEnum' ? (
                           <Choice
-                            label={option.label}
+                            label={text(option.label)}
                             value={current}
                             disabled={locked}
                             onChange={v => set(key, v)}
                             options={(option.enum_values ?? []).map((v, i) => ({
                               value: v,
-                              label: option.enum_labels?.[i] ?? v,
+                              label: option.enum_labels?.[i] ? text(option.enum_labels[i]) : v,
                             }))}
                           />
                         ) : (
                           <TextField
-                            label={option.label}
+                            label={text(option.label)}
                             accessibilityLabel={key}
                             value={current}
                             editable={!locked}
@@ -368,7 +369,7 @@ export function ProcessSettingsEditor({
                             autoCapitalize="none"
                           />
                         )}
-                        {error && <Copy>{text(error)}</Copy>}
+                        {error && <Copy>{error}</Copy>}
                         {sourceValue && (
                           <>
                             <Copy>{`${text('Source')}: ${String(
@@ -384,7 +385,7 @@ export function ProcessSettingsEditor({
                             }`}</Copy>
                             <Toggle
                               label={`${text('Use source value')}: ${
-                                option.label
+                                text(option.label)
                               }`}
                               disabled={disabled}
                               value={sourceKeys.includes(key)}
@@ -394,7 +395,7 @@ export function ProcessSettingsEditor({
                         )}
                         {values[key] !== undefined && (
                           <PrimaryButton
-                            label={`${text('Reset')} ${option.label}`}
+                            label={`${text('Reset')} ${text(option.label)}`}
                             variant="secondary"
                             disabled={disabled}
                             onPress={() => set(key, undefined)}

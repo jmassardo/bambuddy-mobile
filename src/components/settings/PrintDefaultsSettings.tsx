@@ -1,6 +1,8 @@
+import { nativeLabelTuple, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React from 'react';
 import { SectionCard } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { OptionChipsField, SwitchRow } from './shared';
 import { calibrationMode } from './workflowSettings';
 import type { SettingsScreenController } from './useSettingsScreenController';
@@ -10,6 +12,7 @@ export function PrintDefaultsSettings({
 }: {
   controller: SettingsScreenController;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { draft } = controller.state;
   const set = (key: string, value: unknown) =>
@@ -25,9 +28,9 @@ export function PrintDefaultsSettings({
       })}
     >
       {[
-        ['default_bed_levelling', 'Bed leveling'],
-        ['default_flow_cali', 'Flow calibration'],
-        ['default_nozzle_offset_cali', 'Nozzle offset calibration'],
+        nativeLabelTuple(['default_bed_levelling', 'native.77acd07a8117c795']),
+        nativeLabelTuple(['default_flow_cali', 'native.3239adfa64fdf6ac']),
+        nativeLabelTuple(['default_nozzle_offset_cali', 'native.f153940a40f78955']),
       ].map(([key, label]) => (
         <OptionChipsField
           key={key}
@@ -35,21 +38,21 @@ export function PrintDefaultsSettings({
           value={calibrationMode(draft[key])}
           options={['auto', 'on', 'off'].map(mode => ({
             key: mode,
-            label: t(`common.${mode}`, { defaultValue: mode }),
+            get label() { return translateNative(`common.${mode}`, { defaultValue: mode }); },
           }))}
           onChange={value => set(key, value)}
         />
       ))}
       {[
-        ['default_vibration_cali', 'Vibration calibration'],
-        ['default_layer_inspect', 'First layer inspection'],
-        ['default_timelapse', 'Timelapse'],
-        ['default_confirm_outcome', 'Ask for print outcome'],
-        ['confirm_outcome_external_prints', 'Ask for external-print outcomes'],
-        [
+        nativeLabelTuple(['default_vibration_cali', 'native.4ea7434fc0ab30c5']),
+        nativeLabelTuple(['default_layer_inspect', 'native.f2e4298741d7f088']),
+        nativeLabelTuple(['default_timelapse', 'Timelapse']),
+        nativeLabelTuple(['default_confirm_outcome', 'native.67014258e5f246b2']),
+        nativeLabelTuple(['confirm_outcome_external_prints', 'native.9bac187f2df196f2']),
+        nativeLabelTuple([
           'confirm_default_good_on_plate_clear',
-          'Default to good when plate is cleared',
-        ],
+          'native.5896fd744a245dec',
+        ]),
       ].map(([key, label]) => (
         <SwitchRow
           key={key}

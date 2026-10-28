@@ -1,10 +1,11 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React from 'react';
 import { Modal, View, Text, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
 
 export function oidcBrowserCallback(url: string, serverUrl: string): { token?: string; error?: string } | null {
   try {
@@ -43,6 +44,7 @@ export function OIDCAuthorizationBrowser({ authorizationUrl, serverUrl, onToken,
   onError: (message: string) => void;
   onCancel: () => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const consumed = React.useRef(false);
@@ -55,8 +57,8 @@ export function OIDCAuthorizationBrowser({ authorizationUrl, serverUrl, onToken,
       if (!consumed.current) {
         consumed.current = true;
         if (callback.token && callbackSeen.current) onToken(callback.token);
-        else if (callback.token) onError('Rejected single sign-on callback without the expected provider state. Please retry.');
-        else onError(callback.error?.replace(/_/g, ' ') || 'Single sign-on failed.');
+        else if (callback.token) onError(translateNative('native.b0a3c59e5bc55432'));
+        else onError(callback.error?.replace(/_/g, ' ') || translateNative('native.be9fd297ef59d65a'));
       }
       return false;
     }
@@ -77,7 +79,7 @@ export function OIDCAuthorizationBrowser({ authorizationUrl, serverUrl, onToken,
         originWhitelist={['https://*', 'http://*']}
         onShouldStartLoadWithRequest={request => request.isTopFrame === false ? request.url.startsWith('https://') : navigate(request.url)}
         onNavigationStateChange={state => { navigate(state.url); }}
-        onError={() => onError('Unable to load the identity provider. Check the connection or try another sign-in method.')}
+        onError={() => onError(translateNative('native.a2e55427062d3a72'))}
         mixedContentMode="never"
         javaScriptEnabled
         javaScriptCanOpenWindowsAutomatically={false}

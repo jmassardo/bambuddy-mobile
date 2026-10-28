@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import React, { useEffect, useState } from 'react';
 import { Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
@@ -9,7 +10,7 @@ import { SliceModal } from '@/components/files/SliceModal';
 import { RunWithPipelineModal } from '@/components/slicing/RunWithPipelineModal';
 import { PrintModal } from '@/components/printers/PrintModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { borderRadius, spacing } from '@/theme/tokens';
 import type { SliceSourceProps } from '@/types/api';
@@ -24,6 +25,7 @@ interface ProjectActionProps {
 }
 
 function ProjectSourceAction({ action, visible, onClose, projectId, projectName }: ProjectActionProps & { action: 'slice' | 'pipeline' | 'print' }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
@@ -43,7 +45,7 @@ function ProjectSourceAction({ action, visible, onClose, projectId, projectName 
     enabled: visible,
   });
   useEffect(() => { setSource(null); setReady(false); setSearch(''); }, [visible, projectId, action]);
-  const sources = useMemo(() => {
+  const sources = useLocalizedMemo(() => {
     const librarySources = ((files.data ?? []) as ApiRecord[])
       .filter(file => action === 'print' ? isPrintableProjectFile(file) : /\.(stl|3mf)$/i.test(pickString(file, ['filename'])))
       .map(file => ({ sourceType: 'file' as const, sourceId: pickNumber(file, ['id']), sourceName: pickString(file, ['print_name', 'filename']) }));
@@ -101,14 +103,17 @@ function ProjectSourceAction({ action, visible, onClose, projectId, projectName 
 }
 
 export function ProjectPipelineModal(props: ProjectActionProps) {
+  useNativeLocale();
   return <ProjectSourceAction key={props.projectId} {...props} action="pipeline" />;
 }
 
 export function ProjectSliceModal(props: ProjectActionProps) {
+  useNativeLocale();
   return <ProjectSourceAction key={props.projectId} {...props} action="slice" />;
 }
 
 export function ProjectBatchPrintModal(props: ProjectActionProps) {
+  useNativeLocale();
   return <ProjectSourceAction key={props.projectId} {...props} action="print" />;
 }
 

@@ -1,10 +1,11 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { Switch, Text, View, StyleSheet } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { filesApi } from '@/api/files';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type { LibraryTrashSettings } from '@/types/api';
@@ -12,6 +13,7 @@ import { validDays } from '@/utils/library';
 import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
 
 export function LibraryPolicy() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();

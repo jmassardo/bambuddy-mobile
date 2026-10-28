@@ -1,4 +1,6 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -43,6 +45,7 @@ function getDeviceInfo(): Promise<Record<string, string>> {
 }
 
 export function PushNotificationProvider({ children }: { children: React.ReactNode }) {
+  useNativeLocale();
   const serverUrl = useServerStore((s) => s.serverUrl);
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -159,7 +162,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
   const enablePushNotifications = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     await requestPermission();
-    showToast('Push notifications enabled.', 'success');
+    showToast(translateNative('native.1eb69982a267c1a3'), 'success');
   }, [requestPermission, showToast]);
 
   const disablePushNotifications = useCallback(async () => {
@@ -181,14 +184,14 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
       loading: false,
     });
 
-    showToast('Push notifications disabled.', 'info');
+    showToast(translateNative('native.25d102e5a7b64ea0'), 'info');
   }, [state.token, unregisterMutation, showToast]);
 
   const refreshStatus = useCallback(async () => {
     await refreshPushToken();
   }, [refreshPushToken]);
 
-  const value = useMemo(
+  const value = useLocalizedMemo(
     () => ({
       state,
       enablePushNotifications,
@@ -209,7 +212,7 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
 export function usePushNotification(): PushNotificationContextType {
   const ctx = useContext(PushNotificationContext);
   if (!ctx) {
-    throw new Error('usePushNotification must be used inside PushNotificationProvider');
+    throw new Error(translateNative('native.b0269bf58b6c266e'));
   }
   return ctx;
 }

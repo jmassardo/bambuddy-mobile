@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { Alert, Text } from 'react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -6,7 +7,6 @@ import { PrimaryButton } from '@/components/common/AppUI';
 import { FleetModal } from './FleetModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
 
 export function FirmwareModal({
   printerId,
@@ -15,6 +15,7 @@ export function FirmwareModal({
   printerId: number;
   onClose: () => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();

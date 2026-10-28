@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
@@ -6,7 +7,7 @@ import { filesApi } from '@/api/files';
 import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { blobToDataUrl } from '@/utils/share';
@@ -14,11 +15,13 @@ import { pickArray, pickNumber, pickString } from '@/utils/data';
 import { AssetPreviewModal } from './AssetPreviewModal';
 
 function ResultPhoto({ fileId, filename, onPress }: {fileId: number; filename: string; onPress: () => void}) {
+  useNativeLocale();
   const image = useQuery({ queryKey: ['libraryPhoto', fileId, filename], queryFn: async () => blobToDataUrl(await filesApi.getLibraryPhoto(fileId, filename)), gcTime: 0 });
   return <Pressable onPress={onPress} accessibilityLabel={filename}>{image.data ? <Image source={{uri: image.data}} style={styles.thumb} /> : <Text>{filename}</Text>}</Pressable>;
 }
 
 export function LibraryFileDetails({ fileId }: {fileId: number}) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission, user, authEnabled } = useAuth();

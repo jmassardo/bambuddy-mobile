@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import type {
   ApiEntity,
   CloudAuthStatus,
@@ -173,7 +174,7 @@ export const profilesApi = {
       resolvedPrinterId = firstPrinter?.id;
     }
     if (resolvedPrinterId === undefined) {
-      throw new Error('No printer available for K profiles');
+      throw new Error(translateNative('native.2c6684daa281a76a'));
     }
     return request<ApiEntity<KProfilesResponse>>(
       `/printers/${resolvedPrinterId}/kprofiles/?nozzle_diameter=${nozzleDiameter}`,

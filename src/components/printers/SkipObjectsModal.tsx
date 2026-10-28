@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -5,7 +6,7 @@ import { api } from '@/api/client';
 import { request } from '@/api/http';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { SkipObjectsPlate } from './SkipObjectsPlate';
@@ -13,6 +14,7 @@ import { SkipObjectsPlate } from './SkipObjectsPlate';
 export function SkipObjectsModal({ visible, printerId, onClose }: {
   visible: boolean; printerId: number; onClose: () => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();

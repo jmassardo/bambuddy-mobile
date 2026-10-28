@@ -1,3 +1,4 @@
+import { useNativeLocale } from '@/i18n';
 import React from 'react';
 import {
   Box,
@@ -53,6 +54,7 @@ export function MaintenanceIcon({
   name: string | null;
   color: string;
 }) {
+  useNativeLocale();
   const Icon =
     name && name in maintenanceIcons
       ? maintenanceIcons[name as keyof typeof maintenanceIcons]

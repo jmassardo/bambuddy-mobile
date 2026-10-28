@@ -1,11 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
+import React, { useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, request, requestBlob } from '@/api/http';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { blobToDataUrl, shareBlob } from '@/utils/share';
@@ -52,17 +54,18 @@ export function AssetPreviewModal({ source, onClose, onPrevious, onNext, onDelet
   source: AssetPreviewSource | null; onClose: () => void;
   onPrevious?: () => void; onNext?: () => void; onDelete?: () => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasAnyPermission } = useAuth();
   const { showToast } = useToast();
   const client = useQueryClient();
   const [plate, setPlate] = useState<number | undefined>();
-  const [renderError, setRenderError] = useState('');
+  const [renderError, setRenderError] = useNativeMessageState('');
   const [retry, setRetry] = useState(0);
   const [busy, setBusy] = useState(false);
   const mode = source?.mode ?? inferPreviewMode(source?.filename ?? '');
-  React.useEffect(() => { setPlate(undefined); setRenderError(''); }, [source?.fileId, source?.archiveId, source?.filename, source?.mode]);
+  React.useEffect(() => { setPlate(undefined); setRenderError(''); }, [source?.fileId, source?.archiveId, source?.filename, source?.mode, setRenderError]);
   const platesQuery = useQuery({
     queryKey: ['assetPlates', source?.fileId, source?.archiveId],
     queryFn: () => request<Record<string, unknown>>(source?.fileId != null ? `/library/files/${source.fileId}/plates` : `/archives/${source?.archiveId}/plates`),
@@ -79,7 +82,7 @@ export function AssetPreviewModal({ source, onClose, onPrevious, onNext, onDelet
         blob = await requestBlob(previewEndpoint({ ...source, mode }, plate));
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) throw new Error(t(mode === 'gcode' ? 'library.noToolpath' : 'library.missingSource', {
-          defaultValue: mode === 'gcode' ? 'No toolpath was found for this file or plate. Choose another plate, or slice the source model first.' : 'The original asset is missing on the server. Close the preview and check the source file.',
+          defaultValue: mode === 'gcode' ? translateNative('native.de25cb78510378c9') : translateNative('native.e937025df72f2093'),
         }));
         throw error;
       }
@@ -91,9 +94,9 @@ export function AssetPreviewModal({ source, onClose, onPrevious, onNext, onDelet
     gcTime: 0,
     staleTime: Infinity,
   });
-  const plates = useMemo(() => pickArray(platesQuery.data ?? {}, ['plates']).filter(isRecord), [platesQuery.data]);
+  const plates = useLocalizedMemo(() => pickArray(platesQuery.data ?? {}, ['plates']).filter(isRecord), [platesQuery.data]);
   const activePlate = plates.find(item => pickNumber(item, ['index']) === plate);
-  const html = useMemo(() => asset.data && source && mode ? assetViewerHtml({
+  const html = useLocalizedMemo(() => asset.data && source && mode ? assetViewerHtml({
     data: asset.data,
     filename: source.filename,
     mode,
@@ -159,8 +162,8 @@ export function AssetPreviewModal({ source, onClose, onPrevious, onNext, onDelet
         allowFileAccess={false}
         setSupportMultipleWindows={false}
         onError={event => setRenderError(event.nativeEvent.description)}
-        onContentProcessDidTerminate={() => setRenderError(t('library.viewerProcessStopped', {defaultValue: 'The preview exhausted the available WebView memory. Retry a smaller plate, or download the original.'}))}
-        onRenderProcessGone={() => setRenderError(t('library.viewerProcessStopped', {defaultValue: 'The preview exhausted the available WebView memory. Retry a smaller plate, or download the original.'}))}
+        onContentProcessDidTerminate={() => setRenderError(nativeMessage('library.viewerProcessStopped', () => ({defaultValue: 'The preview exhausted the available WebView memory. Retry a smaller plate, or download the original.'})))}
+        onRenderProcessGone={() => setRenderError(nativeMessage('library.viewerProcessStopped', () => ({defaultValue: 'The preview exhausted the available WebView memory. Retry a smaller plate, or download the original.'})))}
         onMessage={event => {
           try {
             const message: unknown = JSON.parse(event.nativeEvent.data);

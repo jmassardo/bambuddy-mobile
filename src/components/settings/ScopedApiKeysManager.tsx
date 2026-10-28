@@ -1,3 +1,5 @@
+import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useState } from 'react';
 import { Alert, Text, View, StyleSheet } from 'react-native';
 import Share from 'react-native-share';
@@ -13,24 +15,24 @@ import type { ApiKeyScope, ScopedApiKeyCreate } from '@/types/api';
 import { spacing } from '@/theme/tokens';
 import { useServerStore } from '@/api/server';
 import { buildApiKeyEnrollment } from '@/utils/authSecurity';
-import { useTranslation } from '@/i18n';
 
 const SCOPES: { key: ApiKeyScope; label: string; defaultValue: boolean }[] = [
-  { key: 'can_queue', label: 'Queue prints', defaultValue: true },
-  { key: 'can_control_printer', label: 'Control printers', defaultValue: false },
-  { key: 'can_read_status', label: 'Read printer status', defaultValue: true },
-  { key: 'can_manage_library', label: 'Manage library', defaultValue: true },
-  { key: 'can_manage_inventory', label: 'Manage inventory', defaultValue: true },
-  { key: 'can_manage_maintenance', label: 'Manage maintenance', defaultValue: true },
-  { key: 'can_manage_archives', label: 'Manage archives', defaultValue: true },
-  { key: 'can_manage_projects', label: 'Manage projects', defaultValue: true },
-  { key: 'can_access_cloud', label: 'Access my cloud account', defaultValue: false },
-  { key: 'can_update_energy_cost', label: 'Update energy cost', defaultValue: false },
-  { key: 'can_send_notifications', label: 'Send notifications', defaultValue: false },
+  { key: 'can_queue', get label() { return translateNative('native.3e0591c48c502a88'); }, defaultValue: true },
+  { key: 'can_control_printer', get label() { return translateNative('native.9ecb8e64131d0ea2'); }, defaultValue: false },
+  { key: 'can_read_status', get label() { return translateNative('native.822f599116395841'); }, defaultValue: true },
+  { key: 'can_manage_library', get label() { return translateNative('native.d847aa69a5154a67'); }, defaultValue: true },
+  { key: 'can_manage_inventory', get label() { return translateNative('native.ca9ba240f1c1cfe1'); }, defaultValue: true },
+  { key: 'can_manage_maintenance', get label() { return translateNative('native.5d35defedb736c72'); }, defaultValue: true },
+  { key: 'can_manage_archives', get label() { return translateNative('native.e03005e830a1dcf0'); }, defaultValue: true },
+  { key: 'can_manage_projects', get label() { return translateNative('native.9890a2f51efed490'); }, defaultValue: true },
+  { key: 'can_access_cloud', get label() { return translateNative('native.70fb8c33dd4bb21d'); }, defaultValue: false },
+  { key: 'can_update_energy_cost', get label() { return translateNative('native.872df1d241bf900b'); }, defaultValue: false },
+  { key: 'can_send_notifications', get label() { return translateNative('native.893075b29a3592cb'); }, defaultValue: false },
 ];
 const DEFAULT_SCOPES = Object.fromEntries(SCOPES.map(s => [s.key, s.defaultValue])) as Record<ApiKeyScope, boolean>;
 
 export function ScopedApiKeysManager() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { hasPermission, authEnabled } = useAuth();
   const { colors } = useTheme();
@@ -41,7 +43,7 @@ export function ScopedApiKeysManager() {
   const [scopes, setScopes] = useState(DEFAULT_SCOPES);
   const [secret, setSecret] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useNativeMessageState('');
   React.useEffect(() => {
     if (!authEnabled) setScopes(current => current.can_access_cloud ? { ...current, can_access_cloud: false } : current);
   }, [authEnabled]);
@@ -49,12 +51,12 @@ export function ScopedApiKeysManager() {
   const create = useMutation({
     gcTime: 0,
     mutationFn: (data: ScopedApiKeyCreate) => authManagementApi.createKey(data),
-    onSuccess: async result => { setSecret(result.key); setShowQr(false); setName(''); setMessage(t('auth.saveSecretNow', { defaultValue: 'Save this secret now. It cannot be retrieved again.' })); await client.invalidateQueries({ queryKey: ['apiKeys'] }); },
+    onSuccess: async result => { setSecret(result.key); setShowQr(false); setName(''); setMessage(nativeMessage('auth.saveSecretNow', () => ({ defaultValue: 'Save this secret now. It cannot be retrieved again.' }))); await client.invalidateQueries({ queryKey: ['apiKeys'] }); },
     onError: (e: Error) => setMessage(e.message),
   });
   const revoke = useMutation({
     mutationFn: (id: number) => authManagementApi.revokeKey(id),
-    onSuccess: async () => { setMessage(t('auth.keyRevoked', { defaultValue: 'API key revoked.' })); await client.invalidateQueries({ queryKey: ['apiKeys'] }); },
+    onSuccess: async () => { setMessage(nativeMessage('auth.keyRevoked', () => ({ defaultValue: 'API key revoked.' }))); await client.invalidateQueries({ queryKey: ['apiKeys'] }); },
     onError: (e: Error) => setMessage(e.message),
   });
   if (!hasPermission('api_keys:read')) return null;
@@ -62,7 +64,7 @@ export function ScopedApiKeysManager() {
     {message ? <Text accessibilityRole="alert" style={{ color: colors.text }}>{message}</Text> : null}
     {secret ? <View style={styles.secret}>
       <Text selectable style={{ color: colors.text }}>{secret}</Text>
-      <PrimaryButton label={t('auth.copyNewKey', { defaultValue: 'Copy new key' })} variant="secondary" onPress={() => { Clipboard.setString(secret); setMessage(t('auth.keyCopied', { defaultValue: 'Key copied. Clear your clipboard after use.' })); }} />
+      <PrimaryButton label={t('auth.copyNewKey', { defaultValue: 'Copy new key' })} variant="secondary" onPress={() => { Clipboard.setString(secret); setMessage(nativeMessage('auth.keyCopied', () => ({ defaultValue: 'Key copied. Clear your clipboard after use.' }))); }} />
       <PrimaryButton label={showQr ? t('auth.hideEnrollmentQR', { defaultValue: 'Hide enrollment QR' }) : t('auth.showEnrollmentQR', { defaultValue: 'Show enrollment QR' })} variant="secondary" onPress={() => setShowQr(v => !v)} />
       {showQr && serverUrl ? <>
         <Text style={{ color: colors.warning }}>{t('auth.enrollmentQRWarning', { defaultValue: 'This enrollment QR contains the server address and secret key. Share only with a trusted recipient.' })}</Text>
@@ -80,8 +82,8 @@ export function ScopedApiKeysManager() {
     {query.isLoading ? <Text style={{ color: colors.textSecondary }}>{t('auth.loadingKeys', { defaultValue: 'Loading API keys…' })}</Text> : null}
     {query.isError ? <><Text accessibilityRole="alert" style={{ color: colors.error }}>{query.error.message}</Text><PrimaryButton label={t('auth.retryKeys', { defaultValue: 'Retry API keys' })} onPress={() => void query.refetch()} /></> : null}
     {query.data?.map(key => <View key={key.id} style={styles.secret}>
-      <Text style={{ color: colors.text }}>{key.name} • {key.key_prefix}… • {key.enabled ? 'enabled' : 'disabled'}</Text>
-      <Text style={{ color: colors.textSecondary }}>{key.user_id === null ? 'Legacy key: no owner' : `Owner #${key.user_id}`} • Created {key.created_at} • Last used {key.last_used || 'never'} • Expires {key.expires_at || 'never'}</Text>
+      <Text style={{ color: colors.text }}>{key.name} • {key.key_prefix}… • {key.enabled ? translateNative('native.6786e575ee872370') : translateNative('native.08e76ba2b69926c4')}</Text>
+      <Text style={{ color: colors.textSecondary }}>{key.user_id === null ? translateNative('native.ca5a0980331e006b') : translateNative('native.8c67a7ebd142e01e', { value0: String(key.user_id) })} {translateNative('native.12909e6e0b57e30b')}{key.created_at} {translateNative('native.8e71515d9199787d')}{key.last_used || translateNative('native.cdbd106167cee609')} {translateNative('native.9e105c7aa96afa69')}{key.expires_at || translateNative('native.cdbd106167cee609')}</Text>
       <Text style={{ color: colors.textSecondary }}>{t('auth.keyScopes', { defaultValue: 'Scopes: {{scopes}}', scopes: SCOPES.filter(s => key[s.key]).map(s => t(`auth.scope.${s.key}`, { defaultValue: s.label })).join(', ') || t('common.none', { defaultValue: 'none' }) })}</Text>
       <Text style={{ color: colors.textSecondary }}>{t('auth.keyPrinters', { defaultValue: 'Printers: {{printers}}', printers: key.printer_ids == null ? t('auth.allPrinters', { defaultValue: 'all' }) : key.printer_ids.join(', ') })}</Text>
       {hasPermission('api_keys:delete') ? <PrimaryButton label={t('auth.revokeKey', { defaultValue: 'Revoke {{name}}', name: key.name })} variant="danger" disabled={revoke.isPending} onPress={() => Alert.alert(t('auth.revokeKeyConfirm', { defaultValue: 'Revoke API key?' }), t('auth.revokeKeyWarning', { defaultValue: '{{name}} ({{prefix}}…) will stop working immediately.', name: key.name, prefix: key.key_prefix }), [

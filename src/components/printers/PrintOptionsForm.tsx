@@ -1,17 +1,19 @@
+import { nativeLabelTuple, translateNative, useNativeLocale } from '@/i18n';
+
 import React from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
+
 import type { PrintQueueItemUpdate } from '@/types/api';
 import { calibration } from '@/utils/printLaunch';
 
 export function LaunchText({ children }: { children: string }) {
+  useNativeLocale();
   const { colors } = useTheme();
-  const { t } = useTranslation();
   return (
     <Text style={[styles.text, { color: colors.text }]}>
-      {t(`printing.${children.replace(/\W/g, '')}`, { defaultValue: children })}
+      {children}
     </Text>
   );
 }
@@ -27,7 +29,7 @@ export function Choice<T extends string | number | boolean | null | undefined>({
   options: Array<{ value: T; label: string; disabled?: boolean }>;
   onChange: (value: T) => void;
 }) {
-  const { t } = useTranslation();
+  useNativeLocale();
   const { colors } = useTheme();
   return (
     <View style={styles.field}>
@@ -36,12 +38,7 @@ export function Choice<T extends string | number | boolean | null | undefined>({
         {options.map(option => (
           <Pressable
             key={String(option.value)}
-            accessibilityLabel={t(
-              `printing.${option.label.replace(/\W/g, '')}`,
-              {
-                defaultValue: option.label,
-              },
-            )}
+            accessibilityLabel={option.label}
             accessibilityRole="button"
             accessibilityState={{
               selected: value === option.value,
@@ -70,9 +67,7 @@ export function Choice<T extends string | number | boolean | null | undefined>({
                     : colors.textSecondary,
               }}
             >
-              {t(`printing.${option.label.replace(/\W/g, '')}`, {
-                defaultValue: option.label,
-              })}
+              {option.label}
             </Text>
           </Pressable>
         ))}
@@ -92,11 +87,9 @@ export function LaunchField({
   onChange: (value: string) => void;
   numeric?: boolean;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
-  const { t } = useTranslation();
-  const text = t(`printing.${label.replace(/\W/g, '')}`, {
-    defaultValue: label,
-  });
+  const text = label;
   return (
     <View style={styles.field}>
       <LaunchText>{label}</LaunchText>
@@ -116,15 +109,15 @@ export function LaunchField({
 }
 
 export const booleanPrintFields = [
-  ['vibration_cali', 'Vibration calibration'],
-  ['layer_inspect', 'Layer inspection'],
-  ['timelapse', 'Timelapse'],
-  ['use_ams', 'Use AMS'],
-  ['confirm_outcome', 'Confirm print outcome'],
-  ['manual_start', 'Manual staged start'],
-  ['require_previous_success', 'Require previous success'],
-  ['auto_off_after', 'Power off after print'],
-  ['gcode_injection', 'Configured G-code injection'],
+  nativeLabelTuple(['vibration_cali', 'Vibration calibration']),
+  nativeLabelTuple(['layer_inspect', 'Layer inspection']),
+  nativeLabelTuple(['timelapse', 'Timelapse']),
+  nativeLabelTuple(['use_ams', 'Use AMS']),
+  nativeLabelTuple(['confirm_outcome', 'Confirm print outcome']),
+  nativeLabelTuple(['manual_start', 'Manual staged start']),
+  nativeLabelTuple(['require_previous_success', 'Require previous success']),
+  nativeLabelTuple(['auto_off_after', 'Power off after print']),
+  nativeLabelTuple(['gcode_injection', 'Configured G-code injection']),
 ] as const;
 
 export function PrintOptionsForm({
@@ -144,7 +137,8 @@ export function PrintOptionsForm({
   canControl?: boolean;
   showManualStart?: boolean;
 }) {
-  const unchanged = { value: undefined, label: 'Unchanged' };
+  useNativeLocale();
+  const unchanged = { value: undefined, get label() { return translateNative('native.6ae0647a123bb8da'); } };
   return (
     <View>
       {(
@@ -158,10 +152,10 @@ export function PrintOptionsForm({
           key={field}
           label={
             field === 'bed_levelling'
-              ? 'Bed levelling'
+              ? translateNative('native.acadc13811ea61ed')
               : field === 'flow_cali'
-              ? 'Flow calibration'
-              : 'Dual-nozzle offset calibration'
+              ? translateNative('native.3239adfa64fdf6ac')
+              : translateNative('native.517652a6c6a4a8f2')
           }
           value={
             bulk && value[field] === undefined
@@ -170,9 +164,9 @@ export function PrintOptionsForm({
           }
           options={[
             ...(bulk ? [unchanged] : []),
-            { value: 'off', label: 'Off' },
-            { value: 'on', label: 'On' },
-            { value: 'auto', label: 'Auto' },
+            { value: 'off', get label() { return translateNative('native.eaa897b0631e7896', { defaultValue: 'Off' }); } },
+            { value: 'on', get label() { return translateNative('native.c7e4e8a8db2bbe79', { defaultValue: 'On' }); } },
+            { value: 'auto', get label() { return translateNative('native.18782f1449ef93d2'); } },
           ]}
           onChange={v => onChange({ ...value, [field]: v })}
         />
@@ -190,10 +184,10 @@ export function PrintOptionsForm({
             value={value[field]}
             options={[
               ...(bulk ? [unchanged] : []),
-              { value: false, label: 'Off' },
+              { value: false, get label() { return translateNative('native.eaa897b0631e7896', { defaultValue: 'Off' }); } },
               {
                 value: true,
-                label: 'On',
+                get label() { return translateNative('native.c7e4e8a8db2bbe79', { defaultValue: 'On' }); },
                 disabled: field === 'auto_off_after' && !canControl,
               },
             ]}
@@ -201,13 +195,13 @@ export function PrintOptionsForm({
           />
         ))}
       <Choice<string | undefined>
-        label="Preheat / heat soak"
+        label={translateNative('native.f82f874bf6cf7ade')}
         value={value.preheat_override ?? (bulk ? undefined : 'inherit')}
         options={[
           ...(bulk ? [unchanged] : []),
-          { value: 'inherit', label: 'Inherit' },
-          { value: 'on', label: 'On' },
-          { value: 'off', label: 'Off' },
+          { value: 'inherit', get label() { return translateNative('native.1f78470798ded965'); } },
+          { value: 'on', get label() { return translateNative('native.c7e4e8a8db2bbe79', { defaultValue: 'On' }); } },
+          { value: 'off', get label() { return translateNative('native.eaa897b0631e7896', { defaultValue: 'Off' }); } },
         ]}
         onChange={v =>
           onChange({
@@ -220,7 +214,7 @@ export function PrintOptionsForm({
       {value.preheat_override !== 'off' && (
         <>
           <LaunchField
-            label="Chamber target °C (blank: inherited / derived; 0: bed only)"
+            label={translateNative('native.f239535212faf277')}
             value={
               value.preheat_chamber_target_override == null
                 ? ''
@@ -237,15 +231,15 @@ export function PrintOptionsForm({
           />
           {bulk && (
             <Choice
-              label="Chamber target update"
+              label={translateNative('native.75dc9f12bdfd564d')}
               value={
                 value.preheat_chamber_target_override === undefined
                   ? 'unchanged'
                   : 'set'
               }
               options={[
-                { value: 'unchanged', label: 'Unchanged' },
-                { value: 'set', label: 'Apply target / clear to inherited' },
+                { value: 'unchanged', get label() { return translateNative('native.6ae0647a123bb8da'); } },
+                { value: 'set', get label() { return translateNative('native.f74fdfc3a9cf877c'); } },
               ]}
               onChange={v =>
                 onChange({

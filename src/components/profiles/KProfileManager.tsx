@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { useEffect, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from '@/api/http';
@@ -15,7 +17,7 @@ import {
 } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type { KProfile, KProfileCreate, PresetGroups } from '@/types/api';
@@ -37,6 +39,7 @@ interface FilamentOption {
 }
 type Editor = { profile: KProfile | null; copy: boolean };
 export function KProfileManager() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
@@ -78,7 +81,7 @@ export function KProfileManager() {
     },
     refetchInterval: 30000,
   });
-  const livePrinters = useMemo(
+  const livePrinters = useLocalizedMemo(
     () => (printers.data ?? []).filter(printer => printer.connected),
     [printers.data],
   );
@@ -166,11 +169,11 @@ export function KProfileManager() {
     },
     enabled: editor !== null,
   });
-  const rows = useMemo(
+  const rows = useLocalizedMemo(
     () => (printer ? query.data?.profiles ?? [] : []),
     [printer, query.data],
   );
-  const filtered = useMemo(
+  const filtered = useLocalizedMemo(
     () =>
       rows
         .filter(
@@ -453,7 +456,7 @@ export function KProfileManager() {
           value={nozzle}
           tabs={['0.2', '0.4', '0.6', '0.8'].map(key => ({
             key,
-            label: `${key} mm`,
+            get label() { return translateNative('native.d1205c8942b008d2', { value0: String(key) }); },
           }))}
           onChange={setNozzle}
         />
@@ -470,17 +473,17 @@ export function KProfileManager() {
         tabs={[
           {
             key: 'all',
-            label: t('common.all', { defaultValue: 'All extruders' }),
+            get label() { return translateNative('common.all', { defaultValue: 'All extruders' }); },
           },
           {
             key: '0',
-            label: t('profiles.k.right', { defaultValue: 'Right / single' }),
+            get label() { return translateNative('profiles.k.right', { defaultValue: 'Right / single' }); },
           },
           ...(printer?.nozzle_count === 2
             ? [
                 {
                   key: '1',
-                  label: t('profiles.k.left', { defaultValue: 'Left' }),
+                  get label() { return translateNative('profiles.k.left', { defaultValue: 'Left' }); },
                 },
               ]
             : []),
@@ -492,15 +495,15 @@ export function KProfileManager() {
         tabs={[
           {
             key: 'all',
-            label: t('common.all', { defaultValue: 'All flow types' }),
+            get label() { return translateNative('common.all', { defaultValue: 'All flow types' }); },
           },
           {
             key: 'HS00',
-            label: t('profiles.k.standard', { defaultValue: 'Standard' }),
+            get label() { return translateNative('profiles.k.standard', { defaultValue: 'Standard' }); },
           },
           {
             key: 'HH00',
-            label: t('profiles.k.highFlow', { defaultValue: 'High flow' }),
+            get label() { return translateNative('profiles.k.highFlow', { defaultValue: 'High flow' }); },
           },
         ]}
         onChange={setFlow}
@@ -510,14 +513,14 @@ export function KProfileManager() {
         tabs={[
           {
             key: 'name',
-            label: t('profiles.k.sortName', { defaultValue: 'Sort name' }),
+            get label() { return translateNative('profiles.k.sortName', { defaultValue: 'Sort name' }); },
           },
           { key: 'k_value', label: 'K' },
           {
             key: 'filament',
-            label: t('profiles.k.sortFilament', {
+            get label() { return translateNative('profiles.k.sortFilament', {
               defaultValue: 'Sort filament',
-            }),
+            }); },
           },
         ]}
         onChange={setSort}
@@ -648,12 +651,8 @@ export function KProfileManager() {
           <SectionCard
             key={key}
             title={profile.name}
-            subtitle={`${profile.filament_id} · ${
-              profile.nozzle_id ||
-              `${kFlow(profile.nozzle_id)}-${profile.nozzle_diameter}`
-            } · ${profile.extruder_id === 1 ? 'L' : 'R'} · K ${
-              profile.k_value
-            } · N ${profile.n_coef}`}
+            subtitle={translateNative('native.b97a57a5d06278c5', { value0: String(profile.filament_id), value1: String(profile.nozzle_id ||
+              `${kFlow(profile.nozzle_id)}-${profile.nozzle_diameter}`), value2: String(profile.extruder_id === 1 ? 'L' : 'R'), value3: String(profile.k_value), value4: String(profile.n_coef) })}
           >
             <Text style={{ color: colors.textSecondary }}>
               {t('profiles.k.placement', {
@@ -796,11 +795,11 @@ export function KProfileManager() {
             tabs={[
               {
                 key: 'HS00',
-                label: t('profiles.k.standard', { defaultValue: 'Standard' }),
+                get label() { return translateNative('profiles.k.standard', { defaultValue: 'Standard' }); },
               },
               {
                 key: 'HH00',
-                label: t('profiles.k.highFlow', { defaultValue: 'High flow' }),
+                get label() { return translateNative('profiles.k.highFlow', { defaultValue: 'High flow' }); },
               },
             ]}
             onChange={value => {
@@ -811,7 +810,7 @@ export function KProfileManager() {
             value={editorNozzle}
             tabs={['0.2', '0.4', '0.6', '0.8'].map(key => ({
               key,
-              label: `${key} mm`,
+              get label() { return translateNative('native.d1205c8942b008d2', { value0: String(key) }); },
             }))}
             onChange={value => {
               if (!editor?.profile || editor.copy) setEditorNozzle(value);
@@ -822,19 +821,19 @@ export function KProfileManager() {
             tabs={[
               {
                 key: '0',
-                label: t('profiles.k.right', {
+                get label() { return translateNative('profiles.k.right', {
                   defaultValue: 'Right / single',
-                }),
+                }); },
               },
               ...(printer?.nozzle_count === 2
                 ? [
                     {
                       key: '1',
-                      label: t('profiles.k.left', { defaultValue: 'Left' }),
+                      get label() { return translateNative('profiles.k.left', { defaultValue: 'Left' }); },
                     },
                     {
                       key: 'both',
-                      label: t('profiles.k.both', { defaultValue: 'Both' }),
+                      get label() { return translateNative('profiles.k.both', { defaultValue: 'Both' }); },
                     },
                   ]
                 : []),

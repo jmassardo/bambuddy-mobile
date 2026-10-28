@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Camera, FolderOpen, MoreVertical, Play } from 'lucide-react-native';
@@ -20,6 +21,7 @@ export function PrinterCardFooter({
   onPrintPress,
   onShowMoreMenu,
 }: PrinterCardFooterProps) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -34,7 +36,7 @@ export function PrinterCardFooter({
               borderColor: colors.border,
             },
           ]}
-          accessibilityLabel="More options"
+          accessibilityLabel={translateNative('native.f95764be15060f1a')}
           accessibilityRole="button"
         >
           <MoreVertical size={18} color={colors.text} strokeWidth={2} />
@@ -52,7 +54,7 @@ export function PrinterCardFooter({
             },
             !canCamera && styles.disabledAction,
           ]}
-          accessibilityLabel="Open camera"
+          accessibilityLabel={translateNative('native.bdc48563e454ac64')}
           accessibilityRole="button"
         >
           <Camera size={16} color={colors.text} strokeWidth={2} />
@@ -68,7 +70,7 @@ export function PrinterCardFooter({
             },
             !canBrowse && styles.disabledAction,
           ]}
-          accessibilityLabel="Browse files"
+          accessibilityLabel={translateNative('native.69b9f841505eb38f')}
           accessibilityRole="button"
         >
           <FolderOpen size={16} color={colors.text} strokeWidth={2} />
@@ -86,7 +88,7 @@ export function PrinterCardFooter({
           ]}
         >
           <Play size={14} color={colors.textInverse} strokeWidth={2} />
-          <Text style={[styles.footerPrintText, { color: colors.textInverse }]}>Print</Text>
+          <Text style={[styles.footerPrintText, { color: colors.textInverse }]}>{translateNative('common.print')}</Text>
         </Pressable>
       </View>
     </View>

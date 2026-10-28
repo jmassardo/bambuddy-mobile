@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useRef, useState } from 'react';
 import {
   Alert,
@@ -14,7 +15,7 @@ import { PrimaryButton, SearchBar } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
+
 import type { FleetMQTTLogs } from '@/types/api';
 
 export function filterMQTTLogs(
@@ -33,6 +34,7 @@ export function filterMQTTLogs(
 }
 
 export function MQTTConsole({ printerId }: { printerId: number }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();

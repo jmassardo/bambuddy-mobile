@@ -1,3 +1,5 @@
+import { NativeTranslation, nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useState } from 'react';
 import { Alert, Text, View, StyleSheet } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
@@ -8,15 +10,15 @@ import { useTheme } from '@/theme';
 import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
 import type { ConnectedAppSecret } from '@/types/api';
 import { spacing } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
 
 export function validateConnectedCallback(value: string): string {
   const url = new URL(value.trim());
-  if (!['https:', 'http:'].includes(url.protocol) || !url.host || url.hash || url.username || url.password) throw new Error('Callback must be an absolute HTTP(S) URL without credentials or a fragment.');
+  if (!['https:', 'http:'].includes(url.protocol) || !url.host || url.hash || url.username || url.password) throw new Error(translateNative('native.009da5efb708ad3f'));
   return value.trim();
 }
 
 export function ConnectedAppsManager() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { hasPermission, authEnabled } = useAuth();
   const canManage = hasPermission('settings:update');
@@ -25,17 +27,17 @@ export function ConnectedAppsManager() {
   const [name, setName] = useState('');
   const [callback, setCallback] = useState('');
   const [secret, setSecret] = useState<ConnectedAppSecret | null>(null);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useNativeMessageState('');
   const query = useQuery({ queryKey: ['connectedApps'], queryFn: authManagementApi.listApps, enabled: canManage });
   const mutation = useMutation({
     gcTime: 0,
     mutationFn: async ({ kind, id, enabled }: { kind: 'create' | 'toggle' | 'rotate' | 'delete'; id?: number; enabled?: boolean }) => {
-      if (!canManage) throw new Error('Permission denied.');
+      if (!canManage) throw new Error(translateNative('native.088d1ba6420a8a8c'));
       if (kind === 'create') {
-        if (!name.trim()) throw new Error('App name is required.');
+        if (!name.trim()) throw new Error(translateNative('native.919942bf311d22ff'));
         return authManagementApi.createApp(name.trim(), validateConnectedCallback(callback));
       }
-      if (id === undefined) throw new Error('Missing client ID.');
+      if (id === undefined) throw new Error(translateNative('native.0abbe0b91ada83bd'));
       if (kind === 'rotate') return authManagementApi.rotateApp(id);
       if (kind === 'delete') return authManagementApi.deleteApp(id);
       return authManagementApi.updateApp(id, Boolean(enabled));
@@ -44,7 +46,7 @@ export function ConnectedAppsManager() {
       if (result && 'client_secret' in result && typeof result.client_secret === 'string') {
         setSecret({ ...result, client_secret: result.client_secret }); setName(''); setCallback('');
       }
-      setMessage(t('auth.connectedAppUpdated', { defaultValue: 'Connected app updated.' }));
+      setMessage(nativeMessage('auth.connectedAppUpdated', () => ({ defaultValue: 'Connected app updated.' })));
       await client.invalidateQueries({ queryKey: ['connectedApps'] });
     },
     onError: (e: Error) => setMessage(e.message),
@@ -55,8 +57,8 @@ export function ConnectedAppsManager() {
     {message ? <Text accessibilityRole="alert" style={{ color: colors.text }}>{message}</Text> : null}
     {secret ? <>
       <Text style={{ color: colors.warning }}>{t('auth.clientSecretOnce', { defaultValue: 'Store the client secret now. It is shown only once.' })}</Text>
-      <Text selectable style={{ color: colors.text }}>Client ID: {secret.client_id}</Text>
-      <Text selectable style={{ color: colors.text }}>Client secret: {secret.client_secret}</Text>
+      <Text selectable style={{ color: colors.text }}><NativeTranslation id="native.ba5214df3f37bb8f" values={{ value0: (secret.client_id) }} /></Text>
+      <Text selectable style={{ color: colors.text }}><NativeTranslation id="native.7afe33a04d326e62" values={{ value0: (secret.client_secret) }} /></Text>
       <PrimaryButton label={t('auth.copyClientId', { defaultValue: 'Copy client ID' })} variant="secondary" onPress={() => Clipboard.setString(secret.client_id)} />
       <PrimaryButton label={t('auth.copyClientSecret', { defaultValue: 'Copy client secret' })} variant="secondary" onPress={() => Clipboard.setString(secret.client_secret)} />
       <PrimaryButton label={t('auth.dismissClientSecret', { defaultValue: 'Dismiss client secret' })} onPress={() => { setSecret(null); mutation.reset(); }} />
@@ -68,9 +70,9 @@ export function ConnectedAppsManager() {
     {query.isLoading ? <Text style={{ color: colors.textSecondary }}>{t('auth.loadingConnectedApps', { defaultValue: 'Loading connected apps…' })}</Text> : null}
     {query.isError ? <><Text accessibilityRole="alert" style={{ color: colors.error }}>{query.error.message}</Text><PrimaryButton label={t('auth.retryConnectedApps', { defaultValue: 'Retry connected apps' })} onPress={() => void query.refetch()} /></> : null}
     {query.data?.map(app => <View key={app.id} style={styles.app}>
-      <Text style={{ color: colors.text }}>{app.name} • {app.enabled ? 'enabled' : 'disabled'}</Text>
+      <Text style={{ color: colors.text }}>{app.name} • {app.enabled ? translateNative('native.6786e575ee872370') : translateNative('native.08e76ba2b69926c4')}</Text>
       <Text selectable style={{ color: colors.textSecondary }}>{app.client_id} • {app.redirect_uri}</Text>
-      <Text style={{ color: colors.textSecondary }}>Created {app.created_at} • Last used {app.last_used_at || 'never'}</Text>
+      <Text style={{ color: colors.textSecondary }}><NativeTranslation id="native.8bb7db75674fb985" values={{ value0: (app.created_at), value1: (app.last_used_at || 'never') }} /></Text>
       <PrimaryButton label={app.enabled ? t('auth.disableApp', { defaultValue: 'Disable {{app}}', app: app.name }) : t('auth.enableApp', { defaultValue: 'Enable {{app}}', app: app.name })} variant="secondary" disabled={mutation.isPending} onPress={() => Alert.alert(t('auth.toggleAppConfirm', { defaultValue: 'Change connected app availability?' }), app.name, [
         { text: t('common.cancel'), style: 'cancel' }, { text: t('common.confirm', { defaultValue: 'Confirm' }), onPress: () => mutation.mutate({ kind: 'toggle', id: app.id, enabled: !app.enabled }) },
       ])} />

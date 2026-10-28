@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -5,7 +7,7 @@ import { notificationsApi } from '@/api/notifications';
 import { settingsApi } from '@/api/settings';
 import { Button, Card, Input, SectionHeader } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type { NotificationTemplate } from '@/types/api';
@@ -16,13 +18,14 @@ export function insertTemplateVariable(text: string, variable: string, selection
   return text.slice(0, selection.start) + `{${variable}}` + text.slice(selection.end);
 }
 export function templateValidation(draft: Draft): string | null {
-  if (!draft.title_template.trim() || !draft.body_template.trim()) return 'Title and body are required.';
-  if (draft.title_template.length > 200) return 'Title must be at most 200 characters.';
-  if (draft.body_template.length > 2000) return 'Body must be at most 2000 characters.';
+  if (!draft.title_template.trim() || !draft.body_template.trim()) return translateNative('native.2c32030eeb3aa54e');
+  if (draft.title_template.length > 200) return translateNative('native.ddb64da82a403e5e');
+  if (draft.body_template.length > 2000) return translateNative('native.3e1bc279d3f2235d');
   return null;
 }
 
 export function NotificationTemplateEditor({ template }: { template: NotificationTemplate }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
@@ -32,7 +35,7 @@ export function NotificationTemplateEditor({ template }: { template: Notificatio
   const [showPreview, setShowPreview] = useState(false);
   const [target, setTarget] = useState<keyof Draft>('body_template');
   const selection = useRef({ start: draft.body_template.length, end: draft.body_template.length });
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useNativeMessageState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const editable = hasPermission('notification_templates:update');
   const variables = useQuery({ queryKey: ['notificationTemplateVariables'], queryFn: notificationsApi.variables });
@@ -117,6 +120,7 @@ export function NotificationTemplateEditor({ template }: { template: Notificatio
 }
 
 export function NotificationTemplates() {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [search, setSearch] = useState('');

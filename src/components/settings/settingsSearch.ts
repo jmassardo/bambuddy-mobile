@@ -11,7 +11,7 @@ const group = (
   section: SectionKey,
   labels: string[],
   panel?: UserPanelKey,
-): SettingsSearchResult[] => labels.map(label => ({ section, panel, label }));
+): SettingsSearchResult[] => labels.map(label => ({ section, panel, get label() { return translateNative(label); } }));
 
 export const SETTINGS_SEARCH_INDEX: SettingsSearchResult[] = [
   ...group('general', [
@@ -342,3 +342,4 @@ export function searchSettings(query: string, index = SETTINGS_SEARCH_INDEX) {
     return words.every(word => text.includes(word));
   });
 }
+import { translateNative } from '@/i18n';

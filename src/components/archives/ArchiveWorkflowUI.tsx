@@ -1,3 +1,5 @@
+import { translateNative, type Translate, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -21,7 +23,7 @@ import { archiveWorkflows } from '@/api/archiveWorkflows';
 import { requestBlob, type UploadableFile } from '@/api/http';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation, type Translate } from '@/i18n';
+
 import { useMediaToken } from '@/hooks/useStreamToken';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
@@ -40,6 +42,7 @@ export function WorkflowChip({
 }: Omit<React.ComponentProps<typeof BaseChip>, 'selected'> & {
   active: boolean;
 }) {
+  useNativeLocale();
   return <BaseChip {...props} selected={active} />;
 }
 const Chip = WorkflowChip;
@@ -64,7 +67,7 @@ export async function pickArchiveDocuments(
             defaultValue: 'Unsupported file: {{name}}. Choose {{extensions}}.',
             name,
             extensions: extensions.join(', '),
-          }) ?? `Unsupported file: ${name}. Choose ${extensions.join(', ')}.`,
+          }) ?? translateNative('native.fd46a54479208666', { value0: String(name), value1: String(extensions.join(', ')) }),
         );
       }
       return {
@@ -93,6 +96,7 @@ export function ArchiveDialog({
   onDismiss?: () => void;
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   return (
@@ -148,6 +152,7 @@ export function ConfirmOutcomeDialog({
   onClose: () => void;
   onReprint: (archiveId: number) => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const media = useMediaToken();
   const { colors } = useTheme();
@@ -297,6 +302,7 @@ export function ArchiveDeleteDialog({
   onClose: () => void;
   onDeleted?: () => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -379,6 +385,7 @@ function PendingRow({
   item: PendingArchiveUpload;
   onChanged: () => Promise<void>;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { hasPermission } = useAuth();
@@ -482,6 +489,7 @@ function PendingRow({
 }
 
 export function ArchiveIngestionPanel() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const queryClient = useQueryClient();
@@ -632,6 +640,7 @@ export function ArchivePhotoGallery({
   initialPhoto?: string;
   onClose: () => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const media = useMediaToken();
   const { showToast } = useToast();

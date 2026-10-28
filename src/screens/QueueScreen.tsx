@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { localizedStatus } from '@/utils/statusLabel';
+
+import React, { useState } from 'react';
 import {
   Modal,
   RefreshControl,
@@ -35,7 +38,7 @@ import {
 } from '@/components/printers/PrintOptionsForm';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type {
@@ -71,6 +74,7 @@ type Confirmation = {
 };
 
 export default function QueueScreen() {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const tr = (label: string) =>
@@ -120,7 +124,7 @@ export default function QueueScreen() {
     queryFn: () => queueApi.getQueueBatch(batchDetailId!),
     enabled: batchDetailId != null,
   });
-  const items = useMemo(() => queue.data ?? [], [queue.data]);
+  const items = useLocalizedMemo(() => queue.data ?? [], [queue.data]);
   const active = items.filter(item => item.status === 'printing');
   const pending = items.filter(item => item.status === 'pending');
   const history = items.filter(terminal);
@@ -225,7 +229,7 @@ export default function QueueScreen() {
   };
   const stop = (item: PrintQueueItem) =>
     confirm(
-      'Stop active print?',
+      translateNative('native.6333c03e1b776cfd'),
       `${title(item)} · ${printerLabel(item)}\n${tr(
         'This stops the printer and marks this queue run cancelled.',
       )}`,
@@ -242,7 +246,7 @@ export default function QueueScreen() {
   const allowFixedPrinterAssignment = !selectedItems
     .filter(canUpdate)
     .some(unresolvedVariants);
-  const gates = useMemo(() => {
+  const gates = useLocalizedMemo(() => {
     const result = new Map<number, { name: string; count: number }>();
     items
       .filter(
@@ -361,7 +365,7 @@ export default function QueueScreen() {
         onCancel={
           canDelete(item)
             ? () =>
-                confirm('Cancel queued print?', title(item), () =>
+                confirm(translateNative('native.b6bbd7dd3279865e'), title(item), () =>
                   queueApi.cancelQueueItem(item.id),
                 )
             : undefined
@@ -369,7 +373,7 @@ export default function QueueScreen() {
         onDelete={
           canDelete(item)
             ? () =>
-                confirm('Delete queue item?', title(item), () =>
+                confirm(translateNative('native.5fd9e0becdb0d431'), title(item), () =>
                   queueApi.deleteQueueItem(item.id),
                 )
             : undefined
@@ -398,7 +402,7 @@ export default function QueueScreen() {
         onDelete={
           terminal(item) && canDelete(item)
             ? () =>
-                confirm('Delete history item?', title(item), () =>
+                confirm(translateNative('native.082514ed30cb9447'), title(item), () =>
                   queueApi.deleteQueueItem(item.id),
                 )
             : undefined
@@ -445,7 +449,7 @@ export default function QueueScreen() {
           <View style={styles.row}>
             <PrimaryButton
               label={tr(
-                collapsed.includes(batch) ? 'Expand batch' : 'Collapse batch',
+                collapsed.includes(batch) ? translateNative('native.b30e4ae6f07f6a30') : translateNative('native.74a215e67407dd5d'),
               )}
               variant="secondary"
               onPress={() =>
@@ -478,7 +482,7 @@ export default function QueueScreen() {
                 variant="secondary"
                 onPress={() =>
                   confirm(
-                    'Ungroup batch?',
+                    translateNative('native.00325e7b88ffbc28'),
                     tr('Jobs remain queued but are no longer grouped.'),
                     () => queueApi.ungroupBatch(batch),
                   )
@@ -495,7 +499,7 @@ export default function QueueScreen() {
     <SectionCard
       key={batch.id}
       title={batch.name}
-      subtitle={`${tr(batch.status)} · ${formatDateTime(batch.created_at)}`}
+      subtitle={`${localizedStatus(batch.status)} · ${formatDateTime(batch.created_at)}`}
     >
       <LaunchText>
         {batch.has_targets
@@ -519,9 +523,7 @@ export default function QueueScreen() {
       {batch.has_targets &&
         (batch.remaining_count ?? 0) > (batch.dispatchable_count ?? 0) && (
           <LaunchText>
-            Stranded targets have no retained run to clone. Re-add their source
-            configuration before dispatch.
-          </LaunchText>
+            {translateNative('native.83687692be32ba67')}</LaunchText>
         )}
       {(batch.plates ?? []).map(plate => (
         <View key={String(plate.plate_id)}>
@@ -533,7 +535,7 @@ export default function QueueScreen() {
             plate.actual_cost ?? tr('Unknown')
           } / ${plate.estimated_remaining_cost ?? tr('Unknown')}`}</LaunchText>
           {plate.remaining > 0 && !plate.can_dispatch && (
-            <LaunchText>Cannot dispatch: no retained source run.</LaunchText>
+            <LaunchText>{translateNative('native.2590d053a301e025')}</LaunchText>
           )}
           {plate.can_dispatch &&
             plate.remaining > 0 &&
@@ -578,7 +580,7 @@ export default function QueueScreen() {
             variant="danger"
             onPress={() =>
               confirm(
-                'Cancel batch order?',
+                translateNative('native.7fa43f04f9396ef3'),
                 tr(
                   'Cancel this order and its pending production? Active prints are not stopped.',
                 ),
@@ -593,7 +595,7 @@ export default function QueueScreen() {
             variant="secondary"
             onPress={() =>
               confirm(
-                'Ungroup batch?',
+                translateNative('native.00325e7b88ffbc28'),
                 tr('Jobs remain queued but are no longer grouped.'),
                 () => queueApi.ungroupBatch(batch.id),
               )
@@ -673,7 +675,7 @@ export default function QueueScreen() {
                 disabled={busy}
                 onPress={() =>
                   confirm(
-                    'Resume printer queue?',
+                    translateNative('native.2f61a40545f6cd56'),
                     `${gate.name}\n${tr(
                       'Acknowledge the failed predecessor and restore skipped jobs to pending?',
                     )}`,
@@ -702,11 +704,11 @@ export default function QueueScreen() {
         {tab !== 'batches' && (
           <SectionCard title={tr('Filters')}>
             <Choice
-              label="Printer"
+              label={translateNative('screen.printer')}
               value={printer}
               options={[
-                { value: 'all', label: 'All printers' },
-                { value: 'unassigned', label: 'Unassigned' },
+                { value: 'all', get label() { return translateNative('native.b8ed6cb4c204100e'); } },
+                { value: 'unassigned', get label() { return translateNative('native.424849cf8f869437'); } },
                 ...(printers.data ?? []).map(p => ({
                   value: String(p.id),
                   label: p.name,
@@ -715,10 +717,10 @@ export default function QueueScreen() {
               onChange={setPrinter}
             />
             <Choice
-              label="Location"
+              label={translateNative('native.4fa01b8a6af1174b')}
               value={location}
               options={[
-                { value: '', label: 'All locations' },
+                { value: '', get label() { return translateNative('native.5966c029380eaf77'); } },
                 ...Array.from(
                   new Set(
                     [
@@ -731,7 +733,7 @@ export default function QueueScreen() {
               onChange={setLocation}
             />
             <Choice
-              label="Status"
+              label={translateNative('common.status')}
               value={status}
               options={[
                 'all',
@@ -751,16 +753,16 @@ export default function QueueScreen() {
         {tab === 'queue' && (
           <>
             <Choice
-              label="Queue layout"
+              label={translateNative('native.c2ecc32fe0e20327')}
               value={layout}
               options={[
-                { value: 'position', label: 'Position / flat' },
-                { value: 'printer', label: 'By printer' },
+                { value: 'position', get label() { return translateNative('native.6e63257bb80e603c'); } },
+                { value: 'printer', get label() { return translateNative('native.1431e6d7a579da92'); } },
               ]}
               onChange={setLayout}
             />
             <Choice
-              label="Queue sort"
+              label={translateNative('native.6d692ca1e6d9060a')}
               value={sort}
               options={[
                 'position',
@@ -770,16 +772,16 @@ export default function QueueScreen() {
                 'scheduled',
               ].map(s => ({
                 value: s,
-                label: s === 'scheduled' ? 'Scheduled time' : s,
+                label: s === 'scheduled' ? translateNative('native.edcd0a3cf3a2c4e0') : s,
               }))}
               onChange={setSort}
             />
             <Choice
-              label="Sort direction"
+              label={translateNative('native.205a3c184ba1efdc')}
               value={direction}
               options={[
-                { value: 1, label: 'Ascending' },
-                { value: -1, label: 'Descending' },
+                { value: 1, get label() { return translateNative('native.9147375e0bcc4243'); } },
+                { value: -1, get label() { return translateNative('native.302bf67d25000cd5'); } },
               ]}
               onChange={setDirection}
             />
@@ -814,7 +816,7 @@ export default function QueueScreen() {
                     disabled={busy || !selectedItems.every(canDelete)}
                     onPress={() =>
                       confirm(
-                        'Cancel selected jobs?',
+                        translateNative('native.ebfa49b026fe2593'),
                         String(selectedItems.length),
                         async () => {
                           for (const item of selectedItems)
@@ -830,7 +832,7 @@ export default function QueueScreen() {
                     disabled={busy || !selectedItems.every(canDelete)}
                     onPress={() =>
                       confirm(
-                        'Delete selected jobs?',
+                        translateNative('native.e51a13765e8b96ed'),
                         String(selectedItems.length),
                         async () => {
                           for (const item of selectedItems)
@@ -877,7 +879,7 @@ export default function QueueScreen() {
         {tab === 'history' && (
           <>
             <Choice
-              label="History sort"
+              label={translateNative('native.fcb8a4c1768e7fc6')}
               value={historySort}
               options={['date', 'name', 'printer'].map(s => ({
                 value: s,
@@ -886,11 +888,11 @@ export default function QueueScreen() {
               onChange={setHistorySort}
             />
             <Choice
-              label="History direction"
+              label={translateNative('native.c0e0f342028c3feb')}
               value={historyDirection}
               options={[
-                { value: 1, label: 'Ascending' },
-                { value: -1, label: 'Descending' },
+                { value: 1, get label() { return translateNative('native.9147375e0bcc4243'); } },
+                { value: -1, get label() { return translateNative('native.302bf67d25000cd5'); } },
               ]}
               onChange={setHistoryDirection}
             />
@@ -901,7 +903,7 @@ export default function QueueScreen() {
                 disabled={busy || !history.length}
                 onPress={() =>
                   confirm(
-                    'Clear queue history?',
+                    translateNative('native.a1f0be0e0785e518'),
                     t('queue.clearCount', {
                       defaultValue:
                         'Remove {{count}} finished records? Pending and active jobs are preserved. Order source runs may be retained by the server.',
@@ -949,7 +951,7 @@ export default function QueueScreen() {
         {tab === 'batches' && (
           <>
             <Choice
-              label="Order status"
+              label={translateNative('native.8cb0b2fae44798e8')}
               value={batchStatus}
               options={['active', 'completed', 'cancelled', 'all'].map(s => ({
                 value: s,
@@ -1012,7 +1014,7 @@ export default function QueueScreen() {
       >
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
           <LaunchField
-            label="New batch name"
+            label={translateNative('native.3fbfdb405f0fd055')}
             value={batchName ?? ''}
             onChange={setBatchName}
           />

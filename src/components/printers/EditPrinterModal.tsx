@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -20,7 +22,6 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { Printer } from '@/types/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
 
 interface EditPrinterModalProps {
   visible: boolean;
@@ -39,6 +40,7 @@ export function EditPrinterModal({
   printer,
   onClose,
 }: EditPrinterModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
@@ -67,7 +69,7 @@ export function EditPrinterModal({
 
   const saveMutation = useMutation({
     mutationFn: () => {
-      if (!printer) throw new Error('Printer unavailable');
+      if (!printer) throw new Error(translateNative('native.b88c48e2049ab0e4'));
       if (!hasPermission('printers:update')) throw new Error(t('fleet.editDenied', { defaultValue: 'Printer update permission required.' }));
       return api.updatePrinter(printer.id, {
         name: name.trim(),
@@ -86,11 +88,11 @@ export function EditPrinterModal({
         queryClient.invalidateQueries({ queryKey: ['printer', printer.id] }),
         queryClient.invalidateQueries({ queryKey: ['printerStatus', printer.id] }),
       ]);
-      showToast('Printer updated.', 'success');
+      showToast(translateNative('native.a206e55ab1d4a78f'), 'success');
       onClose();
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to update printer.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.a55949c59db4d4a8')), 'error'),
   });
 
   const preflight = async () => {
@@ -150,8 +152,7 @@ export function EditPrinterModal({
             <View style={styles.header}>
               <View style={styles.headerText}>
                 <Text style={[styles.title, { color: colors.text }]}>
-                  Edit printer
-                </Text>
+                  {translateNative('native.b12f7dceaa30792e')}</Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                   {t('fleet.editSubtitle', { defaultValue: 'Update connection, model, archiving, and profile.' })}
                 </Text>
@@ -176,30 +177,30 @@ export function EditPrinterModal({
                 <Switch value={autoArchive} onValueChange={setAutoArchive} accessibilityLabel={t('fleet.autoArchive', { defaultValue: 'Automatically archive prints' })} />
               </View>
               <TextField
-                label="Name"
+                label={translateNative('common.name')}
                 value={name}
                 onChangeText={setName}
-                placeholder="Printer name"
+                placeholder={translateNative('native.d983863c9a265ef0')}
               />
               <TextField
-                label="Location"
+                label={translateNative('native.4fa01b8a6af1174b')}
                 value={location}
                 onChangeText={setLocation}
-                placeholder="Workshop, Office, Rack A…"
+                placeholder={translateNative('native.9569a6f13f0219a6')}
               />
               <TextField
-                label="Notes"
+                label={translateNative('native.be6245aeb9573da2')}
                 value={notes}
                 onChangeText={setNotes}
-                placeholder="Maintenance info, nozzle details, quirks…"
+                placeholder={translateNative('native.67c529450a4ac6cd')}
                 multiline
               />
             </ScrollView>
 
             <View style={styles.actions}>
-              <PrimaryButton label="Cancel" variant="secondary" onPress={onClose} />
+              <PrimaryButton label={translateNative('common.cancel')} variant="secondary" onPress={onClose} />
               <PrimaryButton
-                label={checking ? t('fleet.checking', { defaultValue: 'Checking connection…' }) : saveMutation.isPending ? 'Saving…' : 'Save'}
+                label={checking ? t('fleet.checking', { defaultValue: 'Checking connection…' }) : saveMutation.isPending ? translateNative('native.018c2002806e2312') : translateNative('common.save')}
                 onPress={() => { void preflight(); }}
                 disabled={!name.trim() || !ipAddress.trim() || checking || saveMutation.isPending || !hasPermission('printers:update')}
                 loading={checking || saveMutation.isPending}

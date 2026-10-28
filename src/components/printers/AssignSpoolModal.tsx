@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,7 +16,7 @@ import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { api, ApiError } from '@/api/client';
 import { printerControlsApi as device } from '@/api/printerControls';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -64,6 +65,7 @@ export function AssignSpoolModal({
   profileHint,
   onClose,
 }: AssignSpoolModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
@@ -111,7 +113,7 @@ export function AssignSpoolModal({
     staleTime: 15_000,
   });
 
-  const blockedSpoolIds = useMemo(() => {
+  const blockedSpoolIds = useLocalizedMemo(() => {
     const blocked = new Set<number>();
     (assignmentsQuery.data ?? []).forEach((assignment: SpoolAssignment) => {
       const currentSlot =
@@ -123,7 +125,7 @@ export function AssignSpoolModal({
     return blocked;
   }, [amsId, assignmentsQuery.data, printerId, trayId]);
 
-  const filteredSpools = useMemo(() => {
+  const filteredSpools = useLocalizedMemo(() => {
     const term = search.trim().toLowerCase();
     const material = materialHint?.trim().toLowerCase() ?? '';
     const color = normalizeHex(colorHint);
@@ -179,7 +181,7 @@ export function AssignSpoolModal({
       onClose();
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to assign spool.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.410ce58cbd32a366')), 'error'),
   });
 
   return (
@@ -199,7 +201,7 @@ export function AssignSpoolModal({
         >
           <View style={styles.header}>
             <View style={styles.headerText}>
-              <Text style={[styles.title, { color: colors.text }]}>Assign spool</Text>
+              <Text style={[styles.title, { color: colors.text }]}>{translateNative('native.81feec5a97a3034f')}</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                 {slotLabel}
               </Text>
@@ -216,10 +218,10 @@ export function AssignSpoolModal({
           </View>
 
           <TextField
-            label="Find a spool"
+            label={translateNative('native.7ed66e89b9e6fb69')}
             value={search}
             onChangeText={setSearch}
-            placeholder="Material, brand, color, ID…"
+            placeholder={translateNative('native.898af67559d22bc3')}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -268,8 +270,7 @@ export function AssignSpoolModal({
                   ]}
                 />
                 <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-                  Matching color
-                </Text>
+                  {translateNative('native.688767f9694e2455')}</Text>
               </View>
             ) : null}
           </View>
@@ -283,8 +284,7 @@ export function AssignSpoolModal({
               <View style={styles.stateBlock}>
                 <ActivityIndicator color={colors.accent} />
                 <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-                  Loading spools…
-                </Text>
+                  {translateNative('native.ca20f4e92ab7bd73')}</Text>
               </View>
             ) : null}
 
@@ -292,8 +292,7 @@ export function AssignSpoolModal({
               <View style={styles.stateBlock}>
                 <Search size={20} color={colors.textTertiary} strokeWidth={2} />
                 <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-                  No spools matched this slot.
-                </Text>
+                  {translateNative('native.b26d96b45780df01')}</Text>
               </View>
             ) : null}
 
@@ -324,7 +323,7 @@ export function AssignSpoolModal({
                   />
                   <View style={styles.rowText}>
                     <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>
-                      {[spool.brand, spool.material].filter(Boolean).join(' • ') || `Spool #${spool.id}`}
+                      {[spool.brand, spool.material].filter(Boolean).join(' • ') || translateNative('native.695cc238a31cecd5', { value0: String(spool.id) })}
                     </Text>
                     <Text
                       style={[styles.rowSubtitle, { color: colors.textSecondary }]}
@@ -335,15 +334,13 @@ export function AssignSpoolModal({
                         .join(' • ')}
                     </Text>
                   </View>
-                  <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
-                    {remainingWeight(spool)}g
-                  </Text>
+                  <Text style={[styles.rowMeta, { color: colors.textSecondary }]}><NativeTranslation id="native.7eb7cac004ef21f5" values={{ value0: (remainingWeight(spool)) }} /></Text>
                 </Pressable>
               );
             }) : null}
           </ScrollView>
 
-          <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
+          <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         </View>
       </View>
     </Modal>

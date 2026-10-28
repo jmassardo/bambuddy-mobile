@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { localizedStatus } from '@/utils/statusLabel';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { LaunchText } from '@/components/printers/PrintOptionsForm';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import { spacing } from '@/theme/tokens';
 import type { PrintQueueItem } from '@/types/api';
 import { formatDateTime, formatDuration } from '@/utils/data';
@@ -77,6 +79,7 @@ export function GanttTimeline({
   printers?: Array<{ id: number; name: string }>;
   onItemPress?: (item: PrintQueueItem) => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [offset, setOffset] = useState(0);
@@ -87,7 +90,7 @@ export function GanttTimeline({
   }, []);
   const start = Math.floor(now / HOUR) * HOUR + offset * WINDOW;
   const end = start + WINDOW;
-  const events = useMemo(() => buildQueueTimeline(items, now), [items, now]);
+  const events = useLocalizedMemo(() => buildQueueTimeline(items, now), [items, now]);
   const lanes = [...new Set(events.map(event => event.lane))];
   const tr = (label: string) =>
     t(`queueTimeline.${label.replace(/\W/g, '')}`, { defaultValue: label });
@@ -178,7 +181,7 @@ export function GanttTimeline({
                         key={event.item.id}
                         onPress={() => onItemPress?.(event.item)}
                         accessibilityRole="button"
-                        accessibilityLabel={`${nameText} · ${tr(
+                        accessibilityLabel={`${nameText} · ${localizedStatus(
                           event.item.status,
                         )} · ${formatDateTime(
                           new Date(event.start).toISOString(),
@@ -198,7 +201,7 @@ export function GanttTimeline({
                           style={[styles.barText, { color: colors.text }]}
                           numberOfLines={1}
                         >
-                          {nameText} · {tr(event.item.status)}
+                          {nameText} · {localizedStatus(event.item.status)}
                         </Text>
                       </Pressable>
                     );
@@ -222,9 +225,7 @@ export function GanttTimeline({
         </View>
       </ScrollView>
       <LaunchText>
-        Tap pending jobs to edit, finished runs to configure a requeue, or
-        active prints to stop with confirmation.
-      </LaunchText>
+        {translateNative('native.9ac037cc7064e2eb')}</LaunchText>
     </View>
   );
 }

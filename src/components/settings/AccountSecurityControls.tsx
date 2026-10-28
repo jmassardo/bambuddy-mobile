@@ -1,3 +1,5 @@
+import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useState } from 'react';
 import { Alert, Text } from 'react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -7,10 +9,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
 import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
 import { validateNewPassword } from '@/utils/authSecurity';
-import { useTranslation } from '@/i18n';
+
 import { useToast } from '@/contexts/ToastContext';
 
 export function AccountSecurityControls() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { user, authEnabled, isAdmin, refreshAuth, logout } = useAuth();
@@ -20,7 +23,7 @@ export function AccountSecurityControls() {
   const [confirm, setConfirm] = useState('');
   const [username, setUsername] = useState('');
   const [editing, setEditing] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useNativeMessageState('');
   const clear = () => { setCurrent(''); setPassword(''); setConfirm(''); setEditing(false); };
   const change = useMutation({
     mutationFn: async () => {
@@ -38,10 +41,10 @@ export function AccountSecurityControls() {
       if (enabled) {
         return authApi.setupAuth({ auth_enabled: true, admin_username: username.trim(), admin_password: password });
       }
-      if (!isAdmin) throw new Error('Only administrators can disable authentication.');
+      if (!isAdmin) throw new Error(translateNative('native.16fe08b07acbb678'));
       return authApi.disableAuth();
     },
-    onSuccess: async () => { clear(); setMessage('Authentication updated.'); await refreshAuth(); },
+    onSuccess: async () => { clear(); setMessage(nativeMessage('native.fe92f52a52a7824c')); await refreshAuth(); },
     onError: (e: Error) => setMessage(e.message),
   });
   return <>
@@ -71,6 +74,7 @@ export function AccountSecurityControls() {
 }
 
 export function EncryptionStatusPanel() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const canRead = hasPermission('settings:update');

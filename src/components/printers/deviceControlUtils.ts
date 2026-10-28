@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import type { AMSUnit, PrinterStatus, UnifiedPreset } from '@/types/api';
 
 export function deviceSlotTrayId(amsId: number, trayId: number): number {
@@ -31,15 +32,15 @@ export function dryingCapabilities(status: PrinterStatus | undefined, ams: AMSUn
 
 export function dryingReasonText(code: number): string {
   const reasons: Record<number, string> = {
-    0: 'Printer is busy',
-    1: 'Insufficient power: too many AMS drying or external power required',
-    2: 'AMS is busy',
-    3: 'Retract filament from the AMS outlet first',
-    4: 'AMS is already starting a drying cycle',
-    5: 'Drying is not supported in 2D mode',
-    6: 'AMS is already drying',
-    7: 'AMS firmware is upgrading',
-    8: 'Plug in the external AMS power adapter',
+    get 0() { return translateNative('native.5b12633b21c4e6d6'); },
+    get 1() { return translateNative('native.756a8c8108751403'); },
+    get 2() { return translateNative('native.634c29751d2412c9'); },
+    get 3() { return translateNative('native.b05c026381c0cc76'); },
+    get 4() { return translateNative('native.0324fe3b3c6ca1d9'); },
+    get 5() { return translateNative('native.31c09194f8e22deb'); },
+    get 6() { return translateNative('native.d25d29859388de9d'); },
+    get 7() { return translateNative('native.6ccf708dc81435dd'); },
+    get 8() { return translateNative('native.ad283144d201c498'); },
   };
   return reasons[code] ?? `Device reason ${code}`;
 }

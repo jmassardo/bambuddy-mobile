@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -5,13 +6,14 @@ import { settingsApi } from '@/api/settings';
 import { Button, Card, SectionHeader } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type { NotificationLogEntry } from '@/types/api';
 import { NotificationChoices, NotificationToggle } from './ProviderEditorFields';
 
 export function NotificationLog() {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();

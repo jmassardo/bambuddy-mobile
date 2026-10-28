@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 export function parseSettingObject<T>(value: unknown): Record<string, T> {
   try {
     const parsed: unknown =
@@ -21,25 +22,25 @@ export function calibrationMode(value: unknown): 'auto' | 'on' | 'off' {
 export const QUICK_PRESETS = [
   {
     key: 'nozzle_temp_presets',
-    label: 'Nozzle °C',
+    get label() { return translateNative('native.7da2f9610ab7f3ef'); },
     defaults: [120, 220, 260],
     max: 320,
   },
   {
     key: 'bed_temp_presets',
-    label: 'Bed °C',
+    get label() { return translateNative('native.7805e530a48b9640'); },
     defaults: [55, 75, 90],
     max: 140,
   },
   {
     key: 'chamber_temp_presets',
-    label: 'Chamber °C',
+    get label() { return translateNative('native.877170f9e2777147'); },
     defaults: [35, 45, 60],
     max: 65,
   },
   {
     key: 'fan_speed_presets',
-    label: 'Fan %',
+    get label() { return translateNative('native.13b505a07095625e'); },
     defaults: [50, 75, 100],
     max: 100,
   },

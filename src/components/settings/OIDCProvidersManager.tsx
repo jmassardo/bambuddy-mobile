@@ -1,3 +1,5 @@
+import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useState } from 'react';
 import { Alert, Image, Text, View, StyleSheet } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,11 +10,10 @@ import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI
 import { SwitchRow, OptionChipsField } from './shared';
 import type { OIDCProvider, OIDCProviderCreate } from '@/types/api';
 import { spacing } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
 
 type Mapping = { external: string; local: string };
 const DEFAULT: OIDCProviderCreate = {
-  name: '', issuer_url: '', client_id: '', client_secret: '', scopes: 'openid email profile',
+  name: '', issuer_url: '', client_id: '', client_secret: '', get scopes() { return translateNative('native.a78c1991f70d3ab8'); },
   is_enabled: true, auto_create_users: false, auto_link_existing_accounts: false,
   require_email_verified: true, email_claim: 'email', group_claim: 'groups',
   group_mapping: {}, default_group_id: null, icon_url: null, is_autologin: false,
@@ -28,16 +29,17 @@ export function oidcGroupMapping(rows: Mapping[], localNames: string[]): Record<
   for (const row of rows) {
     const external = row.external.trim();
     const local = row.local.trim();
-    if (!external || !local || !localNames.includes(local)) throw new Error('Each mapping needs an identity-provider group and an existing local group.');
-    if (seen.has(external.toLowerCase())) throw new Error('Identity-provider group names must be unique (case-insensitive).');
+    if (!external || !local || !localNames.includes(local)) throw new Error(translateNative('native.478ba7346058ebd0'));
+    if (seen.has(external.toLowerCase())) throw new Error(translateNative('native.96f2bc9bff4f7767'));
     seen.add(external.toLowerCase());
     result[external] = local;
   }
-  if (rows.length > 100) throw new Error('At most 100 group mappings are supported.');
+  if (rows.length > 100) throw new Error(translateNative('native.7490061e0958e311'));
   return result;
 }
 
 export function OIDCProvidersManager() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const canManage = hasPermission('settings:update');
@@ -47,7 +49,7 @@ export function OIDCProvidersManager() {
   const [editing, setEditing] = useState<OIDCProvider | null | undefined>(undefined);
   const [form, setForm] = useState(DEFAULT);
   const [mappings, setMappings] = useState<Mapping[]>([]);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useNativeMessageState('');
   const query = useQuery({ queryKey: ['oidcProvidersAll'], queryFn: authApi.getOIDCProvidersAll, enabled: canManage && hasPermission('settings:read') });
   const groups = useQuery({ queryKey: ['groups'], queryFn: authApi.getGroups, enabled: canManage && canReadGroups });
   const refresh = async () => {
@@ -64,11 +66,11 @@ export function OIDCProvidersManager() {
   };
   const save = useMutation({
     mutationFn: async () => {
-      if (!canManage) throw new Error('Settings update permission required.');
-      if (!form.name.trim() || !form.client_id.trim()) throw new Error('Name and client ID are required.');
-      if (!form.issuer_url.startsWith('https://')) throw new Error('Issuer URL must use HTTPS.');
-      if (form.icon_url && !form.icon_url.startsWith('https://')) throw new Error('Icon URL must use HTTPS.');
-      if (form.auto_link_existing_accounts && form.email_claim === 'email' && !form.require_email_verified) throw new Error('Email-based account linking requires verified email.');
+      if (!canManage) throw new Error(translateNative('native.197d9fa641f4eb71'));
+      if (!form.name.trim() || !form.client_id.trim()) throw new Error(translateNative('native.dbb717b299b8253b'));
+      if (!form.issuer_url.startsWith('https://')) throw new Error(translateNative('native.dd1a657403df4187'));
+      if (form.icon_url && !form.icon_url.startsWith('https://')) throw new Error(translateNative('native.706954eec51af598'));
+      if (form.auto_link_existing_accounts && form.email_claim === 'email' && !form.require_email_verified) throw new Error(translateNative('native.67850b795e00b7f6'));
       const payload: Partial<OIDCProviderCreate> = {
         ...form, name: form.name.trim(), group_mapping: canReadGroups
           ? oidcGroupMapping(mappings, (groups.data ?? []).map(g => g.name))
@@ -78,14 +80,14 @@ export function OIDCProvidersManager() {
       if (editing) {
         const saved = await authApi.updateOIDCProvider(editing.id, payload);
         if (payload.default_group_id === null && saved?.default_group_id != null) {
-          throw new Error('The server did not clear the default group. Other changes may have saved. This server version ignores null default groups; choose another group or update the server.');
+          throw new Error(translateNative('native.7f335228315bbc82'));
         }
         return saved;
       }
-      if (!form.client_secret) throw new Error('Client secret is required for a new provider.');
+      if (!form.client_secret) throw new Error(translateNative('native.d9613f2e8ef573f5'));
       return authApi.createOIDCProvider(payload as OIDCProviderCreate);
     },
-    onSuccess: async () => { setEditing(undefined); setForm(DEFAULT); setMessage(t('auth.providerSaved', { defaultValue: 'Provider saved.' })); await refresh(); },
+    onSuccess: async () => { setEditing(undefined); setForm(DEFAULT); setMessage(nativeMessage('auth.providerSaved', () => ({ defaultValue: 'Provider saved.' }))); await refresh(); },
     onError: async (e: Error) => { setMessage(e.message); await refresh(); },
   });
   const action = useMutation({
@@ -94,7 +96,7 @@ export function OIDCProvidersManager() {
       if (kind === 'remove') return authApi.deleteOIDCProviderIcon(provider.id);
       return authApi.refreshOIDCProviderIcon(provider.id);
     },
-    onSuccess: async () => { setMessage(t('auth.providerUpdated', { defaultValue: 'Provider updated.' })); await refresh(); },
+    onSuccess: async () => { setMessage(nativeMessage('auth.providerUpdated', () => ({ defaultValue: 'Provider updated.' }))); await refresh(); },
     onError: (e: Error) => setMessage(e.message),
   });
   if (!canManage) return <SectionCard title={t('auth.oidcProviders', { defaultValue: 'OIDC providers' })}><Text style={{ color: colors.textSecondary }}>{t('auth.settingsUpdateRequired', { defaultValue: 'Settings update permission is required.' })}</Text></SectionCard>;
@@ -115,7 +117,7 @@ export function OIDCProvidersManager() {
       <SwitchRow label={t('auth.autologinProvider', { defaultValue: 'Automatic sign-in provider' })} description={t('auth.autologinProviderHint', { defaultValue: 'Only one provider can be automatic. The server clears any previous choice.' })} value={form.is_autologin ?? false} onValueChange={is_autologin => setForm(f => ({ ...f, is_autologin }))} />
       <TextField label={t('auth.emailClaim', { defaultValue: 'Email claim' })} value={form.email_claim ?? 'email'} onChangeText={email_claim => setForm(f => ({ ...f, email_claim }))} autoCapitalize="none" />
       <TextField label={t('auth.groupClaim', { defaultValue: 'Group claim' })} value={form.group_claim ?? 'groups'} onChangeText={group_claim => setForm(f => ({ ...f, group_claim }))} autoCapitalize="none" />
-      <OptionChipsField disabled={!canReadGroups} label={t('auth.defaultGroup', { defaultValue: 'Default local group' })} value={String(form.default_group_id ?? '')} options={[{ key: '', label: t('common.none', { defaultValue: 'None' }) }, ...(groups.data ?? []).map(g => ({ key: String(g.id), label: g.name }))]} onChange={value => setForm(f => ({ ...f, default_group_id: value ? Number(value) : null }))} />
+      <OptionChipsField disabled={!canReadGroups} label={t('auth.defaultGroup', { defaultValue: 'Default local group' })} value={String(form.default_group_id ?? '')} options={[{ key: '', get label() { return translateNative('common.none', { defaultValue: 'None' }); } }, ...(groups.data ?? []).map(g => ({ key: String(g.id), label: g.name }))]} onChange={value => setForm(f => ({ ...f, default_group_id: value ? Number(value) : null }))} />
       {groups.isError ? <><Text style={{ color: colors.error }}>{groups.error.message}</Text><PrimaryButton label={t('auth.retryGroups', { defaultValue: 'Retry groups' })} onPress={() => void groups.refetch()} /></> : null}
       <Text style={{ color: colors.textSecondary }}>{t('auth.groupMappingHint', { defaultValue: 'Group mappings synchronize local membership at sign-in. An empty list disables synchronization.' })}</Text>
       {mappings.map((row, index) => <View key={index} style={styles.mapping}>
@@ -131,14 +133,14 @@ export function OIDCProvidersManager() {
       {query.isLoading ? <Text style={{ color: colors.textSecondary }}>{t('auth.loadingProviders', { defaultValue: 'Loading providers…' })}</Text> : null}
       {query.data?.map(provider => <View key={provider.id} style={styles.mapping}>
         {provider.has_icon ? <Image source={{ uri: providerIconUrl(provider.id, query.dataUpdatedAt) }} style={styles.icon} /> : null}
-        <Text style={{ color: colors.text }}>{provider.name} • {provider.is_enabled ? 'enabled' : 'disabled'}{provider.is_autologin ? ' • automatic' : ''}</Text>
+        <Text style={{ color: colors.text }}>{provider.name} • {provider.is_enabled ? translateNative('native.6786e575ee872370') : translateNative('native.08e76ba2b69926c4')}{provider.is_autologin ? translateNative('native.d8e92debd3520a6f') : ''}</Text>
         <Text style={{ color: colors.textSecondary }}>{provider.issuer_url} • {provider.scopes}</Text>
         {provider.is_env_managed ? <Text style={{ color: colors.textSecondary }}>{t('auth.environmentManaged', { defaultValue: 'Managed by server environment configuration (read-only).' })}</Text> : null}
         <PrimaryButton label={t('auth.editProvider', { defaultValue: 'Edit {{provider}}', provider: provider.name })} variant="secondary" disabled={provider.is_env_managed} onPress={() => open(provider)} />
         <PrimaryButton label={t('auth.refreshProviderIcon', { defaultValue: 'Refresh {{provider}} icon', provider: provider.name })} variant="secondary" disabled={action.isPending || provider.is_env_managed || !provider.icon_url} onPress={() => action.mutate({ provider, kind: 'refresh' })} />
         <PrimaryButton label={t('auth.removeProviderIcon', { defaultValue: 'Remove {{provider}} icon', provider: provider.name })} variant="secondary" disabled={action.isPending || provider.is_env_managed || !provider.has_icon} onPress={() => action.mutate({ provider, kind: 'remove' })} />
         <PrimaryButton label={t('auth.deleteProvider', { defaultValue: 'Delete {{provider}}', provider: provider.name })} variant="danger" disabled={action.isPending || provider.is_env_managed} onPress={() => Alert.alert(t('auth.deleteProviderConfirm', { defaultValue: 'Delete provider?' }), t('auth.deleteProviderWarning', { defaultValue: '{{provider}} will no longer be available for sign-in.', provider: provider.name }), [
-          { text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => action.mutate({ provider, kind: 'delete' }) },
+          { get text() { return translateNative('common.cancel'); }, style: 'cancel' }, { get text() { return translateNative('common.delete'); }, style: 'destructive', onPress: () => action.mutate({ provider, kind: 'delete' }) },
         ])} />
       </View>)}
       {query.data?.length === 0 ? <Text style={{ color: colors.textSecondary }}>{t('auth.noProviders', { defaultValue: 'No providers configured.' })}</Text> : null}

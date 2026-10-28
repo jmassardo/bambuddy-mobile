@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import { localizedStatus } from '@/utils/statusLabel';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
@@ -44,9 +47,10 @@ const DEFAULT_FORM: UserFormState = {
 };
 
 export default function UsersScreen() {
+  useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Users'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Users' });
+    navigation.setOptions({ get title() { return translateNative('nav.users'); } });
   }, [navigation]);
 
   const { colors } = useTheme();
@@ -154,9 +158,9 @@ export default function UsersScreen() {
     onSuccess: async () => {
       await invalidateUsers();
       resetCreateState();
-      showToast('User created.', 'success');
+      showToast(translateNative('native.1b83329311564cd5'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to create user.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.5f08a22f988b47b6'), 'error'),
   });
 
   const updateMutation = useMutation({
@@ -170,24 +174,24 @@ export default function UsersScreen() {
     onSuccess: async () => {
       await invalidateUsers();
       closeEdit();
-      showToast('User updated.', 'success');
+      showToast(translateNative('native.0c147492b47fcf9e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update user.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.d73761ce692dd794'), 'error'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (userId: number) => api.deleteUser(userId),
     onSuccess: async () => {
       await invalidateUsers();
-      showToast('User deleted.', 'success');
+      showToast(translateNative('native.49427fd128a5a9b7'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to delete user.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.b9bd4a803eab5aea'), 'error'),
   });
 
   const resetPasswordMutation = useMutation({
     mutationFn: (userId: number) => api.resetUserPassword({ user_id: userId }),
-    onSuccess: data => showToast(pickString(data, ['message'], 'Password reset email sent.'), 'success'),
-    onError: (error: Error) => showToast(error.message || 'Unable to reset password.', 'error'),
+    onSuccess: data => showToast(pickString(data, ['message'], translateNative('native.d0604eb29f05821f')), 'success'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.55fde6654e6acd96'), 'error'),
   });
 
   const provisionLdapMutation = useMutation({
@@ -195,21 +199,21 @@ export default function UsersScreen() {
     onSuccess: async data => {
       await invalidateUsers();
       resetCreateState();
-      showToast(`Provisioned ${pickString(data, ['username'], 'LDAP user')}.`, 'success');
+      showToast(translateNative('native.251d74fd49246426', { value0: String(pickString(data, ['username'], translateNative('native.54112fb1f004c9ee'))) }), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to provision LDAP user.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.eae083d66bd13878'), 'error'),
   });
 
-  const users = useMemo(() => ((usersQuery.data ?? []) as ApiRecord[]), [usersQuery.data]);
-  const groups = useMemo(() => ((canReadGroups ? groupsQuery.data ?? [] : []) as ApiRecord[]), [canReadGroups, groupsQuery.data]);
+  const users = useLocalizedMemo(() => ((usersQuery.data ?? []) as ApiRecord[]), [usersQuery.data]);
+  const groups = useLocalizedMemo(() => ((canReadGroups ? groupsQuery.data ?? [] : []) as ApiRecord[]), [canReadGroups, groupsQuery.data]);
   const advancedAuthEnabled = pickBoolean(advancedAuthQuery.data, ['advanced_auth_enabled'], false);
   const ldapEnabled = pickBoolean(ldapStatusQuery.data, ['ldap_enabled'], false);
-  const isCreateDisabled = useMemo(() => {
+  const isCreateDisabled = useLocalizedMemo(() => {
     if (!form.username.trim()) return true;
     if (advancedAuthEnabled) return !form.email.trim();
     return form.password.length < 6 || form.password !== form.confirmPassword;
   }, [advancedAuthEnabled, form]);
-  const isEditDisabled = useMemo(() => {
+  const isEditDisabled = useLocalizedMemo(() => {
     if (!form.username.trim()) return true;
     if (!form.password) return false;
     return form.password.length < 6 || form.password !== form.confirmPassword;
@@ -233,30 +237,30 @@ export default function UsersScreen() {
     mutationFn: (id: number) => api.deleteGroup(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
-      showToast('Group deleted.', 'success');
+      showToast(translateNative('native.2e6143709b1a2452'), 'success');
       setDeleteGroupId(null);
     },
-    onError: (e: Error) => showToast(e.message || 'Failed to delete group.', 'error'),
+    onError: (e: Error) => showToast(e.message || translateNative('native.0f33269c89fb3ba3'), 'error'),
   });
 
   if (!canRead) {
     return (
       <EmptyState
         icon="🛡"
-        title="User access required"
-        message="You need users:read permission to view user management."
+        title={translateNative('native.e64faa96106d2ea3')}
+        message={translateNative('native.dfaf6026acd8feeb')}
       />
     );
   }
 
   if (usersQuery.isLoading || (canReadGroups && groupsQuery.isLoading)) {
-    return <LoadingScreen message="Loading users…" />;
+    return <LoadingScreen message={translateNative('native.30fb5ac9c6663286')} />;
   }
 
   if (usersQuery.isError || (canReadGroups && groupsQuery.isError)) {
     return (
       <ErrorState
-        message="Unable to load users."
+        message={translateNative('native.aa11dd58c9f6ac20')}
         onRetry={() => void refreshAll()}
       />
     );
@@ -286,30 +290,30 @@ export default function UsersScreen() {
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}> 
               <View style={styles.cardHeader}>
                 <View style={styles.cardText}>
-                  <Text style={[styles.name, { color: colors.text }]}>{pickString(item, ['username'], 'Unknown user')}</Text>
-                  <Text style={[styles.email, { color: colors.textSecondary }]}>{pickString(item, ['email'], 'No email')}</Text>
+                  <Text style={[styles.name, { color: colors.text }]}>{pickString(item, ['username'], translateNative('native.4cb2955dec6a0e41'))}</Text>
+                  <Text style={[styles.email, { color: colors.textSecondary }]}>{pickString(item, ['email'], translateNative('native.f191acf23a08048e'))}</Text>
                 </View>
-                <StatusBadge label={role} color={statusColor(role, colors)} />
+                <StatusBadge label={localizedStatus(role)} color={statusColor(role, colors)} />
               </View>
 
               <View style={styles.metaBlock}>
-                <Text style={[styles.meta, { color: colors.textSecondary }]}>Groups: {groupNames || 'None'}</Text>
-                <Text style={[styles.meta, { color: colors.textSecondary }]}>Status: {pickBoolean(item, ['is_active'], true) ? 'Active' : 'Inactive'}</Text>
-                <Text style={[styles.meta, { color: colors.textSecondary }]}>Last login: {formatDateTime(pickString(item, ['last_login']))}</Text>
+                <Text style={[styles.meta, { color: colors.textSecondary }]}><NativeTranslation id="native.b08fc17853bc384b" values={{ value0: (groupNames || 'None') }} /></Text>
+                <Text style={[styles.meta, { color: colors.textSecondary }]}>{translateNative('native.79236fcebf0a8b1d')}{pickBoolean(item, ['is_active'], true) ? translateNative('native.338a8c40557b22a0') : translateNative('native.e4288d9846e01891')}</Text>
+                <Text style={[styles.meta, { color: colors.textSecondary }]}><NativeTranslation id="native.017f814118bfa2ec" values={{ value0: (formatDateTime(pickString(item, ['last_login']))) }} /></Text>
               </View>
 
               <View style={styles.actions}>
-                {canUpdateUser ? <PrimaryButton label="Edit" variant="secondary" onPress={() => openEdit(item)} /> : null}
+                {canUpdateUser ? <PrimaryButton label={translateNative('common.edit')} variant="secondary" onPress={() => openEdit(item)} /> : null}
                 {isAdmin && pickNumber(item, ['id']) !== pickNumber(currentUser, ['id']) ? (
                   <PrimaryButton
-                    label={resetPasswordMutation.isPending ? 'Resetting…' : 'Reset password'}
+                    label={resetPasswordMutation.isPending ? translateNative('native.cc1642fca0298ffc') : translateNative('native.3ffb98cec8b0e01b')}
                     variant="secondary"
                     onPress={() => void resetPasswordMutation.mutateAsync(pickNumber(item, ['id']))}
                   />
                 ) : null}
                 {canDeleteUser && pickNumber(item, ['id']) !== pickNumber(currentUser, ['id']) ? (
                   <PrimaryButton
-                    label="Delete"
+                    label={translateNative('common.delete')}
                     variant="danger"
                     onPress={() => setPendingDeleteUser(item)}
                   />
@@ -318,16 +322,16 @@ export default function UsersScreen() {
             </View>
           );
         }}
-        ListEmptyComponent={<EmptyState icon="👥" title="No users" message="Create the first user to get started." />}
+        ListEmptyComponent={<EmptyState icon="👥" title={translateNative('native.559a834c47b1b78c')} message={translateNative('native.98fdd8adc965a6d3')} />}
         ListFooterComponent={
           canReadGroups ? <View style={[styles.groupsSection, { borderTopColor: colors.borderSubtle }]}>
             <View style={styles.groupsSectionHeader}>
-              <Text style={[styles.groupsSectionTitle, { color: colors.text }]}>Groups</Text>
+              <Text style={[styles.groupsSectionTitle, { color: colors.text }]}>{translateNative('native.66f53452f7bc5afc')}</Text>
               <Pressable
                 disabled={!canCreateGroup}
                 onPress={() => { setEditGroupId(null); setShowGroupEdit(true); }}
                 style={[styles.groupAddBtn, { backgroundColor: colors.accent }]}
-                accessibilityLabel="Create group"
+                accessibilityLabel={translateNative('native.c706494d805923fb')}
                 accessibilityRole="button"
               >
                 <Plus size={14} color={colors.textInverse} strokeWidth={2.5} />
@@ -343,15 +347,15 @@ export default function UsersScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.groupName, { color: colors.text }]}>{gName}</Text>
                     <Text style={[styles.groupMeta, { color: colors.textSecondary }]}>
-                      {permCount} permissions{isSystem ? ' • System' : ''}
+                      {permCount} {translateNative('native.49f9cf11734c50af')}{isSystem ? translateNative('native.5a86e9d8906c547c') : ''}
                     </Text>
                   </View>
                   <View style={styles.groupActions}>
-                    <Pressable disabled={!canUpdateGroup} onPress={() => { setEditGroupId(gId); setShowGroupEdit(true); }} style={styles.groupActionBtn} accessibilityLabel="Edit group" accessibilityRole="button">
+                    <Pressable disabled={!canUpdateGroup} onPress={() => { setEditGroupId(gId); setShowGroupEdit(true); }} style={styles.groupActionBtn} accessibilityLabel={translateNative('native.e49ab65dcc95ff22')} accessibilityRole="button">
                       <Edit2 size={14} color={colors.textSecondary} />
                     </Pressable>
                     {!isSystem && canDeleteGroup && (
-                      <Pressable onPress={() => setDeleteGroupId(gId)} style={styles.groupActionBtn} accessibilityLabel="Delete group" accessibilityRole="button">
+                      <Pressable onPress={() => setDeleteGroupId(gId)} style={styles.groupActionBtn} accessibilityLabel={translateNative('native.0c7a76cc9819a759')} accessibilityRole="button">
                         <Trash2 size={14} color={colors.error} />
                       </Pressable>
                     )}
@@ -359,7 +363,7 @@ export default function UsersScreen() {
                 </View>
               );
             }) : (
-              <Text style={[styles.groupMeta, { color: colors.textSecondary }]}>No groups configured.</Text>
+              <Text style={[styles.groupMeta, { color: colors.textSecondary }]}>{translateNative('native.bc03de1933cfdc7c')}</Text>
             )}
           </View> : null
         }
@@ -367,20 +371,20 @@ export default function UsersScreen() {
 
       <ActionSheetModal
         visible={canDeleteUser && pendingDeleteUser != null}
-        title="Delete user"
+        title={translateNative('native.d6df329a121486fe')}
         subtitle={
           pendingDeleteUser
-            ? `Delete ${pickString(pendingDeleteUser, ['username'])}?`
+            ? translateNative('native.3e132ab74d3e7e22', { value0: String(pickString(pendingDeleteUser, ['username'])) })
             : undefined
         }
         onClose={() => setPendingDeleteUser(null)}
         actions={[
           {
-            label: 'Cancel',
+            get label() { return translateNative('common.cancel'); },
             onPress: () => setPendingDeleteUser(null),
           },
           {
-            label: 'Delete',
+            get label() { return translateNative('common.delete'); },
             onPress: () => {
               if (!pendingDeleteUser) return;
               const userId = pickNumber(pendingDeleteUser, ['id']);
@@ -392,18 +396,18 @@ export default function UsersScreen() {
         ]}
       />
 
-      {canCreateUser ? <FloatingActionButton icon="plus" label="Create user" onPress={() => setShowCreate(true)} /> : null}
+      {canCreateUser ? <FloatingActionButton icon="plus" label={translateNative('native.7d75125ed0d1c636')} onPress={() => setShowCreate(true)} /> : null}
 
       <Modal visible={showCreate && canCreateUser} animationType="slide" transparent>
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
             <ScrollView contentContainerStyle={styles.modalContent}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Create user</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>{translateNative('native.7d75125ed0d1c636')}</Text>
               {ldapEnabled && canCreateUser ? (
                 <InlineTabBar
                   value={createMode}
                   tabs={[
-                    { key: 'local', label: advancedAuthEnabled ? 'Email invite' : 'Local' },
+                    { key: 'local', label: advancedAuthEnabled ? translateNative('native.6803ed8404a0f762') : translateNative('native.3df9c3407ef31a85') },
                     { key: 'ldap', label: 'LDAP' },
                   ]}
                   onChange={value => setCreateMode(value as CreateMode)}
@@ -412,7 +416,7 @@ export default function UsersScreen() {
 
               {createMode === 'ldap' ? (
                 <View style={styles.ldapSection}>
-                  <TextField label="Search LDAP" value={ldapQuery} onChangeText={setLdapQuery} placeholder="Type at least 2 characters" />
+                  <TextField label={translateNative('native.210759e4a7699b94')} value={ldapQuery} onChangeText={setLdapQuery} placeholder={translateNative('native.1f6c3cea3c9e60bc')} />
                   {(ldapSearchQuery.data as ApiRecord[] | undefined)?.map(result => {
                     const selected = selectedLdap && pickString(selectedLdap, ['dn']) === pickString(result, ['dn']);
                     const disabled = pickBoolean(result, ['already_provisioned']);
@@ -431,16 +435,16 @@ export default function UsersScreen() {
                       >
                         <View style={styles.cardText}>
                           <Text style={[styles.name, { color: colors.text }]}>{pickString(result, ['username'])}</Text>
-                          <Text style={[styles.email, { color: colors.textSecondary }]}>{pickString(result, ['email'], pickString(result, ['display_name'], 'No email'))}</Text>
+                          <Text style={[styles.email, { color: colors.textSecondary }]}>{pickString(result, ['email'], pickString(result, ['display_name'], translateNative('native.f191acf23a08048e')))}</Text>
                         </View>
-                        {disabled ? <StatusBadge label="Provisioned" color={colors.textTertiary} /> : null}
+                        {disabled ? <StatusBadge label={translateNative('native.4f51a43580df39cf')} color={colors.textTertiary} /> : null}
                       </Pressable>
                     );
                   })}
                   <View style={styles.modalActions}>
-                    <PrimaryButton label="Cancel" variant="secondary" onPress={resetCreateState} />
+                    <PrimaryButton label={translateNative('common.cancel')} variant="secondary" onPress={resetCreateState} />
                     <PrimaryButton
-                      label={provisionLdapMutation.isPending ? 'Provisioning…' : 'Provision LDAP user'}
+                      label={provisionLdapMutation.isPending ? translateNative('native.2841f6f297bca17d') : translateNative('native.d37a30c44a70e18d')}
                       onPress={() =>
                         selectedLdap &&
                         void provisionLdapMutation.mutateAsync(pickString(selectedLdap, ['username']))
@@ -452,18 +456,18 @@ export default function UsersScreen() {
                 </View>
               ) : (
                 <>
-                  <TextField label="Username" value={form.username} onChangeText={value => setForm(current => ({ ...current, username: value }))} />
-                  <TextField label="Email" value={form.email} onChangeText={value => setForm(current => ({ ...current, email: value }))} placeholder="user@example.com" keyboardType="email-address" />
+                  <TextField label={translateNative('native.f503af8b2bf430e6')} value={form.username} onChangeText={value => setForm(current => ({ ...current, username: value }))} />
+                  <TextField label={translateNative('native.6d96e259f012a733')} value={form.email} onChangeText={value => setForm(current => ({ ...current, email: value }))} placeholder="user@example.com" keyboardType="email-address" />
                   {!advancedAuthEnabled ? (
                     <>
-                      <TextField label="Password" value={form.password} onChangeText={value => setForm(current => ({ ...current, password: value }))} secureTextEntry />
-                      <TextField label="Confirm password" value={form.confirmPassword} onChangeText={value => setForm(current => ({ ...current, confirmPassword: value }))} secureTextEntry />
+                      <TextField label={translateNative('native.08c9c68cc706272f')} value={form.password} onChangeText={value => setForm(current => ({ ...current, password: value }))} secureTextEntry />
+                      <TextField label={translateNative('native.40d2f662e19a7553')} value={form.confirmPassword} onChangeText={value => setForm(current => ({ ...current, confirmPassword: value }))} secureTextEntry />
                     </>
                   ) : (
-                    <Text style={[styles.helper, { color: colors.textSecondary }]}>A secure password will be generated and emailed to the user.</Text>
+                    <Text style={[styles.helper, { color: colors.textSecondary }]}>{translateNative('native.050018859acf4161')}</Text>
                   )}
 
-                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Groups</Text>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{translateNative('native.66f53452f7bc5afc')}</Text>
                   <View style={styles.groupWrap}>
                     {groups.map(group => {
                       const groupId = pickNumber(group, ['id']);
@@ -487,9 +491,9 @@ export default function UsersScreen() {
                   </View>
 
                   <View style={styles.modalActions}>
-                    <PrimaryButton label="Cancel" variant="secondary" onPress={resetCreateState} />
+                    <PrimaryButton label={translateNative('common.cancel')} variant="secondary" onPress={resetCreateState} />
                     <PrimaryButton
-                      label={createMutation.isPending ? 'Creating…' : 'Create user'}
+                      label={createMutation.isPending ? translateNative('native.b762dfbcd3d9c0d7') : translateNative('native.7d75125ed0d1c636')}
                       onPress={() => void createMutation.mutateAsync()}
                       disabled={isCreateDisabled || createMutation.isPending}
                       loading={createMutation.isPending}
@@ -506,15 +510,15 @@ export default function UsersScreen() {
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
             <ScrollView contentContainerStyle={styles.modalContent}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Edit user</Text>
-              <TextField label="Username" value={form.username} onChangeText={value => setForm(current => ({ ...current, username: value }))} />
-              <TextField label="Email" value={form.email} onChangeText={value => setForm(current => ({ ...current, email: value }))} placeholder="user@example.com" keyboardType="email-address" />
-              <TextField label="New password" value={form.password} onChangeText={value => setForm(current => ({ ...current, password: value, confirmPassword: '' }))} secureTextEntry />
+              <Text style={[styles.modalTitle, { color: colors.text }]}>{translateNative('native.ba0406d32c9fd83e')}</Text>
+              <TextField label={translateNative('native.f503af8b2bf430e6')} value={form.username} onChangeText={value => setForm(current => ({ ...current, username: value }))} />
+              <TextField label={translateNative('native.6d96e259f012a733')} value={form.email} onChangeText={value => setForm(current => ({ ...current, email: value }))} placeholder="user@example.com" keyboardType="email-address" />
+              <TextField label={translateNative('native.e7fd2f088551a901')} value={form.password} onChangeText={value => setForm(current => ({ ...current, password: value, confirmPassword: '' }))} secureTextEntry />
               {form.password ? (
-                <TextField label="Confirm password" value={form.confirmPassword} onChangeText={value => setForm(current => ({ ...current, confirmPassword: value }))} secureTextEntry />
+                <TextField label={translateNative('native.40d2f662e19a7553')} value={form.confirmPassword} onChangeText={value => setForm(current => ({ ...current, confirmPassword: value }))} secureTextEntry />
               ) : null}
 
-              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Groups</Text>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{translateNative('native.66f53452f7bc5afc')}</Text>
               <View style={styles.groupWrap}>
                 {groups.map(group => {
                   const groupId = pickNumber(group, ['id']);
@@ -538,9 +542,9 @@ export default function UsersScreen() {
               </View>
 
               <View style={styles.modalActions}>
-                <PrimaryButton label="Cancel" variant="secondary" onPress={closeEdit} />
+                <PrimaryButton label={translateNative('common.cancel')} variant="secondary" onPress={closeEdit} />
                 <PrimaryButton
-                  label={updateMutation.isPending ? 'Saving…' : 'Save changes'}
+                  label={updateMutation.isPending ? translateNative('native.018c2002806e2312') : translateNative('native.9d405330309a30e5')}
                   onPress={() => void updateMutation.mutateAsync()}
                   disabled={isEditDisabled || updateMutation.isPending}
                   loading={updateMutation.isPending}
@@ -561,9 +565,9 @@ export default function UsersScreen() {
         visible={canDeleteGroup && deleteGroupId != null}
         onClose={() => setDeleteGroupId(null)}
         onConfirm={() => deleteGroupId && deleteGroupMutation.mutate(deleteGroupId)}
-        title="Delete Group"
-        message="Are you sure you want to delete this group? Users in this group will lose their permissions."
-        confirmLabel="Delete"
+        title={translateNative('native.a6061480db846f65')}
+        message={translateNative('native.1d3608dd89db1fc8')}
+        confirmLabel={translateNative('common.delete')}
         variant="danger"
         loading={deleteGroupMutation.isPending}
       />
@@ -572,6 +576,7 @@ export default function UsersScreen() {
 }
 
 function UsersItemSeparator() {
+  useNativeLocale();
   return <View style={{ height: spacing.md }} />;
 }
 

@@ -1,4 +1,6 @@
-import React, { useMemo } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React from 'react';
 import {
   FlatList,
   Modal,
@@ -20,7 +22,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { Chip, PrimaryButton, SectionCard, StatCard } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { useTheme } from '@/theme';
 import {
@@ -52,7 +54,7 @@ function groupFailuresByReason(
   const reasonMap = new Map<string, FailureGroup>();
 
   for (const failure of recentFailures) {
-    const reason = failure.failure_reason || 'Unknown error';
+    const reason = failure.failure_reason || translateNative('native.00119ab77bed49ff');
     const existing = reasonMap.get(reason);
 
     if (existing) {
@@ -95,12 +97,13 @@ function getFailureSeverityColor(rate: number, colors: { error: string; warning:
 }
 
 function TrendIndicator({ trend }: { trend: FailureAnalysis['trend'] }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   if (trend.length < 2) {
     return (
       <View style={[styles.trendBadge, { backgroundColor: colors.surfaceElevated }]}>
-        <Text style={[styles.trendBadgeText, { color: colors.textSecondary }]}>Insufficient data</Text>
+        <Text style={[styles.trendBadgeText, { color: colors.textSecondary }]}>{translateNative('native.c147ccff4b20bb13')}</Text>
       </View>
     );
   }
@@ -117,7 +120,7 @@ function TrendIndicator({ trend }: { trend: FailureAnalysis['trend'] }) {
   if (Math.abs(diff) < 0.01) {
     return (
       <View style={[styles.trendBadge, { backgroundColor: colors.surfaceElevated }]}>
-        <Text style={[styles.trendBadgeText, { color: colors.textSecondary }]}>Stable</Text>
+        <Text style={[styles.trendBadgeText, { color: colors.textSecondary }]}>{translateNative('native.8290053dadf9f7b1')}</Text>
       </View>
     );
   }
@@ -159,6 +162,7 @@ function FailureDetailModal({
   failure: FailureGroup | null;
   onClose: () => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   if (!failure) return null;
@@ -182,8 +186,7 @@ function FailureDetailModal({
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderText}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Failure details
-              </Text>
+                {translateNative('native.85bf6657dc6a24cd')}</Text>
               <Text
                 style={[styles.modalSubtitle, { color: colors.textSecondary }]}
               >
@@ -204,8 +207,7 @@ function FailureDetailModal({
             <Text
               style={[styles.detailStatLabel, { color: colors.textSecondary }]}
             >
-              Occurrences
-            </Text>
+              {translateNative('native.eb90b4f7a3889282')}</Text>
             <Text style={[styles.detailStatValue, { color: colors.error }]}>
               {failure.count}
             </Text>
@@ -214,9 +216,7 @@ function FailureDetailModal({
           <ScrollView style={styles.archiveList} showsVerticalScrollIndicator={false}>
             <Text
               style={[styles.archiveListTitle, { color: colors.text }]}
-            >
-              Occurrences ({failure.archives.length})
-            </Text>
+            ><NativeTranslation id="native.cc2151455cd0ab73" values={{ value0: (failure.archives.length) }} /></Text>
             {failure.archives.map((archive) => (
               <View
                 key={archive.id}
@@ -230,7 +230,7 @@ function FailureDetailModal({
                     style={[styles.archiveRowName, { color: colors.text }]}
                     numberOfLines={2}
                   >
-                    {archive.print_name || 'Unknown print'}
+                    {archive.print_name || translateNative('native.465d9477e2799945')}
                   </Text>
                   {archive.filament_type && (
                     <Text
@@ -242,9 +242,7 @@ function FailureDetailModal({
                   {archive.printer_name && (
                     <Text
                       style={[styles.archiveRowMeta, { color: colors.textSecondary }]}
-                    >
-                      Printer: {archive.printer_name}
-                    </Text>
+                    ><NativeTranslation id="native.d9a7bdd2824cf968" values={{ value0: (archive.printer_name) }} /></Text>
                   )}
                   {archive.created_at && (
                     <Text
@@ -259,7 +257,7 @@ function FailureDetailModal({
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
+            <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
           </View>
         </View>
       </View>
@@ -268,6 +266,7 @@ function FailureDetailModal({
 }
 
 export default function FailureAnalysisScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
 
@@ -286,33 +285,33 @@ export default function FailureAnalysisScreen() {
     enabled: true,
   });
 
-  const printers = useMemo(() => {
+  const printers = useLocalizedMemo(() => {
     if (!Array.isArray(printersQuery.data)) return [];
     return printersQuery.data as Printer[];
   }, [printersQuery.data]);
 
-  const failureData = useMemo(() => {
+  const failureData = useLocalizedMemo(() => {
     return failureQuery.data as FailureAnalysis | null;
   }, [failureQuery.data]);
 
-  const groupedFailures = useMemo(() => {
+  const groupedFailures = useLocalizedMemo(() => {
     if (!failureData?.recent_failures) return [];
     return groupFailuresByReason(failureData.recent_failures, printers);
   }, [failureData, printers]);
 
-  const selectedFailureGroup = useMemo(() => {
+  const selectedFailureGroup = useLocalizedMemo(() => {
     if (!selectedReason) return null;
     return groupedFailures.find(g => g.reason === selectedReason) || null;
   }, [selectedReason, groupedFailures]);
 
-  const failureByPrinterMap = useMemo(() => {
+  const failureByPrinterMap = useLocalizedMemo(() => {
     if (!failureData?.failures_by_printer) return [];
     return Object.entries(failureData.failures_by_printer)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
   }, [failureData]);
 
-  const failureByFilamentMap = useMemo(() => {
+  const failureByFilamentMap = useLocalizedMemo(() => {
     if (!failureData?.failures_by_filament) return [];
     return Object.entries(failureData.failures_by_filament)
       .map(([name, count]) => ({ name, count }))
@@ -330,13 +329,13 @@ export default function FailureAnalysisScreen() {
   };
 
   if (failureQuery.isLoading || printersQuery.isLoading) {
-    return <LoadingScreen message="Loading failure analysis…" />;
+    return <LoadingScreen message={translateNative('native.0b9225c3fc8fbae9')} />;
   }
 
   if (failureQuery.isError) {
     return (
       <ErrorState
-        message="Unable to load failure analysis."
+        message={translateNative('native.eaf5167943f5b78e')}
         onRetry={() => {
           refreshAll();
         }}
@@ -345,10 +344,10 @@ export default function FailureAnalysisScreen() {
   }
 
   const periodOptions = [
-    { label: '7 days', value: 7 },
-    { label: '30 days', value: 30 },
-    { label: '90 days', value: 90 },
-    { label: '180 days', value: 180 },
+    { get label() { return translateNative('native.d5b591353adf991b'); }, value: 7 },
+    { get label() { return translateNative('native.6f5dfc446e0a31fe'); }, value: 30 },
+    { get label() { return translateNative('native.ce9da8709293d56c'); }, value: 90 },
+    { get label() { return translateNative('native.76aca61c49892c6f'); }, value: 180 },
   ];
 
   return (
@@ -391,7 +390,7 @@ export default function FailureAnalysisScreen() {
                   <Text
                     style={[styles.failureCardCount, { color: colors.textSecondary }]}
                   >
-                    {item.count} {item.count === 1 ? 'occurrence' : 'occurrences'}
+                    {item.count} {item.count === 1 ? translateNative('native.289a501553e7f881') : translateNative('native.fe0e9af512dbf629')}
                   </Text>
                 </View>
               </View>
@@ -418,8 +417,8 @@ export default function FailureAnalysisScreen() {
           failureData ? (
             <View style={styles.headerStack}>
               <SectionCard
-                title="Failure overview"
-                subtitle={`Analysis of print failures over the past ${periodDays} days`}
+                title={translateNative('native.67773c88d19fe448')}
+                subtitle={translateNative('native.ced7c5e3817f45f5', { value0: String(periodDays) })}
               >
                 <View style={styles.overviewGrid}>
                   {rejectedPrints > 0 ? <>
@@ -427,11 +426,11 @@ export default function FailureAnalysisScreen() {
                     <StatCard label={t('archives.yieldRate', { defaultValue: 'Yield' })} value={formatPercent(yieldRate ?? 0)} />
                   </> : null}
                   <StatCard
-                    label="Total prints"
+                    label={translateNative('native.185578091a522c97')}
                     value={String(totalPrints)}
                   />
                   <StatCard
-                    label="Failed prints"
+                    label={translateNative('native.0cdef5a95608faf1')}
                     value={String(failedPrints)}
                   />
                   <View
@@ -450,8 +449,7 @@ export default function FailureAnalysisScreen() {
                       style={[styles.statLabel, { color: colors.textSecondary }]}
                       allowFontScaling={false}
                     >
-                      Failure rate
-                    </Text>
+                      {translateNative('native.2cbb9527d0667521')}</Text>
                   </View>
                 </View>
 
@@ -480,8 +478,7 @@ export default function FailureAnalysisScreen() {
                     <Text
                       style={[styles.breakdownTitle, { color: colors.text }]}
                     >
-                      Failures by printer
-                    </Text>
+                      {translateNative('native.5ddb3c01bef5212a')}</Text>
                     {failureByPrinterMap.map((printer) => {
                       const percentage =
                         failedPrints > 0
@@ -497,9 +494,7 @@ export default function FailureAnalysisScreen() {
                             </Text>
                             <Text
                               style={[styles.breakdownCount, { color: colors.textSecondary }]}
-                             >
-                               {printer.count} failures
-                             </Text>
+                             ><NativeTranslation id="native.2ab5af3a19639306" values={{ value0: (printer.count) }} /></Text>
                            </View>
                            <View style={[styles.breakdownBar, { backgroundColor: colors.surfaceElevated }]}>
                             <View
@@ -528,8 +523,7 @@ export default function FailureAnalysisScreen() {
                     <Text
                       style={[styles.breakdownTitle, { color: colors.text }]}
                     >
-                      Failures by filament
-                    </Text>
+                      {translateNative('native.dd579939c2572c10')}</Text>
                     {failureByFilamentMap.map((filament) => {
                       const percentage =
                         failedPrints > 0
@@ -545,9 +539,7 @@ export default function FailureAnalysisScreen() {
                             </Text>
                             <Text
                               style={[styles.breakdownCount, { color: colors.textSecondary }]}
-                             >
-                               {filament.count} failures
-                             </Text>
+                             ><NativeTranslation id="native.2ab5af3a19639306" values={{ value0: (filament.count) }} /></Text>
                            </View>
                            <View style={[styles.breakdownBar, { backgroundColor: colors.surfaceElevated }]}>
                             <View
@@ -577,8 +569,7 @@ export default function FailureAnalysisScreen() {
                       <Text
                         style={[styles.breakdownTitle, { color: colors.text }]}
                       >
-                        Top error patterns
-                      </Text>
+                        {translateNative('native.6c433659e1df3f6b')}</Text>
                       {Object.entries(failureData.failures_by_reason)
                         .sort((a, b) => b[1] - a[1])
                         .slice(0, 5)
@@ -611,12 +602,12 @@ export default function FailureAnalysisScreen() {
           ) : (
             <View style={styles.headerStack}>
               <SectionCard
-                title="Failure overview"
-                subtitle="No failure data available for the selected period"
+                title={translateNative('native.67773c88d19fe448')}
+                subtitle={translateNative('native.d926a028dc3f3310')}
               >
                 <View style={styles.overviewGrid}>
-                  <StatCard label="Total prints" value="0" />
-                  <StatCard label="Failed prints" value="0" />
+                  <StatCard label={translateNative('native.185578091a522c97')} value="0" />
+                  <StatCard label={translateNative('native.0cdef5a95608faf1')} value="0" />
                   <View
                     style={[
                       styles.statWrapper,
@@ -633,8 +624,7 @@ export default function FailureAnalysisScreen() {
                       style={[styles.statLabel, { color: colors.textSecondary }]}
                       allowFontScaling={false}
                     >
-                      Failure rate
-                    </Text>
+                      {translateNative('native.2cbb9527d0667521')}</Text>
                   </View>
                 </View>
               </SectionCard>
@@ -648,13 +638,10 @@ export default function FailureAnalysisScreen() {
               <Text
                 style={[styles.emptyTitle, { color: colors.text }]}
               >
-                No failures reported
-              </Text>
+                {translateNative('native.3cb852fb282e4128')}</Text>
               <Text
                 style={[styles.emptySubtitle, { color: colors.textSecondary }]}
-              >
-                All prints completed successfully over the past {periodDays} days.
-              </Text>
+              ><NativeTranslation id="native.7b7b1250e6f26ed6" values={{ value0: (periodDays) }} /></Text>
             </View>
           ) : null
         }

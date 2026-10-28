@@ -1,14 +1,16 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useRef, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { profileManagementApi } from '@/api/profileManagement';
 import { PrimaryButton } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type { OrcaDeviceAuthorization as Authorization } from '@/types/api';
 
 export function OrcaDeviceAuthorization() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const client = useQueryClient();

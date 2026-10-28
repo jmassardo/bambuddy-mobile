@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -23,6 +25,7 @@ interface Props {
 }
 
 export function GroupEditModal({ visible, onClose, groupId }: Props) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -64,10 +67,10 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
       api.createGroup(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
-      showToast('Group created.', 'success');
+      showToast(translateNative('native.00f5543c500a07f1'), 'success');
       onClose();
     },
-    onError: (e: Error) => showToast(e.message || 'Failed to create group.', 'error'),
+    onError: (e: Error) => showToast(e.message || translateNative('native.6c088ccde2680d11'), 'error'),
   });
 
   const updateMutation = useMutation({
@@ -76,15 +79,15 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
       queryClient.invalidateQueries({ queryKey: ['group', groupId] });
-      showToast('Group updated.', 'success');
+      showToast(translateNative('native.fbbfac54275c4d10'), 'success');
       onClose();
     },
-    onError: (e: Error) => showToast(e.message || 'Failed to update group.', 'error'),
+    onError: (e: Error) => showToast(e.message || translateNative('native.ac34986bfc7eb5b9'), 'error'),
   });
 
   const handleSave = () => {
     if (!name.trim()) {
-      showToast('Please enter a group name.', 'error');
+      showToast(translateNative('native.d48cbe1212fe60bd'), 'error');
       return;
     }
     if (isEditing) {
@@ -96,7 +99,7 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
-  const categories = useMemo(() => {
+  const categories = useLocalizedMemo(() => {
     const data = permissionsQuery.data as ApiRecord | undefined;
     if (!data) return [];
     const cats = pickArray(data, ['categories']) as ApiRecord[];
@@ -116,7 +119,7 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
       .filter(cat => cat.permissions.length > 0);
   }, [permissionsQuery.data, search]);
 
-  const allPerms = useMemo(() => {
+  const allPerms = useLocalizedMemo(() => {
     const data = permissionsQuery.data as ApiRecord | undefined;
     if (!data) return [];
     return pickArray(data, ['all_permissions']) as string[];
@@ -144,11 +147,9 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
           <View style={[styles.header, { borderBottomColor: colors.borderSubtle }]}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.title, { color: colors.text }]}>
-                {isEditing ? 'Edit Group' : 'Create Group'}
+                {isEditing ? translateNative('native.1dbd7a6fa6e8ea0c') : translateNative('native.6a9af6ca9fd2e3b0')}
               </Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                {permissions.length}/{allPerms.length} permissions selected
-              </Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}><NativeTranslation id="native.934307fd99d33c94" values={{ value0: (permissions.length), value1: (allPerms.length) }} /></Text>
             </View>
             <Pressable onPress={onClose} style={styles.closeBtn}>
               <X size={18} color={colors.textSecondary} />
@@ -157,25 +158,24 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
 
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             {/* Name + Description */}
-            <TextField label="Group Name" value={name} onChangeText={setName} placeholder="e.g. Operators" />
-            <TextField label="Description" value={description} onChangeText={setDescription} placeholder="Optional description" />
+            <TextField label={translateNative('native.2d9a415b53589540')} value={name} onChangeText={setName} placeholder={translateNative('native.2adc6b536f8c82d6')} />
+            <TextField label={translateNative('native.a7115fb87dd30c12')} value={description} onChangeText={setDescription} placeholder={translateNative('native.7898f2a35154d41d')} />
 
             {/* Permission controls */}
             <View style={styles.permHeader}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                <Shield size={14} color={colors.accent} /> Permissions
-              </Text>
+                <Shield size={14} color={colors.accent} /> {translateNative('native.dd83f53be6c46779')}</Text>
               <View style={styles.permActions}>
-                <Pressable onPress={selectAll} accessibilityLabel="Select all permissions" accessibilityRole="button">
-                  <Text style={[styles.actionLink, { color: colors.accent }]}>All</Text>
+                <Pressable onPress={selectAll} accessibilityLabel={translateNative('native.b286defcc0b99c65')} accessibilityRole="button">
+                  <Text style={[styles.actionLink, { color: colors.accent }]}>{translateNative('common.all')}</Text>
                 </Pressable>
-                <Pressable onPress={clearAll} accessibilityLabel="Clear all permissions" accessibilityRole="button">
-                  <Text style={[styles.actionLink, { color: colors.textSecondary }]}>None</Text>
+                <Pressable onPress={clearAll} accessibilityLabel={translateNative('native.5b963e151826d816')} accessibilityRole="button">
+                  <Text style={[styles.actionLink, { color: colors.textSecondary }]}>{translateNative('common.none')}</Text>
                 </Pressable>
               </View>
             </View>
 
-            <SearchBar value={search} onChangeText={setSearch} placeholder="Search permissions…" />
+            <SearchBar value={search} onChangeText={setSearch} placeholder={translateNative('native.c53172a4da8c9887')} />
 
             {/* Permission categories */}
             {categories.map(cat => {
@@ -187,7 +187,7 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
                   <Pressable
                     onPress={() => toggleCategory(catPermValues, !allSelected)}
                     style={styles.categoryHeader}
-                    accessibilityLabel={`${cat.label}: ${allSelected ? 'All selected' : someSelected ? 'Some selected' : 'None selected'}`}
+                    accessibilityLabel={`${cat.label}: ${allSelected ? translateNative('native.e33f6ece7f8005e2') : someSelected ? translateNative('native.c9001cd2905b950c') : translateNative('native.99dd79d4bc8e1787')}`}
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: allSelected }}
                   >
@@ -238,7 +238,7 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
 
             {/* Save button */}
             <PrimaryButton
-              label={isSaving ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Group'}
+              label={isSaving ? translateNative('native.018c2002806e2312') : isEditing ? translateNative('native.10eb6adbe0c1cd3f') : translateNative('native.6a9af6ca9fd2e3b0')}
               onPress={handleSave}
               loading={isSaving}
               disabled={!name.trim()}

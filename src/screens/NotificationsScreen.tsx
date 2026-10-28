@@ -1,3 +1,5 @@
+import { nativeLabelTuple, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -13,17 +15,17 @@ import { NotificationToggle } from '@/components/notifications/ProviderEditorFie
 import { useAuth } from '@/contexts/AuthContext';
 import { usePushNotification } from '@/contexts/PushNotificationContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import type { RootNavigationProp } from '@/navigation/types';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { pickBoolean } from '@/utils/data';
 
 const PREFERENCES = [
-  ['notify_print_start', 'Print started'],
-  ['notify_print_complete', 'Print completed'],
-  ['notify_print_failed', 'Print failed'],
-  ['notify_print_stopped', 'Print stopped'],
+  nativeLabelTuple(['notify_print_start', 'Print started']),
+  nativeLabelTuple(['notify_print_complete', 'Print completed']),
+  nativeLabelTuple(['notify_print_failed', 'Print failed']),
+  nativeLabelTuple(['notify_print_stopped', 'Print stopped']),
 ] as const;
 type PreferenceState = Record<typeof PREFERENCES[number][0], boolean>;
 const DEFAULT_PREFERENCES: PreferenceState = {
@@ -31,6 +33,7 @@ const DEFAULT_PREFERENCES: PreferenceState = {
 };
 
 export default function NotificationsScreen() {
+  useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Notifications'>>();
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -39,9 +42,9 @@ export default function NotificationsScreen() {
   const client = useQueryClient();
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
   const [dirty, setDirty] = useState(false);
-  React.useLayoutEffect(() => { navigation.setOptions({ title: t('notifications.title', { defaultValue: 'Notifications' }) }); }, [navigation, t]);
+  React.useLayoutEffect(() => { navigation.setOptions({ get title() { return translateNative('notifications.title', { defaultValue: 'Notifications' }); } }); }, [navigation, t]);
   const auth = useQuery({ queryKey: ['advancedAuthStatus'], queryFn: () => api.getAdvancedAuthStatus() });
-  const settings = useQuery({ queryKey: ['settings'], queryFn: () => api.getSettings() });
+  const settings = useQuery({ queryKey: useServerSettingsKey(), queryFn: () => api.getSettings() });
   const personal = useQuery({ queryKey: ['userEmailPreferences'], queryFn: () => api.getUserEmailPreferences() });
   useEffect(() => {
     if (personal.data && !dirty) {
@@ -113,6 +116,7 @@ export default function NotificationsScreen() {
 }
 
 function PushNotificationToggleCard() {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { showToast } = useToast();
@@ -144,3 +148,4 @@ const styles = StyleSheet.create({
   screen: { flex: 1 }, content: { padding: spacing.lg, paddingBottom: spacing['3xl'], gap: spacing.lg },
   group: { gap: spacing.md }, row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md }, label: { flex: 1 },
 });
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

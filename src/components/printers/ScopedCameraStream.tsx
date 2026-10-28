@@ -1,12 +1,14 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { printersApi } from '@/api/printers';
 import { useMediaToken } from '@/hooks/useStreamToken';
-import { useTranslation } from '@/i18n';
+
 import { CameraMessage } from './CameraControls';
 
 export function ScopedCameraStream({ printerId, rotation = 0 }: { printerId: number; rotation?: number }) {
+  useNativeLocale();
   const { isReady, token } = useMediaToken();
   const { t } = useTranslation();
   const [failed, setFailed] = useState(false);

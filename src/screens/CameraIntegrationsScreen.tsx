@@ -1,3 +1,5 @@
+import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { Alert, AppState, Linking, ScrollView, StyleSheet, Switch, Text, View, Share } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
@@ -8,7 +10,7 @@ import { printersApi } from '@/api/printers';
 import { useServerStore } from '@/api/server';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
 import { CameraChoices, CameraMessage } from '@/components/printers/CameraControls';
 import { OverlayPreview } from '@/components/printers/OverlayPreview';
@@ -19,6 +21,7 @@ import { getAuthToken } from '@/api/http';
 import { formatPreferredDateTime } from '@/utils/preferences';
 
 function IntegrationActions({ value }: { value: string }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const [copied, setCopied] = useState(false);
@@ -30,6 +33,7 @@ function IntegrationActions({ value }: { value: string }) {
 }
 
 export function CameraTokenManager({ printerId }: { printerId: number }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isAdmin, authEnabled, user, hasPermission } = useAuth();
@@ -66,7 +70,7 @@ export function CameraTokenManager({ printerId }: { printerId: number }) {
     {!canManage ? <CameraMessage>{t('camera.tokenRequiresAuth', { defaultValue: 'Sign in with camera permission to manage user-owned integration tokens.' })}</CameraMessage> : <>
       <TextField label={t('camera.tokenName', { defaultValue: 'Token name' })} value={name} onChangeText={setName} />
       <TextField label={t('camera.tokenDays', { defaultValue: 'Expires in days (1–365)' })} value={days} onChangeText={setDays} keyboardType="number-pad" />
-      <CameraChoices label={t('camera.tokenScope', { defaultValue: 'Token scope' })} value={scope} options={['camera_stream', 'camwall', 'overlay']} onChange={setScope} />
+      <CameraChoices optionLabel={option => translateNative(String(option))} label={t('camera.tokenScope', { defaultValue: 'Token scope' })} value={scope} options={['camera_stream', 'camwall', 'overlay']} onChange={setScope} />
       <CameraMessage>{scope === 'camwall'
         ? t('camera.scopeWall', { defaultValue: 'Wall tokens expose all printer names, state and video, but no filenames or addresses.' })
         : scope === 'overlay'
@@ -98,15 +102,29 @@ export function CameraTokenManager({ printerId }: { printerId: number }) {
   </SectionCard>;
 }
 
+const OVERLAY_FIELD_LABELS: Record<string, string> = {
+  get printer() { return translateNative('screen.printer'); },
+  get model() { return translateNative('native.8b62363d3367fc41'); },
+  get filename() { return translateNative('native.25e521f0dbdd658f'); },
+  get status() { return translateNative('common.status'); },
+  get progress() { return translateNative('native.bb42ea23a396f650'); },
+  get layers() { return translateNative('native.878ef2fc08bb9043'); },
+  get eta() { return translateNative('native.b9acbc48541e900b'); },
+  get nozzle() { return translateNative('native.13db537aa9385363'); },
+  get bed() { return translateNative('native.a3619e5a7b86c9e4'); },
+  get chamber() { return translateNative('native.3240e2f71b00c6f4'); },
+};
+
 export default function CameraIntegrationsScreen() {
-  const { t } = useTranslation();
+  useNativeLocale();
+  const { t, language } = useTranslation();
   const { colors } = useTheme();
   const { authEnabled, user, hasPermission } = useAuth();
   const focused = useIsFocused();
   const server = useServerStore(state => state.serverUrl);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const [preview, setPreview] = useState(false);
-  const [openError, setOpenError] = useState<string | null>(null);
+  const [openError, setOpenError] = useNativeMessageState<string | null>(null);
   const [options, setOptions] = useState<OverlayOptions>({
     printerId: 1, fields: ['progress', 'layers', 'eta', 'filename', 'status'],
     size: 'medium', artwork: '1', fps: 15, camera: true, token: '',
@@ -133,16 +151,16 @@ export default function CameraIntegrationsScreen() {
     <SectionCard title={t('camera.overlayBuilder', { defaultValue: 'OBS streaming-overlay URL builder' })}>
       <CameraMessage>{t('camera.selectPrinter', { defaultValue: 'Select printer' })}</CameraMessage>
       {printers.data?.map(printer => <PrimaryButton key={printer.id} label={`${options.printerId === printer.id ? '✓ ' : ''}${printer.name}`} variant="secondary" onPress={() => setOptions(current => ({ ...current, printerId: printer.id }))} />)}
-      <CameraChoices label={t('camera.textSize', { defaultValue: 'Text size' })} options={['small', 'medium', 'large']} value={options.size} onChange={size => setOptions(current => ({ ...current, size }))} />
-      <CameraChoices label={t('camera.artwork', { defaultValue: 'Artwork (1 = classic, 2 = version 2)' })} options={['1', '2']} value={options.artwork} onChange={artwork => setOptions(current => ({ ...current, artwork }))} />
+      <CameraChoices optionLabel={option => translateNative(String(option))} label={t('camera.textSize', { defaultValue: 'Text size' })} options={['small', 'medium', 'large']} value={options.size} onChange={size => setOptions(current => ({ ...current, size }))} />
+      <CameraChoices optionLabel={option => translateNative(String(option))} label={t('camera.artwork', { defaultValue: 'Artwork (1 = classic, 2 = version 2)' })} options={['1', '2']} value={options.artwork} onChange={artwork => setOptions(current => ({ ...current, artwork }))} />
       <TextField label={t('camera.fps', { defaultValue: 'Frames per second (1–30)' })} value={fpsInput} keyboardType="number-pad" onChangeText={value => {
         setFpsInput(value);
         const fps = Number(value);
         if (Number.isInteger(fps) && fps >= 1 && fps <= 30) setOptions(current => ({ ...current, fps }));
       }} />
       {overlayFields.map(field => <View key={field} style={styles.toggle}>
-        <CameraMessage>{t(`camera.overlayField.${field}`, { defaultValue: field })}</CameraMessage>
-        <Switch accessibilityLabel={t(`camera.overlayField.${field}`, { defaultValue: field })} value={options.fields.includes(field)} onValueChange={enabled => setOptions(current => ({ ...current, fields: enabled ? [...current.fields, field] : current.fields.filter(value => value !== field) }))} />
+        <CameraMessage>{language === 'en' ? field : OVERLAY_FIELD_LABELS[field]}</CameraMessage>
+        <Switch accessibilityLabel={language === 'en' ? field : OVERLAY_FIELD_LABELS[field]} value={options.fields.includes(field)} onValueChange={enabled => setOptions(current => ({ ...current, fields: enabled ? [...current.fields, field] : current.fields.filter(value => value !== field) }))} />
       </View>)}
       <View style={styles.toggle}>
         <CameraMessage>{t('camera.showCamera', { defaultValue: 'Show camera' })}</CameraMessage>
@@ -153,7 +171,7 @@ export default function CameraIntegrationsScreen() {
         <IntegrationActions value={url} />
         <PrimaryButton label={t('camera.openUrl', { defaultValue: 'Open overlay URL' })} onPress={() => {
           setOpenError(null);
-          void Linking.openURL(url).catch(() => setOpenError(t('camera.openFailed', { defaultValue: 'Unable to open overlay URL.' })));
+          void Linking.openURL(url).catch(() => setOpenError(nativeMessage('camera.openFailed', () => ({ defaultValue: 'Unable to open overlay URL.' }))));
         }} />
         <PrimaryButton label={preview ? t('camera.hidePreview', { defaultValue: 'Stop preview' }) : t('camera.showPreview', { defaultValue: 'Preview overlay' })} onPress={() => setPreview(current => !current)} />
         {openError ? <CameraMessage>{openError}</CameraMessage> : null}

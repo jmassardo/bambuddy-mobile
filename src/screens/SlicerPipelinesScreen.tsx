@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import { Alert, ScrollView } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,9 +15,9 @@ import type {
   SlicerPipelineUpdateRequest,
   UnifiedPresetsResponse,
 } from '@/types/api';
-import { useTranslation } from '@/i18n';
 
 export function SlicerPipelinesScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const text = (s: string) => t(`pipelineManagement.${s}`, { defaultValue: s });
   const { hasPermission } = useAuth();
@@ -129,6 +130,7 @@ function PipelineRow({
   printers: Printer[];
   writable: boolean;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const text = (s: string) => t(`pipelineManagement.${s}`, { defaultValue: s });
   const client = useQueryClient();

@@ -1,3 +1,5 @@
+import { NativeTranslation, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { Linking, Text, View } from 'react-native';
 import {
@@ -21,7 +23,7 @@ import type {
 } from '@/types/api';
 import { formatDateTime } from '@/utils/data';
 import type { Permission } from '@/types/api';
-import { useTranslation } from '@/i18n';
+
 import { OptionChipsField, SwitchRow, settingsStyles } from './shared';
 import {
   confirmBackupAction,
@@ -50,6 +52,13 @@ const backupCategories = [
   'spools',
   'archives',
 ] as const;
+const backupCategoryLabels = {
+  get kprofiles() { return translateNative('backup.git.include.kprofiles', { defaultValue: 'Include K-profiles' }); },
+  get cloud_profiles() { return translateNative('backup.git.include.cloud_profiles', { defaultValue: 'Include cloud profiles' }); },
+  get settings() { return translateNative('backup.git.include.settings', { defaultValue: 'Include settings' }); },
+  get spools() { return translateNative('backup.git.include.spools', { defaultValue: 'Include spools' }); },
+  get archives() { return translateNative('backup.git.include.archives', { defaultValue: 'Include archives' }); },
+};
 const writePermissions: Record<GitRestoreCategory, Permission> = {
   kprofiles: 'kprofiles:update',
   settings: 'settings:update',
@@ -58,6 +67,7 @@ const writePermissions: Record<GitRestoreCategory, Permission> = {
 };
 
 export function RemoteBackupSettings() {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { refreshUser, hasPermission } = useAuth();
@@ -65,7 +75,7 @@ export function RemoteBackupSettings() {
   const [form, setForm] = useState(initialForm);
   const [schedule, setSchedule] = useState('manual');
   const [initialized, setInitialized] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useNativeMessageState('');
   const [ref, setRef] = useState('HEAD');
   const [preview, setPreview] = useState<GitRestorePreview>();
   const [selected, setSelected] = useState<GitRestoreCategory[]>([]);
@@ -282,7 +292,7 @@ export function RemoteBackupSettings() {
             value={schedule}
             options={['manual', 'hourly', 'daily', 'weekly'].map(key => ({
               key,
-              label: t(`backup.git.schedule.${key}`, { defaultValue: key }),
+              get label() { return translateNative(`backup.git.schedule.${key}`, { defaultValue: key }); },
             }))}
             onChange={setSchedule}
           />
@@ -297,9 +307,7 @@ export function RemoteBackupSettings() {
             return (
               <SwitchRow
                 key={key}
-                label={t(`backup.git.include.${category}`, {
-                  defaultValue: `Include ${category.replace('_', ' ')}`,
-                })}
+                label={backupCategoryLabels[category]}
                 value={Boolean(form[key])}
                 onValueChange={value =>
                   setForm(current => ({ ...current, [key]: value }))
@@ -419,7 +427,7 @@ export function RemoteBackupSettings() {
         {'\n'}
         {t('backup.git.next', {
           defaultValue: 'Next: {{date}}',
-          date: status.data?.next_scheduled_run ?? 'Not scheduled',
+          date: status.data?.next_scheduled_run ?? translateNative('native.ba3131e9720a27b0'),
         })}
       </Text>
       {status.error ? (
@@ -450,11 +458,7 @@ export function RemoteBackupSettings() {
           ) : null}
           {history.data?.pages.flat().map(row => (
             <View key={row.id} style={settingsStyles.actions}>
-              <Text style={{ color: colors.text }}>
-                {formatDateTime(row.started_at)} · {row.trigger} · {row.status}
-                {'\n'}
-                {row.files_changed} files · {row.error_message ?? ''}
-              </Text>
+              <Text style={{ color: colors.text }}><NativeTranslation id="native.97113b9e96a7644b" values={{ value0: (formatDateTime(row.started_at)), value1: (row.trigger), value2: (row.status), value3: (row.files_changed), value4: (row.error_message ?? '') }} /></Text>
               {row.commit_sha && config.data ? (
                 <PrimaryButton
                   label={t('backup.git.commitLink', {
@@ -544,7 +548,7 @@ export function RemoteBackupSettings() {
             options={[
               {
                 key: 'HEAD',
-                label: t('backup.git.latest', { defaultValue: 'Latest' }),
+                get label() { return translateNative('backup.git.latest', { defaultValue: 'Latest' }); },
               },
               ...(commits.data?.commits ?? []).map(commit => ({
                 key: commit.sha,
@@ -590,13 +594,7 @@ export function RemoteBackupSettings() {
           />
           {preview ? (
             <>
-              <Text selectable style={{ color: colors.text }}>
-                Resolved commit: {preview.ref}
-                {'\n'}
-                {preview.commit?.message}
-                {'\n'}Backup version:{' '}
-                {preview.metadata_version ?? 'Unavailable'}
-              </Text>
+              <Text selectable style={{ color: colors.text }}><NativeTranslation id="native.84a1fd50219ee308" values={{ value0: (preview.ref), value1: (preview.commit?.message), value2: (preview.metadata_version ?? 'Unavailable') }} /></Text>
               <Text style={{ color: colors.textSecondary }}>
                 {t('backup.git.caveats', {
                   defaultValue:
@@ -610,9 +608,7 @@ export function RemoteBackupSettings() {
                       !category.available ||
                       !hasPermission(writePermissions[category.category])
                     }
-                    label={`${category.category}: ${
-                      category.item_count
-                    } items ${category.available ? '' : '(unavailable)'}`}
+                    label={translateNative('native.6dd55c25a6d45151', { value0: String(category.category), value1: String(category.item_count), value2: String(category.available ? '' : '(unavailable)') })}
                     value={selected.includes(category.category)}
                     onValueChange={value => {
                       if (

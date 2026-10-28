@@ -1,3 +1,5 @@
+import { nativeLabelTuple, translateNative, useNativeLocale } from '@/i18n';
+
 import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { inventoryBackend, inventoryRequest } from '@/api/inventoryManagement';
@@ -14,20 +16,20 @@ import {
 } from './InventoryControls';
 
 const bulkFields = [
-  ['brand', 'Brand'],
-  ['material', 'Material'],
-  ['subtype', 'Subtype'],
-  ['color_name', 'Color name'],
-  ['rgba', 'Color RGBA'],
-  ['slicer_filament_name', 'Slicer filament name'],
-  ['slicer_filament', 'Slicer filament ID'],
-  ['cost_per_kg', 'Actual cost per kg'],
-  ['note', 'Note'],
-  ['label_weight', 'Label weight (g)'],
-  ['core_weight', 'Core weight (g)'],
-  ['category', 'Category'],
-  ['low_stock_threshold_pct', 'Low-stock threshold override %'],
-  ['material_number', 'Material number'],
+  nativeLabelTuple(['brand', 'Brand']),
+  nativeLabelTuple(['material', 'Material']),
+  nativeLabelTuple(['subtype', 'Subtype']),
+  nativeLabelTuple(['color_name', 'Color name']),
+  nativeLabelTuple(['rgba', 'Color RGBA']),
+  nativeLabelTuple(['slicer_filament_name', 'Slicer filament name']),
+  nativeLabelTuple(['slicer_filament', 'Slicer filament ID']),
+  nativeLabelTuple(['cost_per_kg', 'Actual cost per kg']),
+  nativeLabelTuple(['note', 'Note']),
+  nativeLabelTuple(['label_weight', 'Label weight (g)']),
+  nativeLabelTuple(['core_weight', 'Core weight (g)']),
+  nativeLabelTuple(['category', 'Category']),
+  nativeLabelTuple(['low_stock_threshold_pct', 'Low-stock threshold override %']),
+  nativeLabelTuple(['material_number', 'Material number']),
 ];
 const numeric = [
   'cost_per_kg',
@@ -47,6 +49,7 @@ export function InventoryBulkEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  useNativeLocale();
   const { showToast } = useToast();
   const [changed, setChanged] = useState<string[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -58,26 +61,26 @@ export function InventoryBulkEditor({
     mutationFn: () => {
       const update = selectivePatch(values, changed, numeric);
       if (changed.includes('material') && !update.material)
-        throw new Error('Material cannot be blank.');
+        throw new Error(translateNative('native.9269228e74dd600f'));
       for (const key of ['label_weight', 'core_weight']) {
         if (changed.includes(key) && update[key] === null)
-          throw new Error(`${key} cannot be blank.`);
+          throw new Error(translateNative('native.04e9a71bae972aee', { value0: String(key) }));
       }
       if ('label_weight' in update && Number(update.label_weight) < 1)
-        throw new Error('Label weight must be positive.');
+        throw new Error(translateNative('native.90fcfc37a64eccfa'));
       if (spoolman && update.cost_per_kg === null)
         throw new Error(
-          'Spoolman cannot clear a price through this endpoint. Enter a price, including zero, or leave this field unchecked.',
+          translateNative('native.1eabedd3063ab2da'),
         );
       if (spoolman)
         Object.entries(update).forEach(([key, value]) => {
           if (value === null && !numeric.includes(key)) update[key] = '';
         });
       if (update.rgba && !/^[a-f\d]{8}$/i.test(String(update.rgba)))
-        throw new Error('RGBA must contain 8 hex digits.');
+        throw new Error(translateNative('native.08d66cb3ea484655'));
       if (update.low_stock_threshold_pct === 0)
         throw new Error(
-          'Threshold must be between 1 and 99, or blank to inherit.',
+          translateNative('native.1e51b93c1e6dd88e'),
         );
       if ('location_id' in update)
         update.storage_location = update.location_id
@@ -102,7 +105,7 @@ export function InventoryBulkEditor({
       }
       onSaved();
       onClose();
-      showToast('Selected spools updated.', 'success');
+      showToast(translateNative('native.6d9e1632aaa9e75c'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
@@ -112,13 +115,11 @@ export function InventoryBulkEditor({
     );
   return (
     <InventoryModal
-      title={`Edit ${ids.length} selected spools`}
+      title={translateNative('native.fde252be8b3d69c3', { value0: String(ids.length) })}
       onClose={onClose}
     >
       <InventoryText>
-        Only checked fields are patched. Check a nullable field and leave it
-        blank to clear it.
-      </InventoryText>
+        {translateNative('native.a25334bda94adade')}</InventoryText>
       {bulkFields
         .filter(
           ([key]) =>
@@ -132,7 +133,7 @@ export function InventoryBulkEditor({
         .map(([key, label]) => (
           <React.Fragment key={key}>
             <Toggle
-              label={`Change ${label}`}
+              label={translateNative('native.a5c0d3fd5d7724a8', { value0: String(label) })}
               value={changed.includes(key)}
               onChange={value => toggle(key, value)}
             />
@@ -148,16 +149,16 @@ export function InventoryBulkEditor({
           </React.Fragment>
         ))}
       <Toggle
-        label="Change storage location"
+        label={translateNative('native.000c1d4bd37afb2b')}
         value={changed.includes('location_id')}
         onChange={value => toggle('location_id', value)}
       />
       {changed.includes('location_id') && (
         <ChoiceField
-          label="Storage location"
+          label={translateNative('native.3f0938415158756a')}
           value={values.location_id ?? ''}
           options={[
-            { value: '', label: 'None / clear' },
+            { value: '', get label() { return translateNative('native.2d9e6cefc650193a'); } },
             ...(locations.data ?? []).map(row => ({
               value: text(row, 'id'),
               label: text(row, 'name'),
@@ -167,7 +168,7 @@ export function InventoryBulkEditor({
         />
       )}
       <PrimaryButton
-        label="Apply checked fields"
+        label={translateNative('native.0a2c18adbc9f7929')}
         loading={save.isPending}
         disabled={!changed.length}
         onPress={() => save.mutate()}

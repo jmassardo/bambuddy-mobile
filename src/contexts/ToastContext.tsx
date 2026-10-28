@@ -1,9 +1,10 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import { borderRadius, fontSize, spacing } from '../theme/tokens';
-import { useTranslation } from '@/i18n';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -23,7 +24,8 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 let nextId = 0;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const { text } = useTranslation();
+  useNativeLocale();
+  useTranslation();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -55,7 +57,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     timeoutsRef.current.set(id, timeout);
   }, []);
 
-  const value = useMemo(() => ({ showToast }), [showToast]);
+  const value = useLocalizedMemo(() => ({ showToast }), [showToast]);
 
   const typeColors: Record<ToastType, string> = {
     success: colors.success,
@@ -82,7 +84,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           >
             <View style={[styles.indicator, { backgroundColor: typeColors[toast.type] }]} />
             <Text style={[styles.message, { color: colors.text }]} numberOfLines={3}>
-              {text(toast.message)}
+              {toast.message}
             </Text>
           </Animated.View>
         ))}
@@ -93,7 +95,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 export function useToast() {
   const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used inside ToastProvider');
+  if (!ctx) throw new Error(translateNative('native.f149d227b28f7e61'));
   return ctx;
 }
 

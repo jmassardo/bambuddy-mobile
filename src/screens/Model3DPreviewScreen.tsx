@@ -1,9 +1,11 @@
+import { useNativeLocale } from '@/i18n';
 import React from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import { AssetPreviewModal } from '@/components/files/AssetPreviewModal';
 
 export default function Model3DPreviewScreen() {
+  useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Model3DPreview'>>();
   const route = useRoute<RootRouteProp<'Model3DPreview'>>();
   const params = route.params;

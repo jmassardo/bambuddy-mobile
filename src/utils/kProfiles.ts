@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import type { KProfile, KProfileCreate } from '@/types/api';
 
 export function kProfileNoteKeys(profile: KProfile) {
@@ -15,10 +16,10 @@ export function validateKImport(
   nozzle: string,
 ): KProfileCreate[] {
   if (!Array.isArray(value.profiles) || !value.profiles.length)
-    throw new Error('The JSON file must contain a nonempty profiles array.');
+    throw new Error(translateNative('native.e2d88447fca1d786'));
   return value.profiles.map((profile: unknown) => {
     if (!profile || typeof profile !== 'object')
-      throw new Error('Invalid profile.');
+      throw new Error(translateNative('native.3fa1813ee2a15bd7'));
     const row = profile as Record<string, unknown>;
     if (
       !row.name ||
@@ -29,15 +30,15 @@ export function validateKImport(
       Number(row.k_value) < 0
     )
       throw new Error(
-        'Each profile needs a name, filament ID and nonnegative K value.',
+        translateNative('native.19984a1045935531'),
       );
     const extruder = row.extruder_id ?? 0;
     if (extruder !== 0 && extruder !== 1)
-      throw new Error('Invalid extruder identity.');
+      throw new Error(translateNative('native.c451aef619451752'));
     if (
       String(row.nozzle_diameter ?? value.nozzle_diameter ?? nozzle) !== nozzle
     )
-      throw new Error('Select the file’s nozzle diameter before importing.');
+      throw new Error(translateNative('native.5a861ddec80db64b'));
     return {
       name: String(row.name),
       filament_id: row.filament_id,

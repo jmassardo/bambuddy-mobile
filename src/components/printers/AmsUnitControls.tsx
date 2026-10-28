@@ -1,3 +1,5 @@
+import { NativeTranslation, nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -6,7 +8,7 @@ import { printerControlsApi as device } from '@/api/printerControls';
 import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
 import { MultiSeriesLineChart } from '@/components/common/Charts';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type { AMSUnit, PrinterStatus } from '@/types/api';
@@ -15,6 +17,7 @@ import { dryingCapabilities, dryingReasonText, requireInteger } from './deviceCo
 export function AmsUnitControls({ printerId, ams, status, name }: {
   printerId: number; ams: AMSUnit; status: PrinterStatus; name?: string;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
@@ -29,7 +32,7 @@ export function AmsUnitControls({ printerId, ams, status, name }: {
   const [rotate, setRotate] = useState(false);
   const [delay, setDelay] = useState('');
   const [startAt, setStartAt] = useState('');
-  const [validation, setValidation] = useState('');
+  const [validation, setValidation] = useNativeMessageState('');
   useEffect(() => setLabel(name ?? ''), [name]);
   const capabilities = dryingCapabilities(status, ams);
   const rotationAllowed = capabilities.canRotate && !ams.tray.some(tray => tray.state === 11);
@@ -80,7 +83,7 @@ export function AmsUnitControls({ printerId, ams, status, name }: {
         temperature: target, hours: time, start: scheduled ? startAfter ?? t('device.whenAvailable', { defaultValue: 'Start when printer becomes available.' }) : t('device.startNow', { defaultValue: 'Start now.' }) }),
       [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.confirm', { defaultValue: 'Confirm' }), onPress: () => send(run) }]);
     } catch (error) {
-      setValidation(t('device.dryingValidation', { defaultValue: 'Check drying settings: {{reason}}', reason: error instanceof Error ? error.message : String(error) }));
+      setValidation(nativeMessage('device.dryingValidation', () => ({ defaultValue: 'Check drying settings: {{reason}}', reason: error instanceof Error ? error.message : String(error) })));
     }
   };
   const blocked = capabilities.blockedReasons.length > 0;
@@ -94,7 +97,7 @@ export function AmsUnitControls({ printerId, ams, status, name }: {
   const avg = sensor === 'humidity' ? stats?.avg_humidity : stats?.avg_temperature;
   return <SectionCard title={title}>
     <Text style={{ color: colors.textSecondary }}>{ams.serial_number || '—'} · {ams.sw_ver || '—'} · {ams.module_type || '—'}</Text>
-    <PrimaryButton label={t('device.amsDetails', { defaultValue: expanded ? 'Hide AMS details' : 'AMS details, name and history' })}
+    <PrimaryButton label={t('device.amsDetails', { defaultValue: expanded ? translateNative('native.9f8e8b06b6e60d98') : translateNative('native.ba69fca44de408dc') })}
       variant="secondary" onPress={() => setExpanded(!expanded)} />
     {expanded ? <Modal visible animationType="slide" onRequestClose={() => setExpanded(false)}>
       <ScrollView style={[styles.details, { backgroundColor: colors.background }]} contentContainerStyle={styles.stack}>
@@ -111,7 +114,7 @@ export function AmsUnitControls({ printerId, ams, status, name }: {
         <View style={styles.row}>{(['humidity', 'temperature'] as const).map(kind =>
           <PrimaryButton key={kind} label={t(`device.${kind}`, { defaultValue: kind === 'humidity' ? 'Humidity %' : 'Temperature °C' })}
             variant={kind === sensor ? 'primary' : 'secondary'} onPress={() => setSensor(kind)} />)}</View>
-        <View style={styles.row}>{[1, 6, 24, 48, 168].map(range => <PrimaryButton key={range} label={`${range}h`}
+        <View style={styles.row}>{[1, 6, 24, 48, 168].map(range => <PrimaryButton key={range} label={translateNative('native.53dde993a4442eb6', { value0: String(range) })}
           variant={range === hours ? 'primary' : 'secondary'} onPress={() => setHours(range)} />)}</View>
         {history.isLoading ? <ActivityIndicator /> : history.error ? <Text style={{ color: colors.error }}>{history.error.message}</Text>
           : !history.data?.data.some(point => point[sensor] != null) ? <Text style={{ color: colors.textSecondary }}>{t('device.noHistory', { defaultValue: 'No sensor samples in this range.' })}</Text>
@@ -126,8 +129,8 @@ export function AmsUnitControls({ printerId, ams, status, name }: {
     {capabilities.supported || capabilities.screenOnly ? <View style={styles.stack}>
       <Text style={{ color: colors.text }}>{t('device.dryingStatus', { defaultValue: 'Drying: {{state}} · {{minutes}} min remaining', state: capabilities.screenOnly ? t('device.screenOnly', { defaultValue: 'Control from printer screen only' })
         : capabilities.stalled ? t('device.stalled', { defaultValue: 'Not running / countdown stalled' }) : running ? t('device.running', { defaultValue: 'Running' }) : t('device.off', { defaultValue: 'Off' }), minutes: ams.dry_time })}</Text>
-      {ams.dry_filament || ams.dry_target_temp != null ? <Text style={{ color: colors.textSecondary }}>{ams.dry_filament} · {ams.dry_target_temp ?? '—'}°C</Text> : null}
-      {blocked ? <Text style={{ color: colors.warning }}>{t('device.dryingBlocked', { defaultValue: 'Blocked: {{reasons}}', reasons: capabilities.blockedReasons.map(code => t(`device.dryingReason.${code}`, { defaultValue: dryingReasonText(code) })).join(', ') })}</Text> : null}
+      {ams.dry_filament || ams.dry_target_temp != null ? <Text style={{ color: colors.textSecondary }}><NativeTranslation id="native.af5bc92bf5c5105d" values={{ value0: (ams.dry_filament), value1: (ams.dry_target_temp ?? '—') }} /></Text> : null}
+      {blocked ? <Text style={{ color: colors.warning }}>{t('device.dryingBlocked', { defaultValue: 'Blocked: {{reasons}}', reasons: capabilities.blockedReasons.map(code => dryingReasonText(code)).join(', ') })}</Text> : null}
       {!capabilities.screenOnly ? <>
         <TextField label={t('device.dryingTemperature', { defaultValue: 'Drying temperature (45–{{max}}°C)', max: capabilities.maxTemperature ?? '—' })} value={temp} onChangeText={setTemp} keyboardType="number-pad" />
         <TextField label={t('device.dryingHours', { defaultValue: 'Duration (1–24 hours)' })} value={duration} onChangeText={setDuration} keyboardType="number-pad" />
@@ -146,7 +149,7 @@ export function AmsUnitControls({ printerId, ams, status, name }: {
     </View> : null}
     {runs.error ? <Text style={{ color: colors.error }}>{runs.error.message}</Text> : null}
     {runs.data?.filter(run => run.ams_id === ams.id).map(run => <View key={run.id} style={styles.stack}>
-      <Text style={{ color: colors.text }}>{run.status} · {run.temp}°C · {run.duration_hours}h · {run.start_after ? new Date(run.start_after).toLocaleString() : t('device.whenAvailable', { defaultValue: 'When available' })}</Text>
+      <Text style={{ color: colors.text }}><NativeTranslation id="native.8a2e29021b2e97b1" values={{ value0: (run.status), value1: (run.temp), value2: (run.duration_hours), value3: (run.start_after ? new Date(run.start_after).toLocaleString() : t('device.whenAvailable', { defaultValue: 'When available' })) }} /></Text>
       {run.waiting_reason || run.error_message ? <Text style={{ color: colors.warning }}>{run.waiting_reason || run.error_message}</Text> : null}
       <PrimaryButton label={run.status === 'failed' ? t('common.dismiss', { defaultValue: 'Dismiss' }) : t('common.cancel')}
         disabled={!control} loading={mutation.isPending} variant="secondary"

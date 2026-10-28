@@ -1,3 +1,5 @@
+import { nativeLabelTuple, nativeMessage, translateNative, useNativeLocale, useNativeMessageState } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { ScrollView, Text } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,13 +15,14 @@ import { useIntegrationTranslation } from './useIntegrationTranslation';
 export function SmartPlugEditor({ plug, existingPlugs, canControl, onClose }: {
   plug?: SmartPlug; existingPlugs: SmartPlug[]; canControl: boolean; onClose: () => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const tr = useIntegrationTranslation();
   const client = useQueryClient();
   const [draft, setDraft] = useState(() => makePlugDraft(plug));
   const [search, setSearch] = useState('');
   const [sensorSearch, setSensorSearch] = useState('');
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useNativeMessageState('');
   const [scanActive, setScanActive] = useState(false);
   const type = String(draft.plug_type);
   const set = (key: string, value: string | boolean) => { setDraft(current => ({ ...current, [key]: value })); setMessage(''); };
@@ -58,16 +61,16 @@ export function SmartPlugEditor({ plug, existingPlugs, canControl, onClose }: {
         const payload = buildPlugPayload(draft);
         return integrationsApi.testREST(payload.rest_status_url || payload.rest_on_url || payload.rest_off_url || '', payload.rest_method || 'GET', payload.rest_headers || null);
       }
-      throw new Error('Connection tests are available for Tasmota and REST endpoints.');
+      throw new Error(translateNative('native.18e5dd2499bc7016'));
     },
-    onSuccess: result => setMessage(result.success ? 'Connection successful.' : ('error' in result && result.error) || 'Connection failed.'),
+    onSuccess: result => setMessage(result.success ? nativeMessage('native.2225f2f3a2f1fb50') : ('error' in result && result.error) || nativeMessage('native.df9a9d2cedce22b6')),
     onError: (error: Error) => setMessage(error.message),
   });
   const error = entities.error || sensors.error || scan.error || devices.error;
   const sensorKeys = [
-    ['ha_power_entity', 'Power sensor', ['W', 'kW']],
-    ['ha_energy_today_entity', 'Today energy sensor', ['Wh', 'kWh']],
-    ['ha_energy_total_entity', 'Lifetime energy sensor', ['Wh', 'kWh']],
+    nativeLabelTuple(['ha_power_entity', 'native.48a3eb3b463d6f13', ['W', 'kW']]),
+    nativeLabelTuple(['ha_energy_today_entity', 'native.419d43d8436bfbf7', ['Wh', 'kWh']]),
+    nativeLabelTuple(['ha_energy_total_entity', 'native.9ee91d8e38226e1b', ['Wh', 'kWh']]),
   ] as const;
   const visibleFields = [
     ...(type === 'tasmota' ? tasmotaFields : type === 'mqtt' ? mqttFields : type === 'rest' ? restFields : []),
@@ -123,7 +126,7 @@ export function SmartPlugEditor({ plug, existingPlugs, canControl, onClose }: {
         ]} onChange={value => set('printer_id', value)} />
         {plugSwitches.map(([key, label]) => <SwitchRow key={key} label={tr(label)} description={!plug && type === 'homeassistant' && (key === 'auto_on' || key === 'auto_off') ? tr('Save this entity first, then edit its automatic power policy.') : undefined} disabled={!plug && type === 'homeassistant' && (key === 'auto_on' || key === 'auto_off')} value={Boolean(draft[key])} onValueChange={value => set(key, value)} />)}
         {draft.auto_off ? <OptionChipsField label={tr('Auto-off condition')} value={String(draft.off_delay_mode)} options={[{ key: 'time', label: tr('Delay') }, { key: 'temperature', label: tr('Cooldown temperature') }]} onChange={value => set('off_delay_mode', value)} /> : null}
-        {message || error ? <Text accessibilityLiveRegion="polite" style={{ color: colors.text }}>{tr(message || error?.message || '')}</Text> : null}
+        {message || error ? <Text accessibilityLiveRegion="polite" style={{ color: colors.text }}>{message || error?.message || ''}</Text> : null}
         {error ? <PrimaryButton label={tr('Retry discovery')} variant="secondary" onPress={() => { if (type === 'homeassistant') { void entities.refetch(); void sensors.refetch(); } else { void devices.refetch(); void scan.refetch(); } }} /> : null}
         <PrimaryButton label={tr('Save smart plug')} disabled={save.isPending} loading={save.isPending} onPress={() => save.mutate()} />
       </ScrollView>

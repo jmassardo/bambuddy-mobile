@@ -1,3 +1,5 @@
+import { translateNative } from '@/i18n';
+
 import type {
   CalibrationChoice,
   NozzleRackSlot,
@@ -65,9 +67,9 @@ export function loadedTrays(status?: PrinterStatus) {
         label:
           (status?.vt_tray?.length ?? 0) > 1
             ? trayId(255, t.id, true) === 254
-              ? 'External left'
-              : 'External right'
-            : 'External',
+              ? translateNative('native.edb51f4ce85f31b3')
+              : translateNative('native.f42490c51cb65342')
+            : translateNative('native.91ac7d9ea4fafdb5'),
         extruder:
           (status?.vt_tray?.length ?? 0) > 1
             ? 255 - trayId(255, t.id, true)
@@ -176,7 +178,7 @@ export function rackOptions(
       eligible,
       description: s
         ? `${s.nozzle_diameter} ${s.nozzle_type}`
-        : 'Empty / unknown',
+        : translateNative('native.3cca27ba882bd392'),
     };
   });
 }
@@ -186,7 +188,7 @@ export function scheduleTime(mode: string, value: string, now = Date.now()) {
   const ms = new Date(value).getTime();
   if (!Number.isFinite(ms) || ms <= now)
     throw new Error(
-      'Choose a valid future date and time (including timezone).',
+      translateNative('native.340a71a9f0a3f6c7'),
     );
   return new Date(ms).toISOString();
 }

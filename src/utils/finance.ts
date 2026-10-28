@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import type {
   Permission,
   FinanceCenter,
@@ -26,7 +27,7 @@ export function budgetPayload(mode: 'none' | 'monthly' | 'total', raw: string) {
   if (mode === 'none') return { monthly_budget: null, total_budget: null };
   if (!raw.trim() || !Number.isFinite(Number(raw)) || Number(raw) < 0) {
     throw new Error(
-      'Enter a non-negative budget. Zero prevents printing; blank is not zero.',
+      translateNative('native.db96e36d87714d02'),
     );
   }
   return {
@@ -43,8 +44,8 @@ export function financeAmount(raw: string, signed = false) {
   ) {
     throw new Error(
       signed
-        ? 'Enter a finite signed amount.'
-        : 'Enter an amount greater than zero.',
+        ? translateNative('native.ab080ef4cc673894')
+        : translateNative('native.4973c94febb00be0'),
     );
   }
   return Number(raw);

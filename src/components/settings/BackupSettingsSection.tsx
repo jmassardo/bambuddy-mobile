@@ -1,10 +1,12 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React from 'react';
 import { SectionCard, TextField } from '@/components/common/AppUI';
 import { OptionChipsField, SwitchRow, stringifyNumberField } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
 import { LocalBackupTools } from './LocalBackupTools';
 import { RemoteBackupSettings } from './RemoteBackupSettings';
-import { useTranslation } from '@/i18n';
+
 import { useAuth } from '@/contexts/AuthContext';
 
 export function BackupSettingsSection({
@@ -12,6 +14,7 @@ export function BackupSettingsSection({
 }: {
   controller: SettingsScreenController;
 }) {
+  useNativeLocale();
   const { draft } = controller.state;
   const { setDraft } = controller.actions;
   const { t } = useTranslation();
@@ -48,9 +51,9 @@ export function BackupSettingsSection({
                 value={String(draft.local_backup_schedule ?? 'daily')}
                 options={['hourly', 'daily', 'weekly'].map(key => ({
                   key,
-                  label: t(`backup.local.schedule.${key}`, {
+                  get label() { return translateNative(`backup.local.schedule.${key}`, {
                     defaultValue: key,
-                  }),
+                  }); },
                 }))}
                 onChange={value =>
                   setDraft(current => ({

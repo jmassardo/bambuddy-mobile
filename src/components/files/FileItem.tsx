@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import React, { useState } from 'react';
 import {
   Image,
   Pressable,
@@ -20,7 +21,7 @@ import {
   Box,
 } from 'lucide-react-native';
 import { api } from '@/api/client';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import {
   borderRadius,
@@ -108,6 +109,7 @@ function ActionPill({
   onPress?: () => void;
   onLongPress?: () => void;
 }) {
+  useNativeLocale();
   if (!onPress) return null;
   const IconComponent = FILE_ITEM_ICONS[icon];
 
@@ -151,6 +153,7 @@ export function FileItem({
   wrapName = true,
   showModified = true,
 }: FileItemProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [thumbError, setThumbError] = useState(false);
@@ -170,7 +173,7 @@ export function FileItem({
   const updatedAt = pickString(item, ['fs_modified_at', 'updated_at', 'created_at', 'modified_at']);
   // uploader and slicedFor available via pickString if needed in future
   const tags = pickArray(item, ['tags']).filter(isRecord);
-  const previewSource = useMemo(() => {
+  const previewSource = useLocalizedMemo(() => {
     const hasThumb = pickString(item, ['thumbnail_path']) !== '';
     const hasPreviewableExt = /\.(3mf|gcode\.3mf)$/i.test(rawFilename);
     if ((!hasThumb && !hasPreviewableExt) || !id || isFolder) return null;
@@ -236,7 +239,7 @@ export function FileItem({
           ]}
         >
           <Text style={[styles.typeBadgeText, { color: colors.textInverse }]}> 
-            {isFolder ? 'FOLDER' : fileType.toUpperCase()}
+            {isFolder ? translateNative('native.edc31d89be96ecd3') : fileType.toUpperCase()}
           </Text>
         </View>
       </View>
@@ -263,23 +266,23 @@ export function FileItem({
                 },
               ]}
             >
-              <Text style={[styles.externalChipText, { color: colors.highlightLight }]}>External</Text>
+              <Text style={[styles.externalChipText, { color: colors.highlightLight }]}>{translateNative('native.91ac7d9ea4fafdb5')}</Text>
             </View>
           ) : null}
         </View>
 
         <View style={styles.metaGrid}>
           <View style={styles.metaItem}>
-            <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Size</Text>
+            <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>{translateNative('native.96b716d3aee0a481')}</Text>
             <Text style={[styles.metaValue, { color: colors.text }]}>{isFolder ? '—' : formatFileSize(size)}</Text>
           </View>
           {showModified ? <View style={styles.metaItem}>
-            <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Updated</Text>
+            <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>{translateNative('native.579768fa26620d83')}</Text>
             <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>{formatDateTime(updatedAt)}</Text>
           </View> : null}
           {printCount > 0 ? (
             <View style={styles.metaItem}>
-              <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>Prints</Text>
+              <Text style={[styles.metaLabel, { color: colors.textTertiary }]}>{translateNative('native.d3484bee79a505c4')}</Text>
               <Text style={[styles.metaValue, { color: colors.text }]}>{printCount}</Text>
             </View>
           ) : null}
@@ -288,17 +291,17 @@ export function FileItem({
         <View style={styles.badgesRow}>
           {isPrintable ? (
             <View style={[styles.chip, { backgroundColor: `${colors.info}18`, borderColor: `${colors.info}44` }]}>
-              <Text style={[styles.chipText, { color: colors.info }]}>Ready to print</Text>
+              <Text style={[styles.chipText, { color: colors.info }]}>{translateNative('native.933baa8d16c5cd9f')}</Text>
             </View>
           ) : null}
           {isSliceable ? (
             <View style={[styles.chip, { backgroundColor: `${colors.accent}18`, borderColor: `${colors.accent}44` }]}>
-              <Text style={[styles.chipText, { color: colors.accentLight }]}>Sliceable</Text>
+              <Text style={[styles.chipText, { color: colors.accentLight }]}>{translateNative('native.2fc8b180b770a36f')}</Text>
             </View>
           ) : null}
           {isReadonly ? (
             <View style={[styles.chip, { backgroundColor: `${colors.warning}18`, borderColor: `${colors.warning}44` }]}>
-              <Text style={[styles.chipText, { color: colors.warning }]}>Read only</Text>
+              <Text style={[styles.chipText, { color: colors.warning }]}>{translateNative('native.abb336792d47fad5')}</Text>
             </View>
           ) : null}
           {pickNumber(item, ['variant_group_id']) ? <View style={[styles.chip, {backgroundColor: colors.surfaceElevated, borderColor: colors.border}]}>
@@ -326,14 +329,14 @@ export function FileItem({
 
         <View style={[styles.actionsRow, { borderColor: colors.borderSubtle }]}> 
           <ActionPill label={t('library.details', {defaultValue: 'Details'})} icon="file-text" color={colors.info} onPress={!isFolder ? onDetails : undefined} />
-          <ActionPill label="Preview" icon="image" color={colors.info} onPress={isPreviewable ? onPreview : undefined} />
+          <ActionPill label={translateNative('native.ebf8fd19dcb9ff60')} icon="image" color={colors.info} onPress={isPreviewable ? onPreview : undefined} />
           <ActionPill label="3D" icon="box" color={colors.highlight} onPress={/\.(stl|3mf|step|stp)$/i.test(rawFilename) ? on3dPreview : undefined} />
-          <ActionPill label="Slice" icon="layers" color={colors.accent} onPress={isSliceable ? onSlice : undefined} />
+          <ActionPill label={translateNative('native.8a8a9fc981cbae11')} icon="layers" color={colors.accent} onPress={isSliceable ? onSlice : undefined} />
           <ActionPill label={t('library.rename', {defaultValue: 'Rename'})} icon="edit" color={colors.accent} onPress={isFolder || !isReadonly ? onRename : undefined} />
           <ActionPill label={t('library.download', {defaultValue: 'Download'})} icon="download" color={colors.info} onPress={!isFolder ? onDownload : undefined} />
           <ActionPill label={t('library.link', {defaultValue: 'Link'})} icon="folder" color={colors.info} onPress={isFolder ? onLink : undefined} />
-          <ActionPill label="Move" icon="folder" color={colors.warning} onPress={!isFolder && !isReadonly ? onMove : undefined} />
-          <ActionPill label="Delete" icon="trash" color={colors.error} onPress={onDelete} />
+          <ActionPill label={translateNative('native.1d6be0f4dfecdadb')} icon="folder" color={colors.warning} onPress={!isFolder && !isReadonly ? onMove : undefined} />
+          <ActionPill label={translateNative('common.delete')} icon="trash" color={colors.error} onPress={onDelete} />
         </View>
       </View>
     </Pressable>
@@ -346,6 +349,7 @@ interface BreadcrumbProps {
 }
 
 export function Breadcrumb({ path, onNavigate }: BreadcrumbProps) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (

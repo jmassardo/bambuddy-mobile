@@ -1,3 +1,5 @@
+import { nativeLabelTuple, translateNative } from '@/i18n';
+
 import type { NotificationProvider, NotificationProviderCreate, ProviderType } from '@/types/api';
 
 export type ProviderKind = ProviderType | 'slack' | 'gotify' | 'generic_webhook';
@@ -11,20 +13,20 @@ export type ProviderFieldDefinition = {
 };
 
 const field = (key: string, label: string, required = false, secret = false): ProviderFieldDefinition =>
-  ({ key, label, required, secret });
+  ({ key, get label() { return translateNative(label); }, required, secret });
 
 export const PROVIDER_OPTIONS: Array<{ key: ProviderKind; label: string }> = [
-  { key: 'email', label: 'Email' },
+  { key: 'email', get label() { return translateNative('native.6d96e259f012a733'); } },
   { key: 'discord', label: 'Discord' },
-  { key: 'slack', label: 'Slack / Mattermost' },
+  { key: 'slack', get label() { return translateNative('native.249149251c0033ea'); } },
   { key: 'telegram', label: 'Telegram' },
   { key: 'pushover', label: 'Pushover' },
   { key: 'gotify', label: 'Gotify' },
   { key: 'ntfy', label: 'ntfy' },
-  { key: 'generic_webhook', label: 'Webhook' },
-  { key: 'callmebot', label: 'CallMeBot' },
+  { key: 'generic_webhook', get label() { return translateNative('native.c761ffe0645c79a6'); } },
+  { key: 'callmebot', get label() { return translateNative('native.67c7957e61b047d9'); } },
   { key: 'homeassistant', label: 'Home Assistant' },
-  { key: 'bark', label: 'Bark' },
+  { key: 'bark', get label() { return translateNative('native.c435a0109f52802d'); } },
 ];
 
 export const PROVIDER_FIELDS: Partial<Record<ProviderKind, ProviderFieldDefinition[]>> = {
@@ -72,40 +74,40 @@ export const PROVIDER_FIELDS: Partial<Record<ProviderKind, ProviderFieldDefiniti
 };
 
 export const PROVIDER_EVENTS = [
-  ['on_print_start', 'Print started', false],
-  ['on_print_complete', 'Print completed', true],
-  ['on_print_failed', 'Print failed', true],
-  ['on_print_stopped', 'Print stopped', true],
-  ['on_print_progress', 'Print progress (25%, 50%, 75%)', false],
-  ['on_print_missing_spool_assignment', 'Missing spool assignment', false],
-  ['on_print_confirm_request', 'Print outcome confirmation', true],
-  ['on_plate_not_empty', 'Plate not empty', true],
-  ['on_plate_clear_required', 'Plate clear required', false],
-  ['on_first_layer_complete', 'First layer completed', false],
-  ['on_bed_cooled', 'Bed cooled', false],
-  ['on_printer_offline', 'Printer offline', false],
-  ['on_printer_error', 'Printer error', false],
-  ['on_ai_failure_detection', 'AI failure detection', false],
-  ['on_filament_low', 'Filament low', false],
-  ['on_maintenance_due', 'Maintenance due', false],
-  ['on_ams_humidity_high', 'AMS humidity high', false],
-  ['on_ams_temperature_high', 'AMS temperature high', false],
-  ['on_ams_drying_suspended', 'AMS drying suspended', true],
-  ['on_ams_ht_humidity_high', 'AMS-HT humidity high', false],
-  ['on_ams_ht_temperature_high', 'AMS-HT temperature high', false],
-  ['on_ha_sensor_alert', 'Home Assistant sensor alert', false],
-  ['on_location_ha_sensor_alert', 'Storage location sensor alert', false],
-  ['on_stock_reorder_alert', 'Stock reorder alert', false],
-  ['on_stock_break_alert', 'Stock break alert', false],
-  ['on_queue_job_added', 'Queue job added', false],
-  ['on_queue_job_assigned', 'Queue job assigned', false],
-  ['on_queue_job_started', 'Queue job started', false],
-  ['on_queue_job_waiting', 'Queue job waiting', true],
-  ['on_queue_job_skipped', 'Queue job skipped', true],
-  ['on_queue_job_failed', 'Queue job failed', true],
-  ['on_queue_completed', 'Queue completed', false],
-  ['on_billing_charge_failed', 'Billing charge failed', true],
-  ['on_app_message', 'Connected app message', false],
+  nativeLabelTuple(['on_print_start', 'Print started', false]),
+  nativeLabelTuple(['on_print_complete', 'Print completed', true]),
+  nativeLabelTuple(['on_print_failed', 'Print failed', true]),
+  nativeLabelTuple(['on_print_stopped', 'Print stopped', true]),
+  nativeLabelTuple(['on_print_progress', 'Print progress (25%, 50%, 75%)', false]),
+  nativeLabelTuple(['on_print_missing_spool_assignment', 'Missing spool assignment', false]),
+  nativeLabelTuple(['on_print_confirm_request', 'Print outcome confirmation', true]),
+  nativeLabelTuple(['on_plate_not_empty', 'Plate not empty', true]),
+  nativeLabelTuple(['on_plate_clear_required', 'Plate clear required', false]),
+  nativeLabelTuple(['on_first_layer_complete', 'First layer completed', false]),
+  nativeLabelTuple(['on_bed_cooled', 'Bed cooled', false]),
+  nativeLabelTuple(['on_printer_offline', 'Printer offline', false]),
+  nativeLabelTuple(['on_printer_error', 'Printer error', false]),
+  nativeLabelTuple(['on_ai_failure_detection', 'AI failure detection', false]),
+  nativeLabelTuple(['on_filament_low', 'Filament low', false]),
+  nativeLabelTuple(['on_maintenance_due', 'Maintenance due', false]),
+  nativeLabelTuple(['on_ams_humidity_high', 'AMS humidity high', false]),
+  nativeLabelTuple(['on_ams_temperature_high', 'AMS temperature high', false]),
+  nativeLabelTuple(['on_ams_drying_suspended', 'AMS drying suspended', true]),
+  nativeLabelTuple(['on_ams_ht_humidity_high', 'AMS-HT humidity high', false]),
+  nativeLabelTuple(['on_ams_ht_temperature_high', 'AMS-HT temperature high', false]),
+  nativeLabelTuple(['on_ha_sensor_alert', 'Home Assistant sensor alert', false]),
+  nativeLabelTuple(['on_location_ha_sensor_alert', 'Storage location sensor alert', false]),
+  nativeLabelTuple(['on_stock_reorder_alert', 'Stock reorder alert', false]),
+  nativeLabelTuple(['on_stock_break_alert', 'Stock break alert', false]),
+  nativeLabelTuple(['on_queue_job_added', 'Queue job added', false]),
+  nativeLabelTuple(['on_queue_job_assigned', 'Queue job assigned', false]),
+  nativeLabelTuple(['on_queue_job_started', 'Queue job started', false]),
+  nativeLabelTuple(['on_queue_job_waiting', 'Queue job waiting', true]),
+  nativeLabelTuple(['on_queue_job_skipped', 'Queue job skipped', true]),
+  nativeLabelTuple(['on_queue_job_failed', 'Queue job failed', true]),
+  nativeLabelTuple(['on_queue_completed', 'Queue completed', false]),
+  nativeLabelTuple(['on_billing_charge_failed', 'Billing charge failed', true]),
+  nativeLabelTuple(['on_app_message', 'Connected app message', false]),
 ] as const;
 export type ProviderEvent = typeof PROVIDER_EVENTS[number][0];
 type ProviderTransportDraft = {
@@ -249,34 +251,34 @@ export function buildProviderPayload(form: ProviderFormState): NotificationProvi
 }
 
 export function validateProviderForm(form: ProviderFormState, mode: 'save' | 'test' = 'save'): string | null {
-  if (mode === 'save' && !form.name.trim()) return 'Provider name is required.';
-  if (mode === 'save' && form.name.trim().length > 100) return 'Provider name must be at most 100 characters.';
-  if (!PROVIDER_FIELDS[form.kind]) return 'This provider type is not supported by this app. Its configuration has not been changed.';
+  if (mode === 'save' && !form.name.trim()) return translateNative('native.b33e896a1e037bce');
+  if (mode === 'save' && form.name.trim().length > 100) return translateNative('native.ef1354783391d3b8');
+  if (!PROVIDER_FIELDS[form.kind]) return translateNative('native.2bbc560c2ddfb431');
   for (const f of PROVIDER_FIELDS[form.kind] ?? []) {
-    if (f.required && !form.config[f.key]?.trim()) return `${f.label} is required.`;
+    if (f.required && !form.config[f.key]?.trim()) return translateNative('native.45f233be6bf28962', { value0: String(f.label) });
   }
   if (form.kind === 'homeassistant' && form.config.data?.trim()) {
     try {
       const data: unknown = JSON.parse(form.config.data);
-      if (!data || typeof data !== 'object' || Array.isArray(data)) return 'Custom service data must be a JSON object.';
-    } catch { return 'Custom service data must be valid JSON.'; }
+      if (!data || typeof data !== 'object' || Array.isArray(data)) return translateNative('native.a5e1d7033ad3bf1b');
+    } catch { return translateNative('native.a21f736959d58d2e'); }
   }
   if (form.kind === 'telegram' && form.config.message_thread_id?.trim() &&
-    !/^\d+$/.test(form.config.message_thread_id.trim())) return 'Forum topic ID must be an integer.';
+    !/^\d+$/.test(form.config.message_thread_id.trim())) return translateNative('native.e414ec8a444b2873');
   if (form.kind === 'email' && (!/^\d+$/.test(form.config.smtp_port) ||
-    Number(form.config.smtp_port) < 1 || Number(form.config.smtp_port) > 65535)) return 'SMTP port must be between 1 and 65535.';
+    Number(form.config.smtp_port) < 1 || Number(form.config.smtp_port) > 65535)) return translateNative('native.fd021391667bf9e2');
   if (form.kind === 'pushover' && form.config.priority === '2') {
     for (const key of ['retry', 'expire']) {
       const value = form.config[key];
-      if (!/^\d+$/.test(value) || Number(value) < 30 || Number(value) > 10800) return 'Emergency retry and expiry must be integers between 30 and 10800 seconds.';
+      if (!/^\d+$/.test(value) || Number(value) < 30 || Number(value) > 10800) return translateNative('native.1b666663215d1499');
     }
   }
   for (const [enabled, times] of [
     [form.quiet_hours_enabled, [form.quiet_hours_start, form.quiet_hours_end]],
     [form.daily_digest_enabled, [form.daily_digest_time]],
   ] as const) {
-    if (mode === 'save' && enabled && times.some(time => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) return 'Delivery times must use HH:MM (00:00–23:59).';
+    if (mode === 'save' && enabled && times.some(time => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) return translateNative('native.617ba1bfd8481e60');
   }
-  if (Object.values(form.eventPriorities).some(value => !Number.isInteger(value) || value < 1 || value > 5)) return 'ntfy priorities must be between 1 and 5.';
+  if (Object.values(form.eventPriorities).some(value => !Number.isInteger(value) || value < 1 || value > 5)) return translateNative('native.6762fb0d3a458b08');
   return null;
 }

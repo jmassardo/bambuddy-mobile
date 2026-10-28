@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { nativeEnglishSuffix, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -36,6 +38,7 @@ export function LocationsModal({
   onAssigned,
   spoolman = false,
 }: LocationsModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -52,7 +55,7 @@ export function LocationsModal({
     enabled: visible,
   });
 
-  const locations = useMemo(
+  const locations = useLocalizedMemo(
     () => (Array.isArray(locationsQuery.data) ? (locationsQuery.data as unknown as StorageLocation[]) : []),
     [locationsQuery.data],
   );
@@ -88,24 +91,24 @@ export function LocationsModal({
     },
     onSuccess: async () => {
       await invalidate();
-      showToast(editing ? 'Location updated.' : 'Location created.', 'success');
+      showToast(editing ? translateNative('native.414d3e19519b8318') : translateNative('native.1b519ba12fb62958'), 'success');
       setEditing(null);
       setName('');
       setIdentifier('');
       setAddress('');
       setNotes('');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to save the location.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.2d103780243fc7b1'), 'error'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.deleteLocation(id),
     onSuccess: async () => {
       await invalidate();
-      showToast('Location deleted.', 'success');
+      showToast(translateNative('native.9b6e5697acc85502'), 'success');
       setDeleteTarget(null);
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to delete the location.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.9b6978d48d356ab6'), 'error'),
   });
 
   const assignMutation = useMutation({
@@ -116,11 +119,11 @@ export function LocationsModal({
       }),
     onSuccess: async (_data, locationName) => {
       await invalidate();
-      showToast(`Assigned ${selectedSpoolIds.length} spool${selectedSpoolIds.length === 1 ? '' : 's'} to ${locationName}.`, 'success');
+      showToast(translateNative('native.257233fbba0a822e', { value0: String(selectedSpoolIds.length), value1: String(nativeEnglishSuffix(selectedSpoolIds.length === 1 ? '' : 's')), value2: String(locationName) }), 'success');
       onAssigned?.(locationName);
       onClose();
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to assign the selected spools.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.a4a084ce15decf5c'), 'error'),
   });
 
   const startEdit = (location: StorageLocation) => {
@@ -138,23 +141,23 @@ export function LocationsModal({
           <View style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
             <View style={styles.header}>
               <View style={styles.headerText}>
-                <Text style={[styles.title, { color: colors.text }]}>Storage locations</Text>
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Create, rename, delete, and assign spool storage locations.</Text>
+                <Text style={[styles.title, { color: colors.text }]}>{translateNative('native.2fa2048283af4f30')}</Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{translateNative('native.5e9f2c50afc64f2e')}</Text>
               </View>
               <Pressable onPress={onClose} hitSlop={8}>
                 <X size={18} color={colors.textSecondary} strokeWidth={2} />
               </Pressable>
             </View>
 
-            <SectionCard title={editing ? 'Edit location' : 'Add location'}>
-              <TextField label="Name" value={name} onChangeText={setName} placeholder="Shelf A" />
-              <TextField label="Identifier" value={identifier} onChangeText={setIdentifier} placeholder="A-1" />
-              <TextField label="Address / Location details" value={address} onChangeText={setAddress} placeholder="Garage, left wall" />
-              <TextField label="Notes" value={notes} onChangeText={setNotes} multiline placeholder="Any additional notes about this location" />
+            <SectionCard title={editing ? translateNative('native.e31b25c4cac430e9') : translateNative('native.69340a073e7e3418')}>
+              <TextField label={translateNative('common.name')} value={name} onChangeText={setName} placeholder={translateNative('native.425fe6638a069ac5')} />
+              <TextField label={translateNative('native.2c9ce243b8a0f476')} value={identifier} onChangeText={setIdentifier} placeholder={translateNative('native.7b4298b76c274a63')} />
+              <TextField label={translateNative('native.a5dba1b4a932b0ea')} value={address} onChangeText={setAddress} placeholder={translateNative('native.43332df0fcf37e64')} />
+              <TextField label={translateNative('native.be6245aeb9573da2')} value={notes} onChangeText={setNotes} multiline placeholder={translateNative('native.dbfc9eedd5cac85d')} />
               <View style={styles.formActions}>
                 {editing ? (
                   <PrimaryButton
-                    label="Cancel edit"
+                    label={translateNative('native.f8a8d015aac0eb84')}
                     variant="secondary"
                     onPress={() => {
                       setEditing(null);
@@ -164,7 +167,7 @@ export function LocationsModal({
                   />
                 ) : null}
                 <PrimaryButton
-                  label={saveMutation.isPending ? 'Saving…' : editing ? 'Save location' : 'Create location'}
+                  label={saveMutation.isPending ? translateNative('native.018c2002806e2312') : editing ? translateNative('native.54198eb01e614fd1') : translateNative('native.75e3747a4394d714')}
                   onPress={() => void saveMutation.mutateAsync()}
                   disabled={!name.trim() || saveMutation.isPending}
                   loading={saveMutation.isPending}
@@ -174,7 +177,7 @@ export function LocationsModal({
 
             <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
               {locations.length === 0 ? (
-                <EmptyState icon="📍" title="No locations yet" message="Create a shelf, drawer, or box location to organize spools." />
+                <EmptyState icon="📍" title={translateNative('native.b3861bd05024eae9')} message={translateNative('native.fc7d4790dee70139')} />
               ) : (
                 locations.map(location => (
                   <View
@@ -184,21 +187,21 @@ export function LocationsModal({
                     <View style={styles.locationText}>
                       <Text style={[styles.locationName, { color: colors.text }]}>{location.name}</Text>
                       <Text style={[styles.locationMeta, { color: colors.textSecondary }]}>
-                        {location.identifier || 'No identifier'} • {location.spool_count} spool{location.spool_count === 1 ? '' : 's'}
+                        {location.identifier || translateNative('native.15bc6925697ed75d')} • {location.spool_count} {translateNative('native.ac5eeabf4703b3d2')}{nativeEnglishSuffix(location.spool_count === 1 ? '' : 's')}
                       </Text>
                     </View>
                     <View style={styles.rowActions}>
                       {selectedSpoolIds.length > 0 ? (
                         <PrimaryButton
-                          label="Assign"
+                          label={translateNative('native.aff9b055e1df6025')}
                           variant="secondary"
                           onPress={() => void assignMutation.mutateAsync(location.name)}
                           disabled={assignMutation.isPending}
                         />
                       ) : null}
-                      <PrimaryButton label="Edit" variant="secondary" onPress={() => startEdit(location)} />
+                      <PrimaryButton label={translateNative('common.edit')} variant="secondary" onPress={() => startEdit(location)} />
                       <PrimaryButton
-                        label="Delete"
+                        label={translateNative('common.delete')}
                         variant="danger"
                         onPress={() => setDeleteTarget(location)}
                         disabled={location.spool_count > 0}
@@ -210,7 +213,7 @@ export function LocationsModal({
             </ScrollView>
 
             <View style={styles.footer}>
-              <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
+              <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
             </View>
           </View>
         </View>
@@ -223,9 +226,9 @@ export function LocationsModal({
           if (!deleteTarget) return;
           void deleteMutation.mutateAsync(deleteTarget.id);
         }}
-        title="Delete location"
-        message={deleteTarget ? `Delete ${deleteTarget.name}? Locations with assigned spools cannot be removed.` : ''}
-        confirmLabel="Delete"
+        title={translateNative('native.0c70de670d5f21c3')}
+        message={deleteTarget ? translateNative('native.ae721c4182f0e3bd', { value0: String(deleteTarget.name) }) : ''}
+        confirmLabel={translateNative('common.delete')}
         loading={deleteMutation.isPending}
       />
     </>

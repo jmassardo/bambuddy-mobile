@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -71,7 +73,7 @@ export function getEnergyRangeParams(range: RangeKey): { dateFrom?: string; date
 }
 
 function formatKwh(value: number) {
-  return `${value.toFixed(2)} kWh`;
+  return translateNative('native.a550c7a04846ff65', { value0: String(value.toFixed(2)) });
 }
 
 function formatCurrencyWithCode(value: number, currency: string) {
@@ -171,7 +173,7 @@ function getPrinterRows(stats: unknown): PrinterEnergyRow[] {
       const printerId = pickNumber(row, ['printer_id', 'id'], Number.NaN);
       rows.push({
         printerId: Number.isFinite(printerId) ? printerId : null,
-        printerName: pickString(row, ['printer_name', 'name'], 'Unknown printer'),
+        printerName: pickString(row, ['printer_name', 'name'], translateNative('native.d2f3cad436de827d')),
         energyKwh: pickNumber(row, ['energy_kwh', 'kwh', 'energy'], 0),
         energyCost: pickNumber(row, ['energy_cost', 'cost'], 0),
       });
@@ -205,16 +207,17 @@ function getPrinterRows(stats: unknown): PrinterEnergyRow[] {
 }
 
 export default function EnergyScreen() {
+  useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Energy'>>();
   const { colors } = useTheme();
   const [range, setRange] = useState<RangeKey>('30d');
   const [selectedPrinterId, setSelectedPrinterId] = useState<number | null>(null);
 
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Energy' });
+    navigation.setOptions({ get title() { return translateNative('nav.energy'); } });
   }, [navigation]);
 
-  const params = useMemo(() => getEnergyRangeParams(range), [range]);
+  const params = useLocalizedMemo(() => getEnergyRangeParams(range), [range]);
 
   const energyQuery = useQuery({
     queryKey: ['archiveEnergyStats', params],
@@ -222,7 +225,7 @@ export default function EnergyScreen() {
   });
 
   const settingsQuery = useQuery({
-    queryKey: ['settings'],
+    queryKey: useServerSettingsKey(),
     queryFn: api.getSettings,
   });
 
@@ -254,13 +257,13 @@ export default function EnergyScreen() {
   const currency = pickString(settings, ['currency'], 'USD');
   const energyRate = pickNumber(settings, ['energy_cost_per_kwh'], 0);
 
-  const series = useMemo(() => getSeriesPoints(energyStats), [energyStats]);
-  const printerRows = useMemo(() => getPrinterRows(energyStats), [energyStats]);
-  const archives = useMemo(
+  const series = useLocalizedMemo(() => getSeriesPoints(energyStats), [energyStats]);
+  const printerRows = useLocalizedMemo(() => getPrinterRows(energyStats), [energyStats]);
+  const archives = useLocalizedMemo(
     () => ((archivesQuery.data ?? []) as ApiRecord[]).filter(Boolean),
     [archivesQuery.data],
   );
-  const filamentRows = useMemo(() => getFilamentRows(archives, energyStats), [archives, energyStats]);
+  const filamentRows = useLocalizedMemo(() => getFilamentRows(archives, energyStats), [archives, energyStats]);
 
   const filteredRow = selectedPrinterId !== null
     ? printerRows.find(r => r.printerId === selectedPrinterId) ?? null
@@ -270,11 +273,11 @@ export default function EnergyScreen() {
   const displayPrinterRows = filteredRow ? [filteredRow] : printerRows;
 
   if (energyQuery.isLoading && !energyQuery.data) {
-    return <LoadingScreen message="Loading energy dashboard…" />;
+    return <LoadingScreen message={translateNative('native.62e9b1fc006e41f9')} />;
   }
 
   if (energyQuery.isError || statsQuery.isError || archivesQuery.isError) {
-    return <ErrorState message="Unable to load energy dashboard." onRetry={() => void refreshAll()} />;
+    return <ErrorState message={translateNative('native.5823959e11906d57')} onRetry={() => void refreshAll()} />;
   }
 
   return (
@@ -297,19 +300,18 @@ export default function EnergyScreen() {
       <LivePlugEnergy />
       <FinancePolicySection energyOnly />
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Energy dashboard</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{translateNative('native.f4fafa4a98787935')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Consumption, cost, filament breakdown, and printer-level energy usage over time.
-        </Text>
+          {translateNative('native.fdff960850fb77b6')}</Text>
       </View>
 
       <InlineTabBar
         value={range}
         tabs={[
-          { key: '7d', label: '7 Days' },
-          { key: '30d', label: '30 Days' },
-          { key: '90d', label: '90 Days' },
-          { key: 'all', label: 'All Time' },
+          { key: '7d', get label() { return translateNative('native.1984832fd3d25be4'); } },
+          { key: '30d', get label() { return translateNative('native.c12983ef4ce463e5'); } },
+          { key: '90d', get label() { return translateNative('native.2b6aac6d3fb5fd03'); } },
+          { key: 'all', get label() { return translateNative('native.ecc6ed4114a1722f'); } },
         ]}
         onChange={value => setRange(value as RangeKey)}
       />
@@ -326,8 +328,7 @@ export default function EnergyScreen() {
               ]}
             >
               <Text style={[styles.filterChipText, { color: selectedPrinterId === null ? colors.textInverse : colors.text }]}>
-                All printers
-              </Text>
+                {translateNative('native.b8ed6cb4c204100e')}</Text>
             </Pressable>
             {printerRows.map(row => (
               <Pressable
@@ -353,48 +354,46 @@ export default function EnergyScreen() {
         </View>
       )}
 
-      <SectionCard title="Overview" subtitle="Total usage, cost, and print statistics for the selected range.">
+      <SectionCard title={translateNative('native.dd193ff312ed2a5e')} subtitle={translateNative('native.605d4518a9fd16ae')}>
         <View style={styles.statsRow}>
-          <StatCard label="Energy" value={formatKwh(displayKwh)} />
-          <StatCard label="Cost" value={formatCurrencyWithCode(displayCost, currency)} />
+          <StatCard label={translateNative('nav.energy')} value={formatKwh(displayKwh)} />
+          <StatCard label={translateNative('common.cost')} value={formatCurrencyWithCode(displayCost, currency)} />
           <StatCard
-            label="Rate"
+            label={translateNative('native.03f9b516190ab7b1')}
             value={energyRate > 0 ? `${formatCurrencyWithCode(energyRate, currency)}/kWh` : '—'}
           />
         </View>
         <View style={styles.statsRow}>
-          <StatCard label="Prints" value={String(totalPrints)} />
-          <StatCard label="Avg/print" value={formatKwh(avgEnergyKwh)} />
-          <StatCard label="Avg cost" value={totalPrints > 0 ? formatCurrencyWithCode(displayCost / Math.max(totalPrints, 1), currency) : '—'} />
+          <StatCard label={translateNative('native.d3484bee79a505c4')} value={String(totalPrints)} />
+          <StatCard label={translateNative('native.13783db95abcf52d')} value={formatKwh(avgEnergyKwh)} />
+          <StatCard label={translateNative('native.4db3f74d4e0438f4')} value={totalPrints > 0 ? formatCurrencyWithCode(displayCost / Math.max(totalPrints, 1), currency) : '—'} />
         </View>
         {warmingUp ? (
           <View style={[styles.warningBox, { backgroundColor: `${colors.warning}18`, borderColor: `${colors.warning}55` }]}>
             <Text style={[styles.warningText, { color: colors.warning }]}>
-              Energy totals may be temporarily incomplete while historical snapshots warm up.
-            </Text>
+              {translateNative('native.23b550ec184d88d1')}</Text>
           </View>
         ) : null}
       </SectionCard>
 
-      <SectionCard title="Energy trend" subtitle="Daily kWh usage over time (line chart).">
+      <SectionCard title={translateNative('native.65ecb647318d8e30')} subtitle={translateNative('native.b7253e505caf4c73')}>
         {series.length > 0 ? (
           <MultiSeriesLineChart
             points={series.map(point => ({
               label: point.label,
               values: { energy: point.energyKwh },
             }))}
-            series={[{ key: 'energy', label: 'Energy (kWh)', color: colors.accent }]}
+            series={[{ key: 'energy', get label() { return translateNative('native.107b201198af6591'); }, color: colors.accent }]}
             height={200}
             formatYAxis={value => `${value.toFixed(1)} kWh`}
           />
         ) : (
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No time-series energy data is available for this range.
-          </Text>
+            {translateNative('native.f67cc19cce708b5a')}</Text>
         )}
       </SectionCard>
 
-      <SectionCard title="Per-printer breakdown" subtitle="Energy usage share by printer.">
+      <SectionCard title={translateNative('native.06ca29baa7fe480c')} subtitle={translateNative('native.b8e49f5ec7a0296d')}>
         {displayPrinterRows.length > 0 ? (
           <View style={styles.printerList}>
             {displayPrinterRows.map(row => {
@@ -414,13 +413,12 @@ export default function EnergyScreen() {
           </View>
         ) : (
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No per-printer energy breakdown is available for this range.
-          </Text>
+            {translateNative('native.5aa9f9f3fa09b034')}</Text>
         )}
       </SectionCard>
 
       {filamentRows.length > 0 && (
-        <SectionCard title="Energy by filament" subtitle="Consumption grouped by filament type.">
+        <SectionCard title={translateNative('native.200fda68162775f1')} subtitle={translateNative('native.b9ffc482c8748fce')}>
           <View style={styles.filamentGrid}>
             {filamentRows.map((row, index) => (
               <View
@@ -436,9 +434,7 @@ export default function EnergyScreen() {
                 <Text style={[styles.filamentValue, { color: colors.text }]}>
                   {formatKwh(row.energyKwh)}
                 </Text>
-                <Text style={[styles.filamentMeta, { color: colors.textSecondary }]}>
-                  {formatCurrencyWithCode(row.energyCost, currency)} • {row.printCount} prints
-                </Text>
+                <Text style={[styles.filamentMeta, { color: colors.textSecondary }]}><NativeTranslation id="native.057f07bfd929b845" values={{ value0: (formatCurrencyWithCode(row.energyCost, currency)), value1: (row.printCount) }} /></Text>
               </View>
             ))}
           </View>
@@ -456,8 +452,7 @@ export default function EnergyScreen() {
       )}
 
       <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-        Cost values are sourced from server-calculated energy totals.
-      </Text>
+        {translateNative('native.a754b47b3c7e07ce')}</Text>
     </ScrollView>
   );
 }
@@ -576,3 +571,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
 });
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

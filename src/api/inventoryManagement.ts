@@ -1,3 +1,4 @@
+import { nativeLabelTuple } from '@/i18n';
 import { request, requestBlob } from './http';
 import type { InventoryRecord, InventoryLabelOptions } from '@/types/api';
 
@@ -82,10 +83,10 @@ export function inventoryBackend(spoolman: boolean) {
 export const inventoryManagementApi = {
   presets: async () => {
     const sources = [
-      ['local', '/local-presets/'],
-      ['cloud', '/cloud/settings'],
-      ['orca_cloud', '/orca-cloud/profiles'],
-      ['builtin', '/cloud/builtin-filaments'],
+      nativeLabelTuple(['local', '/local-presets/']),
+      nativeLabelTuple(['cloud', '/cloud/settings']),
+      nativeLabelTuple(['orca_cloud', '/orca-cloud/profiles']),
+      nativeLabelTuple(['builtin', '/cloud/builtin-filaments']),
     ] as const;
     const results = await Promise.allSettled(
       sources.map(([, path]) =>

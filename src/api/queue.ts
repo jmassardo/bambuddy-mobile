@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import type {
   PrintBatch,
   PrintBatchUngroupResponse,
@@ -128,7 +129,7 @@ export const queueApi = {
     }
 
     if (!item.archive_id && !item.library_file_id && !item.variants?.length) {
-      throw new Error('Queue item cannot be retried');
+      throw new Error(translateNative('native.1506f323f03fdac2'));
     }
 
     return addToQueueRequest({

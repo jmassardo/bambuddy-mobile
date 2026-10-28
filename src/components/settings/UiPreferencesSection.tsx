@@ -1,10 +1,12 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { printersApi } from '@/api/printers';
 import { SectionCard, PrimaryButton } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
-import { useTranslation } from '@/i18n';
+
 import { BUILT_IN_NAV_ITEMS } from '@/navigation/navigationConfig';
 import { useUiPreferencesStore } from '@/store/uiPreferencesStore';
 import { useArchiveFiltersStore } from '@/store/archiveFiltersStore';
@@ -15,6 +17,7 @@ import { OptionChipsField, SwitchRow } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
 
 export function UiPreferencesSection({ controller }: { controller: SettingsScreenController }) {
+  useNativeLocale();
   const { t, resetLanguage } = useTranslation();
   const theme = useTheme();
   const { landingPage, setLandingPage, reset } = useUiPreferencesStore();
@@ -27,11 +30,11 @@ export function UiPreferencesSection({ controller }: { controller: SettingsScree
   const [error, setError] = useState(false);
   const selectedPrinter = typeof draft.default_printer_id === 'number' ? draft.default_printer_id : null;
   const printerOptions = [
-    { key: '', label: t('preferences.noPrinter') },
+    { key: '', get label() { return translateNative('preferences.noPrinter'); } },
     ...(printers ?? []).map(printer => ({ key: String(printer.id), label: printer.name })),
   ];
   if (selectedPrinter !== null && !printers?.some(printer => printer.id === selectedPrinter)) {
-    printerOptions.push({ key: String(selectedPrinter), label: t('preferences.removedPrinter', { id: selectedPrinter }) });
+    printerOptions.push({ key: String(selectedPrinter), get label() { return translateNative('preferences.removedPrinter', { id: selectedPrinter }); } });
   }
   function updateTheme(key: keyof ThemeCustomization, value: string) {
     const patch = { [key]: value } as Partial<ThemeCustomization>;
@@ -51,7 +54,7 @@ export function UiPreferencesSection({ controller }: { controller: SettingsScree
   return <>
     <SectionCard title={t('preferences.title')}>
       <OptionChipsField label={t('preferences.landing')} value={landingPage}
-        options={BUILT_IN_NAV_ITEMS.filter(item => item.id !== 'more').map(item => ({ key: item.id, label: t(`nav.${item.id}`, { defaultValue: item.label }) }))}
+        options={BUILT_IN_NAV_ITEMS.filter(item => item.id !== 'more').map(item => ({ key: item.id, get label() { return translateNative(`nav.${item.id}`, { defaultValue: item.label }); } }))}
         onChange={value => { void setLandingPage(value).catch(() => setError(true)); }} />
       <OptionChipsField label={t('preferences.printer')} value={selectedPrinter === null ? '' : String(selectedPrinter)}
         options={printerOptions} disabled={!canEdit}
@@ -60,13 +63,13 @@ export function UiPreferencesSection({ controller }: { controller: SettingsScree
       {(['dark', 'light'] as const).map(mode => <View key={mode} style={styles.group}>
         <Text style={{ color: theme.colors.text }}>{t(`preferences.${mode}`)}</Text>
         <OptionChipsField label={t('preferences.background')} value={theme.customization[`${mode}_background`]}
-          options={backgroundOptions[mode].map(key => ({ key, label: t(`preferences.background.${key}`, { defaultValue: key }) }))}
+          options={backgroundOptions[mode].map(key => ({ key, get label() { return translateNative(`preferences.background.${key}`, { defaultValue: key }); } }))}
           disabled={!canEdit} onChange={value => updateTheme(`${mode}_background`, value)} />
         <OptionChipsField label={t('preferences.accent')} value={theme.customization[`${mode}_accent`]}
-          options={accentOptions.map(key => ({ key, label: t(`preferences.accent.${key}`, { defaultValue: key }) }))}
+          options={accentOptions.map(key => ({ key, get label() { return translateNative(`preferences.accent.${key}`, { defaultValue: key }); } }))}
           disabled={!canEdit} onChange={value => updateTheme(`${mode}_accent`, value)} />
         <OptionChipsField label={t('preferences.style')} value={theme.customization[`${mode}_style`]}
-          options={styleOptions.map(key => ({ key, label: t(`preferences.style.${key}`, { defaultValue: key }) }))}
+          options={styleOptions.map(key => ({ key, get label() { return translateNative(`preferences.style.${key}`, { defaultValue: key }); } }))}
           disabled={!canEdit} onChange={value => updateTheme(`${mode}_style`, value)} />
       </View>)}
       {error ? <Text accessibilityRole="alert" style={{ color: theme.colors.error }}>{t('common.error')}</Text> : null}

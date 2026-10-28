@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -88,7 +89,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export function useTheme() {
   const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used inside ThemeProvider');
+  if (!ctx) throw new Error(translateNative('native.0c6fcebec6cc5ecb'));
   return ctx;
 }
 

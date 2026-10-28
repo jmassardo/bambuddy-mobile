@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import { ScrollView, Text, StyleSheet } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -5,12 +6,13 @@ import { request } from '@/api/http';
 import { filesApi } from '@/api/files';
 import { Chip, PrimaryButton, SearchBar } from '@/components/common/AppUI';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { isRecord, pickArray, pickNumber, pickString, type ApiRecord } from '@/utils/data';
 
 export function FolderAssociation({ folder, onSaved }: {folder: ApiRecord; onSaved: () => void}) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { showToast } = useToast();

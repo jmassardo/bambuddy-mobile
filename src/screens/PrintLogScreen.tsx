@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -15,7 +16,7 @@ import { archiveWorkflows } from '@/api/archiveWorkflows';
 import { api } from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import {
@@ -55,18 +56,18 @@ const FIELD_KEYS = [
 ] as const;
 type Field = (typeof FIELD_KEYS)[number];
 const FIELD_LABELS: Record<Field, string> = {
-  date: 'Started',
-  print_name: 'Print name',
-  printer: 'Printer',
-  user: 'User',
-  status: 'Status',
-  duration: 'Duration',
-  completed_at: 'Completed',
-  filament: 'Filament',
-  filament_used: 'Filament used (g)',
-  cost: 'Cost',
-  energy: 'Energy (kWh)',
-  energy_cost: 'Energy cost',
+  get date() { return translateNative('native.c0547a6175e8f6fc'); },
+  get print_name() { return translateNative('native.861e032040547eee'); },
+  get printer() { return translateNative('screen.printer'); },
+  get user() { return translateNative('native.79911ae711e1198c'); },
+  get status() { return translateNative('common.status'); },
+  get duration() { return translateNative('native.e6b6cee2c436ee57'); },
+  get completed_at() { return translateNative('native.e8d25c3ab5a7be5d'); },
+  get filament() { return translateNative('native.12e2b8020ce55e27'); },
+  get filament_used() { return translateNative('native.11bdac07996b0b0c'); },
+  get cost() { return translateNative('common.cost'); },
+  get energy() { return translateNative('native.107b201198af6591'); },
+  get energy_cost() { return translateNative('native.74c60764be5cdd7a'); },
 };
 const REASONS = [
   '',
@@ -126,6 +127,7 @@ function valueFor(entry: PrintLogEntry, field: Field): string {
 }
 
 export default function PrintLogScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { user, hasPermission } = useAuth();
@@ -154,7 +156,7 @@ export default function PrintLogScreen() {
     (!from || isIsoArchiveDay(from)) &&
     (!to || isIsoArchiveDay(to)) &&
     (!from || !to || from <= to);
-  const parameters = useMemo(
+  const parameters = useLocalizedMemo(
     () => ({
       search: search || undefined,
       printerId,

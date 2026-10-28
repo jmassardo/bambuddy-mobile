@@ -1,9 +1,9 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import { borderRadius, spacing, fontSize } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
 
 export function FleetModal({
   title,
@@ -14,6 +14,7 @@ export function FleetModal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   return (

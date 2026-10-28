@@ -3,10 +3,11 @@ import { Pressable, Text } from 'react-native';
 import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createTranslator, LANGUAGE_STORAGE_KEY, LocalizationProvider, resolveLanguage, useTranslation } from '@/i18n';
+import { createTranslator, LANGUAGE_STORAGE_KEY, LocalizationProvider, resolveLanguage, useLocalizedMemo, useTranslation } from '@/i18n';
 import { catalogs, english, availableLanguages } from '@/i18n/catalog';
 import { MenuItem, PrimaryButton, TextField } from '@/components/common/AppUI';
 import { UiPreferencesSection } from '@/components/settings/UiPreferencesSection';
+import { useFormattingPreferences } from '@/hooks/useFormattingPreferences';
 import { ServerPreferencesSync } from '@/components/common/ServerPreferencesSync';
 import type { SettingsScreenController } from '@/components/settings/useSettingsScreenController';
 import { ThemeProvider, THEME_CUSTOMIZATION_KEY, THEME_STORAGE_KEY, useTheme } from '@/theme';
@@ -46,10 +47,10 @@ describe('native localization', () => {
   it('updates rendered controls, accessibility labels and validation, and restores the selected locale', async () => {
     storage.set(LANGUAGE_STORAGE_KEY, 'de');
     function Controls() {
-      const { setLanguage } = useTranslation();
+      const { setLanguage, t } = useTranslation();
       return <>
-        <PrimaryButton label="Save" onPress={() => {}} />
-        <TextField label="Name" error="This field is required" value="" />
+        <PrimaryButton label={t('common.save')} onPress={() => {}} />
+        <TextField label="Name" error={t('common.required')} value="" />
         <MenuItem icon="link" label="Save" translateText={false} onPress={() => {}} />
         <Pressable accessibilityLabel="switch-language" onPress={() => { void setLanguage('ja'); }}><Text>Switch</Text></Pressable>
       </>;
@@ -111,6 +112,22 @@ describe('native localization', () => {
 });
 
 describe('shared date, time and currency preferences', () => {
+  it('updates formatted props and memoized rows when preferences arrive without remounting', async () => {
+    const date = new Date(2026, 0, 15, 14, 30);
+    let mounts = 0;
+    const Value = React.memo(({ value }: { value: string }) => <Text testID="formatted-value">{value}</Text>);
+    function Readout() {
+      React.useEffect(() => { mounts += 1; }, []);
+      const value = useLocalizedMemo(() => `${formatCurrency(12)}|${formatDate(date)}|${formatTime(date)}`, []);
+      return <Value value={value} />;
+    }
+    const screen = await render(<Readout />);
+    expect(screen.getByTestId('formatted-value').props.children).toContain('$12.00');
+    await act(async () => { setFormattingPreferences({ currency: 'EUR', dateFormat: 'eu', timeFormat: '24h' }); });
+    expect(screen.getByTestId('formatted-value').props.children).toBe('€12.00|15/01/2026|14:30');
+    expect(mounts).toBe(1);
+    await screen.unmount();
+  });
   it('normalizes zone-less UTC timestamps while preserving calendar dates and explicit offsets', () => {
     expect(parseServerDate('2026-01-15T10:30:00').toISOString()).toBe('2026-01-15T10:30:00.000Z');
     expect(parseServerDate('2026-01-15 10:30:00.123').toISOString()).toBe('2026-01-15T10:30:00.123Z');
@@ -282,7 +299,7 @@ describe('landing and appearance preferences', () => {
     expect(formatDate(new Date(2026, 0, 15))).toBe('15/01/2026');
     expect(screen.getByTestId('server-preferences').props.children).toBe('en|#00AE42');
     await act(async () => {
-      client.setQueryData(['settings'], { ...settings, date_format: 'iso', currency: 'GBP', dark_accent: 'purple' });
+      client.setQueryData(['settings', 'https://farm.example'], { ...settings, date_format: 'iso', currency: 'GBP', dark_accent: 'purple' });
     });
     await waitFor(() => expect(screen.getByTestId('server-preferences').props.children).toBe('en|#9333ea'));
     expect(formatCurrency(12)).toContain('£');
@@ -310,6 +327,56 @@ describe('landing and appearance preferences', () => {
     expect(display).toHaveBeenCalled();
     expect(flags).toHaveBeenCalled();
     expect(privilegedSettings).not.toHaveBeenCalled();
+    await screen.unmount();
+    client.clear();
+  });
+  it('never applies cached server A full settings over server B safe defaults while B is delayed or fails', async () => {
+    const settingsA = { ...DEFAULT_THEME, date_format: 'us', time_format: '12h', currency: 'JPY' } as Awaited<ReturnType<typeof settingsApi.getSettings>>;
+    let failB: (error: Error) => void = () => {};
+    jest.spyOn(settingsApi, 'getSettings').mockImplementation(() =>
+      useServerStore.getState().serverUrl === 'https://farm.example' ? Promise.resolve(settingsA) : new Promise((_, reject) => { failB = reject; }),
+    );
+    jest.spyOn(uiPreferencesApi, 'getDisplayPreferences').mockResolvedValue({ date_format: 'eu', time_format: '24h' });
+    jest.spyOn(uiPreferencesApi, 'getFlags').mockResolvedValue({ currency: 'EUR', billing_enabled: false, check_updates: true, user_notifications_enabled: true });
+    function Readout() {
+      useFormattingPreferences();
+      return <Text testID="isolated-preferences">{`${formatCurrency(12)}|${formatDate(new Date(2026, 0, 15))}`}</Text>;
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    const screen = await render(<QueryClientProvider client={client}><ServerPreferencesSync /><Readout /></QueryClientProvider>, { wrapper });
+    await waitFor(() => expect(formatCurrency(12)).toContain('¥'));
+    await act(async () => { useServerStore.setState({ serverUrl: 'https://farm-b.example' }); });
+    await waitFor(() => expect(screen.getByTestId('isolated-preferences').props.children).toBe('€12.00|15/01/2026'));
+    await act(async () => { failB(new Error('B unavailable')); });
+    await waitFor(() => expect(client.getQueryState(['settings', 'https://farm-b.example'])?.status).toBe('error'));
+    expect(screen.getByTestId('isolated-preferences').props.children).toBe('€12.00|15/01/2026');
+    expect(client.getQueryData(['settings', 'https://farm.example'])).toEqual(settingsA);
+    await screen.unmount();
+    client.clear();
+  });
+  it('renders late safe currency/date/time defaults for a role without settings:read', async () => {
+    mockAuth.authEnabled = true;
+    mockAuth.user = { id: 8 };
+    mockAuth.hasPermission.mockReturnValue(false);
+    let finishDisplay: (value: { date_format: 'eu'; time_format: '24h' }) => void = () => {};
+    let finishFlags: (value: Awaited<ReturnType<typeof uiPreferencesApi.getFlags>>) => void = () => {};
+    jest.spyOn(uiPreferencesApi, 'getDisplayPreferences').mockImplementation(() => new Promise(resolve => { finishDisplay = resolve; }));
+    jest.spyOn(uiPreferencesApi, 'getFlags').mockImplementation(() => new Promise(resolve => { finishFlags = resolve; }));
+    const fullSettings = jest.spyOn(settingsApi, 'getSettings');
+    function Readout() {
+      useFormattingPreferences();
+      const date = new Date(2026, 0, 15, 14, 30);
+      return <Text testID="late-safe-preferences">{`${formatCurrency(12)}|${formatDate(date)}|${formatTime(date)}`}</Text>;
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    const screen = await render(<QueryClientProvider client={client}><ServerPreferencesSync /><Readout /></QueryClientProvider>, { wrapper });
+    expect(screen.getByTestId('late-safe-preferences').props.children).toContain('$12.00');
+    await act(async () => {
+      finishDisplay({ date_format: 'eu', time_format: '24h' });
+      finishFlags({ currency: 'EUR', billing_enabled: false, check_updates: true, user_notifications_enabled: true });
+    });
+    await waitFor(() => expect(screen.getByTestId('late-safe-preferences').props.children).toBe('€12.00|15/01/2026|14:30'));
+    expect(fullSettings).not.toHaveBeenCalled();
     await screen.unmount();
     client.clear();
   });

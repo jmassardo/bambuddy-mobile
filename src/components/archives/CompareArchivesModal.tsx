@@ -1,9 +1,10 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { archiveWorkflows } from '@/api/archiveWorkflows';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { ArchiveDialog } from './ArchiveWorkflowUI';
@@ -19,6 +20,7 @@ export function CompareArchivesModal({
   archives: Archive[];
   onClose: () => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const query = useQuery({

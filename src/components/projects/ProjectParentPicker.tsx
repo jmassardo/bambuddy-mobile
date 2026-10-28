@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import { useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton, SearchBar } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { eligibleParents, projectTree } from '@/utils/projectHierarchy';
@@ -13,11 +14,12 @@ export function ProjectParentPicker({ projects, projectId, value, onChange }: {
   value: number | null;
   onChange: (id: number | null) => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const [visible, setVisible] = useState(false);
   const [search, setSearch] = useState('');
-  const choices = useMemo(() => eligibleParents(projects, projectId), [projects, projectId]);
+  const choices = useLocalizedMemo(() => eligibleParents(projects, projectId), [projects, projectId]);
   const rows = projectTree(choices, new Set(choices.map(project => pickNumber(project, ['id']))))
     .filter(row => pickString(row.project, ['name']).toLowerCase().includes(search.toLowerCase()));
   const choose = (id: number | null) => { onChange(id); setVisible(false); };

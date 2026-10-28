@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -8,9 +10,9 @@ import type { SettingsScreenController } from './useSettingsScreenController';
 import { pickBoolean, pickString, statusColor, type ApiRecord } from '@/utils/data';
 import { BedCooledThreshold } from '@/components/notifications/BedCooledThreshold';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
 
 export function NotificationsSettingsSection({ controller }: { controller: SettingsScreenController }) {
+  useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Settings'>>();
   const { hasPermission } = useAuth();
   const { t } = useTranslation();
@@ -26,9 +28,9 @@ export function NotificationsSettingsSection({ controller }: { controller: Setti
             <View style={settingsStyles.itemHeader}>
               <View style={settingsStyles.itemText}>
                 <Text style={[settingsStyles.itemTitle, { color: controller.colors.text }]}>{pickString(provider, ['name'], 'Provider')}</Text>
-                <Text style={[settingsStyles.itemMeta, { color: controller.colors.textSecondary }]}>{pickString(provider, ['type', 'provider_type'], 'Unknown type')}</Text>
+                <Text style={[settingsStyles.itemMeta, { color: controller.colors.textSecondary }]}>{pickString(provider, ['type', 'provider_type'], translateNative('native.883a86285de71a64'))}</Text>
               </View>
-              <StatusBadge label={enabled ? 'enabled' : 'disabled'} color={statusColor(enabled ? 'success' : 'offline', controller.colors)} />
+              <StatusBadge label={enabled ? translateNative('native.6786e575ee872370') : translateNative('native.08e76ba2b69926c4')} color={statusColor(enabled ? 'success' : 'offline', controller.colors)} />
             </View>
           </View>
         );

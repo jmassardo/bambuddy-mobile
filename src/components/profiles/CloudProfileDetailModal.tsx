@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import {
   Modal,
@@ -9,7 +10,7 @@ import {
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { PrimaryButton, StatusBadge, TextField } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type { CloudProfileDetail } from '@/types/api';
@@ -42,6 +43,7 @@ export function CloudProfileDetailModal({
   onRetry,
   onClose,
 }: CloudProfileDetailModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
@@ -65,8 +67,7 @@ export function CloudProfileDetailModal({
           <View style={styles.header}>
             <View style={styles.headerText}>
               <Text style={[styles.title, { color: colors.text }]}>
-                Profile details
-              </Text>
+                {translateNative('native.6b263d68c00d232f')}</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                 {profileName}
               </Text>
@@ -89,14 +90,13 @@ export function CloudProfileDetailModal({
 
           {isLoading ? (
             <Text style={[styles.message, { color: colors.textSecondary }]}>
-              Loading profile details…
-            </Text>
+              {translateNative('native.ef996d8d5f863551')}</Text>
           ) : errorMessage ? (
             <View style={styles.messageWrap}>
               <Text style={[styles.message, { color: colors.error }]}>
                 {errorMessage}
               </Text>
-              <PrimaryButton label="Retry" variant="secondary" onPress={onRetry} />
+              <PrimaryButton label={translateNative('common.retry')} variant="secondary" onPress={onRetry} />
             </View>
           ) : detail ? (
             <ScrollView contentContainerStyle={styles.content}>
@@ -109,41 +109,36 @@ export function CloudProfileDetailModal({
               </View>)}
               <View style={styles.metaRow}>
                 <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>
-                  Type
-                </Text>
+                  {translateNative('native.aeee596fdaf12076')}</Text>
                 <StatusBadge
-                  label={detail.type || 'unknown'}
+                  label={detail.type || translateNative('native.649d2a9c05f2b32c')}
                   color={statusColor(detail.type || 'offline', colors)}
                 />
               </View>
               <View style={styles.metaRow}>
                 <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>
-                  Version
-                </Text>
+                  {translateNative('native.2c260e8a6631b5f2')}</Text>
                 <Text style={[styles.metaValue, { color: colors.text }]}>
                   {detailValue(detail.version)}
                 </Text>
               </View>
               <View style={styles.metaRow}>
                 <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>
-                  Updated
-                </Text>
+                  {translateNative('native.579768fa26620d83')}</Text>
                 <Text style={[styles.metaValue, { color: colors.text }]}>
                   {formatDateTime(detail.update_time)}
                 </Text>
               </View>
               <View style={styles.metaRow}>
                 <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>
-                  Base profile
-                </Text>
+                  {translateNative('native.4f41a33dc60d80f4')}</Text>
                 <Text style={[styles.metaValue, { color: colors.text }]}>
                   {detailValue(detail.base_id)}
                 </Text>
               </View>
               <View style={styles.metaRow}>
                 <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>
-                  Setting ID
-                </Text>
+                  {translateNative('native.6800b210eb95d6e3')}</Text>
                 <Text style={[styles.metaValue, { color: colors.text }]}>
                   {detailValue(detail.setting_id)}
                 </Text>
@@ -159,12 +154,10 @@ export function CloudProfileDetailModal({
                 ]}
               >
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  Setting values
-                </Text>
+                  {translateNative('native.beb8fc733d2135fe')}</Text>
                 {settingEntries.length === 0 ? (
                   <Text style={[styles.sectionEmpty, { color: colors.textSecondary }]}>
-                    No setting values returned by the server.
-                  </Text>
+                    {translateNative('native.d0a81c81d66f73c5')}</Text>
                 ) : (
                   settingEntries.map(([key, value]) => (
                     <View
@@ -189,11 +182,10 @@ export function CloudProfileDetailModal({
             </ScrollView>
           ) : (
             <Text style={[styles.message, { color: colors.textSecondary }]}>
-              Select a profile to view details.
-            </Text>
+              {translateNative('native.31cbf50342d5ed96')}</Text>
           )}
 
-          <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
+          <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         </View>
       </View>
     </Modal>

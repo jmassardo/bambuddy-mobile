@@ -1,3 +1,5 @@
+import { translateNative } from '@/i18n';
+
 import * as Keychain from 'react-native-keychain';
 import { apiUrl, registerServerUrlChangeHandler, useServerStore } from './server';
 
@@ -82,7 +84,7 @@ function updateMediaToken(
 
 function getServerUrl(): string {
   const url = useServerStore.getState().serverUrl;
-  if (!url) throw new Error('Server URL not configured');
+  if (!url) throw new Error(translateNative('native.8dd96f594e1dd592'));
   return url;
 }
 
@@ -123,7 +125,7 @@ async function fetchWithTimeout(
   if (options.signal) {
     if (options.signal.aborted) {
       controller.abort();
-      const abortErr = new Error('Aborted');
+      const abortErr = new Error(translateNative('native.8f6866f123f3920f'));
       abortErr.name = 'AbortError';
       throw abortErr;
     }
@@ -145,7 +147,7 @@ async function fetchWithTimeout(
     if (error instanceof Error && error.name === 'AbortError') {
       if (didTimeout) {
         throw new ApiError(
-          `Request timed out after ${timeoutMs}ms`,
+          translateNative('native.7dd41306851b56ab', { value0: String(timeoutMs) }),
           0,
           'timeout',
           null,
@@ -174,7 +176,7 @@ async function safeParseJson<T>(response: Response): Promise<T> {
     const contentType = response.headers.get('content-type') ?? 'unknown';
     const preview = text.length > 120 ? text.slice(0, 120) + '…' : text;
     throw new ApiError(
-      `Expected JSON response but received ${contentType}: ${preview}`,
+      translateNative('native.460cea237ca8d3eb', { value0: String(contentType), value1: String(preview) }),
       response.status,
       'invalid_response',
       null,
@@ -253,7 +255,7 @@ export async function getCameraStreamToken(): Promise<{ token: string | null }> 
     const refreshed = await refreshMediaToken();
     if (!refreshed) {
       throw new ApiError(
-        'Unable to fetch a media access token',
+        translateNative('native.a20f9017bbda9b7f'),
         0,
         'media_token_unavailable',
       );
@@ -332,7 +334,7 @@ export async function setAuthToken(token: string | null, persist = true): Promis
   } catch {
     if (token && !persist) {
       authToken = null;
-      throw new Error('Unable to remove previously saved credentials. Sign out and retry session-only sign-in.');
+      throw new Error(translateNative('native.c706d5a8bd8740fb'));
     }
     if (token) {
       console.warn('Keychain persistence failed; token is memory-only this session');
@@ -461,7 +463,7 @@ export async function requestBlob(
   );
 
   if (!response.ok) {
-    throw new ApiError(`HTTP ${response.status}`, response.status);
+    throw new ApiError(translateNative('native.3f24c1778d182094', { value0: String(response.status) }), response.status);
   }
 
   return response.blob();
@@ -494,7 +496,7 @@ export async function requestText(
         ? detail
         : typeof detail === 'object' && detail && 'message' in detail
           ? String((detail as { message?: string }).message ?? `HTTP ${response.status}`)
-          : `HTTP ${response.status}`;
+          : translateNative('native.3f24c1778d182094', { value0: String(response.status) });
     throw new ApiError(message, response.status);
   }
 
@@ -545,7 +547,7 @@ export async function uploadFile<T>(
         ? detail
         : typeof detail === 'object' && detail && 'message' in detail
           ? String((detail as { message?: string }).message ?? `HTTP ${response.status}`)
-          : `HTTP ${response.status}`;
+          : translateNative('native.3f24c1778d182094', { value0: String(response.status) });
     throw new ApiError(message, response.status);
   }
 
@@ -579,7 +581,7 @@ export async function uploadFileWithProgress<T>(
 
     xhr.timeout = UPLOAD_TIMEOUT_MS;
     xhr.ontimeout = () => {
-      reject(new ApiError('Upload timed out', 0, 'timeout', null));
+      reject(new ApiError(translateNative('native.3c4ab7e51b762c29'), 0, 'timeout', null));
     };
 
     if (authToken) {
@@ -592,7 +594,7 @@ export async function uploadFileWithProgress<T>(
     };
 
     xhr.onerror = () => {
-      reject(new ApiError('Network error', 0));
+      reject(new ApiError(translateNative('native.f47f386e3ccd27a5'), 0));
     };
 
     xhr.onload = () => {
@@ -625,7 +627,7 @@ export async function uploadFileWithProgress<T>(
           ? detail
           : typeof detail === 'object' && detail && 'message' in detail
             ? String((detail as { message?: string }).message ?? `HTTP ${status}`)
-            : `HTTP ${status}`;
+            : translateNative('native.3f24c1778d182094', { value0: String(status) });
 
       reject(new ApiError(message, status));
     };

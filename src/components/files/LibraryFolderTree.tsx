@@ -1,6 +1,7 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { isRecord, pickArray, pickNumber, pickString, type ApiRecord } from '@/utils/data';
@@ -9,6 +10,7 @@ export function LibraryFolderTree({ tree, sort, ascending, collapsed, wrap, onCh
   tree: ApiRecord[]; sort: 'name' | 'activity'; ascending: boolean;
   collapsed: boolean; wrap: boolean; onChoose: (id: number | null) => void; nested?: boolean;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const [expanded, setExpanded] = useState<number[]>([]);

@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import { localizedStatus } from '@/utils/statusLabel';
+
+import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
@@ -27,7 +30,7 @@ import { ProjectBatchPrintModal } from '@/components/projects/ProjectActionModal
 import { ProjectParentPicker } from '@/components/projects/ProjectParentPicker';
 import { ProjectTransferActions } from '@/components/projects/ProjectTransferActions';
 import { projectTree } from '@/utils/projectHierarchy';
-import { useTranslation } from '@/i18n';
+
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -80,10 +83,11 @@ function projectCoverUrl(project: ApiRecord): string | null {
 }
 
 export default function ProjectsScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Projects'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Projects' });
+    navigation.setOptions({ get title() { return translateNative('nav.projects'); } });
   }, [navigation]);
 
   const { colors } = useTheme();
@@ -137,9 +141,9 @@ export default function ProjectsScreen() {
     onSuccess: async () => {
       await invalidateProjects();
       resetModal();
-      showToast('Project created.', 'success');
+      showToast(translateNative('native.04436e6c81ceca7e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to create project.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.ea91f938ed518cfc'), 'error'),
   });
 
   const updateMutation = useMutation({
@@ -162,18 +166,18 @@ export default function ProjectsScreen() {
     onSuccess: async () => {
       await invalidateProjects();
       resetModal();
-      showToast('Project updated.', 'success');
+      showToast(translateNative('native.ad41c4498a8814e8'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update project.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.d7fb3bf7219f6906'), 'error'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.deleteProject(id),
     onSuccess: async () => {
       await invalidateProjects();
-      showToast('Project deleted.', 'success');
+      showToast(translateNative('native.9af814479d2f1915'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to delete project.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.53bb076551334fcb'), 'error'),
   });
 
   const coverMutation = useMutation({
@@ -187,7 +191,7 @@ export default function ProjectsScreen() {
     },
     onSuccess: async () => {
       await invalidateProjects();
-      showToast('Cover image updated.', 'success');
+      showToast(translateNative('native.a001f391d7026f60'), 'success');
     },
     onError: (error: unknown) => {
       if (
@@ -196,7 +200,7 @@ export default function ProjectsScreen() {
       ) {
         return;
       }
-      showToast(error instanceof Error ? error.message : 'Unable to upload cover image.', 'error');
+      showToast(error instanceof Error ? error.message : translateNative('native.298916fc664e3b34'), 'error');
     },
   });
 
@@ -204,13 +208,13 @@ export default function ProjectsScreen() {
     mutationFn: (projectId: number) => api.deleteProjectCoverImage(projectId),
     onSuccess: async () => {
       await invalidateProjects();
-      showToast('Cover image removed.', 'success');
+      showToast(translateNative('native.234e26d9c0701b32'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to remove cover image.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.d1f9ecb867336a95'), 'error'),
   });
 
-  const projects = useMemo(() => ((projectsQuery.data ?? []) as ApiRecord[]), [projectsQuery.data]);
-  const filteredProjects = useMemo(() => {
+  const projects = useLocalizedMemo(() => ((projectsQuery.data ?? []) as ApiRecord[]), [projectsQuery.data]);
+  const filteredProjects = useLocalizedMemo(() => {
     const term = search.trim().toLowerCase();
     return projects.filter(project => {
       const status = pickString(project, ['status'], 'active');
@@ -255,13 +259,13 @@ export default function ProjectsScreen() {
   };
 
   if (projectsQuery.isLoading) {
-    return <LoadingScreen message="Loading projects…" />;
+    return <LoadingScreen message={translateNative('native.12593164867ec279')} />;
   }
 
   if (projectsQuery.isError) {
     return (
       <ErrorState
-        message="Unable to load projects."
+        message={translateNative('native.f7c7eebeedef8716')}
         onRetry={() => void projectsQuery.refetch()}
       />
     );
@@ -284,14 +288,14 @@ export default function ProjectsScreen() {
         ListHeaderComponent={
           <View style={styles.headerArea}>
             <ProjectTransferActions />
-            <SearchBar value={search} onChangeText={setSearch} placeholder="Search projects" />
+            <SearchBar value={search} onChangeText={setSearch} placeholder={translateNative('native.c5813235b3b95381')} />
             <InlineTabBar
               value={filter}
               tabs={[
-                { key: 'all', label: 'All' },
-                { key: 'active', label: 'Active' },
-                { key: 'completed', label: 'Completed' },
-                { key: 'archived', label: 'Archived' },
+                { key: 'all', get label() { return translateNative('common.all'); } },
+                { key: 'active', get label() { return translateNative('native.338a8c40557b22a0'); } },
+                { key: 'completed', get label() { return translateNative('native.e8d25c3ab5a7be5d'); } },
+                { key: 'archived', get label() { return translateNative('native.09a6280015b8766a'); } },
               ]}
               onChange={value => setFilter(value as StatusFilter)}
             />
@@ -320,8 +324,8 @@ export default function ProjectsScreen() {
                 })} /> : null}
             <PressableProjectCard
               colors={colors}
-              title={pickString(item, ['name'], 'Unnamed project')}
-              description={pickString(item, ['description'], 'No description')}
+              title={pickString(item, ['name'], translateNative('native.54c922b0b8543c9f'))}
+              description={pickString(item, ['description'], translateNative('native.45f0f17b62d6ee4d'))}
               status={status}
               priority={pickString(item, ['priority'], 'normal')}
               dueDate={pickString(item, ['due_date'])}
@@ -339,28 +343,28 @@ export default function ProjectsScreen() {
         ListEmptyComponent={
           <EmptyState
             icon="📁"
-            title="No projects found"
-            message="Try a different filter or create a new project."
+            title={translateNative('native.51b278f9f4303cad')}
+            message={translateNative('native.39ab4577b691b5a3')}
           />
         }
       />
 
       <ActionSheetModal
         visible={pendingDeleteProject != null}
-        title="Delete project"
+        title={translateNative('native.551beea862b60b72')}
         subtitle={
           pendingDeleteProject
-            ? `Delete ${pickString(pendingDeleteProject, ['name'])}?`
+            ? translateNative('native.3e132ab74d3e7e22', { value0: String(pickString(pendingDeleteProject, ['name'])) })
             : undefined
         }
         onClose={() => setPendingDeleteProject(null)}
         actions={[
           {
-            label: 'Cancel',
+            get label() { return translateNative('common.cancel'); },
             onPress: () => setPendingDeleteProject(null),
           },
           {
-            label: 'Delete',
+            get label() { return translateNative('common.delete'); },
             onPress: () => {
               if (!pendingDeleteProject) return;
               const projectId = pickNumber(pendingDeleteProject, ['id']);
@@ -372,19 +376,19 @@ export default function ProjectsScreen() {
         ]}
       />
 
-      <FloatingActionButton icon="plus" label="Project" onPress={openCreate} />
+      <FloatingActionButton icon="plus" label={translateNative('screen.project')} onPress={openCreate} />
 
       <Modal visible={showModal} animationType="slide" transparent>
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
             <ScrollView contentContainerStyle={styles.modalContent}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>{editingProject ? 'Edit project' : 'New project'}</Text>
-              <TextField label="Name" value={form.name} onChangeText={value => setForm(current => ({ ...current, name: value }))} />
-              <TextField label="Description" value={form.description} onChangeText={value => setForm(current => ({ ...current, description: value }))} multiline />
+              <Text style={[styles.modalTitle, { color: colors.text }]}>{editingProject ? translateNative('native.7ca475c44190e23e') : translateNative('native.af2769610bfa6d04')}</Text>
+              <TextField label={translateNative('common.name')} value={form.name} onChangeText={value => setForm(current => ({ ...current, name: value }))} />
+              <TextField label={translateNative('native.a7115fb87dd30c12')} value={form.description} onChangeText={value => setForm(current => ({ ...current, description: value }))} multiline />
               <ProjectParentPicker projects={projects} projectId={editingProject ? pickNumber(editingProject, ['id']) : undefined} value={form.parentId} onChange={parentId => setForm(current => ({ ...current, parentId }))} />
               <TextField label={t('projects.targetSets', { defaultValue: 'Target complete sets (copies per printable file)' })} value={form.targetSets} onChangeText={value => setForm(current => ({ ...current, targetSets: value.replace(/[^0-9]/g, '') }))} keyboardType="number-pad" />
-              <TextField label="External URL" value={form.url} onChangeText={value => setForm(current => ({ ...current, url: value }))} placeholder="https://…" autoCapitalize="none" />
-              <TextField label="Tags" value={form.tags} onChangeText={value => setForm(current => ({ ...current, tags: value }))} placeholder="prototype, urgent" />
+              <TextField label={translateNative('native.b543b3bf7894c9d6')} value={form.url} onChangeText={value => setForm(current => ({ ...current, url: value }))} placeholder="https://…" autoCapitalize="none" />
+              <TextField label={translateNative('native.0157f54b2e4d9f8e')} value={form.tags} onChangeText={value => setForm(current => ({ ...current, tags: value }))} placeholder={translateNative('native.227790e59593f50f')} />
 
               <View style={styles.colorRow}>
                 {PROJECT_COLORS.map(color => (
@@ -398,40 +402,40 @@ export default function ProjectsScreen() {
               </View>
 
               <View style={styles.splitRow}>
-                <View style={styles.splitField}><TextField label="Target plates" value={form.targetCount} onChangeText={value => setForm(current => ({ ...current, targetCount: value }))} keyboardType="number-pad" /></View>
-                <View style={styles.splitField}><TextField label="Target parts" value={form.targetPartsCount} onChangeText={value => setForm(current => ({ ...current, targetPartsCount: value }))} keyboardType="number-pad" /></View>
+                <View style={styles.splitField}><TextField label={translateNative('native.f4af58d70da07dce')} value={form.targetCount} onChangeText={value => setForm(current => ({ ...current, targetCount: value }))} keyboardType="number-pad" /></View>
+                <View style={styles.splitField}><TextField label={translateNative('native.a9d4e3e17bf113f0')} value={form.targetPartsCount} onChangeText={value => setForm(current => ({ ...current, targetPartsCount: value }))} keyboardType="number-pad" /></View>
               </View>
               <View style={styles.splitRow}>
-                <View style={styles.splitField}><TextField label="Due date" value={form.dueDate} onChangeText={value => setForm(current => ({ ...current, dueDate: value }))} placeholder="YYYY-MM-DD" /></View>
-                <View style={styles.splitField}><TextField label="Priority" value={form.priority} onChangeText={value => setForm(current => ({ ...current, priority: value }))} placeholder="low | normal | high | urgent" /></View>
+                <View style={styles.splitField}><TextField label={translateNative('native.fa33befc65b2da3f')} value={form.dueDate} onChangeText={value => setForm(current => ({ ...current, dueDate: value }))} placeholder="YYYY-MM-DD" /></View>
+                <View style={styles.splitField}><TextField label={translateNative('native.047cdcc49ece4671')} value={form.priority} onChangeText={value => setForm(current => ({ ...current, priority: value }))} placeholder={translateNative('native.b7442b50e111d1b4')} /></View>
               </View>
               <View style={styles.splitRow}>
-                <View style={styles.splitField}><TextField label="Budget" value={form.budget} onChangeText={value => setForm(current => ({ ...current, budget: value }))} keyboardType="decimal-pad" /></View>
+                <View style={styles.splitField}><TextField label={translateNative('native.ed03ab70dd938c3b')} value={form.budget} onChangeText={value => setForm(current => ({ ...current, budget: value }))} keyboardType="decimal-pad" /></View>
                 {editingProject ? (
-                  <View style={styles.splitField}><TextField label="Status" value={form.status} onChangeText={value => setForm(current => ({ ...current, status: value }))} placeholder="active | completed | archived" /></View>
+                  <View style={styles.splitField}><TextField label={translateNative('common.status')} value={form.status} onChangeText={value => setForm(current => ({ ...current, status: value }))} placeholder={translateNative('native.feb9c64a82d93b43')} /></View>
                 ) : null}
               </View>
 
               {editingProject ? (
                 <View style={styles.coverSection}>
-                  <Text style={[styles.coverTitle, { color: colors.textSecondary }]}>Cover image</Text>
+                  <Text style={[styles.coverTitle, { color: colors.textSecondary }]}>{translateNative('native.94ec5d7c8c374eb1')}</Text>
                   <View style={styles.coverRow}>
                     <View style={[styles.coverPreview, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
                       {projectCoverUrl(editingProject) ? (
                         <Image source={{ uri: projectCoverUrl(editingProject) ?? api.getProjectCoverImageUrl(pickNumber(editingProject, ['id'])) }} style={styles.coverImage} />
                       ) : (
-                        <Text style={[styles.coverPlaceholder, { color: colors.textTertiary }]}>No cover</Text>
+                        <Text style={[styles.coverPlaceholder, { color: colors.textTertiary }]}>{translateNative('native.4d6d2fe7d501eed7')}</Text>
                       )}
                     </View>
                     <View style={styles.coverActions}>
                       <PrimaryButton
-                        label={coverMutation.isPending ? 'Uploading…' : 'Upload'}
+                        label={coverMutation.isPending ? translateNative('native.d64f97c846b8193e') : translateNative('common.upload')}
                         variant="secondary"
                         onPress={() => void coverMutation.mutateAsync(pickNumber(editingProject, ['id']))}
                         loading={coverMutation.isPending}
                       />
                       <PrimaryButton
-                        label={removeCoverMutation.isPending ? 'Removing…' : 'Remove'}
+                        label={removeCoverMutation.isPending ? translateNative('native.be076aa56aabc57a') : translateNative('native.19c4ccf07e5b405d')}
                         variant="secondary"
                         onPress={() => void removeCoverMutation.mutateAsync(pickNumber(editingProject, ['id']))}
                         disabled={!pickString(editingProject, ['cover_image_filename'])}
@@ -443,9 +447,9 @@ export default function ProjectsScreen() {
               ) : null}
 
               <View style={styles.modalActions}>
-                <PrimaryButton label="Cancel" variant="secondary" onPress={resetModal} />
+                <PrimaryButton label={translateNative('common.cancel')} variant="secondary" onPress={resetModal} />
                 <PrimaryButton
-                  label={editingProject ? (updateMutation.isPending ? 'Saving…' : 'Save') : (createMutation.isPending ? 'Creating…' : 'Create')}
+                  label={editingProject ? (updateMutation.isPending ? translateNative('native.018c2002806e2312') : translateNative('common.save')) : (createMutation.isPending ? translateNative('native.b762dfbcd3d9c0d7') : translateNative('native.8c51de8cf3b30af0'))}
                   onPress={() => void (editingProject ? updateMutation.mutateAsync() : createMutation.mutateAsync())}
                   disabled={!form.name.trim() || createMutation.isPending || updateMutation.isPending}
                   loading={createMutation.isPending || updateMutation.isPending}
@@ -466,6 +470,7 @@ export default function ProjectsScreen() {
 }
 
 function PressableSwatch({ color, selected, onPress }: { color: string; selected: boolean; onPress: () => void }) {
+  useNativeLocale();
   const { colors } = useTheme();
   return (
     <Pressable onPress={onPress}>
@@ -512,6 +517,7 @@ function PressableProjectCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  useNativeLocale();
   return (
     <View style={[styles.projectCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}> 
       {cover ? <Image source={{ uri: cover }} style={styles.projectCover} /> : null}
@@ -521,25 +527,25 @@ function PressableProjectCard({
             <Text style={[styles.projectTitle, { color: colors.text }]} numberOfLines={1}>{title}</Text>
             <Text style={[styles.projectDescription, { color: colors.textSecondary }]} numberOfLines={2}>{description}</Text>
           </View>
-          <StatusBadge label={status} color={statusColor(status, colors)} />
+          <StatusBadge label={localizedStatus(status)} color={statusColor(status, colors)} />
         </View>
 
         <View style={styles.metaRow}>
-          <Text style={[styles.metaText, { color: colors.textSecondary }]}>Priority: {priority}</Text>
-          {dueDate ? <Text style={[styles.metaText, { color: colors.textSecondary }]}>Due: {formatDate(dueDate)}</Text> : null}
-          {budget ? <Text style={[styles.metaText, { color: colors.textSecondary }]}>Budget: {formatCurrency(budget)}</Text> : null}
+          <Text style={[styles.metaText, { color: colors.textSecondary }]}><NativeTranslation id="native.c7e5d93a4a627e2a" values={{ value0: (priority) }} /></Text>
+          {dueDate ? <Text style={[styles.metaText, { color: colors.textSecondary }]}><NativeTranslation id="native.74ea85a1c493da64" values={{ value0: (formatDate(dueDate)) }} /></Text> : null}
+          {budget ? <Text style={[styles.metaText, { color: colors.textSecondary }]}><NativeTranslation id="native.db0af495745f6e8c" values={{ value0: (formatCurrency(budget)) }} /></Text> : null}
         </View>
 
         <View style={[styles.progressTrack, { backgroundColor: colors.surfaceElevated }]}>
           <View style={[styles.progressFill, { backgroundColor: colors.accent, width: `${Math.min(Math.max(progress, 0), 100)}%` }]} />
         </View>
-        <Text style={[styles.progressText, { color: colors.textSecondary }]}>{Math.round(progress)}% complete</Text>
+        <Text style={[styles.progressText, { color: colors.textSecondary }]}><NativeTranslation id="native.46c37bf4cc4fd4a3" values={{ value0: (Math.round(progress)) }} /></Text>
 
         <View style={styles.cardActions}>
-          <PrimaryButton label="Open" variant="secondary" onPress={onOpen} />
-          <PrimaryButton label="Batch Print" variant="secondary" onPress={onBatchPrint} />
-          <PrimaryButton label="Edit" variant="secondary" onPress={onEdit} />
-          <PrimaryButton label="Delete" variant="danger" onPress={onDelete} />
+          <PrimaryButton label={translateNative('native.1d02121ce21f4721')} variant="secondary" onPress={onOpen} />
+          <PrimaryButton label={translateNative('native.202e9b4ca38974dc')} variant="secondary" onPress={onBatchPrint} />
+          <PrimaryButton label={translateNative('common.edit')} variant="secondary" onPress={onEdit} />
+          <PrimaryButton label={translateNative('common.delete')} variant="danger" onPress={onDelete} />
         </View>
       </View>
     </View>
@@ -547,6 +553,7 @@ function PressableProjectCard({
 }
 
 function ProjectsItemSeparator() {
+  useNativeLocale();
   return <View style={{ height: spacing.md }} />;
 }
 

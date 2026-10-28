@@ -1,5 +1,6 @@
+import { createTranslator, translateNative, type Translate } from '@/i18n';
 import { Alert } from 'react-native';
-import { createTranslator, type Translate } from '@/i18n';
+
 import type {
   GitHubBackupConfigCreate,
   GitRestoreCategory,
@@ -75,6 +76,6 @@ export function resolvedRestore(
 export function requireBackupSuccess<
   T extends { success: boolean; message: string },
 >(result: T): T {
-  if (!result.success) throw new Error(result.message || 'Operation failed.');
+  if (!result.success) throw new Error(result.message || translateNative('native.2389193615d418cc'));
   return result;
 }

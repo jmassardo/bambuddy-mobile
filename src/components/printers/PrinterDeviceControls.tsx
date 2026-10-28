@@ -1,3 +1,5 @@
+import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useState } from 'react';
 import { Alert, ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -7,7 +9,7 @@ import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
+
 import { backupGroups, controlPresets, requireInteger } from './deviceControlUtils';
 import { AmsUnitControls } from './AmsUnitControls';
 import { PrinterSDBrowser } from './PrinterSDBrowser';
@@ -19,10 +21,11 @@ export function NumericDeviceControl({ label, current, max, disabled, submit, pr
   submit: (value: number) => Promise<unknown>;
   presets?: number[];
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const [value, setValue] = useState('');
-  const [validation, setValidation] = useState('');
+  const [validation, setValidation] = useNativeMessageState('');
   const mutation = useMutation({ mutationFn: submit });
   const send = (target: string) => {
     try {
@@ -30,7 +33,7 @@ export function NumericDeviceControl({ label, current, max, disabled, submit, pr
       setValidation('');
       mutation.mutate(parsed);
     } catch {
-      setValidation(t('device.invalidRange', { defaultValue: 'Enter a whole number between 0 and {{max}}.', max }));
+      setValidation(nativeMessage('device.invalidRange', () => ({ defaultValue: 'Enter a whole number between 0 and {{max}}.', max })));
     }
   };
   return <View style={styles.control}>
@@ -49,6 +52,7 @@ export function NumericDeviceControl({ label, current, max, disabled, submit, pr
 }
 
 export function PrinterDeviceControls({ printerId, model }: { printerId: number; model?: string | null }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
@@ -60,7 +64,7 @@ export function PrinterDeviceControls({ printerId, model }: { printerId: number;
     refetchInterval: 5000,
   });
   const labels = useQuery({ queryKey: ['amsLabels', printerId], queryFn: () => device.labels(printerId) });
-  const settings = useQuery({ queryKey: ['settings', 'ui-preferences'], queryFn: () => device.presets() });
+  const settings = useQuery({ queryKey: [...useServerSettingsKey(), 'ui-preferences'], queryFn: () => device.presets() });
   const nozzlePresets = controlPresets(settings.data?.nozzle_temp_presets, [120, 220, 260], 320);
   const bedPresets = controlPresets(settings.data?.bed_temp_presets, [55, 75, 90], 140);
   const chamberPresets = controlPresets(settings.data?.chamber_temp_presets, [35, 45, 60], 65);
@@ -83,7 +87,7 @@ export function PrinterDeviceControls({ printerId, model }: { printerId: number;
       {statusQuery.isLoading ? <ActivityIndicator /> : null}
       {statusQuery.error ? <Text style={{ color: colors.error }}>{statusQuery.error.message}</Text> : null}
       {!control ? <Text style={{ color: colors.textSecondary }}>{t('device.controlUnavailable', { defaultValue: 'Live connection and printer control permission required.' })}</Text> : null}
-      <NumericDeviceControl label={t('device.nozzle', { defaultValue: dual ? 'Left nozzle target °C' : 'Nozzle target °C' })}
+      <NumericDeviceControl label={t('device.nozzle', { defaultValue: dual ? translateNative('native.79a4ca178814dc43') : translateNative('native.7754834c4b93316b') })}
         current={status?.temperatures?.nozzle_target} max={320} disabled={!control} presets={nozzlePresets}
         submit={target => device.heater(printerId, 'nozzle', target, dual ? 1 : status?.active_extruder ?? 0)} />
       {dual ? <NumericDeviceControl label={t('device.rightNozzle', { defaultValue: 'Right nozzle target °C' })}
@@ -107,7 +111,7 @@ export function PrinterDeviceControls({ printerId, model }: { printerId: number;
           disabled={!control || !idle || mutation.isPending || status?.active_extruder === extruder}
           onPress={() => send(() => device.extruder(printerId, extruder))} />)}</View> : null}
       {ductModels.has(model ?? '') ? <View style={styles.row}>{(['cooling', 'heating'] as const).map(mode =>
-        <PrimaryButton key={mode} label={`${t(`device.${mode}`, { defaultValue: mode === 'cooling' ? 'Cooling duct' : 'Heating duct' })}${status?.airduct_mode === (mode === 'cooling' ? 0 : 1) ? ' ✓' : ''}`}
+        <PrimaryButton key={mode} label={`${t(`device.${mode}`, { defaultValue: mode === 'cooling' ? translateNative('native.77fef65207e37fea') : translateNative('native.4f0a1d39e8cb763a') })}${status?.airduct_mode === (mode === 'cooling' ? 0 : 1) ? ' ✓' : ''}`}
           disabled={!control || mutation.isPending} onPress={() => send(() => device.airduct(printerId, mode))} />)}</View> : null}
       {mutation.error ? <Text style={{ color: colors.error }}>{mutation.error.message}</Text> : null}
       {mutation.isSuccess ? <Text style={{ color: colors.success }}>{t('device.sent', { defaultValue: 'Command sent; waiting for live device status.' })}</Text> : null}
@@ -142,6 +146,7 @@ export function PrinterDeviceControls({ printerId, model }: { printerId: number;
 }
 
 export function PrinterHAControls({ printerId }: { printerId: number }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
@@ -175,3 +180,4 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   control: { gap: spacing.sm, paddingVertical: spacing.sm },
 });
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

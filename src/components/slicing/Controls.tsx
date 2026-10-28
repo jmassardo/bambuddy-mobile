@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import {
   Modal,
@@ -11,13 +12,14 @@ import {
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import { spacing, borderRadius } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
 
 export function Copy({ children }: { children: React.ReactNode }) {
+  useNativeLocale();
   const { colors } = useTheme();
   return <Text style={{ color: colors.text }}>{children}</Text>;
 }
 export function Box({ children }: { children: React.ReactNode }) {
+  useNativeLocale();
   const { colors } = useTheme();
   return (
     <View style={[styles.box, { borderColor: colors.border }]}>{children}</View>
@@ -36,6 +38,7 @@ export function Choice({
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
+  useNativeLocale();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const { colors } = useTheme();
@@ -106,6 +109,7 @@ export function Toggle({
   onChange: (v: boolean) => void;
   disabled?: boolean;
 }) {
+  useNativeLocale();
   return (
     <View style={styles.row}>
       <View style={styles.flex}>
@@ -131,6 +135,7 @@ export function Sheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   return (

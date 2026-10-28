@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -17,7 +19,7 @@ import {
 } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type { PresetField } from '@/types/api';
@@ -49,14 +51,15 @@ function FieldEditor({
   onChange: (value: unknown) => void;
   onValidation: (error: string) => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const [text, setText] = useState(displayFieldValue(value));
-  const [error, setError] = useState('');
+  const [error, setError] = useNativeMessageState('');
   useEffect(() => {
     setText(displayFieldValue(value));
     setError('');
-  }, [value]);
+  }, [setError, value]);
   const commit = (input: string) => {
     setText(input);
     try {
@@ -135,6 +138,7 @@ export function PresetEditor({
   profiles: Record<string, unknown>[];
   onClose: () => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
@@ -146,7 +150,7 @@ export function PresetEditor({
   const [baseId, setBaseId] = useState('');
   const [settings, setSettings] = useState<Record<string, unknown>>({});
   const [raw, setRaw] = useState('{}');
-  const [rawError, setRawError] = useState('');
+  const [rawError, setRawError] = useNativeMessageState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [mode, setMode] = useState('fields');
   const [search, setSearch] = useState('');
@@ -192,15 +196,15 @@ export function PresetEditor({
     setMode('fields');
     setRawError('');
     setFieldErrors({});
-  }, [visible, id, detail.data, duplicate, profile]);
-  const definitionList = useMemo(
+  }, [visible, id, detail.data, duplicate, profile, setRawError]);
+  const definitionList = useLocalizedMemo(
     () =>
       Array.isArray(fields.data?.fields)
         ? (fields.data.fields as PresetField[])
         : [],
     [fields.data],
   );
-  const definitionMap = useMemo(
+  const definitionMap = useLocalizedMemo(
     () => new Map(definitionList.map(field => [field.key, field])),
     [definitionList],
   );
@@ -386,18 +390,18 @@ export function PresetEditor({
           tabs={[
             {
               key: 'fields',
-              label: t('profiles.fields', { defaultValue: 'All fields' }),
+              get label() { return translateNative('profiles.fields', { defaultValue: 'All fields' }); },
             },
             { key: 'json', label: 'JSON' },
             {
               key: 'diff',
-              label: t('profiles.diff', { defaultValue: 'Compare to base' }),
+              get label() { return translateNative('profiles.diff', { defaultValue: 'Compare to base' }); },
             },
             {
               key: 'templates',
-              label: t('profiles.templates.title', {
+              get label() { return translateNative('profiles.templates.title', {
                 defaultValue: 'Templates',
-              }),
+              }); },
             },
           ]}
           onChange={switchMode}

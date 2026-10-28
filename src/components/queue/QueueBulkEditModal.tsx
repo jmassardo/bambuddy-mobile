@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { PrimaryButton } from '@/components/common/AppUI';
@@ -8,7 +10,7 @@ import {
 } from '@/components/printers/PrintOptionsForm';
 import { PrintSchedulePicker } from '@/components/printers/PrintSchedulePicker';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import { spacing } from '@/theme/tokens';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
@@ -33,18 +35,19 @@ export function QueueBulkEditModal({
   onClose: () => void;
   onSave: (value: PrintQueueItemUpdate) => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const settings = useQuery({
-    queryKey: ['settings'],
+    queryKey: useServerSettingsKey(),
     queryFn: api.getSettings,
     enabled: visible,
   });
   const [draft, setDraft] = useState<PrintQueueItemUpdate>({});
   const [schedule, setSchedule] = useState('unchanged');
   const [date, setDate] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useNativeMessageState('');
   const assignmentError = t('printing.unresolvedVariantAssignment', {
     defaultValue:
       'Jobs with unresolved alternative slices cannot be assigned a fixed printer. Leave the printer unchanged or unassigned.',
@@ -56,7 +59,7 @@ export function QueueBulkEditModal({
       setDate('');
       setError('');
     }
-  }, [visible]);
+  }, [setError, visible]);
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -68,15 +71,13 @@ export function QueueBulkEditModal({
             })}
           </LaunchText>
           <LaunchText>
-            Unchanged fields are omitted. Only selected, permitted pending items
-            are changed.
-          </LaunchText>
+            {translateNative('native.062fba0ae629823f')}</LaunchText>
           <Choice<number | null | undefined>
-            label="Assign printer"
+            label={translateNative('native.3e31748a12aa3823')}
             value={draft.printer_id}
             options={[
-              { value: undefined, label: 'Unchanged' },
-              { value: null, label: 'Unassigned' },
+              { value: undefined, get label() { return translateNative('native.6ae0647a123bb8da'); } },
+              { value: null, get label() { return translateNative('native.424849cf8f869437'); } },
               ...printers
                 .filter(p => p.is_active)
                 .map(p => ({
@@ -91,12 +92,12 @@ export function QueueBulkEditModal({
             <LaunchText>{assignmentError}</LaunchText>
           )}
           <Choice
-            label="Scheduled time"
+            label={translateNative('native.edcd0a3cf3a2c4e0')}
             value={schedule}
             options={[
-              { value: 'unchanged', label: 'Unchanged' },
-              { value: 'asap', label: 'Clear scheduled time' },
-              { value: 'scheduled', label: 'Scheduled' },
+              { value: 'unchanged', get label() { return translateNative('native.6ae0647a123bb8da'); } },
+              { value: 'asap', get label() { return translateNative('native.9ec66b738a910c59'); } },
+              { value: 'scheduled', get label() { return translateNative('native.6ad7336d402e07da'); } },
             ]}
             onChange={setSchedule}
           />
@@ -171,3 +172,4 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
 });
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

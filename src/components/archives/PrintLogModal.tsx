@@ -1,4 +1,6 @@
-import React, { useMemo } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
@@ -39,8 +41,8 @@ function normalizeRows(data: unknown): PrintLogRow[] {
   data.forEach(item => {
     const record = item as ApiRecord;
     const directTimestamp = pickString(record, ['timestamp', 'created_at', 'completed_at', 'started_at']);
-    const directEvent = pickString(record, ['event', 'status'], 'Status change');
-    const directDetails = pickString(record, ['details', 'failure_reason', 'printer_name', 'print_name'], 'Archive print log entry');
+    const directEvent = pickString(record, ['event', 'status'], translateNative('native.7eca24df9fe046ab'));
+    const directDetails = pickString(record, ['details', 'failure_reason', 'printer_name', 'print_name'], translateNative('native.dc25b5fe7669b1c7'));
 
     if (pickString(record, ['timestamp']) || pickString(record, ['event'])) {
       rows.push({
@@ -54,7 +56,7 @@ function normalizeRows(data: unknown): PrintLogRow[] {
     const startedAt = pickString(record, ['started_at']);
     const completedAt = pickString(record, ['completed_at']);
     const createdAt = pickString(record, ['created_at']);
-    const printerName = pickString(record, ['printer_name'], 'Unknown printer');
+    const printerName = pickString(record, ['printer_name'], translateNative('native.d2f3cad436de827d'));
     const status = pickString(record, ['status'], 'unknown');
     const failureReason = pickString(record, ['failure_reason']);
 
@@ -82,6 +84,7 @@ export function PrintLogModal({
   archiveName,
   onClose,
 }: PrintLogModalProps) {
+  useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'PrintLog'>>();
   const { colors } = useTheme();
 
@@ -91,7 +94,7 @@ export function PrintLogModal({
     enabled: visible && archiveId != null,
   });
 
-  const rows = useMemo(
+  const rows = useLocalizedMemo(
     () => normalizeRows(printLogQuery.data),
     [printLogQuery.data],
   );
@@ -102,9 +105,9 @@ export function PrintLogModal({
         <View style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
           <View style={styles.header}>
             <View style={styles.headerText}>
-              <Text style={[styles.title, { color: colors.text }]}>Print log</Text>
+              <Text style={[styles.title, { color: colors.text }]}>{translateNative('native.a89901702a807e8f')}</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                {archiveName || 'Archive history'}
+                {archiveName || translateNative('native.a45e6613c067f36a')}
               </Text>
             </View>
             <Pressable onPress={onClose} hitSlop={8}>
@@ -115,26 +118,26 @@ export function PrintLogModal({
           {printLogQuery.isLoading ? (
             <View style={styles.loadingState}>
               <ActivityIndicator size="small" color={colors.accent} />
-              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading print log…</Text>
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{translateNative('native.146779c8580fa2c3')}</Text>
             </View>
           ) : printLogQuery.isError ? (
             <ErrorState
-              message="Unable to load the archive print log."
+              message={translateNative('native.67c75c934a858435')}
               onRetry={() => void printLogQuery.refetch()}
             />
           ) : rows.length === 0 ? (
             <EmptyState
               icon="🧾"
-              title="No print log entries"
-              message="This archive does not have any print log rows yet."
+              title={translateNative('native.6a01aa8d8b6d6c61')}
+              message={translateNative('native.fb63f254bd64a91b')}
             />
           ) : (
             <ScrollView horizontal>
               <View>
                 <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}> 
-                  <Text style={[styles.headerCell, styles.timestampCell, { color: colors.textSecondary }]}>Timestamp</Text>
-                  <Text style={[styles.headerCell, styles.eventCell, { color: colors.textSecondary }]}>Event</Text>
-                  <Text style={[styles.headerCell, styles.detailsCell, { color: colors.textSecondary }]}>Details</Text>
+                  <Text style={[styles.headerCell, styles.timestampCell, { color: colors.textSecondary }]}>{translateNative('native.748af24d0924e04d')}</Text>
+                  <Text style={[styles.headerCell, styles.eventCell, { color: colors.textSecondary }]}>{translateNative('native.53055e20d6fedadc')}</Text>
+                  <Text style={[styles.headerCell, styles.detailsCell, { color: colors.textSecondary }]}>{translateNative('native.56f78a777dee08f1')}</Text>
                 </View>
                 <ScrollView style={styles.tableBody}>
                   {rows.map((row, index) => (
@@ -168,10 +171,10 @@ export function PrintLogModal({
                 onClose();
               }}
             >
-              <Text style={[styles.viewFullLogText, { color: colors.accent }]}>View full log</Text>
+              <Text style={[styles.viewFullLogText, { color: colors.accent }]}>{translateNative('native.c53c7aa39f331a5e')}</Text>
               <ChevronRight size={14} color={colors.accent} />
             </Pressable>
-            <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
+            <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
           </View>
         </View>
       </View>

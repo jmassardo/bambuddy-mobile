@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { Alert, Switch, Text } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -5,7 +7,7 @@ import { settingsApi } from '@/api/settings';
 import { financeApi } from '@/api/finance';
 import { Input, PrimaryButton, SectionCard } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 
 export function FinancePolicySection({
@@ -13,6 +15,7 @@ export function FinancePolicySection({
 }: {
   energyOnly?: boolean;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission, user } = useAuth();
@@ -26,10 +29,10 @@ export function FinancePolicySection({
   const [day, setDay] = useState('1');
   const [timezone, setTimezone] = useState('UTC');
   const [tracking, setTracking] = useState<'print' | 'total'>('total');
-  const [error, setError] = useState('');
+  const [error, setError] = useNativeMessageState('');
   const [result, setResult] = useState('');
   const settings = useQuery({
-    queryKey: ['settings'],
+    queryKey: useServerSettingsKey(),
     queryFn: settingsApi.getSettings,
     enabled: read,
   });
@@ -103,13 +106,13 @@ export function FinancePolicySection({
         (energyOnly ? (
           <>
             <PrimaryButton
-              label={label(`Prints only${tracking === 'print' ? ' ✓' : ''}`)}
+              label={label(translateNative('native.0cb881b8ac6bc5f1', { value0: String(tracking === 'print' ? ' ✓' : '') }))}
               disabled={!update || mutation.isPending}
               onPress={() => setTracking('print')}
             />
             <PrimaryButton
               label={label(
-                `Total consumption${tracking === 'total' ? ' ✓' : ''}`,
+                translateNative('native.92325e8c471c0754', { value0: String(tracking === 'total' ? ' ✓' : '') }),
               )}
               disabled={!update || mutation.isPending}
               onPress={() => setTracking('total')}
@@ -210,3 +213,4 @@ export function FinancePolicySection({
     </SectionCard>
   );
 }
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import React from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -11,6 +12,7 @@ import { useSettingsScreenController } from '@/components/settings/useSettingsSc
 import { SettingsSearchFocusProvider, SettingsSearchSelection, useSettingsSearchTarget } from '@/components/settings/SettingsSearchFocus';
 
 export default function SettingsScreen() {
+  useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'Settings'>>();
   const controller = useSettingsScreenController();
   const scroll = React.useRef<ScrollView>(null);
@@ -26,15 +28,15 @@ export default function SettingsScreen() {
   }, [searchTarget]);
 
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Settings' });
+    navigation.setOptions({ get title() { return translateNative('nav.settings'); } });
   }, [navigation]);
 
   if (controller.queries.settingsQuery.isLoading) {
-    return <LoadingScreen message="Loading settings…" />;
+    return <LoadingScreen message={translateNative('native.ae25c9ca72964893')} />;
   }
 
   if (controller.queries.settingsQuery.isError) {
-    return <ErrorState message="Unable to load settings." onRetry={() => void controller.actions.refreshAll()} />;
+    return <ErrorState message={translateNative('native.63d6c20426789bfb')} onRetry={() => void controller.actions.refreshAll()} />;
   }
 
   return (
@@ -60,8 +62,8 @@ export default function SettingsScreen() {
       >
         <View ref={content} collapsable={false} style={settingsStyles.content}>
         <View style={settingsStyles.header}>
-          <Text style={[settingsStyles.title, { color: controller.colors.text }]}>Settings</Text>
-          <Text style={[settingsStyles.subtitle, { color: controller.colors.textSecondary }]}>Mobile settings panels with the same core controls exposed on the web.</Text>
+          <Text style={[settingsStyles.title, { color: controller.colors.text }]}>{translateNative('nav.settings')}</Text>
+          <Text style={[settingsStyles.subtitle, { color: controller.colors.textSecondary }]}>{translateNative('native.112376eccbe7a16b')}</Text>
         </View>
 
         {controller.state.section !== null ? <SettingsSearchSelection /> : null}

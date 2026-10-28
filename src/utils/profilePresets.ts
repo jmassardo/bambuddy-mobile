@@ -1,3 +1,5 @@
+import { translateNative } from '@/i18n';
+
 import type { PresetDetail, PresetField } from '@/types/api';
 
 export function isCustomCloudPreset(
@@ -110,7 +112,7 @@ export function filterPresets(
 export function parsePresetJson(json: string): Record<string, unknown> {
   const value: unknown = JSON.parse(json);
   if (!value || Array.isArray(value) || typeof value !== 'object')
-    throw new Error('Expected a JSON object.');
+    throw new Error(translateNative('native.2ad5d1e557bd832c'));
   return value as Record<string, unknown>;
 }
 export function typedPresetValue(
@@ -122,22 +124,22 @@ export function typedPresetValue(
     if (previous.length <= 1)
       return [typedPresetValue(input, previous[0], definition)];
     const array: unknown = JSON.parse(input);
-    if (!Array.isArray(array)) throw new Error('Expected a JSON array.');
+    if (!Array.isArray(array)) throw new Error(translateNative('native.972f75edc964f3ea'));
     return array;
   }
   if (definition?.type === 'number' || typeof previous === 'number') {
     if (!input.trim() || !Number.isFinite(Number(input)))
-      throw new Error('Enter a finite number.');
+      throw new Error(translateNative('native.75b980eef60c5989'));
     const number = Number(input);
     if (typeof definition?.min === 'number' && number < definition.min)
-      throw new Error(`Minimum: ${definition.min}`);
+      throw new Error(translateNative('native.49129b6b57ec5d89', { value0: String(definition.min) }));
     if (typeof definition?.max === 'number' && number > definition.max)
-      throw new Error(`Maximum: ${definition.max}`);
+      throw new Error(translateNative('native.b369dc954b05f8dd', { value0: String(definition.max) }));
     return typeof previous === 'string' ? input : number;
   }
   if (definition?.type === 'boolean' || typeof previous === 'boolean') {
     if (!['true', 'false', '1', '0'].includes(input))
-      throw new Error('Expected true, false, 1 or 0.');
+      throw new Error(translateNative('native.f94533a9f0e6a8ed'));
     return typeof previous === 'string'
       ? input
       : input === 'true' || input === '1';
@@ -174,7 +176,7 @@ export async function resolvePresetInheritance(
   let next = id;
   while (next) {
     if (visited.has(next))
-      throw new Error('Preset inheritance contains a cycle.');
+      throw new Error(translateNative('native.7559d2a7ca9c78e3'));
     visited.add(next);
     const detail = await fetchDetail(next);
     chain.push(detail);

@@ -1,12 +1,14 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton, SettingRow } from './AppUI';
 import { announcementText, useAnnouncements } from '@/hooks/useAnnouncements';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 
 export function AnnouncementsEntry({ onPress }: { onPress: () => void }) {
+  useNativeLocale();
   const { visible, unread } = useAnnouncements();
   const { t } = useTranslation();
   if (!visible) return null;
@@ -14,6 +16,7 @@ export function AnnouncementsEntry({ onPress }: { onPress: () => void }) {
 }
 
 export function AnnouncementBanner({ onReadMore }: { onReadMore: (id: string) => void }) {
+  useNativeLocale();
   const { bannerItems, markRead, isMarkingRead, readError } = useAnnouncements();
   const { t, language } = useTranslation();
   const { colors } = useTheme();

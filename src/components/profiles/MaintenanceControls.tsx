@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useState } from 'react';
 import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,7 +11,7 @@ import {
 } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { spacing } from '@/theme/tokens';
 import {
   maintenanceDocumentation,
@@ -27,6 +29,7 @@ export function MaintenanceControls({
   printer: PrinterMaintenanceOverview;
   item?: MaintenanceStatus;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const { showToast } = useToast();
@@ -140,11 +143,11 @@ export function MaintenanceControls({
               tabs={[
                 {
                   key: 'hours',
-                  label: t('maintenance.hours', { defaultValue: 'Hours' }),
+                  get label() { return translateNative('maintenance.hours', { defaultValue: 'Hours' }); },
                 },
                 {
                   key: 'days',
-                  label: t('maintenance.days', { defaultValue: 'Days' }),
+                  get label() { return translateNative('maintenance.days', { defaultValue: 'Days' }); },
                 },
               ]}
               onChange={setUnit}
@@ -207,6 +210,7 @@ export function MaintenanceControls({
 }
 
 export function RestoreMaintenanceDefaults() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const { showToast } = useToast();

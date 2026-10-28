@@ -1,3 +1,5 @@
+import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
@@ -16,13 +18,13 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
 
 export default function SetupScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Setup'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Setup' });
+    navigation.setOptions({ get title() { return translateNative('native.6c92cbd87d3884af'); } });
   }, [navigation]);
   const { colors } = useTheme();
   const { requiresSetup, authEnabled, refreshAuth } = useAuth();
@@ -30,7 +32,7 @@ export default function SetupScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useNativeMessageState('');
   const [enableAuth, setEnableAuth] = useState(true);
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export default function SetupScreen() {
     mutationFn: async () => {
       setError('');
       if (enableAuth && password !== confirm) {
-        throw new Error('Passwords do not match.');
+        throw new Error(translateNative('native.4bf243cf9137809e'));
       }
       const response = await authApi.setupAuth({
         auth_enabled: enableAuth,
@@ -53,14 +55,14 @@ export default function SetupScreen() {
       return response;
     },
     onSuccess: () => {
-      showToast('Setup complete. Welcome to Bambuddy!', 'success');
+      showToast(translateNative('native.5c6f1b85bd5918c3'), 'success');
       navigation.reset({
         index: 0,
         routes: enableAuth ? [{ name: 'Login' }] : [{ name: 'Main', params: { screen: 'Dashboard' } }],
       });
     },
     onError: (mutationError: Error) =>
-      setError(mutationError.message || 'Setup failed.'),
+      setError(mutationError.message || nativeMessage('native.86ff382cd4ff4257')),
   });
 
   return (
@@ -75,27 +77,26 @@ export default function SetupScreen() {
         ]}
       >
         <Text style={[styles.title, { color: colors.text }]}>
-          Welcome to Bambuddy
-        </Text>
+          {translateNative('native.236e1edae791445d')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           {t('auth.setupHint', { defaultValue: 'Enable authentication to protect this server, or continue without it on a trusted network.' })}
         </Text>
         <SwitchRow label={t('auth.enableAuthentication', { defaultValue: 'Enable authentication' })} value={enableAuth} onValueChange={setEnableAuth} disabled={setupMutation.isPending} />
         {enableAuth ? <>
         <TextField
-          label="Admin username"
+          label={translateNative('native.637a9d111395d155')}
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
         />
         <TextField
-          label="Password"
+          label={translateNative('native.08c9c68cc706272f')}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
         <TextField
-          label="Confirm password"
+          label={translateNative('native.40d2f662e19a7553')}
           value={confirm}
           onChangeText={setConfirm}
           secureTextEntry
@@ -105,7 +106,7 @@ export default function SetupScreen() {
           <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
         ) : null}
         <PrimaryButton
-          label={setupMutation.isPending ? 'Setting up…' : 'Complete setup'}
+          label={setupMutation.isPending ? translateNative('native.e42a301a43de2313') : translateNative('native.fa6af23f0eac1db6')}
           onPress={() => setupMutation.mutate()}
           loading={setupMutation.isPending}
           disabled={

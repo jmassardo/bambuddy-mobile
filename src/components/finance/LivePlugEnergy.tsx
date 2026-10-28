@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { Text } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -5,7 +6,7 @@ import { profilesApi } from '@/api/profiles';
 import { SectionCard } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import type { SmartPlug, SmartPlugStatus } from '@/types/api';
 
 export function aggregatePlugEnergy(
@@ -41,6 +42,7 @@ export function aggregatePlugEnergy(
 }
 
 export function LivePlugEnergy() {
+  useNativeLocale();
   const { hasPermission } = useAuth();
   const { t } = useTranslation();
   const { colors } = useTheme();

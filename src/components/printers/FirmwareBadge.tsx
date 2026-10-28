@@ -1,10 +1,10 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { printerFleetApi } from '@/api/printerFleet';
 import { InfoPill } from './PrinterCardPrimitives';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
 
 export function FirmwareBadge({
   printerId,
@@ -15,6 +15,7 @@ export function FirmwareBadge({
   currentVersion?: string | null;
   onPress?: () => void;
 }) {
+  useNativeLocale();
   const { hasPermission } = useAuth();
   const { colors } = useTheme();
   const { t } = useTranslation();

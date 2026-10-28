@@ -1,10 +1,12 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { FirmwareModal } from './FirmwareModal';
 import { FleetModal } from './FleetModal';
 import { MQTTConsole } from './MQTTConsole';
 import { NextQueueJob } from './NextQueueJob';
-import { useTranslation } from '@/i18n';
+
 import { useNavigation } from '@react-navigation/native';
 import type { MainTabNavigationProp } from '@/navigation/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -72,6 +74,7 @@ export function PrinterCard({
   onPrintPress,
   onTrayPress,
 }: PrinterCardProps) {
+  useNativeLocale();
   const navigation = useNavigation<MainTabNavigationProp>();
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -96,7 +99,7 @@ export function PrinterCard({
   const [selectedMaintenanceItem, setSelectedMaintenanceItem] =
     useState<MaintenanceStatus | null>(null);
   const [selectedTray, setSelectedTray] = useState<SelectedTray | null>(null);
-  const authHeaders = useMemo(
+  const authHeaders = useLocalizedMemo(
     () => (authToken ? { Authorization: 'Bearer ' + authToken } : undefined),
     [authToken],
   );
@@ -141,12 +144,12 @@ export function PrinterCard({
     ]);
   }, [printer.id, queryClient]);
 
-  const printerImageUrl = useMemo(() => {
+  const printerImageUrl = useLocalizedMemo(() => {
     if (!serverUrl) return null;
     return `${serverUrl}${getPrinterModelImagePath(printer.model)}`;
   }, [printer.model, serverUrl]);
 
-  const printerImageSource = useMemo(() => {
+  const printerImageSource = useLocalizedMemo(() => {
     if (!printerImageUrl) return null;
     return {
       uri: printerImageUrl,
@@ -154,7 +157,7 @@ export function PrinterCard({
     };
   }, [authHeaders, printerImageUrl]);
 
-  const partPreviewSource = useMemo(() => {
+  const partPreviewSource = useLocalizedMemo(() => {
     if (!isPrinting) return null;
 
     const directThumbnailUrl = taskThumbnailUrl ?? status?.cover_url ?? null;
@@ -216,10 +219,10 @@ export function PrinterCard({
     },
     onSuccess: async (_, action) => {
       await invalidatePrinterQueries();
-      showToast(`Printer ${action} command sent.`, 'success');
+      showToast(translateNative('native.bf4d8ef589e7fea8', { value0: String(action) }), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Printer command failed.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.057caadfef404064')), 'error'),
   });
   const confirmPrintAction = (action: 'pause' | 'resume' | 'stop') => {
     Alert.alert(
@@ -252,33 +255,33 @@ export function PrinterCard({
       await invalidatePrinterQueries();
       showToast(
         status?.chamber_light
-          ? 'Chamber light turned off.'
-          : 'Chamber light turned on.',
+          ? translateNative('native.b7f99a005cd8c13a')
+          : translateNative('native.ddaab30a09d7974e'),
         'success',
       );
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Could not update chamber light.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.7dfae4b67f12c34d')), 'error'),
   });
 
   const speedMutation = useMutation({
     mutationFn: async (mode: number) => api.setPrintSpeed(printer.id, mode),
     onSuccess: async () => {
       await invalidatePrinterQueries();
-      showToast('Print speed updated.', 'success');
+      showToast(translateNative('native.d6bfbabf9cc21bd9'), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Failed to update print speed.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.314b832477b6a5e3')), 'error'),
   });
 
   const clearPlateMutation = useMutation({
     mutationFn: async () => api.clearPlate(printer.id),
     onSuccess: async () => {
       await invalidatePrinterQueries();
-      showToast('Plate marked as cleared.', 'success');
+      showToast(translateNative('native.56e6d48a7c32e573'), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Could not update plate status.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.4ff3522ac25145ed')), 'error'),
   });
 
   const calibrateMutation = useMutation({
@@ -287,15 +290,15 @@ export function PrinterCard({
       await invalidatePrinterQueries();
       showToast(
         axes === 'z'
-          ? 'Auto-level bed started.'
+          ? translateNative('native.d6a31ed51697c3be')
           : axes === 'all'
-            ? 'Homing all axes started.'
-            : 'Homing XY started.',
+            ? translateNative('native.ee8c26dd8eaa822c')
+            : translateNative('native.33dd054dc4ccf586'),
         'success',
       );
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Calibration command failed.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.63a718e698f55b36')), 'error'),
   });
 
   const maintenanceMutation = useMutation({
@@ -305,13 +308,13 @@ export function PrinterCard({
       await invalidatePrinterQueries();
       showToast(
         nextIsActive
-          ? `${printer.name} is back online.`
-          : `${printer.name} is now in maintenance mode.`,
+          ? translateNative('native.714590bfc443618f', { value0: String(printer.name) })
+          : translateNative('native.24e8f04048088c89', { value0: String(printer.name) }),
         'success',
       );
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Could not update maintenance mode.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.10b514e28f1f7747')), 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -321,18 +324,18 @@ export function PrinterCard({
         queryClient.invalidateQueries({ queryKey: ['printers'] }),
         invalidatePrinterQueries(),
       ]);
-      showToast(`${printer.name} deleted.`, 'success');
+      showToast(translateNative('native.61fb3457172f324c', { value0: String(printer.name) }), 'success');
       if (typeof navigation.canGoBack === 'function' && navigation.canGoBack()) {
         navigation.goBack();
       }
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Could not delete printer.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.41757ef8044aced8')), 'error'),
   });
 
   const handleRefresh = useCallback(async () => {
     await invalidatePrinterQueries();
-    showToast('Refreshing printer status…', 'success');
+    showToast(translateNative('native.a5792391a74b9538'), 'success');
   }, [invalidatePrinterQueries, showToast]);
 
   const handleTrayPress = useCallback(
@@ -353,13 +356,13 @@ export function PrinterCard({
     try {
       await api.performMaintenance(item.id);
       await queryClient.invalidateQueries({ queryKey: ['maintenanceTasks'] });
-      showToast(`${item.maintenance_type_name} marked complete`, 'success');
+      showToast(translateNative('native.1c17545f084994f2', { value0: String(item.maintenance_type_name) }), 'success');
     } catch (error) {
-      showToast(getErrorMessage(error, 'Could not complete task'), 'error');
+      showToast(getErrorMessage(error, translateNative('native.b2692be38053333a')), 'error');
     }
   }, [queryClient, selectedMaintenanceItem, showToast]);
 
-  const speedActions = useMemo<ActionSheetAction[]>(
+  const speedActions = useLocalizedMemo<ActionSheetAction[]>(
     () => [
       ...Object.entries(SPEED_LEVELS).map(([value, info]) => {
         const selectedSpeed = Number(value) === (status?.speed_level ?? 2);
@@ -381,7 +384,7 @@ export function PrinterCard({
         };
       }),
       {
-        label: 'Cancel',
+        get label() { return translateNative('common.cancel'); },
         icon: actionIcons.cancel,
         onPress: () => setShowSpeedSheet(false),
       },
@@ -396,15 +399,15 @@ export function PrinterCard({
     ],
   );
 
-  const maintenanceModeActions = useMemo<ActionSheetAction[]>(
+  const maintenanceModeActions = useLocalizedMemo<ActionSheetAction[]>(
     () => [
       {
-        label: 'Cancel',
+        get label() { return translateNative('common.cancel'); },
         icon: actionIcons.cancel,
         onPress: () => setMaintenanceModeTarget(null),
       },
       {
-        label: maintenanceModeTarget ? 'Disable' : 'Enable',
+        label: maintenanceModeTarget ? translateNative('native.a2b60ae5901891b9') : translateNative('native.b28dde0a75aa64d9'),
         icon: actionIcons.wrench,
         onPress: () => {
           if (maintenanceModeTarget == null) return;
@@ -424,15 +427,15 @@ export function PrinterCard({
     ],
   );
 
-  const deleteActions = useMemo<ActionSheetAction[]>(
+  const deleteActions = useLocalizedMemo<ActionSheetAction[]>(
     () => [
       {
-        label: 'Cancel',
+        get label() { return translateNative('common.cancel'); },
         icon: actionIcons.cancel,
         onPress: () => setDeleteSheetVisible(false),
       },
       {
-        label: t('fleet.deleteKeepArchives', { defaultValue: 'Delete printer · keep archives' }),
+        get label() { return translateNative('fleet.deleteKeepArchives', { defaultValue: 'Delete printer · keep archives' }); },
         icon: actionIcons.delete,
         onPress: () => {
           setDeleteSheetVisible(false);
@@ -443,7 +446,7 @@ export function PrinterCard({
         loading: deleteMutation.isPending,
       },
       {
-        label: t('fleet.deleteWithArchives', { defaultValue: 'Delete printer AND archives' }),
+        get label() { return translateNative('fleet.deleteWithArchives', { defaultValue: 'Delete printer AND archives' }); },
         icon: actionIcons.delete,
         destructive: true,
         disabled: deleteMutation.isPending,
@@ -459,15 +462,15 @@ export function PrinterCard({
     [actionIcons.cancel, actionIcons.delete, deleteMutation, t],
   );
 
-  const maintenanceItemActions = useMemo<ActionSheetAction[]>(
+  const maintenanceItemActions = useLocalizedMemo<ActionSheetAction[]>(
     () => [
       {
-        label: 'Cancel',
+        get label() { return translateNative('common.cancel'); },
         icon: actionIcons.cancel,
         onPress: () => setSelectedMaintenanceItem(null),
       },
       {
-        label: 'Mark complete',
+        get label() { return translateNative('native.f105bc3114dcc52d'); },
         icon: actionIcons.complete,
         onPress: () => {
           void handleCompleteSelectedMaintenance();
@@ -477,10 +480,10 @@ export function PrinterCard({
     [actionIcons.cancel, actionIcons.complete, handleCompleteSelectedMaintenance],
   );
 
-  const calibrateActions = useMemo<ActionSheetAction[]>(
+  const calibrateActions = useLocalizedMemo<ActionSheetAction[]>(
     () => [
       {
-        label: 'Auto-level bed',
+        get label() { return translateNative('native.03c46853dc3d5dad'); },
         icon: actionIcons.rotate,
         onPress: () => {
           setCalibrateSheetVisible(false);
@@ -490,7 +493,7 @@ export function PrinterCard({
         loading: calibrateMutation.isPending,
       },
       {
-        label: 'Home all axes',
+        get label() { return translateNative('native.f0dff40b2cb99e27'); },
         icon: actionIcons.move,
         onPress: () => {
           setCalibrateSheetVisible(false);
@@ -500,7 +503,7 @@ export function PrinterCard({
         loading: calibrateMutation.isPending,
       },
       {
-        label: 'Home XY',
+        get label() { return translateNative('native.0815f3e69f8757d4'); },
         icon: actionIcons.move,
         onPress: () => {
           setCalibrateSheetVisible(false);
@@ -513,32 +516,32 @@ export function PrinterCard({
     [actionIcons.move, actionIcons.rotate, calibrateMutation, canControlPrinter],
   );
 
-  const moreActions = useMemo<ActionSheetAction[]>(
+  const moreActions = useLocalizedMemo<ActionSheetAction[]>(
     () => [
       {
-        label: t('fleet.reconnect', { defaultValue: 'Reconnect MQTT transport' }),
+        get label() { return translateNative('fleet.reconnect', { defaultValue: 'Reconnect MQTT transport' }); },
         disabled: !hasPermission('printers:control') || transportMutation.isPending,
         loading: transportMutation.isPending && transportMutation.variables === 'reconnect',
         onPress: () => transportMutation.mutate('reconnect'),
       },
       {
-        label: t('fleet.republish', { defaultValue: 'Force device status republish' }),
+        get label() { return translateNative('fleet.republish', { defaultValue: 'Force device status republish' }); },
         disabled: !isConnected || !hasPermission('printers:read') || transportMutation.isPending,
         loading: transportMutation.isPending && transportMutation.variables === 'republish',
         onPress: () => transportMutation.mutate('republish'),
       },
       {
-        label: t('fleet.firmware', { defaultValue: 'Printer firmware' }),
+        get label() { return translateNative('fleet.firmware', { defaultValue: 'Printer firmware' }); },
         disabled: !hasPermission('firmware:read'),
         onPress: () => { setMoreSheetVisible(false); setFirmwareVisible(true); },
       },
       {
-        label: t('fleet.mqtt', { defaultValue: 'MQTT console' }),
+        get label() { return translateNative('fleet.mqtt', { defaultValue: 'MQTT console' }); },
         disabled: !hasPermission('printers:read'),
         onPress: () => { setMoreSheetVisible(false); setMqttVisible(true); },
       },
       {
-        label: 'Edit',
+        get label() { return translateNative('common.edit'); },
         onPress: () => {
           setMoreSheetVisible(false);
           setEditModalVisible(true);
@@ -549,8 +552,8 @@ export function PrinterCard({
       {
         label:
           printer.is_active === false
-            ? 'Disable maintenance mode'
-            : 'Enable maintenance mode',
+            ? translateNative('native.23c7f8fe03169d26')
+            : translateNative('native.4ccdcd0ec3e25a51'),
         onPress: () => {
           setMoreSheetVisible(false);
           setMaintenanceModeTarget(!printer.is_active);
@@ -560,7 +563,7 @@ export function PrinterCard({
         loading: maintenanceMutation.isPending,
       },
       {
-        label: 'Delete',
+        get label() { return translateNative('common.delete'); },
         onPress: () => {
           setMoreSheetVisible(false);
           setDeleteSheetVisible(true);

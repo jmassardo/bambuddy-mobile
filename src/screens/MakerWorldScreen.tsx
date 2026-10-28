@@ -1,4 +1,6 @@
-import React, { useMemo, useRef, useState } from 'react';
+import { NativeTranslation, nativeEnglishSuffix, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
@@ -18,7 +20,7 @@ import { makerworldApi } from '@/api/makerworld';
 import { SliceModal } from '@/components/files/SliceModal';
 import { MakerworldDestinationPicker } from '@/components/projects/MakerworldDestinationPicker';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { makerworldImportRequest } from '@/utils/makerworld';
 import { openLibrary } from '@/utils/libraryNavigation';
 import type { MakerworldImportRequest, MakerworldImportResponse } from '@/types/api';
@@ -32,10 +34,11 @@ import { formatDateTime, pickArray, pickBoolean, pickNumber, pickRecord, pickStr
 type ImportResult = MakerworldImportResponse & { model_id: number; source_url: string };
 
 export default function MakerWorldScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'MakerWorld'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'MakerWorld' });
+    navigation.setOptions({ get title() { return translateNative('nav.makerworld'); } });
   }, [navigation]);
 
   const { colors } = useTheme();
@@ -69,9 +72,9 @@ export default function MakerWorldScreen() {
       if (currentInput.current.revision !== input.revision || currentInput.current.url !== input.url) return;
       setResolved(data as ApiRecord);
       setResolvedForUrl(input.url);
-      showToast('MakerWorld model resolved.', 'success');
+      showToast(translateNative('native.61d328c067df6cbf'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to resolve this MakerWorld URL.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.af7e412227ec7e7a'), 'error'),
   });
 
   const importMutation = useMutation({
@@ -106,7 +109,7 @@ export default function MakerWorldScreen() {
     onSuccess: outcome => {
       showToast(t('makerworld.importSummary', { defaultValue: '{{success}} imported · {{failed}} failed', success: outcome.total - outcome.failed, failed: outcome.failed }), outcome.failed ? 'error' : 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to import this plate.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.5aa20324f31cf7dc'), 'error'),
     onSettled: async () => {
       await Promise.all(['makerworldRecent', 'libraryFiles', 'libraryFolders', 'libraryStats'].map(key =>
         queryClient.invalidateQueries({ queryKey: [key] })));
@@ -128,10 +131,10 @@ export default function MakerWorldScreen() {
     await Promise.all([statusQuery.refetch(), recentQuery.refetch()]);
   };
 
-  const design = useMemo(() => pickRecord(resolved, ['design']) ?? resolved, [resolved]);
-  const creator = useMemo(() => pickRecord(design, ['designCreator', 'creator']), [design]);
-  const instances = useMemo(() => pickArray(resolved, ['instances', 'plates']).filter((item): item is ApiRecord => typeof item === 'object' && item !== null), [resolved]);
-  const galleryImages = useMemo(() => {
+  const design = useLocalizedMemo(() => pickRecord(resolved, ['design']) ?? resolved, [resolved]);
+  const creator = useLocalizedMemo(() => pickRecord(design, ['designCreator', 'creator']), [design]);
+  const instances = useLocalizedMemo(() => pickArray(resolved, ['instances', 'plates']).filter((item): item is ApiRecord => typeof item === 'object' && item !== null), [resolved]);
+  const galleryImages = useLocalizedMemo(() => {
     const images = new Set<string>();
     const cover = pickString(design, ['coverUrl', 'cover', 'image']);
     if (cover) images.add(cover);
@@ -145,7 +148,7 @@ export default function MakerWorldScreen() {
     });
     return Array.from(images);
   }, [design, instances]);
-  const recentImports = useMemo(() => ((recentQuery.data ?? []) as ApiRecord[]), [recentQuery.data]);
+  const recentImports = useLocalizedMemo(() => ((recentQuery.data ?? []) as ApiRecord[]), [recentQuery.data]);
   const canImport = hasPermission('makerworld:import') && pickBoolean(statusQuery.data, ['can_download']);
   const importInstances = (items: ApiRecord[], slice = false) => {
     if (busy.current || importMutation.isPending || deleteMutation.isPending) return;
@@ -179,7 +182,7 @@ export default function MakerWorldScreen() {
   };
 
   if (statusQuery.isError || recentQuery.isError) {
-    return <ErrorState message="Unable to load MakerWorld data." onRetry={() => void refreshAll()} />;
+    return <ErrorState message={translateNative('native.633a508ed66f2275')} onRetry={() => void refreshAll()} />;
   }
 
   return (
@@ -195,15 +198,15 @@ export default function MakerWorldScreen() {
       }
     >
       {!pickBoolean(statusQuery.data, ['can_download']) ? (
-        <SectionCard title={pickBoolean(statusQuery.data, ['sign_in_expired']) ? t('makerworld.expired', { defaultValue: 'Cloud sign-in expired' }) : t('makerworld.signIn', { defaultValue: 'Cloud sign-in required' })} subtitle="Browsing works anonymously, but imports require a cloud session.">
-          <Text style={[styles.body, { color: colors.textSecondary }]}>Open Profiles to connect your Bambu Cloud account before importing MakerWorld models.</Text>
-          <PrimaryButton label="Open Profiles" variant="secondary" onPress={() => navigation.navigate('Profiles')} />
+        <SectionCard title={pickBoolean(statusQuery.data, ['sign_in_expired']) ? t('makerworld.expired', { defaultValue: 'Cloud sign-in expired' }) : t('makerworld.signIn', { defaultValue: 'Cloud sign-in required' })} subtitle={translateNative('native.33bb0bfb7b6894f8')}>
+          <Text style={[styles.body, { color: colors.textSecondary }]}>{translateNative('native.7861d58da46425b1')}</Text>
+          <PrimaryButton label={translateNative('native.3fad1f5b8289206c')} variant="secondary" onPress={() => navigation.navigate('Profiles')} />
         </SectionCard>
       ) : null}
 
-      <SectionCard title="Resolve a MakerWorld URL" subtitle="Paste a model link to fetch plates, gallery images, and import options.">
+      <SectionCard title={translateNative('native.58aede87b1de68ca')} subtitle={translateNative('native.71343893af0619ef')}>
         <TextField
-          label="MakerWorld URL"
+          label={translateNative('native.18661fe77ee5ffe4')}
           value={url}
           onChangeText={value => {
             const trimmed = value.trim();
@@ -221,7 +224,7 @@ export default function MakerWorldScreen() {
           editable={!importMutation.isPending}
         />
         <PrimaryButton
-          label={resolveMutation.isPending ? 'Resolving…' : 'Resolve model'}
+          label={resolveMutation.isPending ? translateNative('native.8a4acf195b1fb87f') : translateNative('native.d328c4484cb5afa2')}
           onPress={() => { setResolved(null); setResolvedForUrl(''); resolveMutation.mutate({ ...currentInput.current }); }}
           disabled={!url.trim() || resolveMutation.isPending || importMutation.isPending}
           loading={resolveMutation.isPending}
@@ -230,11 +233,11 @@ export default function MakerWorldScreen() {
 
       {resolved ? (
         <SectionCard
-          title={pickString(design, ['title', 'name'], 'MakerWorld model')}
-          subtitle={creator ? `By ${pickString(creator, ['name'], 'Unknown creator')}` : 'Resolved model details'}
+          title={pickString(design, ['title', 'name'], translateNative('native.9551c2e634eef756'))}
+          subtitle={creator ? translateNative('native.2c18348e860f732c', { value0: String(pickString(creator, ['name'], translateNative('native.a54e0899b35533c3'))) }) : translateNative('native.a891b86e26c8172d')}
           right={
             <StatusBadge
-              label={pickBoolean(statusQuery.data, ['can_download']) ? 'ready' : 'browse only'}
+              label={pickBoolean(statusQuery.data, ['can_download']) ? translateNative('native.3572b470c3301d18') : translateNative('native.f4d97ce43b8a6708')}
               color={statusColor(pickBoolean(statusQuery.data, ['can_download']) ? 'success' : 'warning', colors)}
             />
           }
@@ -243,19 +246,19 @@ export default function MakerWorldScreen() {
             <Image source={{ uri: pickString(design, ['coverUrl', 'cover', 'image']) }} style={styles.heroImage} />
           ) : null}
           <Text style={[styles.body, { color: colors.textSecondary }]}>
-            {pickString(design, ['summary', 'description'], 'No description available.')}
+            {pickString(design, ['summary', 'description'], translateNative('native.eaa34a6046653075'))}
           </Text>
           <View style={styles.metaWrap}>
             {pickArray(resolved, ['already_imported_library_ids']).length > 0 ? <Text style={[styles.meta, { color: colors.success }]}>{t('makerworld.alreadyImported', { defaultValue: 'This model has already been imported into the Library.' })}</Text> : null}
-            {pickNumber(design, ['downloadCount'], -1) >= 0 ? <Text style={[styles.meta, { color: colors.textSecondary }]}>Downloads: {pickNumber(design, ['downloadCount'], 0)}</Text> : null}
-            {pickString(design, ['license']) ? <Text style={[styles.meta, { color: colors.textSecondary }]}>License: {pickString(design, ['license'])}</Text> : null}
-            {pickNumber(resolved, ['model_id'], -1) >= 0 ? <Text style={[styles.meta, { color: colors.textSecondary }]}>Model ID: {pickNumber(resolved, ['model_id'], 0)}</Text> : null}
+            {pickNumber(design, ['downloadCount'], -1) >= 0 ? <Text style={[styles.meta, { color: colors.textSecondary }]}><NativeTranslation id="native.c9ad33e646d2b890" values={{ value0: (pickNumber(design, ['downloadCount'], 0)) }} /></Text> : null}
+            {pickString(design, ['license']) ? <Text style={[styles.meta, { color: colors.textSecondary }]}><NativeTranslation id="native.38999868124b4a45" values={{ value0: (pickString(design, ['license'])) }} /></Text> : null}
+            {pickNumber(resolved, ['model_id'], -1) >= 0 ? <Text style={[styles.meta, { color: colors.textSecondary }]}><NativeTranslation id="native.2a83d84c8928d1bf" values={{ value0: (pickNumber(resolved, ['model_id'], 0)) }} /></Text> : null}
           </View>
         </SectionCard>
       ) : null}
 
       {galleryImages.length > 0 ? (
-        <SectionCard title="Gallery" subtitle="Tap an image to view it full size.">
+        <SectionCard title={translateNative('native.730291cdbc8cfb3e')} subtitle={translateNative('native.f787e637c802e695')}>
           <View style={styles.galleryWrap}>
             {galleryImages.map(image => (
               <Text key={image} onPress={() => setSelectedImage(image)}>
@@ -267,7 +270,7 @@ export default function MakerWorldScreen() {
       ) : null}
 
       {instances.length > 0 ? (
-        <SectionCard title="Resolved plates" subtitle={`${instances.length} plate${instances.length === 1 ? '' : 's'} available to import.`}>
+        <SectionCard title={translateNative('native.38294a79d2e1bc2f')} subtitle={translateNative('native.1e679af4371ef12b', { value0: String(instances.length), value1: String(nativeEnglishSuffix(instances.length === 1 ? '' : 's')) })}>
           <MakerworldDestinationPicker value={folderId} onChange={setFolderId} disabled={importMutation.isPending} />
           <PrimaryButton label={bulkProgress ? t('makerworld.bulkProgress', { defaultValue: 'Importing {{current}} / {{total}}', ...bulkProgress }) : t('makerworld.importAll', { defaultValue: 'Import all / retry failed' })}
             disabled={!canImport || importMutation.isPending || deleteMutation.isPending}
@@ -282,14 +285,14 @@ export default function MakerWorldScreen() {
                   {cover ? <Image source={{ uri: cover }} style={styles.plateImage} /> : null}
                   <View style={styles.plateText}>
                     <Text style={[styles.plateTitle, { color: colors.text }]}>{title}</Text>
-                    <Text style={[styles.meta, { color: colors.textSecondary }]}>Material count: {pickNumber(instance, ['materialCnt'], 0)}</Text>
-                    {pickBoolean(instance, ['needAms']) ? <Text style={[styles.meta, { color: colors.warning }]}>AMS required</Text> : null}
-                    {pickString(instance, ['compatibility.devProductName']) ? <Text style={[styles.meta, { color: colors.textSecondary }]}>Sliced for {pickString(instance, ['compatibility.devProductName'])}</Text> : null}
+                    <Text style={[styles.meta, { color: colors.textSecondary }]}><NativeTranslation id="native.7e44091ad253bfab" values={{ value0: (pickNumber(instance, ['materialCnt'], 0)) }} /></Text>
+                    {pickBoolean(instance, ['needAms']) ? <Text style={[styles.meta, { color: colors.warning }]}>{translateNative('native.9c02c8d46b15ce40')}</Text> : null}
+                    {pickString(instance, ['compatibility.devProductName']) ? <Text style={[styles.meta, { color: colors.textSecondary }]}><NativeTranslation id="native.12463ee400245257" values={{ value0: (pickString(instance, ['compatibility.devProductName'])) }} /></Text> : null}
                   </View>
                 </View>
                 <View style={styles.actions}>
                   <PrimaryButton
-                    label={importMutation.isPending ? 'Importing…' : 'Import'}
+                    label={importMutation.isPending ? translateNative('native.7ce4e108421094ce') : translateNative('native.ee297a40ab51b625')}
                     onPress={() => importInstances([instance])}
                     disabled={!canImport || importMutation.isPending || deleteMutation.isPending}
                     loading={importMutation.isPending}
@@ -311,21 +314,21 @@ export default function MakerWorldScreen() {
         </View>)}
       </SectionCard> : null}
 
-      <SectionCard title="Recent imports" subtitle="Your latest MakerWorld imports from the server.">
+      <SectionCard title={translateNative('native.09d5b90272972fce')} subtitle={translateNative('native.7a3b9dbaa0ad6693')}>
         {recentImports.length > 0 ? (
           recentImports.map(item => (
             <View key={pickString(item, ['library_file_id', 'filename'])} style={[styles.plateCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
               {pickString(item, ['thumbnail_path']) ? <Image source={{ uri: api.getLibraryFileThumbnailUrl(pickNumber(item, ['library_file_id'])) }} style={styles.importImage} /> : null}
               <View style={styles.plateText}>
-                <Text style={[styles.plateTitle, { color: colors.text }]}>{pickString(item, ['filename', 'name'], 'MakerWorld import')}</Text>
-                <Text style={[styles.meta, { color: colors.textSecondary }]}>{pickString(item, ['source_url'], 'Imported from MakerWorld')}</Text>
+                <Text style={[styles.plateTitle, { color: colors.text }]}>{pickString(item, ['filename', 'name'], translateNative('native.a026288635216e4b'))}</Text>
+                <Text style={[styles.meta, { color: colors.textSecondary }]}>{pickString(item, ['source_url'], translateNative('native.493c62534cdd4b5d'))}</Text>
                 <Text style={[styles.meta, { color: colors.textTertiary }]}>{formatDateTime(pickString(item, ['created_at']))}</Text>
               </View>
               {resultActions(item)}
             </View>
           ))
         ) : (
-          <EmptyState icon="🌐" title="No recent imports" message="Imports started from this screen will appear here." />
+          <EmptyState icon="🌐" title={translateNative('native.ff8de88aff0e6378')} message={translateNative('native.08fd8ee7d4bc412b')} />
         )}
       </SectionCard>
       {sliceFile ? <SliceModal visible onClose={() => setSliceFile(null)} sourceType="file" sourceId={sliceFile.id} sourceName={sliceFile.name} /> : null}
@@ -334,7 +337,7 @@ export default function MakerWorldScreen() {
         <View style={[styles.lightbox, { backgroundColor: colors.overlay }]}> 
           <View style={styles.lightboxCard}>
             {selectedImage ? <Image source={{ uri: selectedImage }} style={styles.lightboxImage} resizeMode="contain" /> : null}
-            <PrimaryButton label="Close" variant="secondary" onPress={() => setSelectedImage(null)} />
+            <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={() => setSelectedImage(null)} />
           </View>
         </View>
       </Modal>

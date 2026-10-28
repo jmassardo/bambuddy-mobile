@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -14,7 +15,6 @@ import {
 import { AlertTriangle, Info, AlertCircle } from 'lucide-react-native';
 import { useTheme } from '@/theme';
 import { fontSize } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
 
 export interface ConfirmModalProps {
   visible: boolean;
@@ -40,9 +40,9 @@ function variantIcon(variant: 'danger' | 'warning' | 'info') {
 }
 
 function variantDescription(variant: 'danger' | 'warning' | 'info') {
-  if (variant === 'warning') return 'warning';
-  if (variant === 'info') return 'information';
-  return 'danger';
+  if (variant === 'warning') return translateNative('native.201075b73563c5a7');
+  if (variant === 'info') return translateNative('native.e665a9f35a027a6f');
+  return translateNative('native.9076936470978ba1');
 }
 
 export function ConfirmModal({
@@ -51,12 +51,13 @@ export function ConfirmModal({
   onConfirm,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel = translateNative('common.confirm'),
+  cancelLabel = translateNative('common.cancel'),
   variant = 'danger',
   loading = false,
   returnFocusRef,
 }: ConfirmModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { text } = useTranslation();
   const isMountedRef = useRef(false);

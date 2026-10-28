@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import React from 'react';
 import { Text } from 'react-native';
 import { PrimaryButton } from '@/components/common/AppUI';
@@ -24,6 +25,7 @@ import { VirtualPrinterSettingsSection } from './VirtualPrinterSettingsSection';
 import type { SettingsScreenController } from './useSettingsScreenController';
 
 export function SettingsSectionContent({ controller }: { controller: SettingsScreenController }) {
+  useNativeLocale();
   const { section } = controller.state;
 
   if (section === null) {
@@ -32,7 +34,7 @@ export function SettingsSectionContent({ controller }: { controller: SettingsScr
 
   return (
     <>
-      <PrimaryButton label="Back to sections" variant="secondary" onPress={() => controller.actions.setSection(null)} />
+      <PrimaryButton label={translateNative('native.aea815710894cc0c')} variant="secondary" onPress={() => controller.actions.setSection(null)} />
       {section === 'general' ? <><GeneralSettingsSection controller={controller} /><FinancePolicySection /></> : null}
       {section === 'plugs' ? <SmartPlugsSection controller={controller} /> : null}
       {section === 'notifications' ? <NotificationsSettingsSection controller={controller} /> : null}
@@ -53,13 +55,13 @@ export function SettingsSectionContent({ controller }: { controller: SettingsScr
       {section === 'storage-locations' ? <StorageLocationsSection controller={controller} /> : null}
       {controller.derived.isDirtySection ? (
         <PrimaryButton
-          label={controller.mutations.saveSettingsMutation.isPending ? 'Saving…' : 'Save settings'}
+          label={controller.mutations.saveSettingsMutation.isPending ? translateNative('native.018c2002806e2312') : translateNative('native.e428fc0854e915a8')}
           onPress={() => void controller.mutations.saveSettingsMutation.mutateAsync()}
           loading={controller.mutations.saveSettingsMutation.isPending}
           disabled={!controller.permissions.canUpdateSettings || controller.mutations.saveSettingsMutation.isPending}
         />
       ) : null}
-      {!controller.isAdmin ? <Text style={[settingsStyles.helper, { color: controller.colors.warning }]}>Some sections may be read-only without admin access.</Text> : null}
+      {!controller.isAdmin ? <Text style={[settingsStyles.helper, { color: controller.colors.warning }]}>{translateNative('native.1160cf633e5d8038')}</Text> : null}
     </>
   );
 }

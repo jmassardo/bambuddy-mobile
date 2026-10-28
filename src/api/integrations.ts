@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import { request } from './http';
 import type {
   DiscoveredTasmotaDevice, HAEntity, HASensorEntity, HATestConnectionResult,
@@ -30,7 +31,7 @@ export const integrationsApi = {
   plugStatus: (id: number) => request<SmartPlugStatus>(`/smart-plugs/${id}/status`),
   control: async (id: number, action: 'on' | 'off') => {
     const result = await request<{ success: boolean; action: string }>(`/smart-plugs/${id}/control`, json({ action }));
-    if (!result.success) throw new Error('Device did not confirm the power command.');
+    if (!result.success) throw new Error(translateNative('native.3d6e19ef8a1750be'));
     return result;
   },
   interfaces: () => request<{ interfaces: NetworkInterface[] }>('/settings/network-interfaces'),

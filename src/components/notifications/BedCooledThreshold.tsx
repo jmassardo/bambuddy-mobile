@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -5,13 +6,13 @@ import { settingsApi } from '@/api/settings';
 import { Button, Input } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
 
 export function BedCooledThreshold() {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const client = useQueryClient();
-  const query = useQuery({ queryKey: ['settings'], queryFn: settingsApi.getSettings });
+  const query = useQuery({ queryKey: useServerSettingsKey(), queryFn: settingsApi.getSettings });
   const [value, setValue] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -42,3 +43,4 @@ export function BedCooledThreshold() {
 }
 
 const styles = StyleSheet.create({ group: { gap: spacing.sm } });
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

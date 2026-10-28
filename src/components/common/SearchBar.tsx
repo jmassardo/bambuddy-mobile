@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import { StyleSheet, TextInput, View, Pressable } from 'react-native';
 import { Search, X } from 'lucide-react-native';
 import { useTheme } from '../../theme';
@@ -9,7 +10,8 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
-export function SearchBar({ value, onChangeText, placeholder = 'Search...' }: SearchBarProps) {
+export function SearchBar({ value, onChangeText, placeholder = translateNative('native.a7c9b8f6f08b028e') }: SearchBarProps) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -29,7 +31,7 @@ export function SearchBar({ value, onChangeText, placeholder = 'Search...' }: Se
         <Pressable
           onPress={() => onChangeText('')}
           style={styles.clearButton}
-          accessibilityLabel="Clear search"
+          accessibilityLabel={translateNative('native.a6ccc01fea9133be')}
           accessibilityRole="button"
         >
           <X size={14} color={colors.textTertiary} strokeWidth={2} />

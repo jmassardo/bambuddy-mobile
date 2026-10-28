@@ -1,4 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -68,7 +70,6 @@ import { camerasApi } from '@/api/cameras';
 import { CameraSnapshot } from '@/components/printers/CameraSnapshot';
 import { PlateManagement } from '@/components/printers/PlateManagement';
 import { SkipObjectsModal } from '@/components/printers/SkipObjectsModal';
-import { useTranslation } from '@/i18n';
 
 interface CameraWebViewProps {
   key?: string;
@@ -124,11 +125,12 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function getStatusLabel(state: string | null | undefined, stage: string | null | undefined) {
   if (stage) return stage;
-  if (!state) return 'Unknown';
+  if (!state) return translateNative('native.ff12a040d13addb7');
   return state.charAt(0) + state.slice(1).toLowerCase();
 }
 
 function ConnectionCheckIcon({ status, colors }: { status: DiagnosticStatus; colors: ReturnType<typeof useTheme>['colors'] }) {
+  useNativeLocale();
   if (status === 'pass') return <CheckCircle2 size={16} color={colors.success} strokeWidth={2} />;
   if (status === 'fail') return <XCircle size={16} color={colors.error} strokeWidth={2} />;
   if (status === 'warn') return <AlertTriangle size={16} color={colors.warning} strokeWidth={2} />;
@@ -150,6 +152,7 @@ function StreamStatusIndicator({
   refreshCount: number;
   colors: ReturnType<typeof useTheme>['colors'];
 }) {
+  useNativeLocale();
   const isRetryActive = retryState === 'retrying';
   const isRetryFailed = retryState === 'failed';
   const isDegraded = healthStatus === 'degraded';
@@ -167,16 +170,16 @@ function StreamStatusIndicator({
     label = `Retrying… (${retryCount}/${maxRetries})`;
     iconColor = colors.warning;
   } else if (isRetryFailed) {
-    label = 'Stream unavailable';
+    label = translateNative('native.fa6a6012f1a96f9f');
     iconColor = colors.error;
   } else if (isDegraded) {
-    label = 'Stream slow';
+    label = translateNative('native.786c3e3a90c01329');
     iconColor = colors.warning;
   } else if (isStale) {
-    label = 'Stream stale';
+    label = translateNative('native.4115fa2b3f086e66');
     iconColor = colors.error;
   } else if (isOffline) {
-    label = 'Stream offline';
+    label = translateNative('native.cfa8023948d7265f');
     iconColor = colors.error;
   }
 
@@ -206,6 +209,7 @@ function StreamStatusIndicator({
 }
 
 function CameraStageIcon({ status, colors }: { status: CameraDiagnoseResult['stages'][number]['status']; colors: ReturnType<typeof useTheme>['colors'] }) {
+  useNativeLocale();
   if (status === 'ok') return <CheckCircle2 size={16} color={colors.success} strokeWidth={2} />;
   if (status === 'failed') return <XCircle size={16} color={colors.error} strokeWidth={2} />;
   return <MinusCircle size={16} color={colors.textTertiary} strokeWidth={2} />;
@@ -214,19 +218,19 @@ function CameraStageIcon({ status, colors }: { status: CameraDiagnoseResult['sta
 function checkTitle(check: DiagnosticCheck) {
   switch (check.id) {
     case 'port_mqtt':
-      return 'MQTT port';
+      return translateNative('native.3c3696e708e1f828');
     case 'port_ftps':
-      return 'FTPS port';
+      return translateNative('native.784839834f951f71');
     case 'port_rtsps':
-      return 'RTSPS camera port';
+      return translateNative('native.179efddcee7a4388');
     case 'network_mode':
-      return 'Network mode';
+      return translateNative('native.0b3871bb03c278d3');
     case 'subnet':
-      return 'Subnet routing';
+      return translateNative('native.c49ad22ecb477baa');
     case 'mqtt_auth':
-      return 'MQTT authentication';
+      return translateNative('native.21fc7ded6ed9e133');
     case 'developer_mode':
-      return 'Developer mode';
+      return translateNative('native.248967b35e8cf486');
     default:
       return String(check.id).replace(/_/g, ' ');
   }
@@ -235,33 +239,33 @@ function checkTitle(check: DiagnosticCheck) {
 function stageTitle(name: CameraDiagnoseResult['stages'][number]['name']) {
   switch (name) {
     case 'tcp_reachable':
-      return 'TCP connection to camera';
+      return translateNative('native.9a8e41fd91c7762a');
     case 'first_frame':
-      return 'First camera frame';
+      return translateNative('native.66f6568fe584ff60');
     case 'live_stream_active':
-      return 'Live stream availability';
+      return translateNative('native.004d4a4f79e21e45');
     default:
       return String(name).replace(/_/g, ' ');
   }
 }
 
 function overallSummary(result: PrinterDiagnosticResult) {
-  if (result.overall === 'ok') return 'Camera connectivity checks passed.';
-  if (result.overall === 'warnings') return 'Camera connectivity is reachable, but one or more checks need attention.';
-  return 'Camera connectivity problems were detected.';
+  if (result.overall === 'ok') return translateNative('native.e7a9c1809381dd99');
+  if (result.overall === 'warnings') return translateNative('native.e63d0b2ca9648926');
+  return translateNative('native.82033d1f7e46a73d');
 }
 
 function cameraSummary(result: CameraDiagnoseResult) {
-  if (result.overall_status === 'ok') return 'Camera stream checks passed.';
+  if (result.overall_status === 'ok') return translateNative('native.d0219234d1450e08');
   switch (result.summary_code) {
     case 'stream_unreachable':
-      return 'The camera port could not be reached.';
+      return translateNative('native.c771a3b5bfb356cf');
     case 'first_frame_timeout':
-      return 'The camera responded, but the first frame never arrived.';
+      return translateNative('native.e91ec19a40d5bab1');
     case 'live_stream_inactive':
-      return 'The stream starts but does not stay active.';
+      return translateNative('native.b2326af16790aa86');
     default:
-      return 'The camera diagnostic found a stream problem.';
+      return translateNative('native.278d797faf41294e');
   }
 }
 
@@ -289,6 +293,7 @@ function DiagnosticSheet({
   reduceMotionEnabled: boolean;
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -308,16 +313,15 @@ function DiagnosticSheet({
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderText}>
               <Text accessibilityRole="header" style={[styles.modalTitle, { color: colors.text }]}>
-                Camera actions
-              </Text>
+                {translateNative('native.e6b9b7ed4a2e9f36')}</Text>
               <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-                {printer?.name || 'Printer camera'}
+                {printer?.name || translateNative('native.98976bae8adbae3e')}
               </Text>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close camera actions"
-              accessibilityHint="Returns to the camera"
+              accessibilityLabel={translateNative('native.de5f51ead319ff0c')}
+              accessibilityHint={translateNative('native.f71b5a8e7f089f60')}
               hitSlop={8}
               onPress={onClose}
               style={styles.iconButton}
@@ -331,14 +335,14 @@ function DiagnosticSheet({
             {pending ? (
               <View style={styles.loadingState}>
                 <ActivityIndicator size="small" color={colors.accent} />
-                <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Checking camera ports, routing, and stream health…</Text>
+                <Text style={[styles.modalHint, { color: colors.textSecondary }]}>{translateNative('native.977a97965b66581e')}</Text>
               </View>
             ) : null}
 
             {result?.connection ? (
               <View style={[styles.diagSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
                 <View style={styles.diagSectionHeader}>
-                  <Text style={[styles.diagTitle, { color: colors.text }]}>Connection checks</Text>
+                  <Text style={[styles.diagTitle, { color: colors.text }]}>{translateNative('native.4ec13eeb4266f059')}</Text>
                   <StatusBadge
                     label={result.connection.overall}
                     color={
@@ -371,7 +375,7 @@ function DiagnosticSheet({
 
             {result?.connectionError ? (
               <View style={[styles.errorBox, { backgroundColor: `${colors.error}15`, borderColor: `${colors.error}40` }]}> 
-                <Text style={[styles.errorTitle, { color: colors.error }]}>Connection diagnostic failed</Text>
+                <Text style={[styles.errorTitle, { color: colors.error }]}>{translateNative('native.683bb478f542c082')}</Text>
                 <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>{result.connectionError}</Text>
               </View>
             ) : null}
@@ -379,7 +383,7 @@ function DiagnosticSheet({
             {result?.camera ? (
               <View style={[styles.diagSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
                 <View style={styles.diagSectionHeader}>
-                  <Text style={[styles.diagTitle, { color: colors.text }]}>Camera stream checks</Text>
+                  <Text style={[styles.diagTitle, { color: colors.text }]}>{translateNative('native.47e67fbc27c433bb')}</Text>
                   <StatusBadge
                     label={result.camera.overall_status}
                     color={result.camera.overall_status === 'ok' ? colors.success : colors.error}
@@ -391,36 +395,34 @@ function DiagnosticSheet({
                     <CameraStageIcon status={stage.status} colors={colors} />
                     <View style={styles.diagRowText}>
                       <Text style={[styles.diagRowTitle, { color: colors.text }]}>{stageTitle(stage.name)}</Text>
-                      <Text style={[styles.diagRowBody, { color: colors.textSecondary }]}>
-                        {stage.duration_ms} ms{stage.code ? ` · ${stage.code}` : ''}
-                      </Text>
+                      <Text style={[styles.diagRowBody, { color: colors.textSecondary }]}><NativeTranslation id="native.cf42037063436f46" values={{ value0: (stage.duration_ms), value1: (stage.code ? ` · ${stage.code}` : '') }} /></Text>
                     </View>
                   </View>
                 ))}
-                <Text style={[styles.modalHint, { color: colors.textSecondary }]}>Protocol: {result.camera.protocol} · Port: {result.camera.port} · Profile: {result.camera.profile}</Text>
+                <Text style={[styles.modalHint, { color: colors.textSecondary }]}><NativeTranslation id="native.85977c384a207e27" values={{ value0: (result.camera.protocol), value1: (result.camera.port), value2: (result.camera.profile) }} /></Text>
               </View>
             ) : null}
 
             {result?.cameraError ? (
               <View style={[styles.errorBox, { backgroundColor: `${colors.warning}15`, borderColor: `${colors.warning}40` }]}> 
-                <Text style={[styles.errorTitle, { color: colors.warning }]}>Camera stream diagnostic failed</Text>
+                <Text style={[styles.errorTitle, { color: colors.warning }]}>{translateNative('native.0665dd71e884c291')}</Text>
                 <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>{result.cameraError}</Text>
               </View>
             ) : null}
 
             {!pending && !result?.connection && !result?.camera && !result?.connectionError && !result?.cameraError ? (
-              <Text style={[styles.modalHint, { color: colors.textSecondary }]}>No diagnostic results are available yet.</Text>
+              <Text style={[styles.modalHint, { color: colors.textSecondary }]}>{translateNative('native.6d7cdb71de56a1a4')}</Text>
             ) : null}
           </ScrollView>
 
           <View style={styles.modalActions}>
             <PrimaryButton
-              label={pending ? 'Checking…' : result ? 'Retry diagnostic' : 'Diagnose camera'}
+              label={pending ? translateNative('native.4d09977f8d9eacf6') : result ? translateNative('native.0fc6f54663b84a38') : translateNative('native.1b6cb432698b3f22')}
               variant="secondary"
               onPress={onRetry}
               disabled={pending}
             />
-            <PrimaryButton label="Close" onPress={onClose} />
+            <PrimaryButton label={translateNative('common.close')} onPress={onClose} />
           </View>
         </View>
       </View>
@@ -463,6 +465,7 @@ function CameraIconButton({
   busy?: boolean;
   style?: object;
 }) {
+  useNativeLocale();
   return (
     <Pressable
       accessibilityRole="button"
@@ -661,6 +664,7 @@ function clampTranslationOffset(value: number, axisSize: number, scale: number) 
 }
 
 export default function CameraScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Camera'>>();
   const route = useRoute<RootRouteProp<'Camera'>>();
@@ -720,7 +724,7 @@ export default function CameraScreen() {
   const containerHeight = useSharedValue(0);
 
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Camera', headerShown: false });
+    navigation.setOptions({ get title() { return translateNative('native.ac1081d67c0eb4a3'); }, headerShown: false });
   }, [navigation]);
 
   const { id } = (route.params ?? {}) as { id?: string | number };
@@ -794,7 +798,7 @@ export default function CameraScreen() {
     width,
   ]);
 
-  const webCamera = useMemo(() => {
+  const webCamera = useLocalizedMemo(() => {
     if (Platform.OS !== 'ios' || !validPrinterId || !serverUrl) return null;
     try {
       const configuredUrl = new URL(serverUrl);
@@ -816,7 +820,7 @@ export default function CameraScreen() {
     }
   }, [printerId, serverUrl, validPrinterId]);
 
-  const cameraBootstrap = useMemo(
+  const cameraBootstrap = useLocalizedMemo(
     () => createCameraBootstrap(webAuthToken, fitMode),
     [fitMode, webAuthToken],
   );
@@ -1020,12 +1024,12 @@ export default function CameraScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['printerStatus', printerId] });
       showToast(
-        statusQuery.data?.chamber_light ? 'Chamber light turned off.' : 'Chamber light turned on.',
+        statusQuery.data?.chamber_light ? translateNative('native.b7f99a005cd8c13a') : translateNative('native.ddaab30a09d7974e'),
         'success',
       );
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to update chamber light.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.f69f98dcdfcfaf2c')), 'error'),
   });
 
   const plateToggleMutation = useMutation({
@@ -1040,12 +1044,12 @@ export default function CameraScreen() {
         queryClient.invalidateQueries({ queryKey: ['plateDetectionStatus', printerId] }),
       ]);
       showToast(
-        enabled ? 'Plate detection enabled.' : 'Plate detection disabled.',
+        enabled ? translateNative('native.0ae62a1de5f2fea3') : translateNative('native.cdcebabd7ad60a2b'),
         'success',
       );
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to update plate detection.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.c315859611656487')), 'error'),
   });
 
   const refreshCamera = useCallback(async () => {
@@ -1070,7 +1074,7 @@ export default function CameraScreen() {
 
   const diagnoseMutation = useMutation({
     mutationFn: async () => {
-      if (!printer?.ip_address) throw new Error('Printer IP address is unavailable.');
+      if (!printer?.ip_address) throw new Error(translateNative('native.ad3d1feab2c0a4e0'));
       const [connection, camera] = await Promise.allSettled([
         api.diagnoseConnection({
           ip_address: printer.ip_address,
@@ -1084,17 +1088,17 @@ export default function CameraScreen() {
         connection.status === 'rejected'
           ? connection.reason instanceof Error
             ? connection.reason.message
-            : 'Unable to run the connection diagnostic.'
+            : translateNative('native.cc5374302e3fac12')
           : null;
       const cameraError =
         camera.status === 'rejected'
           ? camera.reason instanceof Error
             ? camera.reason.message
-            : 'Unable to run the camera stream diagnostic.'
+            : translateNative('native.9c9dce5331640d7e')
           : null;
 
       if (connection.status === 'rejected' && camera.status === 'rejected') {
-        throw new Error(connectionError || cameraError || 'Unable to run camera diagnostics.');
+        throw new Error(connectionError || cameraError || translateNative('native.b0635dab58a4be43'));
       }
 
       return {
@@ -1105,7 +1109,7 @@ export default function CameraScreen() {
       };
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to run the camera diagnostic.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.631c4c50ea927873')), 'error'),
   });
 
   const animatedStreamStyle = useAnimatedStyle(() => ({
@@ -1200,7 +1204,7 @@ export default function CameraScreen() {
         : status?.connected
           ? colors.success
           : colors.error;
-  const streamUrl = useMemo(() => {
+  const streamUrl = useLocalizedMemo(() => {
     if (Platform.OS !== 'android' || !validPrinterId || !mediaTokenReady) return null;
     return withCacheBuster(
       api.getCameraStreamUrl(printerId),
@@ -1214,13 +1218,13 @@ export default function CameraScreen() {
     validPrinterId,
   ]);
   const cameraUnavailableReason = !validPrinterId
-    ? 'Missing printer id.'
+    ? translateNative('native.1deba92422bc0347')
     : playbackMode === 'snapshot'
       ? null
     : !status?.connected && !printer?.external_camera_enabled
-      ? 'Printer is offline.'
+      ? translateNative('native.4fdce7a50d94f6f4')
       : !status?.ipcam && !printer?.external_camera_enabled
-        ? 'Camera is unavailable for this printer.'
+        ? translateNative('native.3c11e78963bcd037')
         : null;
 
   useEffect(() => {
@@ -1256,10 +1260,10 @@ export default function CameraScreen() {
   const plateRoi = printer?.plate_detection_roi ?? DEFAULT_PLATE_ROI;
   const plateStatus = plateStatusQuery.data;
   const plateStatusLabel = plateStatusQuery.isError
-    ? 'Unavailable'
+    ? translateNative('native.690339bc141891b7')
     : plateStatus?.calibrated
-      ? 'Calibrated'
-      : 'Needs calibration';
+      ? translateNative('native.2f9b92b2e3f94c24')
+      : translateNative('native.ba89995003347ad4');
   const plateStatusColor = plateStatus?.calibrated ? colors.success : colors.warning;
 
   const openActions = () => {
@@ -1339,7 +1343,7 @@ export default function CameraScreen() {
         </View>
       ) : cameraUnavailableReason ? (
         renderState(
-          'Camera unavailable',
+          translateNative('native.dd79b585121476fc'),
           cameraUnavailableReason,
           validPrinterId ? 'Refresh' : undefined,
           validPrinterId ? () => void refreshCamera() : undefined,
@@ -1352,17 +1356,17 @@ export default function CameraScreen() {
         </View>
       ) : Platform.OS === 'ios' && (!webCamera || (authEnabled && webAuthToken == null)) ? (
         renderState(
-          'Camera unavailable',
-          'The Web camera is not available yet.',
+          translateNative('native.dd79b585121476fc'),
+          translateNative('native.2a2bcb409fa231c3'),
           'Retry',
           () => void refreshCamera(),
         )
       ) : Platform.OS === 'ios' && webCameraFailed ? (
         renderState(
-          'Unable to load Web camera',
+          translateNative('native.209f580062a90c3b'),
           webCameraErrorStatus == null
-            ? 'The Web camera page could not be loaded. Check Settings → Privacy → Local Network and allow Bambuddy, then retry.'
-            : `The Web camera page could not be loaded (HTTP ${webCameraErrorStatus}). Check local network permissions and retry.`,
+            ? translateNative('native.1b74f8218a94dcfe')
+            : translateNative('native.c52b23a3898c6e0f', { value0: String(webCameraErrorStatus) }),
           'Retry',
           () => void refreshCamera(),
         )
@@ -1423,8 +1427,7 @@ export default function CameraScreen() {
                       ]}
                     >
                       <Text style={[styles.calibrationLabelText, { color: colors.text }]}>
-                        Plate detection area
-                      </Text>
+                        {translateNative('native.b2fc2583d30812da')}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -1438,10 +1441,10 @@ export default function CameraScreen() {
         </View>
       ) : streamError ? (
         renderState(
-          'Unable to load stream',
+          translateNative('native.94b176083ff36113'),
           Platform.OS === 'ios'
-            ? 'The live camera stream did not respond. Check Settings → Privacy → Local Network and allow Bambuddy, then retry.'
-            : 'The live camera stream did not respond. Check that the printer is reachable on your local network, then retry.',
+            ? translateNative('native.995093ad190e5495')
+            : translateNative('native.0b657e9c01f29d20'),
           'Retry',
           () => void refreshCamera(),
           'Diagnose',
@@ -1497,8 +1500,7 @@ export default function CameraScreen() {
                       ]}
                     >
                       <Text style={[styles.calibrationLabelText, { color: colors.text }]}>
-                        Plate detection area
-                      </Text>
+                        {translateNative('native.b2fc2583d30812da')}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -1508,11 +1510,9 @@ export default function CameraScreen() {
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color={colors.accent} />
                 {streamRetry.currentState === 'retrying' ? (
-                  <Text style={[styles.loadingLabel, { color: colors.text }]}>
-                    Retrying camera stream… ({streamRetry.retryCount}/{streamRetry.maxRetries})
-                  </Text>
+                  <Text style={[styles.loadingLabel, { color: colors.text }]}><NativeTranslation id="native.26aa1d3f369a5f7d" values={{ value0: (streamRetry.retryCount), value1: (streamRetry.maxRetries) }} /></Text>
                 ) : (
-                  <Text style={[styles.loadingLabel, { color: colors.text }]}>Connecting to live stream…</Text>
+                  <Text style={[styles.loadingLabel, { color: colors.text }]}>{translateNative('native.7e74de81fc525b25')}</Text>
                 )}
               </View>
             ) : null}
@@ -1532,26 +1532,25 @@ export default function CameraScreen() {
         ]}
       >
         <CameraIconButton
-          label="Close camera"
-          hint="Returns to the previous screen"
+          label={translateNative('native.0e30986ccd0fc31b')}
+          hint={translateNative('native.5c3d7d480cb86594')}
           onPress={() => navigation.goBack()}
           icon={<X size={20} color={colors.text} strokeWidth={2} />}
           style={{ backgroundColor: colors.surface, borderColor: colors.border }}
         />
         {!isLandscape ? (
-          <View accessible accessibilityLabel={`${printer?.name || 'Camera'}, Camera`} style={styles.headerTitle}>
+          <View accessible accessibilityLabel={translateNative('native.9253545102ea9094', { value0: String(printer?.name || 'Camera') })} style={styles.headerTitle}>
             <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-              {printer?.name || 'Camera'}
+              {printer?.name || translateNative('native.ac1081d67c0eb4a3')}
             </Text>
             <Text style={[styles.headerContext, { color: colors.textSecondary }]} numberOfLines={1}>
-              Camera
-            </Text>
+              {translateNative('native.ac1081d67c0eb4a3')}</Text>
           </View>
         ) : null}
         {!isLandscape ? (
           <CameraIconButton
-            label="More camera actions"
-            hint="Opens diagnostics and plate detection controls"
+            label={translateNative('native.53d12fa7328580d5')}
+            hint={translateNative('native.66d49695f1827c1c')}
             onPress={openActions}
             icon={<MoreHorizontal size={20} color={colors.text} strokeWidth={2} />}
             style={{ backgroundColor: colors.surface, borderColor: colors.border }}
@@ -1562,7 +1561,7 @@ export default function CameraScreen() {
       {isLandscape ? (
         <View
           testID="camera-landscape-control-rail"
-          accessibilityLabel="Camera controls"
+          accessibilityLabel={translateNative('native.c7843bd0bc7a8510')}
           pointerEvents="box-none"
           style={[
             styles.landscapeRail,
@@ -1585,16 +1584,16 @@ export default function CameraScreen() {
             ]}
           >
             <CameraIconButton
-              label="Refresh camera"
-              hint="Reloads the current camera"
+              label={translateNative('native.40d21d5ae404c92c')}
+              hint={translateNative('native.be4298183744e118')}
               onPress={() => void refreshCamera()}
               icon={<RefreshCw size={19} color={colors.text} strokeWidth={2} />}
               style={{ backgroundColor: colors.surface, borderColor: colors.border }}
             />
             {lightAvailable ? (
               <CameraIconButton
-                label={status?.chamber_light ? 'Turn chamber light off' : 'Turn chamber light on'}
-                hint="Changes the printer chamber light"
+                label={status?.chamber_light ? translateNative('native.7544ec907e0c0064') : translateNative('native.04e24f94c8b265e4')}
+                hint={translateNative('native.fac307648000086e')}
                 onPress={() => chamberLightMutation.mutate()}
                 disabled={!hasPermission('printers:control') || chamberLightMutation.isPending}
                 selected={Boolean(status?.chamber_light)}
@@ -1607,8 +1606,8 @@ export default function CameraScreen() {
               />
             ) : null}
             <CameraIconButton
-              label={fitMode === 'cover' ? 'Show full camera image' : 'Fill camera viewport'}
-              hint="Changes how the camera fits the viewport"
+              label={fitMode === 'cover' ? translateNative('native.52c2c970ff0f663d') : translateNative('native.c466b1f457dd9e2f')}
+              hint={translateNative('native.db64ce1d267e4e27')}
               onPress={toggleFitMode}
               selected={fitMode === 'contain'}
               icon={fitMode === 'cover'
@@ -1617,8 +1616,8 @@ export default function CameraScreen() {
               style={{ backgroundColor: colors.surface, borderColor: colors.border }}
             />
             <CameraIconButton
-              label="More camera actions"
-              hint="Opens diagnostics and plate detection controls"
+              label={translateNative('native.53d12fa7328580d5')}
+              hint={translateNative('native.66d49695f1827c1c')}
               onPress={openActions}
               icon={<MoreHorizontal size={20} color={colors.text} strokeWidth={2} />}
               style={{ backgroundColor: colors.surface, borderColor: colors.border }}
@@ -1642,30 +1641,28 @@ export default function CameraScreen() {
           {zoomLevel > 1 ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Reset zoom"
-              accessibilityHint="Returns the camera to one times zoom"
+              accessibilityLabel={translateNative('native.6e665e1a79082b83')}
+              accessibilityHint={translateNative('native.606488b57cb4b269')}
               onPress={resetZoom}
               style={[styles.zoomBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}
             >
-              <Text style={[styles.zoomBadgeText, { color: colors.text }]}>
-                {zoomLevel.toFixed(1)}× · Reset
-              </Text>
+              <Text style={[styles.zoomBadgeText, { color: colors.text }]}><NativeTranslation id="native.a5e2122e6ed733c0" values={{ value0: (zoomLevel.toFixed(1)) }} /></Text>
             </Pressable>
           ) : null}
           <View
-            accessibilityLabel="Camera controls"
+            accessibilityLabel={translateNative('native.c7843bd0bc7a8510')}
             style={[styles.cameraDock, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
             <CameraIconButton
-              label="Refresh camera"
-              hint="Reloads the current camera"
+              label={translateNative('native.40d21d5ae404c92c')}
+              hint={translateNative('native.be4298183744e118')}
               onPress={() => void refreshCamera()}
               icon={<RefreshCw size={19} color={colors.text} strokeWidth={2} />}
             />
             {lightAvailable ? (
               <CameraIconButton
-                label={status?.chamber_light ? 'Turn chamber light off' : 'Turn chamber light on'}
-                hint="Changes the printer chamber light"
+                label={status?.chamber_light ? translateNative('native.7544ec907e0c0064') : translateNative('native.04e24f94c8b265e4')}
+                hint={translateNative('native.fac307648000086e')}
                 onPress={() => chamberLightMutation.mutate()}
                 disabled={!hasPermission('printers:control') || chamberLightMutation.isPending}
                 selected={Boolean(status?.chamber_light)}
@@ -1679,8 +1676,8 @@ export default function CameraScreen() {
             ) : null}
             {plateAvailable ? (
               <CameraIconButton
-                label={plateDetectionEnabled ? 'Disable plate detection' : 'Enable plate detection'}
-                hint="Changes plate detection for this printer"
+                label={plateDetectionEnabled ? translateNative('native.32c1890bcaa41a4a') : translateNative('native.057463ce7bc12d2d')}
+                hint={translateNative('native.bcb575a73854cc64')}
                 onPress={() => void plateToggleMutation.mutateAsync(!plateDetectionEnabled)}
                 disabled={plateToggleMutation.isPending || !validPrinterId}
                 selected={plateDetectionEnabled}
@@ -1693,8 +1690,8 @@ export default function CameraScreen() {
               />
             ) : null}
             <CameraIconButton
-              label={fitMode === 'cover' ? 'Show full camera image' : 'Fill camera viewport'}
-              hint="Changes how the camera fits the viewport"
+              label={fitMode === 'cover' ? translateNative('native.52c2c970ff0f663d') : translateNative('native.c466b1f457dd9e2f')}
+              hint={translateNative('native.db64ce1d267e4e27')}
               onPress={toggleFitMode}
               selected={fitMode === 'contain'}
               icon={fitMode === 'cover'
@@ -1722,8 +1719,8 @@ export default function CameraScreen() {
                 <Text style={[styles.stat, { color: colors.text }]}>{Math.round(progress)}%</Text>
                 <Text style={[styles.stat, { color: colors.textSecondary }]}>
                   {status?.layer_num != null && status?.total_layers != null
-                    ? `Layer ${status.layer_num}/${status.total_layers}`
-                    : status?.state || 'Idle'}
+                    ? translateNative('native.dbe76f0367322d5b', { value0: String(status.layer_num), value1: String(status.total_layers) })
+                    : status?.state || translateNative('native.a3b81f922d798281')}
                 </Text>
               </View>
             </View>
@@ -1768,25 +1765,24 @@ export default function CameraScreen() {
           >
             <View style={styles.plateDetectionHeader}>
               <View style={styles.overlayText}>
-                <Text style={[styles.plateDetectionTitle, { color: colors.text }]}>Plate detection</Text>
+                <Text style={[styles.plateDetectionTitle, { color: colors.text }]}>{translateNative('native.b2e8670958009a4c')}</Text>
                 <Text style={[styles.plateDetectionMessage, { color: colors.textSecondary }]}> 
                   {plateStatusQuery.isError
-                    ? 'Status is unavailable. You can still retry calibration.'
-                    : plateStatus?.message || 'Use calibration after clearing the build plate.'}
+                    ? translateNative('native.af01581627deee4a')
+                    : plateStatus?.message || translateNative('native.48ebf89b4e191729')}
                 </Text>
               </View>
               <StatusBadge label={plateStatusLabel} color={plateStatusColor} />
             </View>
             <PrimaryButton
-              label={plateDetectionEnabled ? 'Disable plate detection' : 'Enable plate detection'}
+              label={plateDetectionEnabled ? translateNative('native.32c1890bcaa41a4a') : translateNative('native.057463ce7bc12d2d')}
               variant="secondary"
               onPress={() => void plateToggleMutation.mutateAsync(!plateDetectionEnabled)}
               disabled={plateToggleMutation.isPending || !validPrinterId}
             />
             <View style={styles.plateStatsRow}>
               <Text style={[styles.plateMeta, { color: colors.textSecondary }]}> 
-                References
-              </Text>
+                {translateNative('native.1f976b05e0b24708')}</Text>
               <Text style={[styles.plateMeta, { color: colors.text }]}> 
                 {plateStatus?.reference_count ?? 0}/{plateStatus?.max_references ?? 0}
               </Text>

@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import type {
   MaintenanceHistory,
   MaintenanceStatus,
@@ -20,7 +21,7 @@ export const maintenanceApi = {
     const items = await maintenanceApi.getMaintenanceTasks();
     const item = items.find(candidate => candidate.id === id);
     if (!item) {
-      throw new ApiError('Maintenance item not found', 404);
+      throw new ApiError(translateNative('native.573d6ed35ef47277'), 404);
     }
     return item;
   },
@@ -29,7 +30,7 @@ export const maintenanceApi = {
     const printerId = Number(data.printer_id);
     const typeId = Number(data.maintenance_type_id);
     if (!Number.isFinite(printerId) || !Number.isFinite(typeId)) {
-      throw new Error('printer_id and maintenance_type_id are required');
+      throw new Error(translateNative('native.c70677fbd860b6c2'));
     }
     return request<Record<string, unknown>>(
       `/maintenance/printers/${printerId}/assign/${typeId}`,

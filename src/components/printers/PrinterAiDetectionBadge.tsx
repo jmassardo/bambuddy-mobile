@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -9,9 +10,9 @@ import { InfoPill } from './PrinterCardPrimitives';
 import { SimpleModal, settingsStyles } from '@/components/settings/shared';
 import { selectSettingsSearchResult } from '@/components/settings/SettingsSearchFocus';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
-import { aiDetectionClass, hasAiVerdict } from '@/utils/aiDetection';
+import { aiDetectionClass, aiDetectionLabel, hasAiVerdict } from '@/utils/aiDetection';
 import type { RootNavigationProp } from '@/navigation/types';
 
 export function PrinterAiDetectionBadge({
@@ -21,6 +22,7 @@ export function PrinterAiDetectionBadge({
   printerId: number;
   printerName: string;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const navigation = useNavigation<RootNavigationProp<'Settings'>>();
@@ -44,8 +46,9 @@ export function PrinterAiDetectionBadge({
   if (status.isLoading) return null;
   const label = status.isError
     ? t('workflow.ai.unavailable', { defaultValue: 'AI unavailable' })
-    : t(`workflow.ai.${classification}`, {
-        defaultValue: `AI ${classification}`,
+    : t('workflow.ai.badge', {
+        defaultValue: 'AI {{status}}',
+        status: aiDetectionLabel(classification),
       });
   const color =
     status.isError || classification === 'error'
@@ -125,7 +128,7 @@ export function PrinterAiDetectionBadge({
                 setVisible(false);
                 selectSettingsSearchResult({
                   section: 'failure-detection',
-                  label: 'Failure detection enabled',
+                  get label() { return translateNative('native.ce4bb5bfb5837958'); },
                 });
                 navigation.navigate('Settings');
               }}

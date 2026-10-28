@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { errorCodes, isErrorWithCode, pick, types } from '@react-native-documents/picker';
@@ -6,7 +8,7 @@ import { projectsApi } from '@/api/projects';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { spacing } from '@/theme/tokens';
 import { shareBlob } from '@/utils/share';
 
@@ -23,7 +25,7 @@ async function readDocument(uri: string, errorMessage: string) {
 
 export async function importProjectDocument(
   file: { uri: string; name: string | null; type: string | null },
-  messages = { readError: 'Unable to read project document.', invalidJson: 'Invalid project JSON: each project must have a name.' },
+  messages = { readError: 'Unable to read project document.', get invalidJson() { return translateNative('native.7435a50a78ba404d'); } },
 ) {
   if (file.name?.toLowerCase().endsWith('.zip')) {
     return projectsApi.importProjectFile({ uri: file.uri, name: file.name, type: file.type || 'application/zip' });
@@ -39,6 +41,7 @@ export async function importProjectDocument(
 }
 
 export function ProjectTransferActions({ projectId }: { projectId?: number }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const { showToast } = useToast();

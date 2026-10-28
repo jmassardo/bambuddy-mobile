@@ -1,3 +1,6 @@
+import { NativeTranslation, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { localizedStatus } from '@/utils/statusLabel';
+
 import React, { useState } from 'react';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { Text } from 'react-native';
@@ -7,24 +10,25 @@ import { PrimaryButton, SectionCard } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import { useToast } from '@/contexts/ToastContext';
 import { shareBlob } from '@/utils/share';
-import { useTranslation } from '@/i18n';
+
 import { OptionChipsField, settingsStyles } from './shared';
 
 const diagnosticHelp: Record<string, string> = {
-  enabled: 'Enable this virtual printer in its configuration.',
-  running: 'Enable or restart the virtual printer; inspect server logs if startup fails.',
-  bind_interface: 'Choose an interface/IP present on the server and reachable from the slicer.',
-  access_code: 'Set an eight-character access code and use the same code in your slicer.',
-  target_printer: 'Select an online target printer with valid LAN credentials.',
-  port_ftps: 'Allow TCP 990 between the slicer and the virtual printer.',
-  port_mqtt: 'Allow TCP 8883 between the slicer and the virtual printer.',
-  port_bind: 'Release ports used by another process or choose another bind IP.',
-  certificate: 'Share/import the CA certificate into the slicer trust store.',
-  network_mode: 'Use host networking for discovery or configure an explicit reachable bind address.',
-  privileged_ports: 'Grant CAP_NET_BIND_SERVICE to the server (Docker cap_add: NET_BIND_SERVICE), or configure an appropriate port redirect for FTPS 990.',
+  get enabled() { return translateNative('native.277db6b928719be1'); },
+  get running() { return translateNative('native.8b54e9064d0deb09'); },
+  get bind_interface() { return translateNative('native.155c772650cf074e'); },
+  get access_code() { return translateNative('native.a8dd385ec8250b8d'); },
+  get target_printer() { return translateNative('native.1783e1c9e34caf1c'); },
+  get port_ftps() { return translateNative('native.30fd6609cd4a29d0'); },
+  get port_mqtt() { return translateNative('native.1c7eebcd9d652373'); },
+  get port_bind() { return translateNative('native.d8f3cc57cd5220df'); },
+  get certificate() { return translateNative('native.3c2c50264e41208f'); },
+  get network_mode() { return translateNative('native.750df27473404a30'); },
+  get privileged_ports() { return translateNative('native.d176e8074e0628d2'); },
 };
 
 export function VirtualPrinterDiagnostics({ id, target = false }: { id: number; target?: boolean }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const diagnostic = useMutation({ mutationFn: async () => {
@@ -32,12 +36,12 @@ export function VirtualPrinterDiagnostics({ id, target = false }: { id: number; 
     return { overall: result.overall, checks: result.checks };
   } });
   return <>
-    <PrimaryButton label={t('integrations.diagnose', { defaultValue: diagnostic.data || diagnostic.error ? 'Retry diagnostics' : target ? 'Test target connection' : 'Run diagnostics' })} variant="secondary" disabled={diagnostic.isPending} loading={diagnostic.isPending} onPress={() => diagnostic.mutate()} />
+    <PrimaryButton label={t('integrations.diagnose', { defaultValue: diagnostic.data || diagnostic.error ? translateNative('native.ef2ef7fd7abf634e') : target ? translateNative('native.06c71ceccdc15c8a') : translateNative('native.7522c21f23833bf5') })} variant="secondary" disabled={diagnostic.isPending} loading={diagnostic.isPending} onPress={() => diagnostic.mutate()} />
     {diagnostic.error ? <Text style={{ color: colors.error }}>{diagnostic.error.message}</Text> : null}
     {diagnostic.data ? <>
-      <Text accessibilityLiveRegion="polite" style={[settingsStyles.itemTitle, { color: colors.text }]}>{t('integrations.diagnosis', { defaultValue: 'Overall diagnosis: {{result}}', result: diagnostic.data.overall })}</Text>
+      <Text accessibilityLiveRegion="polite" style={[settingsStyles.itemTitle, { color: colors.text }]}>{t('integrations.diagnosis', { defaultValue: 'Overall diagnosis: {{result}}', result: localizedStatus(diagnostic.data.overall) })}</Text>
       {diagnostic.data.checks.map(check => <Text key={check.id} selectable style={{ color: check.status === 'fail' ? colors.error : colors.text }}>
-        {t(`integrations.check.${check.id}`, { defaultValue: check.id.replace(/_/g, ' ') })}: {check.status}
+        {check.id.replace(/_/g, ' ')}: {localizedStatus(check.status)}
         {Object.keys(check.params).length ? `\n${Object.entries(check.params).map(([key, value]) => `${key}: ${String(value)}`).join(' • ')}` : ''}
         {check.status === 'fail' || check.status === 'warn' ? `\n${t(`integrations.help.${check.id}`, { defaultValue: diagnosticHelp[check.id] || 'Check printer LAN settings, firewall access and server logs, then retry.' })}` : ''}
       </Text>)}
@@ -46,6 +50,7 @@ export function VirtualPrinterDiagnostics({ id, target = false }: { id: number; 
 }
 
 export function VirtualPrinterGlobalSetup({ canEdit }: { canEdit: boolean }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const { t } = useTranslation();
@@ -60,23 +65,24 @@ export function VirtualPrinterGlobalSetup({ canEdit }: { canEdit: boolean }) {
   });
   return <SectionCard title={t('integrations.vpSetup', { defaultValue: 'Slicer trust and archive naming' })}>
     {certificate.data ? <>
-      <Text selectable style={{ color: colors.text }}>SHA-256: {certificate.data.fingerprint_sha256}</Text>
+      <Text selectable style={{ color: colors.text }}><NativeTranslation id="native.965da0c7cebd5a49" values={{ value0: (certificate.data.fingerprint_sha256) }} /></Text>
       <PrimaryButton label={t('integrations.copyCA', { defaultValue: 'Copy CA certificate' })} variant="secondary" onPress={() => { Clipboard.setString(certificate.data!.pem); showToast(t('integrations.copied', { defaultValue: 'Copied to clipboard.' }), 'success'); }} />
       <PrimaryButton label={t('integrations.shareCA', { defaultValue: 'Share / save CA certificate' })} variant="secondary" disabled={sharing} loading={sharing} onPress={async () => {
         setSharing(true);
         try { await shareBlob(new Blob([certificate.data!.pem], { type: 'application/x-pem-file', lastModified: Date.now() }), 'bambuddy-ca.crt'); }
-        catch (error) { showToast(error instanceof Error ? error.message : 'Unable to share certificate.', 'error'); }
+        catch (error) { showToast(error instanceof Error ? error.message : translateNative('native.ea642b2d8190451d'), 'error'); }
         finally { setSharing(false); }
       }} />
     </> : null}
     {certificate.error || settings.error ? <PrimaryButton label={t('common.retry', { defaultValue: 'Retry' })} variant="secondary" onPress={() => { void certificate.refetch(); void settings.refetch(); }} /> : null}
     {certificate.error ? <Text style={{ color: colors.error }}>{certificate.error.message}</Text> : null}
     {settings.error ? <Text style={{ color: colors.error }}>{settings.error.message}</Text> : null}
-    {settings.data ? <OptionChipsField label={t('integrations.archiveNaming', { defaultValue: 'Archive name source' })} value={settings.data.archive_name_source} disabled={!canEdit || naming.isPending} options={[{ key: 'metadata', label: t('integrations.metadata', { defaultValue: 'Embedded metadata' }) }, { key: 'filename', label: t('integrations.filename', { defaultValue: 'Uploaded filename' }) }]} onChange={value => naming.mutate(value as 'metadata' | 'filename')} /> : null}
+    {settings.data ? <OptionChipsField label={t('integrations.archiveNaming', { defaultValue: 'Archive name source' })} value={settings.data.archive_name_source} disabled={!canEdit || naming.isPending} options={[{ key: 'metadata', get label() { return translateNative('integrations.metadata', { defaultValue: 'Embedded metadata' }); } }, { key: 'filename', get label() { return translateNative('integrations.filename', { defaultValue: 'Uploaded filename' }); } }]} onChange={value => naming.mutate(value as 'metadata' | 'filename')} /> : null}
   </SectionCard>;
 }
 
 export function VirtualPrinterAddress({ disabled }: { disabled: boolean }) {
+  useNativeLocale();
   const { showToast } = useToast();
   const { t } = useTranslation();
   const address = useQuery({ queryKey: ['vpTailscale'], queryFn: integrationsApi.tailscale });

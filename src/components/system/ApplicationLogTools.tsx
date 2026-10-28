@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,9 +13,9 @@ import { confirmBackupAction } from '@/components/settings/backupWorkflow';
 import { useTheme } from '@/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { spacing } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
 
 export function ApplicationLogTools() {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();

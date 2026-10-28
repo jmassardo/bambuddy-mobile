@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { NativeTranslation, nativeEnglishSuffix, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
@@ -38,7 +40,7 @@ import type {
 } from '@/types/api';
 import { formatDate, formatDateTime } from '@/utils/data';
 import { MaintenanceControls, RestoreMaintenanceDefaults } from '@/components/profiles/MaintenanceControls';
-import { useTranslation } from '@/i18n';
+
 import { maintenanceIcons, MaintenanceIcon } from '@/components/profiles/MaintenanceIcon';
 
 type FilterKey = 'all' | 'due' | 'warning';
@@ -67,13 +69,13 @@ const MAINTENANCE_CATEGORIES: Array<{
   label: string;
   icon: string;
 }> = [
-  { key: 'general', label: 'General', icon: 'Wrench' },
-  { key: 'cleaning', label: 'Cleaning', icon: 'Sparkles' },
-  { key: 'lubrication', label: 'Lubrication', icon: 'Droplet' },
-  { key: 'motion', label: 'Motion', icon: 'Ruler' },
-  { key: 'extrusion', label: 'Extrusion', icon: 'Flame' },
-  { key: 'build-plate', label: 'Build plate', icon: 'Square' },
-  { key: 'filament-path', label: 'Filament path', icon: 'Cable' },
+  { key: 'general', get label() { return translateNative('native.c16ffe4ebbc1709c'); }, icon: 'Wrench' },
+  { key: 'cleaning', get label() { return translateNative('native.eea44ccec89299da'); }, icon: 'Sparkles' },
+  { key: 'lubrication', get label() { return translateNative('native.3f4f6f181672a272'); }, icon: 'Droplet' },
+  { key: 'motion', get label() { return translateNative('native.53942aab53da9918'); }, icon: 'Ruler' },
+  { key: 'extrusion', get label() { return translateNative('native.e569310b66dcd68f'); }, icon: 'Flame' },
+  { key: 'build-plate', get label() { return translateNative('native.5e331a7fd0fc73be'); }, icon: 'Square' },
+  { key: 'filament-path', get label() { return translateNative('native.26b69006a6c8ae07'); }, icon: 'Cable' },
 ];
 
 const DEFAULT_TYPE_FORM: MaintenanceTypeFormState = {
@@ -88,8 +90,8 @@ const DEFAULT_TYPE_FORM: MaintenanceTypeFormState = {
 
 function formatIntervalValue(value: number, type: 'hours' | 'days') {
   return type === 'days'
-    ? `${value} day${value === 1 ? '' : 's'}`
-    : `${value}h`;
+    ? translateNative('native.4611c24e402a7e7c', { value0: String(value), value1: String(nativeEnglishSuffix(value === 1 ? '' : 's')) })
+    : translateNative('native.53dde993a4442eb6', { value0: String(value) });
 }
 
 function progressValue(item: MaintenanceStatus) {
@@ -106,15 +108,15 @@ function progressValue(item: MaintenanceStatus) {
 function dueLabel(item: MaintenanceStatus) {
   if (item.is_due) {
     return item.interval_type === 'days'
-      ? `Overdue by ${Math.abs(item.days_until_due ?? 0).toFixed(0)} day(s)`
-      : `Overdue by ${Math.abs(item.hours_until_due).toFixed(1)}h`;
+      ? translateNative('native.3ee55269e9000c5e', { value0: String(Math.abs(item.days_until_due ?? 0).toFixed(0)) })
+      : translateNative('native.ecfa56a81ee429f3', { value0: String(Math.abs(item.hours_until_due).toFixed(1)) });
   }
   if (item.is_warning) {
     return item.interval_type === 'days'
-      ? `Due in ${(item.days_until_due ?? 0).toFixed(0)} day(s)`
-      : `Due in ${item.hours_until_due.toFixed(1)}h`;
+      ? translateNative('native.f8fc0ffe731d68be', { value0: String((item.days_until_due ?? 0).toFixed(0)) })
+      : translateNative('native.56af02918a934d91', { value0: String(item.hours_until_due.toFixed(1)) });
   }
-  return 'On schedule';
+  return translateNative('native.0658c83845ad1fdd');
 }
 
 export function nextDueLabel(item: MaintenanceStatus) {
@@ -125,7 +127,7 @@ export function nextDueLabel(item: MaintenanceStatus) {
   }
   const targetHours = item.current_hours + item.hours_until_due;
   if (!Number.isFinite(targetHours)) return '—';
-  return `At ${Math.max(targetHours, 0).toFixed(1)} total print hours`;
+  return translateNative('native.90c4367c0701da20', { value0: String(Math.max(targetHours, 0).toFixed(1)) });
 }
 
 function statusColor(item: MaintenanceStatus, colors: ReturnType<typeof useTheme>['colors']) {
@@ -145,7 +147,7 @@ function inferCategory(type: MaintenanceType): MaintenanceCategoryKey {
 }
 
 function categoryLabel(category: MaintenanceCategoryKey) {
-  return MAINTENANCE_CATEGORIES.find(item => item.key === category)?.label ?? 'General';
+  return MAINTENANCE_CATEGORIES.find(item => item.key === category)?.label ?? translateNative('native.c16ffe4ebbc1709c');
 }
 
 function ModalShell({
@@ -161,6 +163,7 @@ function ModalShell({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -209,6 +212,7 @@ export function MaintenanceTypeFormModal({
   onSubmit: (payload: MaintenanceTypeCreate, printerIds: number[]) => void;
   printers: PrinterMaintenanceOverview[];
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const [form, setForm] = useState<MaintenanceTypeFormState>(DEFAULT_TYPE_FORM);
@@ -239,22 +243,22 @@ export function MaintenanceTypeFormModal({
   return (
     <ModalShell
       visible={visible}
-      title={type ? 'Edit maintenance type' : 'Create maintenance type'}
-      subtitle="Configure a reusable maintenance interval and category."
+      title={type ? translateNative('native.e017856bdb9c14d4') : translateNative('native.17e910a01e8b6028')}
+      subtitle={translateNative('native.cf1e43b96817a6ac')}
       onClose={onClose}
     >
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <TextField
-          label="Name"
+          label={translateNative('common.name')}
           value={form.name}
           onChangeText={value => setForm(current => ({ ...current, name: value }))}
-          placeholder="Clean carbon rods"
+          placeholder={translateNative('native.72f26297b229bcd9')}
         />
         <TextField
-          label="Description"
+          label={translateNative('native.a7115fb87dd30c12')}
           value={form.description}
           onChangeText={value => setForm(current => ({ ...current, description: value }))}
-          placeholder="Short instructions or context for this task"
+          placeholder={translateNative('native.76d9f55e7900ba43')}
           multiline
         />
         <TextField label={t('maintenance.documentationUrl', { defaultValue: 'Documentation URL (https://…)' })} value={form.wikiUrl} onChangeText={wikiUrl => setForm(current => ({ ...current, wikiUrl }))} autoCapitalize="none" />
@@ -267,12 +271,12 @@ export function MaintenanceTypeFormModal({
           {printers.map(printer => <PrimaryButton key={printer.printer_id} label={`${selectedPrinters.includes(printer.printer_id) ? '✓ ' : ''}${printer.printer_name}`} variant="secondary" onPress={() => setSelectedPrinters(current => current.includes(printer.printer_id) ? current.filter(id => id !== printer.printer_id) : [...current, printer.printer_id])} />)}
         </View> : null}
         <View style={styles.formGroup}>
-          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Interval type</Text>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>{translateNative('native.dd14e32c3ee784ff')}</Text>
           <InlineTabBar
             value={form.intervalType}
             tabs={[
-              { key: 'hours', label: 'Hours' },
-              { key: 'days', label: 'Days' },
+              { key: 'hours', get label() { return translateNative('native.bfbd4dfe23aa1f5f'); } },
+              { key: 'days', get label() { return translateNative('native.2c810316bb380b21'); } },
             ]}
             onChange={value =>
               setForm(current => ({
@@ -284,14 +288,14 @@ export function MaintenanceTypeFormModal({
           />
         </View>
         <TextField
-          label={`Interval (${form.intervalType})`}
+          label={translateNative('native.d48672582308a426', { value0: String(form.intervalType) })}
           value={form.intervalValue}
           onChangeText={value => setForm(current => ({ ...current, intervalValue: value }))}
           placeholder={form.intervalType === 'days' ? '30' : '100'}
           keyboardType="decimal-pad"
         />
         <View style={styles.formGroup}>
-          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Category</Text>
+          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>{translateNative('native.96903af5948f6ca5')}</Text>
           <View style={styles.categoryWrap}>
             {MAINTENANCE_CATEGORIES.map(category => {
               const selected = form.category === category.key;
@@ -317,9 +321,9 @@ export function MaintenanceTypeFormModal({
         </View>
       </ScrollView>
       <View style={styles.modalActions}>
-        <PrimaryButton label="Cancel" variant="secondary" onPress={onClose} />
+        <PrimaryButton label={translateNative('common.cancel')} variant="secondary" onPress={onClose} />
         <PrimaryButton
-          label={loading ? 'Saving…' : 'Save'}
+          label={loading ? translateNative('native.018c2002806e2312') : translateNative('common.save')}
           onPress={() =>
             onSubmit({
               name: form.name.trim(),
@@ -354,9 +358,10 @@ function AssignTypeModal({
   onClose: () => void;
   onAssign: (typeId: number) => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
-  const unassignedTypes = useMemo(() => {
+  const unassignedTypes = useLocalizedMemo(() => {
     if (!printer) return [];
     const assignedIds = new Set(printer.maintenance_items.map(item => item.maintenance_type_id));
     return types.filter(type => !assignedIds.has(type.id));
@@ -365,15 +370,14 @@ function AssignTypeModal({
   return (
     <ModalShell
       visible={visible}
-      title="Assign maintenance type"
-      subtitle={printer ? `Choose a type for ${printer.printer_name}.` : undefined}
+      title={translateNative('native.ec4c0533e3a47183')}
+      subtitle={printer ? translateNative('native.9e99da422c8c39f4', { value0: String(printer.printer_name) }) : undefined}
       onClose={onClose}
     >
       <ScrollView showsVerticalScrollIndicator={false} style={styles.assignList}>
         {unassignedTypes.length === 0 ? (
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}> 
-            Every maintenance type is already assigned to this printer.
-          </Text>
+            {translateNative('native.cc8f1bebf008e7a4')}</Text>
         ) : (
           unassignedTypes.map(type => {
             const category = inferCategory(type);
@@ -398,7 +402,7 @@ function AssignTypeModal({
                   ) : null}
                 </View>
                 <PrimaryButton
-                  label={loading ? 'Assigning…' : 'Assign'}
+                  label={loading ? translateNative('native.a02e16d8e3452166') : translateNative('native.aff9b055e1df6025')}
                   onPress={() => onAssign(type.id)}
                   disabled={loading}
                   loading={loading}
@@ -413,10 +417,11 @@ function AssignTypeModal({
 }
 
 export default function MaintenanceScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Maintenance'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Maintenance' });
+    navigation.setOptions({ get title() { return translateNative('nav.maintenance'); } });
   }, [navigation]);
 
   const { colors } = useTheme();
@@ -472,18 +477,18 @@ export default function MaintenanceScreen() {
       api.updateMaintenanceItem(id, { enabled }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['maintenanceOverview'] });
-      showToast('Maintenance setting updated.', 'success');
+      showToast(translateNative('native.934080249f318e84'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update maintenance item.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.3ababee768306619'), 'error'),
   });
 
   const performMutation = useMutation({
     mutationFn: (id: number) => api.performMaintenance(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['maintenanceOverview'] });
-      showToast('Maintenance task marked as performed.', 'success');
+      showToast(translateNative('native.9cdadec4570ec0f3'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to perform maintenance.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.5beffef460dfb2e7'), 'error'),
   });
 
   const createTypeMutation = useMutation({
@@ -498,7 +503,7 @@ export default function MaintenanceScreen() {
       setEditingType(null);
       showToast(failures.length ? t('maintenance.assignmentFailed', { defaultValue: 'Type created. Some assignments failed: {{errors}}', errors: failures.join('; ') }) : t('maintenance.createdAssigned', { defaultValue: 'Type created and selected printers assigned.' }), failures.length ? 'error' : 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to create maintenance type.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.84943eb909edef54'), 'error'),
   });
 
   const updateTypeMutation = useMutation({
@@ -508,9 +513,9 @@ export default function MaintenanceScreen() {
       await invalidateMaintenance();
       setShowTypeModal(false);
       setEditingType(null);
-      showToast('Maintenance type updated.', 'success');
+      showToast(translateNative('native.a178120d96309cd1'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update maintenance type.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.1ab6b21f4f93574a'), 'error'),
   });
 
   const deleteTypeMutation = useMutation({
@@ -518,9 +523,9 @@ export default function MaintenanceScreen() {
     onSuccess: async () => {
       await invalidateMaintenance();
       setPendingDeleteType(null);
-      showToast('Maintenance type deleted.', 'success');
+      showToast(translateNative('native.14d2898cd564e329'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to delete maintenance type.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.89ffe7a3642fe5df'), 'error'),
   });
 
   const assignTypeMutation = useMutation({
@@ -529,12 +534,12 @@ export default function MaintenanceScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['maintenanceOverview'] });
       setAssignPrinter(null);
-      showToast('Maintenance type assigned.', 'success');
+      showToast(translateNative('native.91f5d5b8467e0c4d'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to assign maintenance type.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.cfca4abd199b8a86'), 'error'),
   });
 
-  const printers = useMemo(() => {
+  const printers = useLocalizedMemo(() => {
     const rows = (overviewQuery.data ?? []) as PrinterMaintenanceOverview[];
     return rows
       .map(printer => ({
@@ -553,7 +558,7 @@ export default function MaintenanceScreen() {
       });
   }, [filter, overviewQuery.data]);
 
-  const maintenanceTypes = useMemo(
+  const maintenanceTypes = useLocalizedMemo(
     () =>
       ([...(typesQuery.data ?? [])] as MaintenanceType[]).sort((a, b) => a.name.localeCompare(b.name)),
     [typesQuery.data],
@@ -568,13 +573,13 @@ export default function MaintenanceScreen() {
   };
 
   if (overviewQuery.isLoading && typesQuery.isLoading) {
-    return <LoadingScreen message="Loading maintenance…" />;
+    return <LoadingScreen message={translateNative('native.0852097f10406d0a')} />;
   }
 
   if (overviewQuery.isError) {
     return (
       <ErrorState
-        message="Unable to load maintenance tasks."
+        message={translateNative('native.8d2cf47bb6f5a9b3')}
         onRetry={() => void refreshAll()}
       />
     );
@@ -594,16 +599,16 @@ export default function MaintenanceScreen() {
         }
       >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Maintenance</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Track printer upkeep, manage maintenance types, and assign new schedules.</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{translateNative('nav.maintenance')}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{translateNative('native.f6a61fafe516bf67')}</Text>
         </View>
 
         <InlineTabBar
           value={activeTab}
           tabs={[
-            { key: 'overview', label: 'Overview' },
-            { key: 'history', label: 'History' },
-            { key: 'types', label: 'Types' },
+            { key: 'overview', get label() { return translateNative('native.dd193ff312ed2a5e'); } },
+            { key: 'history', get label() { return translateNative('native.3e425c5cfa54f209'); } },
+            { key: 'types', get label() { return translateNative('native.6988195259ec96ea'); } },
           ]}
           onChange={value => setActiveTab(value)}
         />
@@ -614,9 +619,9 @@ export default function MaintenanceScreen() {
             <InlineTabBar
               value={filter}
               tabs={[
-                { key: 'all', label: 'All' },
-                { key: 'due', label: 'Due' },
-                { key: 'warning', label: 'Warning' },
+                { key: 'all', get label() { return translateNative('common.all'); } },
+                { key: 'due', get label() { return translateNative('native.d4e5a0b431ab8f69', { defaultValue: 'Due' }); } },
+                { key: 'warning', get label() { return translateNative('native.ecedc86c28d0c0db'); } },
               ]}
               onChange={value => setFilter(value)}
             />
@@ -624,26 +629,26 @@ export default function MaintenanceScreen() {
             {printers.length === 0 ? (
               <EmptyState
                 icon="🧰"
-                title="Nothing to show"
-                message="No maintenance items match the current filter."
+                title={translateNative('native.0659537f445b7f04')}
+                message={translateNative('native.68c2a7f68e54f377')}
               />
             ) : (
               printers.map(printer => (
                 <SectionCard
                   key={printer.printer_id}
                   title={printer.printer_name}
-                  subtitle={`${printer.printer_model ?? 'Unknown model'} • ${Math.round(printer.total_print_hours)}h total print time`}
+                  subtitle={translateNative('native.3137b40d28733679', { value0: String(printer.printer_model ?? translateNative('native.e292a54ac2d93315')), value1: String(Math.round(printer.total_print_hours)) })}
                   right={
                     <View style={styles.headerBadges}>
-                      {printer.due_count > 0 ? <StatusBadge label={`${printer.due_count} due`} color={colors.error} /> : null}
-                      {printer.warning_count > 0 ? <StatusBadge label={`${printer.warning_count} warning`} color={colors.warning} /> : null}
+                      {printer.due_count > 0 ? <StatusBadge label={translateNative('native.5f2f077e23e56796', { value0: String(printer.due_count) })} color={colors.error} /> : null}
+                      {printer.warning_count > 0 ? <StatusBadge label={translateNative('native.25635c2151ad42c3', { value0: String(printer.warning_count) })} color={colors.warning} /> : null}
                     </View>
                   }
                 >
                   <View style={styles.printerActions}>
                     <MaintenanceControls printer={printer} />
                     <PrimaryButton
-                      label="Assign type"
+                      label={translateNative('native.3d29e8394fbaf781')}
                       variant="secondary"
                       onPress={() => setAssignPrinter(printer)}
                     />
@@ -679,15 +684,15 @@ export default function MaintenanceScreen() {
                           <ProgressBar progress={progressValue(task)} color={color} trackColor={colors.surfaceHover} />
 
                           <View style={styles.metaGrid}>
-                            <Text style={[styles.taskMeta, { color: colors.textSecondary }]}>Interval: {formatIntervalValue(task.interval_hours, task.interval_type)}</Text>
-                            <Text style={[styles.taskMeta, { color: colors.textSecondary }]}>Last done: {formatDateTime(task.last_performed_at)}</Text>
-                            <Text style={[styles.taskMeta, { color: colors.textSecondary }]}>Next due: {nextDueLabel(task)}</Text>
+                            <Text style={[styles.taskMeta, { color: colors.textSecondary }]}><NativeTranslation id="native.d0e6a4083c921a0d" values={{ value0: (formatIntervalValue(task.interval_hours, task.interval_type)) }} /></Text>
+                            <Text style={[styles.taskMeta, { color: colors.textSecondary }]}><NativeTranslation id="native.a724053ef18ebaa2" values={{ value0: (formatDateTime(task.last_performed_at)) }} /></Text>
+                            <Text style={[styles.taskMeta, { color: colors.textSecondary }]}><NativeTranslation id="native.b5ed0e628d5b05c4" values={{ value0: (nextDueLabel(task)) }} /></Text>
                           </View>
 
                           <View style={styles.actions}>
                             <MaintenanceControls printer={printer} item={task} />
                             <PrimaryButton
-                              label={performMutation.isPending ? 'Performing…' : 'Perform'}
+                              label={performMutation.isPending ? translateNative('native.32ea9ced32d1ed6a') : translateNative('native.73e85c617bd70e70')}
                               onPress={() => void performMutation.mutateAsync(task.id)}
                               disabled={!task.enabled || isBusy}
                               variant={task.is_due ? 'primary' : 'secondary'}
@@ -698,7 +703,7 @@ export default function MaintenanceScreen() {
                       );
                     })
                   ) : (
-                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No maintenance items match this filter for {printer.printer_name}.</Text>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}><NativeTranslation id="native.0239c673d19b8f16" values={{ value0: (printer.printer_name) }} /></Text>
                   )}
                 </SectionCard>
               ))
@@ -706,14 +711,14 @@ export default function MaintenanceScreen() {
           </>
         ) : activeTab === 'history' ? (
           <SectionCard
-            title="Maintenance history"
-            subtitle="Previously completed maintenance tasks across all printers."
+            title={translateNative('native.8f8d67f6169af2be')}
+            subtitle={translateNative('native.741a5c195dd27025')}
           >
             {(historyQuery.data ?? []).length === 0 ? (
               <EmptyState
                 icon="🗓"
-                title="No maintenance history"
-                message="Completed maintenance events will appear here."
+                title={translateNative('native.b61d9331298bf253')}
+                message={translateNative('native.a9447417c7c9c258')}
               />
             ) : (
               ((historyQuery.data ?? []) as Array<MaintenanceHistory & { printer_name: string; maintenance_type_name: string }>).map(entry => (
@@ -731,12 +736,12 @@ export default function MaintenanceScreen() {
                         {entry.printer_name} • {formatDateTime(entry.performed_at)}
                       </Text>
                     </View>
-                    <StatusBadge label={`${entry.hours_at_maintenance.toFixed(1)}h`} color={colors.accent} />
+                    <StatusBadge label={translateNative('native.53dde993a4442eb6', { value0: String(entry.hours_at_maintenance.toFixed(1)) })} color={colors.accent} />
                   </View>
                   {entry.notes ? (
                     <Text style={[styles.typeDescription, { color: colors.textSecondary }]}>{entry.notes}</Text>
                   ) : (
-                    <Text style={[styles.typeDescription, { color: colors.textSecondary }]}>No notes recorded.</Text>
+                    <Text style={[styles.typeDescription, { color: colors.textSecondary }]}>{translateNative('native.f4b3e8197d2a1fb7')}</Text>
                   )}
                 </View>
               ))
@@ -744,15 +749,15 @@ export default function MaintenanceScreen() {
           </SectionCard>
         ) : (
           <SectionCard
-            title="Maintenance types"
-            subtitle="Create and manage reusable maintenance schedules for your printers."
-            right={<PrimaryButton label="Add type" onPress={() => { setEditingType(null); setShowTypeModal(true); }} />}
+            title={translateNative('native.3f52406d78fe2db5')}
+            subtitle={translateNative('native.96c0ab8ab55f3aeb')}
+            right={<PrimaryButton label={translateNative('native.c519ba28020cef84')} onPress={() => { setEditingType(null); setShowTypeModal(true); }} />}
           >
             {maintenanceTypes.length === 0 ? (
               <EmptyState
                 icon="📝"
-                title="No maintenance types yet"
-                message="Create your first maintenance type to start assigning it to printers."
+                title={translateNative('native.5071c42e08d40ff0')}
+                message={translateNative('native.f2615fe7879bd0d8')}
               />
             ) : (
               maintenanceTypes.map(type => {
@@ -774,7 +779,7 @@ export default function MaintenanceScreen() {
                         </Text>
                       </View>
                       <View style={styles.typeBadges}>
-                        <StatusBadge label={type.is_system ? 'System' : 'Custom'} color={type.is_system ? colors.info : colors.accent} />
+                        <StatusBadge label={type.is_system ? translateNative('nav.system') : translateNative('native.19e0b7062d3b2276')} color={type.is_system ? colors.info : colors.accent} />
                       </View>
                     </View>
                     {type.description ? (
@@ -782,7 +787,7 @@ export default function MaintenanceScreen() {
                     ) : null}
                     <View style={styles.typeActions}>
                       <PrimaryButton
-                        label="Edit"
+                        label={translateNative('common.edit')}
                         variant="secondary"
                         onPress={() => {
                           setEditingType(type);
@@ -790,7 +795,7 @@ export default function MaintenanceScreen() {
                         }}
                       />
                       <PrimaryButton
-                        label="Delete"
+                        label={translateNative('common.delete')}
                         variant="danger"
                         onPress={() => setPendingDeleteType(type)}
                       />
@@ -835,9 +840,9 @@ export default function MaintenanceScreen() {
 
       <ConfirmModal
         visible={pendingDeleteType !== null}
-        title="Delete maintenance type"
-        message={pendingDeleteType ? `Delete “${pendingDeleteType.name}”? Existing printer assignments will be affected.` : ''}
-        confirmLabel="Delete"
+        title={translateNative('native.76656bc3518aeda3')}
+        message={pendingDeleteType ? translateNative('native.cd3f568f91923dc7', { value0: String(pendingDeleteType.name) }) : ''}
+        confirmLabel={translateNative('common.delete')}
         variant="danger"
         loading={deleteTypeMutation.isPending}
         onClose={() => setPendingDeleteType(null)}

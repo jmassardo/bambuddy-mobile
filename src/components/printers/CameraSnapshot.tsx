@@ -1,15 +1,17 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { camerasApi } from '@/api/cameras';
 import { useMediaToken } from '@/hooks/useStreamToken';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import { PrimaryButton } from '@/components/common/AppUI';
 import { CameraMessage } from './CameraControls';
 
 export function CameraSnapshot({ printerId, active = true, refreshSeed = 0, intervalSec = 0, rotation = 0, resizeMode = 'contain' }: {
   printerId: number; active?: boolean; refreshSeed?: number; intervalSec?: number; rotation?: number; resizeMode?: 'contain' | 'cover';
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { token, isReady } = useMediaToken();

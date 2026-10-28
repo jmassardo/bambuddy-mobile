@@ -1,8 +1,9 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { Choice, LaunchField, LaunchText } from './PrintOptionsForm';
-import { useTranslation } from '@/i18n';
+
 import { spacing } from '@/theme/tokens';
 
 export function PrintSchedulePicker({
@@ -12,6 +13,7 @@ export function PrintSchedulePicker({
   value: string;
   onChange: (value: string) => void;
 }) {
+  useNativeLocale();
   const { t, language } = useTranslation();
   const parsed = new Date(value);
   const initial = Number.isFinite(parsed.getTime())
@@ -64,7 +66,7 @@ export function PrintSchedulePicker({
         }).format(month)}
       </LaunchText>
       <Choice
-        label="Calendar day (local time)"
+        label={translateNative('native.e083a70d2399434b')}
         value={
           selectedDate.getMonth() === month.getMonth() &&
           selectedDate.getFullYear() === month.getFullYear()
@@ -80,7 +82,7 @@ export function PrintSchedulePicker({
         }
       />
       <Choice
-        label="Hour (24h)"
+        label={translateNative('native.4ee49c83f8a05072')}
         value={selectedDate.getHours()}
         options={Array.from({ length: 24 }, (_, i) => ({
           value: i,
@@ -92,7 +94,7 @@ export function PrintSchedulePicker({
       />
       <LaunchField
         numeric
-        label="Minute (0–59)"
+        label={translateNative('native.9d4519c89d86c049')}
         value={String(selectedDate.getMinutes()).padStart(2, '0')}
         onChange={v => {
           const minute = Number(v);
@@ -101,7 +103,7 @@ export function PrintSchedulePicker({
         }}
       />
       <LaunchField
-        label="Scheduled time (ISO; timezone may be entered explicitly)"
+        label={translateNative('native.b9ffe393418b1126')}
         value={value}
         onChange={onChange}
       />

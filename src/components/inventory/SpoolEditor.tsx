@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { NativeTranslation, nativeLabelTuple, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -28,26 +30,26 @@ import { effectOptions, InventoryDirectory } from './InventoryDirectory';
 import { SpoolSwatch } from './SpoolDetails';
 
 const commonFields = [
-  ['brand', 'Brand'],
-  ['material', 'Material'],
-  ['subtype', 'Subtype'],
-  ['color_name', 'Color / filament name'],
-  ['rgba', 'Color RGBA (8 hex digits)'],
-  ['label_weight', 'Label net weight (g)'],
-  ['core_weight', 'Core weight (g)'],
-  ['weight_used', 'Used weight (g)'],
-  ['cost_per_kg', 'Actual cost per kg'],
-  ['note', 'Note'],
-  ['slicer_filament', 'Default slicer filament ID'],
-  ['slicer_filament_name', 'Default slicer filament name'],
+  nativeLabelTuple(['brand', 'Brand']),
+  nativeLabelTuple(['material', 'Material']),
+  nativeLabelTuple(['subtype', 'Subtype']),
+  nativeLabelTuple(['color_name', 'Color / filament name']),
+  nativeLabelTuple(['rgba', 'Color RGBA (8 hex digits)']),
+  nativeLabelTuple(['label_weight', 'Label net weight (g)']),
+  nativeLabelTuple(['core_weight', 'Core weight (g)']),
+  nativeLabelTuple(['weight_used', 'Used weight (g)']),
+  nativeLabelTuple(['cost_per_kg', 'Actual cost per kg']),
+  nativeLabelTuple(['note', 'Note']),
+  nativeLabelTuple(['slicer_filament', 'Default slicer filament ID']),
+  nativeLabelTuple(['slicer_filament_name', 'Default slicer filament name']),
 ] as const;
 const internalFields = [
-  ['category', 'Category'],
-  ['material_number', 'Material number'],
-  ['low_stock_threshold_pct', 'Low-stock override % (blank inherits global)'],
-  ['nozzle_temp_min', 'Minimum nozzle temperature'],
-  ['nozzle_temp_max', 'Maximum nozzle temperature'],
-  ['extra_colors', 'Extra colors (comma-separated hex)'],
+  nativeLabelTuple(['category', 'Category']),
+  nativeLabelTuple(['material_number', 'Material number']),
+  nativeLabelTuple(['low_stock_threshold_pct', 'Low-stock override % (blank inherits global)']),
+  nativeLabelTuple(['nozzle_temp_min', 'Minimum nozzle temperature']),
+  nativeLabelTuple(['nozzle_temp_max', 'Maximum nozzle temperature']),
+  nativeLabelTuple(['extra_colors', 'Extra colors (comma-separated hex)']),
 ] as const;
 const numeric = [
   'label_weight',
@@ -71,9 +73,10 @@ export function SpoolEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  useNativeLocale();
   const { showToast } = useToast();
   const client = useQueryClient();
-  const backend = useMemo(() => inventoryBackend(spoolman), [spoolman]);
+  const backend = useLocalizedMemo(() => inventoryBackend(spoolman), [spoolman]);
   const id = number(spool, 'id');
   const [values, setValues] = useState<Record<string, string>>(() => ({
     material: 'PLA',
@@ -161,7 +164,7 @@ export function SpoolEditor({
       setKLinks(associations.data.k);
     }
   }, [associations.data]);
-  const presetRows = useMemo(
+  const presetRows = useLocalizedMemo(
     () =>
       (presets.data?.rows ?? []).map(row => ({
         ...row,
@@ -218,15 +221,15 @@ export function SpoolEditor({
     mutationFn: async () => {
       if (id && !associations.isSuccess)
         throw new Error(
-          'Wait for existing preset and K associations to load before saving.',
+          translateNative('native.2210e87b2d212eb1'),
         );
       const quantity = id
         ? 1
         : parseNumber(values.quantity, 'Quantity', 1, spoolman ? 50 : 100);
       if (!Number.isInteger(quantity))
-        throw new Error('Quantity must be a whole number.');
+        throw new Error(translateNative('native.1e9f20a7b292c74e'));
       if (!values.material?.trim() && !values.spoolman_filament_id)
-        throw new Error('Material is required.');
+        throw new Error(translateNative('native.cb4911caf2f1aff3'));
       const fields = [...commonFields, ...(!spoolman ? internalFields : [])]
         .map(([key]) => key)
         .filter(
@@ -253,9 +256,9 @@ export function SpoolEditor({
       )
         delete payload.core_weight;
       if (number(payload, 'weight_used') > number(payload, 'label_weight'))
-        throw new Error('Used weight cannot exceed label weight.');
+        throw new Error(translateNative('native.7960c786b524fb27'));
       if (payload.rgba && !/^[a-f\d]{8}$/i.test(String(payload.rgba)))
-        throw new Error('RGBA must contain 8 hex digits.');
+        throw new Error(translateNative('native.08d66cb3ea484655'));
       if (!spoolman) {
         payload.effect_type = values.effect_type || null;
         payload.core_weight_catalog_id = values.core_weight_catalog_id
@@ -309,7 +312,7 @@ export function SpoolEditor({
                   ? null
                   : parseNumber(
                       text(link, 'quoted_price_per_kg'),
-                      'Quoted price',
+                      translateNative('native.24d0203cab6a6da2'),
                     ),
               is_purchase_source: !!link.is_purchase_source,
             })),
@@ -337,7 +340,7 @@ export function SpoolEditor({
       await client.invalidateQueries({ queryKey: ['inventorySpools'] });
       onSaved();
       onClose();
-      showToast('Spool saved.', 'success');
+      showToast(translateNative('native.e0134d75121b52ab'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
@@ -360,7 +363,7 @@ export function SpoolEditor({
   );
   return (
     <InventoryModal
-      title={id ? `Edit spool #${id}` : 'Create spools'}
+      title={id ? translateNative('native.9b70417d447578c8', { value0: String(id) }) : translateNative('native.4495be2bf1636181')}
       onClose={onClose}
     >
       {associations.isError && (
@@ -368,10 +371,10 @@ export function SpoolEditor({
       )}
       {spoolman && !id && (
         <ChoiceField
-          label="Spoolman filament catalog"
+          label={translateNative('native.26a1e709587af868')}
           value={values.spoolman_filament_id ?? ''}
           options={[
-            { value: '', label: 'Create a new filament' },
+            { value: '', get label() { return translateNative('native.f928f57d84c464fc'); } },
             ...(filaments.data ?? []).map(row => ({
               value: text(row, 'id'),
               label: [
@@ -412,9 +415,7 @@ export function SpoolEditor({
       )}
       {linked && (
         <InventoryText>
-          Filament metadata is shared by the linked Spoolman catalog entry and
-          is read-only here.
-        </InventoryText>
+          {translateNative('native.9f8b7ca6d6a10d4a')}</InventoryText>
       )}
       {linked && (
         <InventoryText>
@@ -424,7 +425,7 @@ export function SpoolEditor({
       )}
       <SpoolSwatch spool={values} />
       <ChoiceField
-        label="Default filament preset (all sources)"
+        label={translateNative('native.2088f456d92f508d')}
         value={String(
           presetRows.findIndex(
             row =>
@@ -433,7 +434,7 @@ export function SpoolEditor({
           ),
         )}
         options={[
-          { value: '-1', label: 'No default preset' },
+          { value: '-1', get label() { return translateNative('native.1a0bb137947f702d'); } },
           ...presetRows.map((row, index) => ({
             value: String(index),
             label: `${row.source} · ${row.name} · ${row.id}`,
@@ -442,19 +443,13 @@ export function SpoolEditor({
         onChange={choosePreset}
       />
       {!!presets.data?.unavailable.length && (
-        <InventoryText>
-          Unavailable preset sources: {presets.data.unavailable.join(', ')}.
-          Connect or authorize the source in profile settings.
-        </InventoryText>
+        <InventoryText><NativeTranslation id="native.98bb16b804e57357" values={{ value0: (presets.data.unavailable.join(', ')) }} /></InventoryText>
       )}
-      <InventoryText>
-        Preset: {values.slicer_filament_name || 'None'} ·{' '}
-        {values.slicer_filament || 'None'}
-      </InventoryText>
+      <InventoryText><NativeTranslation id="native.dc8844406daaa198" values={{ value0: (values.slicer_filament_name || 'None'), value1: (values.slicer_filament || 'None') }} /></InventoryText>
       {!linked && (
         <>
           <ChoiceField
-            label="Color collection"
+            label={translateNative('native.08b67f2744f1ad8e')}
             value={colorScope}
             options={['suggested', 'recent', 'common', 'all'].map(value => ({
               value,
@@ -463,7 +458,7 @@ export function SpoolEditor({
             onChange={setColorScope}
           />
           <ChoiceField
-            label="Catalog color"
+            label={translateNative('native.1c2002592466ef8e')}
             value=""
             options={colorRows.map(row => ({
               value: text(row, 'id'),
@@ -513,19 +508,19 @@ export function SpoolEditor({
         <>
           <Fields fields={internalFields} values={values} onChange={set} />
           <ChoiceField
-            label="Effect"
+            label={translateNative('native.2f544b829f6b875a')}
             value={values.effect_type ?? ''}
             options={effectOptions}
             onChange={value => set('effect_type', value)}
           />
           <ChoiceField
-            label="Core catalog"
+            label={translateNative('native.d456a8d9d9f573b8')}
             value={values.core_weight_catalog_id ?? ''}
             options={[
-              { value: '', label: 'None / custom core' },
+              { value: '', get label() { return translateNative('native.a1123df2ce3979e4'); } },
               ...(catalog.data ?? []).map(row => ({
                 value: text(row, 'id'),
-                label: `${text(row, 'name')} · ${text(row, 'weight')} g`,
+                get label() { return translateNative('native.a1a66e2359fb5792', { value0: String(text(row, 'name')), value1: String(text(row, 'weight')) }); },
               })),
             ]}
             onChange={value => {
@@ -540,11 +535,11 @@ export function SpoolEditor({
       )}
       {spoolman && (
         <ChoiceField
-          label="Core weight from catalog"
+          label={translateNative('native.8e0016b5e2710c50')}
           value=""
           options={(catalog.data ?? []).map(row => ({
             value: text(row, 'id'),
-            label: `${text(row, 'name')} · ${text(row, 'weight')} g`,
+            get label() { return translateNative('native.a1a66e2359fb5792', { value0: String(text(row, 'name')), value1: String(text(row, 'weight')) }); },
           }))}
           onChange={value => {
             const row = catalog.data?.find(
@@ -555,10 +550,10 @@ export function SpoolEditor({
         />
       )}
       <ChoiceField
-        label="Storage location"
+        label={translateNative('native.3f0938415158756a')}
         value={values.location_id ?? ''}
         options={[
-          { value: '', label: 'None' },
+          { value: '', get label() { return translateNative('common.none'); } },
           ...(locations.data ?? []).map(row => ({
             value: text(row, 'id'),
             label: text(row, 'name'),
@@ -568,8 +563,8 @@ export function SpoolEditor({
       />
       <Fields
         fields={[
-          ['tag_uid', 'NFC tag UID (unique)'],
-          ['tray_uuid', 'Tray UUID (unique)'],
+          ['tag_uid', translateNative('native.1c834a780c39afc6')],
+          ['tray_uuid', translateNative('native.d23c3018764171ee')],
           ...(!id
             ? ([
                 [
@@ -586,17 +581,15 @@ export function SpoolEditor({
       />
       {spoolman && id > 0 && (
         <Toggle
-          label="Unlink existing NFC / tray identity"
+          label={translateNative('native.f72d89f6294f4d5b')}
           value={unlinkedTags}
           onChange={setUnlinkedTags}
         />
       )}
       <InventoryText>
-        Supplier links · purchase source and quotations do not change actual
-        cost.
-      </InventoryText>
+        {translateNative('native.ae6b9660c2770c7a')}</InventoryText>
       <ChoiceField
-        label="Link supplier"
+        label={translateNative('native.e3df9c214b679fc7')}
         value=""
         options={(suppliers.data ?? [])
           .filter(
@@ -620,7 +613,7 @@ export function SpoolEditor({
         }
       />
       <PrimaryButton
-        label="Create / manage suppliers"
+        label={translateNative('native.012590e6822b3883')}
         variant="secondary"
         onPress={() => setDirectory(true)}
       />
@@ -635,8 +628,8 @@ export function SpoolEditor({
           </InventoryText>
           <Fields
             fields={[
-              ['supplier_article_number', 'Supplier article number'],
-              ['quoted_price_per_kg', 'Quoted price per kg (optional)'],
+              nativeLabelTuple(['supplier_article_number', 'native.76f63d3b56c9344c']),
+              nativeLabelTuple(['quoted_price_per_kg', 'native.f9061c219c90bec5']),
             ]}
             values={{
               supplier_article_number: text(link, 'supplier_article_number'),
@@ -651,7 +644,7 @@ export function SpoolEditor({
             }
           />
           <Toggle
-            label="Purchase source"
+            label={translateNative('native.3dbf4108564262bb')}
             value={!!link.is_purchase_source}
             onChange={value =>
               setSupplierLinks(old =>
@@ -663,7 +656,7 @@ export function SpoolEditor({
             }
           />
           <PrimaryButton
-            label="Unlink supplier"
+            label={translateNative('native.3a4d60485cf8c77c')}
             variant="secondary"
             onPress={() =>
               setSupplierLinks(old => old.filter((_row, i) => i !== index))
@@ -683,8 +676,8 @@ export function SpoolEditor({
       <PrimaryButton
         label={
           savedIds.length && !id
-            ? 'Retry saving associations (stock already created)'
-            : 'Save'
+            ? translateNative('native.232a8d1a959bb52a')
+            : translateNative('common.save')
         }
         loading={save.isPending}
         disabled={id > 0 && !associations.isSuccess}
@@ -717,6 +710,7 @@ function SpoolPrinterAssociations({
   kLinks: InventoryRecord[];
   setKLinks: React.Dispatch<React.SetStateAction<InventoryRecord[]>>;
 }) {
+  useNativeLocale();
   const [printerId, setPrinterId] = useState('');
   const [diameter, setDiameter] = useState('0.4');
   const [extruder, setExtruder] = useState('0');
@@ -784,10 +778,9 @@ function SpoolPrinterAssociations({
   return (
     <>
       <InventoryText>
-        Per-printer presets and pressure-advance K profiles
-      </InventoryText>
+        {translateNative('native.c8060b4be1c07323')}</InventoryText>
       <ChoiceField
-        label="Printer"
+        label={translateNative('screen.printer')}
         value={printerId}
         options={printers.map(row => ({
           value: text(row, 'id'),
@@ -798,10 +791,10 @@ function SpoolPrinterAssociations({
       {!!printerId && (
         <>
           <ChoiceField
-            label="Nozzle diameter"
+            label={translateNative('native.7f7c65655e142424')}
             value={diameter}
             options={[
-              { value: '', label: 'Any nozzle (model-wide preset)' },
+              { value: '', get label() { return translateNative('native.14f2f51930b5cba2'); } },
               ...['0.2', '0.4', '0.6', '0.8', '1.0'].map(value => ({
                 value,
                 label: value,
@@ -811,7 +804,7 @@ function SpoolPrinterAssociations({
           />
           {model ? (
             <ChoiceField
-              label="Model / nozzle preset"
+              label={translateNative('native.65b780ba957ab843')}
               value={
                 presetLink
                   ? `${text(presetLink, 'slicer_filament')}::${text(
@@ -823,7 +816,7 @@ function SpoolPrinterAssociations({
               options={[
                 {
                   value: '',
-                  label: 'Inherit model-wide override / spool default',
+                  get label() { return translateNative('native.5a18adccdfc35f97'); },
                 },
                 ...presetRows.map(row => ({
                   value: `${row.id}::${row.name}`,
@@ -848,12 +841,10 @@ function SpoolPrinterAssociations({
             />
           ) : (
             <InventoryText>
-              This printer has not reported its model. Only printer-specific K
-              associations can be edited.
-            </InventoryText>
+              {translateNative('native.858de72935e84eb9')}</InventoryText>
           )}
           <PrimaryButton
-            label="Auto-match model presets"
+            label={translateNative('native.e4f743f4e8197ddb')}
             variant="secondary"
             onPress={() => {
               const matches = autoMatchSpoolPresets(
@@ -878,24 +869,24 @@ function SpoolPrinterAssociations({
           {!!diameter && (
             <>
               <ChoiceField
-                label="Extruder"
+                label={translateNative('native.d059b480b1077242')}
                 value={extruder}
                 options={(number(printer, 'nozzle_count', 1) > 1
                   ? ['1', '0']
                   : ['0']
                 ).map(value => ({
                   value,
-                  label: value === '1' ? 'Left (1)' : 'Right / single (0)',
+                  label: value === '1' ? translateNative('native.e9ae2610ebae5858') : translateNative('native.b1c603a0ccc0fa4e'),
                 }))}
                 onChange={setExtruder}
               />
               <ChoiceField
-                label="Nozzle flow"
+                label={translateNative('native.ea96303c4354d82b')}
                 value={flow}
                 options={[
-                  { value: '', label: 'Unspecified' },
-                  { value: 'HS', label: 'Standard' },
-                  { value: 'HH', label: 'High flow' },
+                  { value: '', get label() { return translateNative('native.b0452e8420109804'); } },
+                  { value: 'HS', get label() { return translateNative('native.7239d2283cbaffae'); } },
+                  { value: 'HH', get label() { return translateNative('native.ab0f152ec460e157'); } },
                 ]}
                 onChange={setFlow}
               />
@@ -903,17 +894,17 @@ function SpoolPrinterAssociations({
                 <InventoryText>{calibrations.error.message}</InventoryText>
               )}
               <ChoiceField
-                label="K profile"
+                label={translateNative('native.1401ba95923f6837')}
                 value={kLink ? text(kLink, 'cali_idx') : ''}
                 options={[
-                  { value: '', label: 'None / clear association' },
+                  { value: '', get label() { return translateNative('native.432a9cb519e46302'); } },
                   ...calibrationRows.map(row => ({
                     value: text(row, 'cali_idx', text(row, 'slot_id')),
-                    label: `${text(row, 'name')} · K ${text(
+                    get label() { return translateNative('native.711b4eb8a9753ed6', { value0: String(text(row, 'name')), value1: String(text(
                       row,
                       'k_value',
                       text(row, 'k'),
-                    )}`,
+                    )) }); },
                   })),
                 ]}
                 onChange={value => {
@@ -944,10 +935,7 @@ function SpoolPrinterAssociations({
                   if (row && chosenFlow) setFlow(chosenFlow);
                 }}
               />
-              <InventoryText>
-                {presetLinks.length} preset overrides · {kLinks.length} K
-                associations
-              </InventoryText>
+              <InventoryText><NativeTranslation id="native.865a68e1e03e6cb7" values={{ value0: (presetLinks.length), value1: (kLinks.length) }} /></InventoryText>
             </>
           )}
         </>

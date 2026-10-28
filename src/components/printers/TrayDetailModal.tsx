@@ -1,4 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,7 +27,7 @@ import { ConfigureDeviceSlot } from '@/components/printers/ConfigureDeviceSlot';
 import { printerControlsApi as device } from '@/api/printerControls';
 import { deviceSlotTrayId, dryingCapabilities, dryingReasonText, physicalTrayId, requireInteger, unloadTrayId } from './deviceControlUtils';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { api, ApiError } from '@/api/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -99,6 +101,7 @@ export function TrayDetailModal({
   isPrinting,
   onClose,
 }: TrayDetailModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
@@ -180,7 +183,7 @@ export function TrayDetailModal({
     staleTime: 30_000,
   });
 
-  const spoolTag = useMemo(
+  const spoolTag = useLocalizedMemo(
     () => (tray?.tray_uuid || tray?.tag_uid || '').trim() || null,
     [tray?.tag_uid, tray?.tray_uuid],
   );
@@ -197,32 +200,32 @@ export function TrayDetailModal({
 
   const loadMutation = useMutation({
     mutationFn: (extruder?: number) => {
-      if (!context) throw new Error('Tray context unavailable');
+      if (!context) throw new Error(translateNative('native.9e7eeab5008cf3b9'));
       return device.load(printerId, physicalTrayId(context.amsId, context.trayId), extruder);
     },
     onSuccess: async () => {
       await invalidatePrinter();
-      showToast('Filament load started.', 'success');
+      showToast(translateNative('native.c6dd82fbd6e54a42'), 'success');
       onClose();
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to load filament.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.829a9674aee7addf')), 'error'),
   });
 
   const unloadMutation = useMutation({
     mutationFn: () => device.unload(printerId, context ? unloadTrayId(context.amsId, context.trayId) : undefined),
     onSuccess: async () => {
       await invalidatePrinter();
-      showToast('Filament unload started.', 'success');
+      showToast(translateNative('native.972d19d6ac4e4bed'), 'success');
       onClose();
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to unload filament.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.9287d7cc8c0f025b')), 'error'),
   });
 
   const refreshMutation = useMutation({
     mutationFn: () => {
-      if (!context) throw new Error('Tray context unavailable');
+      if (!context) throw new Error(translateNative('native.9e7eeab5008cf3b9'));
       setRfidBaseline(statusQuery.data?.last_ams_update ?? 0);
       return api.refreshAmsSlot(printerId, context.amsId, context.trayId);
     },
@@ -249,7 +252,7 @@ export function TrayDetailModal({
 
   const unassignSpoolMutation = useMutation({
     mutationFn: () => {
-      if (!context) throw new Error('Tray context unavailable');
+      if (!context) throw new Error(translateNative('native.9e7eeab5008cf3b9'));
       return api.unassignSpool(printerId, context.amsId, deviceSlotTrayId(context.amsId, context.trayId));
     },
     onSuccess: async () => {
@@ -257,24 +260,24 @@ export function TrayDetailModal({
         invalidatePrinter(),
         queryClient.invalidateQueries({ queryKey: ['inventoryAssignments'] }),
       ]);
-      showToast('Inventory spool unassigned.', 'success');
+      showToast(translateNative('native.f8a5f62810c9582a'), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to unassign spool.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.4e6a92e509672538')), 'error'),
   });
 
   const unlinkSpoolMutation = useMutation({
     mutationFn: (spoolId: number) => api.unlinkSpool(spoolId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['linkedSpools'] });
-      showToast('RFID link removed.', 'success');
+      showToast(translateNative('native.5d414fdd0a28404e'), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to unlink spool.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.b307e4fa223b56a6')), 'error'),
   });
 
-  const color = useMemo(() => parseFilamentColor(tray?.tray_color), [tray?.tray_color]);
-  const fill = useMemo(() => {
+  const color = useLocalizedMemo(() => parseFilamentColor(tray?.tray_color), [tray?.tray_color]);
+  const fill = useLocalizedMemo(() => {
     if (!tray) return 0;
     const hasFillLevel = tray.remain >= 0;
     // Inventory spool fill (label_weight - weight_used)
@@ -297,12 +300,12 @@ export function TrayDetailModal({
     tray?.tray_type || tray?.tray_sub_brands || tray?.tray_info_idx || (tray?.state ?? 0) >= 10,
   );
 
-  const currentPreset = useMemo(() => {
+  const currentPreset = useLocalizedMemo(() => {
     if (!context) return null;
     return slotPresetsQuery.data?.[slotPresetKey(context.amsId, context.trayId)] ?? null;
   }, [context, slotPresetsQuery.data]);
 
-  const presets = useMemo(
+  const presets = useLocalizedMemo(
     () => [...flattenFilamentPresets(slicerPresetsQuery.data as UnifiedPresetsResponse | undefined),
       ...(builtinPresetsQuery.data ?? []).map(preset => ({
         id: `builtin_${preset.filament_id}`, name: preset.name, source: 'standard' as const,
@@ -311,7 +314,7 @@ export function TrayDetailModal({
     [slicerPresetsQuery.data, builtinPresetsQuery.data],
   );
 
-  const filteredPresets = useMemo(() => {
+  const filteredPresets = useLocalizedMemo(() => {
     const searchValue = search.trim().toLowerCase();
     const material = tray?.tray_type?.toLowerCase() ?? '';
 
@@ -340,7 +343,7 @@ export function TrayDetailModal({
       });
   }, [currentPreset?.preset_name, presets, search, tray?.tray_type]);
 
-  const currentAms = useMemo(
+  const currentAms = useLocalizedMemo(
     () => (statusQuery.data?.ams ?? []).find(ams => ams.id === context?.amsId) ?? null,
     [context?.amsId, statusQuery.data?.ams],
   );
@@ -354,7 +357,7 @@ export function TrayDetailModal({
   const dryingActive = Boolean((currentAms?.dry_time ?? 0) > 0);
   const dryingLoadedTray = Boolean(currentAms?.tray.some(slot => slot.state === 11));
   const dryingCaps = currentAms ? dryingCapabilities(statusQuery.data, currentAms) : null;
-  const currentAssignment = useMemo(
+  const currentAssignment = useLocalizedMemo(
     () =>
       (assignmentsQuery.data ?? []).find(
         (assignment: SpoolAssignment) =>
@@ -364,14 +367,14 @@ export function TrayDetailModal({
       ) ?? null,
     [assignmentsQuery.data, context?.amsId, context?.trayId, printerId],
   );
-  const linkedSpool = useMemo(() => {
+  const linkedSpool = useLocalizedMemo(() => {
     if (!spoolTag) return null;
     return linkedSpoolsQuery.data?.linked?.[spoolTag.toUpperCase()] ?? null;
   }, [linkedSpoolsQuery.data?.linked, spoolTag]);
 
   const startDryingMutation = useMutation({
     mutationFn: () => {
-      if (!context) throw new Error('Tray context unavailable');
+      if (!context) throw new Error(translateNative('native.9e7eeab5008cf3b9'));
       const temp = requireInteger(dryingTemp, 45, dryingCaps?.maxTemperature ?? 45);
       const duration = requireInteger(dryingDuration, 1, 24);
       return api.startDrying(
@@ -385,23 +388,23 @@ export function TrayDetailModal({
     },
     onSuccess: async () => {
       await invalidatePrinter();
-      showToast('Drying started.', 'success');
+      showToast(translateNative('native.b297e9684a57dfa9'), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to start drying.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.520b27b07ee69257')), 'error'),
   });
 
   const stopDryingMutation = useMutation({
     mutationFn: () => {
-      if (!context) throw new Error('Tray context unavailable');
+      if (!context) throw new Error(translateNative('native.9e7eeab5008cf3b9'));
       return api.stopDrying(printerId, context.amsId);
     },
     onSuccess: async () => {
       await invalidatePrinter();
-      showToast('Drying stopped.', 'success');
+      showToast(translateNative('native.384c285ec2af8fe7'), 'success');
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to stop drying.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.995b9681e38b91a0')), 'error'),
   });
 
   if (!tray || !context) return null;
@@ -420,16 +423,16 @@ export function TrayDetailModal({
   };
   const slotLabel = context.isExternal
     ? context.amsLabel
-    : `${context.amsLabel} • Slot ${context.label}`;
+    : translateNative('native.38470295859a5c31', { value0: String(context.amsLabel), value1: String(context.label) });
   const currentProfileLabel =
-    currentPreset?.preset_name || tray.tray_sub_brands || tray.tray_type || 'Unassigned';
+    currentPreset?.preset_name || tray.tray_sub_brands || tray.tray_type || translateNative('native.424849cf8f869437');
   const currentAssignmentLabel = currentAssignment?.spool
     ? [currentAssignment.spool.brand, currentAssignment.spool.material]
         .filter(Boolean)
-        .join(' • ') || `Spool #${currentAssignment.spool.id}`
+        .join(' • ') || translateNative('native.695cc238a31cecd5', { value0: String(currentAssignment.spool.id) })
     : currentAssignment
-      ? `Spool #${currentAssignment.spool_id}`
-      : 'None';
+      ? translateNative('native.695cc238a31cecd5', { value0: String(currentAssignment.spool_id) })
+      : translateNative('common.none');
 
   return (
     <>
@@ -463,7 +466,7 @@ export function TrayDetailModal({
               </View>
               <View style={styles.headerText}>
                 <Text style={[styles.title, { color: colors.text }]}>
-                  {configuring ? 'Configure slot' : 'Filament tray'}
+                  {configuring ? translateNative('native.a8e46bea962c509f') : translateNative('native.a77a5444537d7a73')}
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                   {slotLabel}
@@ -483,16 +486,14 @@ export function TrayDetailModal({
             {configuring ? (
               <View style={styles.configureContent}>
                 <TextField
-                  label="Search profiles"
+                  label={translateNative('native.32feee26fde123e3')}
                   value={search}
                   onChangeText={setSearch}
-                  placeholder="PLA Basic, PETG, Matte…"
+                  placeholder={translateNative('native.61e99f04478fc750')}
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
-                <Text style={[styles.configureHint, { color: colors.textSecondary }]}>
-                  Current profile: {currentProfileLabel}
-                </Text>
+                <Text style={[styles.configureHint, { color: colors.textSecondary }]}><NativeTranslation id="native.dc612a3227ee838d" values={{ value0: (currentProfileLabel) }} /></Text>
                 <ScrollView showsVerticalScrollIndicator={false}>
                   {selectedPreset ? <ConfigureDeviceSlot key={`${selectedPreset.source}-${selectedPreset.id}`} printerId={printerId}
                     amsId={context.amsId} trayId={deviceSlotTrayId(context.amsId, context.trayId)} tray={tray} preset={selectedPreset}
@@ -501,16 +502,14 @@ export function TrayDetailModal({
                     <View style={styles.loadingState}>
                       <ActivityIndicator color={colors.accent} />
                       <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                        Loading filament profiles…
-                      </Text>
+                        {translateNative('native.8dc3ebec85e8215e')}</Text>
                     </View>
                   ) : null}
                   {slicerPresetsQuery.error || builtinPresetsQuery.error ? <Text style={{ color: colors.error }}>{slicerPresetsQuery.error?.message || builtinPresetsQuery.error?.message}</Text> : null}
 
                   {!slicerPresetsQuery.isLoading && filteredPresets.length === 0 ? (
                     <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                      No filament profiles matched this search.
-                    </Text>
+                      {translateNative('native.139e400e3a60a504')}</Text>
                   ) : null}
 
                   {filteredPresets.map(preset => {
@@ -555,8 +554,7 @@ export function TrayDetailModal({
                     ]}
                   >
                     <Text style={[styles.bannerText, { color: colors.warning }]}>
-                      Filament load and unload are disabled while printing.
-                    </Text>
+                      {translateNative('native.3e68eebdd549d59c')}</Text>
                   </View>
                 ) : null}
 
@@ -578,10 +576,10 @@ export function TrayDetailModal({
                   </View>
                   <View style={styles.summaryText}>
                     <Text style={[styles.materialText, { color: colors.text }]}>
-                      {tray.tray_type || 'Unknown material'}
+                      {tray.tray_type || translateNative('native.18c9ba4fd6f8c90f')}
                     </Text>
                     <Text style={[styles.brandText, { color: colors.textSecondary }]}>
-                      {tray.tray_sub_brands || 'No profile reported'}
+                      {tray.tray_sub_brands || translateNative('native.0e3fdead4b232424')}
                     </Text>
                   </View>
                 </View>
@@ -589,16 +587,14 @@ export function TrayDetailModal({
                 <View style={styles.detailList}>
                   <View style={styles.detailRow}>
                     <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                      Assigned profile
-                    </Text>
+                      {translateNative('native.e269efae4b724d3d')}</Text>
                     <Text style={[styles.detailValue, { color: colors.text }]}>
                       {currentProfileLabel}
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                      Remaining
-                    </Text>
+                      {translateNative('native.b738cd2bb44abf9a')}</Text>
                     <Text style={[styles.detailValue, { color: colors.text }]}>
                       {hasFilament ? `${fill}%` : '—'}
                     </Text>
@@ -632,9 +628,7 @@ export function TrayDetailModal({
                         color={colors.textSecondary}
                         strokeWidth={2}
                       />
-                      <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                        {context.temperature}°C
-                      </Text>
+                      <Text style={[styles.infoText, { color: colors.textSecondary }]}><NativeTranslation id="native.dd28ea7a8411dee2" values={{ value0: (context.temperature) }} /></Text>
                     </View>
                   ) : null}
 
@@ -656,40 +650,37 @@ export function TrayDetailModal({
                     ]}
                   >
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                      AMS drying
-                    </Text>
+                      {translateNative('native.4b132e126d972fe5')}</Text>
                     <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
                       {dryingCaps?.screenOnly ? t('device.screenOnly', { defaultValue: 'Control from printer screen only' }) : dryingCaps?.stalled ? t('device.stalled', { defaultValue: 'Not running / countdown stalled' }) : dryingActive
-                        ? `${Math.ceil((currentAms?.dry_time ?? 0) / 60)}h remaining`
-                        : 'Start a drying cycle for this AMS.'}
+                        ? translateNative('native.e8af2b5b440b6c08', { value0: String(Math.ceil((currentAms?.dry_time ?? 0) / 60)) })
+                        : translateNative('native.1d6be860fb3afde8')}
                     </Text>
 
                     {dryingCaps?.blockedReasons.length ? <Text style={{ color: colors.warning }}>
-                      {t('device.dryingBlocked', { defaultValue: 'Blocked: {{reasons}}', reasons: dryingCaps.blockedReasons.map(code => t(`device.dryingReason.${code}`, { defaultValue: dryingReasonText(code) })).join(', ') })}
+                      {t('device.dryingBlocked', { defaultValue: 'Blocked: {{reasons}}', reasons: dryingCaps.blockedReasons.map(code => dryingReasonText(code)).join(', ') })}
                     </Text> : null}
 
                     {dryingActive ? (
                       <View style={styles.detailList}>
                         <View style={styles.detailRow}>
                           <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                            Filament
-                          </Text>
+                            {translateNative('native.12e2b8020ce55e27')}</Text>
                           <Text style={[styles.detailValue, { color: colors.text }]}>
-                            {currentAms?.dry_filament || tray.tray_sub_brands || tray.tray_type || 'Drying'}
+                            {currentAms?.dry_filament || tray.tray_sub_brands || tray.tray_type || translateNative('native.6a5ab5109c2f60c8')}
                           </Text>
                         </View>
                         <View style={styles.detailRow}>
                           <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                            Target
-                          </Text>
+                            {translateNative('native.a3664a9cdff6be26')}</Text>
                           <Text style={[styles.detailValue, { color: colors.text }]}>
                             {currentAms?.dry_target_temp != null
-                              ? `${currentAms.dry_target_temp}°C`
+                              ? translateNative('native.dd28ea7a8411dee2', { value0: String(currentAms.dry_target_temp) })
                               : '—'}
                           </Text>
                         </View>
                         <PrimaryButton
-                          label={stopDryingMutation.isPending ? 'Stopping…' : 'Stop drying'}
+                          label={stopDryingMutation.isPending ? translateNative('native.3e0aadec66177a68') : translateNative('native.9b406852b73ee5f6')}
                           variant="danger"
                           onPress={() => Alert.alert(t('device.stopDrying', { defaultValue: 'Stop drying' }),
                             t('device.confirmStopDrying', { defaultValue: 'Stop this AMS drying cycle?' }), [
@@ -703,22 +694,22 @@ export function TrayDetailModal({
                     ) : (
                       <View style={styles.sectionContent}>
                         <TextField
-                          label="Temperature (°C)"
+                          label={translateNative('native.6f5e9ef21fd1a694')}
                           value={dryingTemp}
                           onChangeText={setDryingTemp}
                           keyboardType="number-pad"
                         />
                         <TextField
-                          label="Duration (hours)"
+                          label={translateNative('native.08f2a95ebd520563')}
                           value={dryingDuration}
                           onChangeText={setDryingDuration}
                           keyboardType="number-pad"
                         />
                         <TextField
-                          label="Filament"
+                          label={translateNative('native.12e2b8020ce55e27')}
                           value={dryingFilament}
                           onChangeText={setDryingFilament}
-                          placeholder="PLA, PETG, ABS…"
+                          placeholder={translateNative('native.f50c8cc334067989')}
                         />
                         <Pressable
                           onPress={() => {
@@ -738,24 +729,22 @@ export function TrayDetailModal({
                           ]}
                         >
                           <Text style={[styles.toggleLabel, { color: colors.text }]}>
-                            Rotate tray during drying
-                          </Text>
+                            {translateNative('native.870b9bfd757d2ae2')}</Text>
                           <Text
                             style={[
                               styles.toggleValue,
                               { color: rotateTray && !dryingLoadedTray ? colors.accentLight : colors.textSecondary },
                             ]}
                           >
-                            {dryingLoadedTray || !dryingCaps?.canRotate ? 'Unavailable' : rotateTray ? 'On' : 'Off'}
+                            {dryingLoadedTray || !dryingCaps?.canRotate ? translateNative('native.690339bc141891b7') : rotateTray ? translateNative('native.c7e4e8a8db2bbe79', { defaultValue: 'On' }) : translateNative('native.eaa897b0631e7896', { defaultValue: 'Off' })}
                           </Text>
                         </Pressable>
                         {dryingLoadedTray ? (
                           <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-                            Rotation is unavailable while any spool in this AMS is loaded into the feed path.
-                          </Text>
+                            {translateNative('native.3dcb3420af6061af')}</Text>
                         ) : null}
                         <PrimaryButton
-                          label={startDryingMutation.isPending ? 'Starting…' : 'Start drying'}
+                          label={startDryingMutation.isPending ? translateNative('native.68955362b86b9268') : translateNative('native.5478f4e85b0bc7a0')}
                           onPress={() => startDryingMutation.mutate()}
                           disabled={!canControl || dryingCaps?.screenOnly || !dryingCaps?.supported || !!dryingCaps?.blockedReasons.length || (isPrinting && statusQuery.data?.supports_drying_while_printing !== true) || startDryingMutation.isPending}
                           loading={startDryingMutation.isPending}
@@ -772,17 +761,14 @@ export function TrayDetailModal({
                   ]}
                 >
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                    Spool tracking
-                  </Text>
+                    {translateNative('native.87f93ef29c0e1db4')}</Text>
                   <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-                    Assign inventory spools and link RFID tags.
-                  </Text>
+                    {translateNative('native.05be6c5fe30cf6a6')}</Text>
 
                   <View style={styles.detailList}>
                     <View style={styles.detailRow}>
                       <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                        Inventory spool
-                      </Text>
+                        {translateNative('native.5cef9c986e531a28')}</Text>
                       <Text style={[styles.detailValue, { color: colors.text }]}>
                         {currentAssignmentLabel}
                       </Text>
@@ -790,8 +776,7 @@ export function TrayDetailModal({
                     {spoolTag ? (
                       <View style={styles.detailRow}>
                         <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                          RFID / UUID
-                        </Text>
+                          {translateNative('native.5d887e90658a7ad7')}</Text>
                         <Text style={[styles.detailValue, { color: colors.text }]} numberOfLines={2}>
                           {spoolTag}
                         </Text>
@@ -800,10 +785,9 @@ export function TrayDetailModal({
                     {spoolmanEnabled && spoolTag ? (
                       <View style={styles.detailRow}>
                         <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                          Linked spool
-                        </Text>
+                          {translateNative('native.284afb57018e2bd3')}</Text>
                         <Text style={[styles.detailValue, { color: colors.text }]}>
-                          {linkedSpool ? `Spool #${linkedSpool.id}` : 'Not linked'}
+                          {linkedSpool ? translateNative('native.695cc238a31cecd5', { value0: String(linkedSpool.id) }) : translateNative('native.07ac1bd70b95897e')}
                         </Text>
                       </View>
                     ) : null}
@@ -811,13 +795,13 @@ export function TrayDetailModal({
 
                   <View style={styles.actions}>
                     <PrimaryButton
-                      label="Assign inventory spool"
+                      label={translateNative('native.4dacb7267b4ae873')}
                       variant="secondary"
                       onPress={() => setShowAssignSpoolModal(true)}
                     />
                     {currentAssignment ? (
                       <PrimaryButton
-                        label={unassignSpoolMutation.isPending ? 'Unassigning…' : 'Unassign inventory spool'}
+                        label={unassignSpoolMutation.isPending ? translateNative('native.38573dd4274479a3') : translateNative('native.2bedb6d3a4e59b54')}
                         variant="danger"
                         onPress={() => unassignSpoolMutation.mutate()}
                         disabled={unassignSpoolMutation.isPending}
@@ -827,13 +811,13 @@ export function TrayDetailModal({
                     {spoolmanEnabled && spoolTag ? (
                       <>
                         <PrimaryButton
-                          label="Link RFID tag"
+                          label={translateNative('native.875e1a1f66f7ced5')}
                           variant="secondary"
                           onPress={() => setShowLinkSpoolModal(true)}
                         />
                         {linkedSpool ? (
                           <PrimaryButton
-                            label={unlinkSpoolMutation.isPending ? 'Unlinking…' : 'Unlink RFID tag'}
+                            label={unlinkSpoolMutation.isPending ? translateNative('native.f5d85e083c699e37') : translateNative('native.ac2860b6cf830304')}
                             variant="danger"
                             onPress={() => unlinkSpoolMutation.mutate(linkedSpool.id)}
                             disabled={unlinkSpoolMutation.isPending}
@@ -847,13 +831,13 @@ export function TrayDetailModal({
 
                 <View style={styles.actions}>
                   <PrimaryButton
-                    label={loadMutation.isPending ? 'Loading…' : 'Load filament'}
+                    label={loadMutation.isPending ? translateNative('native.d5ece98cbd4e8bf8') : translateNative('native.e36afa21bd1adb3c')}
                     onPress={requestLoad}
                     disabled={loadDisabled}
                     loading={loadMutation.isPending}
                   />
                   <PrimaryButton
-                    label={unloadMutation.isPending ? 'Unloading…' : 'Unload filament'}
+                    label={unloadMutation.isPending ? translateNative('native.1e2d151fe8756c44') : translateNative('native.f07d5a5a29df41c0')}
                     variant="secondary"
                     onPress={() => Alert.alert(t('device.unload', { defaultValue: 'Unload filament?' }),
                       context.amsId >= 128 && context.amsId <= 135
@@ -865,7 +849,7 @@ export function TrayDetailModal({
                     loading={unloadMutation.isPending}
                   />
                   <PrimaryButton
-                    label="Configure slot"
+                    label={translateNative('native.a8e46bea962c509f')}
                     variant="secondary"
                     onPress={() => setConfiguring(true)}
                     disabled={!canControl || !hasPermission('printers:update')}

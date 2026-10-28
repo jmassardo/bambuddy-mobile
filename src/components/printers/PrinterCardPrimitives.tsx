@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/theme';
 import type { NozzleRackSlot } from '@/types/api';
@@ -20,6 +21,7 @@ export function MetricCard({
   helper?: string;
   tone?: string;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -57,6 +59,7 @@ export function InfoPill({
   icon?: React.ReactNode;
   onPress?: () => void;
 }) {
+  useNativeLocale();
   const content = (
     <View
       style={[
@@ -79,6 +82,7 @@ export function InfoPill({
 }
 
 export function SectionLabel({ label }: { label: string }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -110,6 +114,7 @@ export function TrayCard({
   onPress?: () => void;
   compact?: boolean;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const color = parseFilamentColor(colorHex);
   const lightColor = isLightColor(colorHex);
@@ -165,7 +170,7 @@ export function TrayCard({
         />
       </View>
       <Text style={[styles.trayFillText, { color: colors.textSecondary }]}>
-        {fill == null ? '—' : `${fill}% remaining`}
+        {fill == null ? '—' : translateNative('native.c9badf021bddc2f6', { value0: String(fill) })}
       </Text>
     </View>
   );
@@ -186,8 +191,9 @@ export function NozzleRackView({
   slots: NozzleRackSlot[];
   activeNozzle: number | null | undefined;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
-  const rackSlots = useMemo(() => {
+  const rackSlots = useLocalizedMemo(() => {
     const rackOnly = slots.filter(slot => slot.id >= 2);
     return Array.from({ length: 6 }, (_, index) => {
       const slotId = 16 + index;
@@ -268,6 +274,7 @@ export function ControlButton({
   outline?: boolean;
   iconOnly?: boolean;
 }) {
+  useNativeLocale();
   return (
     <Pressable
       onPress={onPress}

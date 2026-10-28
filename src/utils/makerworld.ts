@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import { pickNumber, type ApiRecord } from '@/utils/data';
 import type { MakerworldImportRequest } from '@/types/api';
 
@@ -10,7 +11,7 @@ export function makerworldImportRequest(
 ): MakerworldImportRequest {
   const modelId = pickNumber(resolved, ['model_id'], NaN);
   if (!resolved || !resolvedForUrl.trim() || resolvedForUrl.trim() !== currentUrl.trim() || !Number.isInteger(modelId) || modelId <= 0) {
-    throw new Error('Resolve the current MakerWorld URL before importing.');
+    throw new Error(translateNative('native.f6b5f31ef47f184f'));
   }
   const instanceId = pickNumber(instance, ['id'], NaN);
   const profileId = pickNumber(instance, ['profileId'], NaN);

@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React from 'react';
 import {
   RefreshControl,
@@ -19,7 +21,7 @@ import { SystemHealthPanel } from '@/components/system/SystemHealthPanel';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { shareBlob } from '@/utils/share';
 
 function DiagnosticDetails({
@@ -29,6 +31,7 @@ function DiagnosticDetails({
   value: unknown;
   prefix?: string;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   if (value === undefined || value === null)
@@ -81,6 +84,7 @@ function DiagnosticDetails({
 }
 
 export default function SystemScreen() {
+  useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'System'>>();
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -88,7 +92,7 @@ export default function SystemScreen() {
   const client = useQueryClient();
   React.useLayoutEffect(() => {
     navigation.setOptions({
-      title: t('system.title', { defaultValue: 'System' }),
+      get title() { return translateNative('system.title', { defaultValue: 'System' }); },
     });
   }, [navigation, t]);
   const info = useQuery({
@@ -188,7 +192,7 @@ export default function SystemScreen() {
                 defaultValue: 'Runtime / OS',
               })}
             />
-            <DiagnosticDetails value={info.data.cpu} prefix="CPU" />
+            <DiagnosticDetails value={info.data.cpu} prefix={translateNative('native.c3fdf71ac112b4e0', { defaultValue: 'CPU' })} />
             <DiagnosticDetails
               value={info.data.memory}
               prefix={t('system.info.memory', { defaultValue: 'Memory' })}

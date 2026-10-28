@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 // Push notification registration hook
 // Manages push notification token registration with the Bambuddy server.
 
@@ -41,7 +42,7 @@ export function usePushNotificationRegistration(): PushNotificationRegistration 
     } catch (err) {
       setState(prev => ({
         ...prev,
-        error: err instanceof Error ? err.message : 'Registration failed',
+        error: err instanceof Error ? err.message : translateNative('native.5e55fe16d76cd721'),
       }));
     } finally {
       setRefreshing(false);
@@ -58,7 +59,7 @@ export function usePushNotificationRegistration(): PushNotificationRegistration 
     } catch (err) {
       setState(prev => ({
         ...prev,
-        error: err instanceof Error ? err.message : 'Unregistration failed',
+        error: err instanceof Error ? err.message : translateNative('native.fbc0a6d041af2b7f'),
       }));
     } finally {
       setRefreshing(false);

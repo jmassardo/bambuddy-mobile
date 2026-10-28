@@ -1,3 +1,18 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import { localizedEnum } from '@/utils/statusLabel';
+
+const issueCaptions: Record<string, string> = {
+  get printer_not_set() { return translateNative('pipeline.issue.printerNotSet', { defaultValue: 'Printer not set' }); },
+  get printer_not_found() { return translateNative('pipeline.issue.printerNotFound', { defaultValue: 'Printer not found' }); },
+  get printer_disabled() { return translateNative('pipeline.issue.printerDisabled', { defaultValue: 'Printer disabled' }); },
+  get printer_offline() { return translateNative('pipeline.issue.printerOffline', { defaultValue: 'Printer offline' }); },
+  get filament_type_mismatch() { return translateNative('pipeline.issue.filamentType', { defaultValue: 'Filament type mismatch' }); },
+  get filament_color_mismatch() { return translateNative('pipeline.issue.filamentColor', { defaultValue: 'Filament color mismatch' }); },
+  get ams_slot_missing() { return translateNative('pipeline.issue.amsSlot', { defaultValue: 'AMS slot missing' }); },
+  get filament_unverified() { return translateNative('pipeline.issue.filamentUnverified', { defaultValue: 'Filament unverified' }); },
+  get no_class_matches() { return translateNative('pipeline.issue.noClassMatches', { defaultValue: 'No matching printer class' }); },
+  get class_not_set() { return translateNative('pipeline.issue.classNotSet', { defaultValue: 'Printer class not set' }); },
+};
 import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { slicingApi, type SliceSourceProps } from '@/api/slicing';
@@ -9,7 +24,7 @@ import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { Box, Choice, Copy, Sheet } from './Controls';
 import { hasTarget } from '@/utils/sliceConfiguration';
 import type { PipelineEligibilityReport } from '@/types/api';
-import { useTranslation } from '@/i18n';
+
 import { useSliceJobTracker } from '@/contexts/SliceJobTrackerContext';
 
 export function RunWithPipelineModal(
@@ -19,6 +34,7 @@ export function RunWithPipelineModal(
     onRunStarted?: (id: number) => void;
   },
 ) {
+  useNativeLocale();
   const { t } = useTranslation();
   const text = (s: string) => t(`pipeline.${s}`, { defaultValue: s });
   const { hasPermission } = useAuth();
@@ -46,7 +62,7 @@ export function RunWithPipelineModal(
     enabled: props.visible,
   });
   const settings = useQuery({
-    queryKey: ['settings'],
+    queryKey: useServerSettingsKey(),
     queryFn: settingsApi.getSettings,
     enabled: props.visible,
   });
@@ -163,7 +179,7 @@ export function RunWithPipelineModal(
               text('No target')}
           </Copy>
           {report.issues.map((issue, i) => (
-            <Copy key={i}>{`${text(issue.kind)} · ${text('Slot')} ${
+            <Copy key={i}>{`${localizedEnum(issue.kind, issueCaptions)} · ${text('Slot')} ${
               issue.slot_index ?? '—'
             } · ${text('Expected')}: ${issue.expected ?? '—'} · ${text(
               'Actual',
@@ -175,7 +191,7 @@ export function RunWithPipelineModal(
                 printer.ok ? text('Ready') : text('Issues')
               }`}</Copy>
               {printer.issues.map((issue, i) => (
-                <Copy key={i}>{`${text(issue.kind)} · ${text('Slot')} ${
+                <Copy key={i}>{`${localizedEnum(issue.kind, issueCaptions)} · ${text('Slot')} ${
                   issue.slot_index ?? '—'
                 } · ${issue.expected ?? '—'} → ${issue.actual ?? '—'}`}</Copy>
               ))}
@@ -200,3 +216,4 @@ export function RunWithPipelineModal(
     </Sheet>
   );
 }
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

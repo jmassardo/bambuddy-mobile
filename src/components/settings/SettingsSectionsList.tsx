@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import { Text } from 'react-native';
 import {
@@ -6,7 +7,7 @@ import {
   SettingRow,
   StatusBadge,
 } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { searchSettings, SETTINGS_SEARCH_INDEX } from './settingsSearch';
 import { selectSettingsSearchResult } from './SettingsSearchFocus';
 import { summarize, SECTION_ITEMS } from './constants';
@@ -17,6 +18,7 @@ export function SettingsSectionsList({
 }: {
   controller: SettingsScreenController;
 }) {
+  useNativeLocale();
   const { t, text } = useTranslation();
   const [query, setQuery] = useState('');
   const results = searchSettings(
@@ -89,7 +91,7 @@ export function SettingsSectionsList({
             >
               <SettingRow
                 icon={item.icon}
-                label={`Open ${item.title}`}
+                label={translateNative('native.f65342ba3567b1c7', { value0: String(item.title) })}
                 description={item.description}
                 onPress={() => {
                   selectSettingsSearchResult(null);

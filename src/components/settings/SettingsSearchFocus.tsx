@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, {
   createContext,
   useContext,
@@ -13,7 +14,7 @@ import {
   type ScrollView,
 } from 'react-native';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import type { SettingsSearchResult } from './settingsSearch';
 import { fontSize, spacing } from '@/theme/tokens';
 
@@ -47,12 +48,14 @@ export function SettingsSearchFocusProvider({
   scroll: React.RefObject<ScrollView | null>;
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   return (
     <Context.Provider value={{ content, scroll }}>{children}</Context.Provider>
   );
 }
 
 export function SettingsSearchSelection() {
+  useNativeLocale();
   const selected = useSettingsSearchTarget();
   const { colors } = useTheme();
   const { t, text } = useTranslation();
@@ -77,6 +80,7 @@ export function SettingsSearchAnchor({
   label: string;
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   const selected = useSettingsSearchTarget();
   const context = useContext(Context);
   const ref = useRef<View>(null);

@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { Alert, Image, StyleSheet, Text, View } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
@@ -5,7 +7,7 @@ import { WebView } from 'react-native-webview';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { archiveWorkflows } from '@/api/archiveWorkflows';
 import { requestBlob } from '@/api/http';
-import { useTranslation } from '@/i18n';
+
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
@@ -35,6 +37,7 @@ export function EmbeddedArchiveProjectPage({
   archive: Archive;
   onClose: () => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const auth = useArchiveAuthorization(archive);
@@ -68,6 +71,14 @@ export function EmbeddedArchiveProjectPage({
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
+  const fieldLabels: Record<string, string> = {
+    get title() { return translateNative('native.ade29f565b1a8f18'); },
+    get designer() { return translateNative('native.7bfa836d448c26ad'); },
+    get license() { return translateNative('native.d87ef69215c625eb'); },
+    get description() { return translateNative('native.f38e87166ac410c8'); },
+    get profile_title() { return translateNative('native.b163c1549f81a04f'); },
+    get profile_description() { return translateNative('native.2d913d867f277f9f'); },
+  };
   const fields = [
     'title',
     'designer',
@@ -97,7 +108,7 @@ export function EmbeddedArchiveProjectPage({
           <TextField
             key={field}
             label={t(`archives.metadata.${field}`, {
-              defaultValue: field.replace(/_/g, ' '),
+              defaultValue: fieldLabels[field],
             })}
             value={String(draft[field] ?? '')}
             multiline={field.includes('description')}
@@ -109,7 +120,7 @@ export function EmbeddedArchiveProjectPage({
           <View key={field}>
             <Text style={{ color: colors.textSecondary }}>
               {t(`archives.metadata.${field}`, {
-                defaultValue: field.replace(/_/g, ' '),
+                defaultValue: fieldLabels[field],
               })}
             </Text>
             {field.includes('description') ? (
@@ -209,6 +220,7 @@ export function ArchiveDetailTools({
   onProjectPage: () => void;
   onNavigate: (kind: 'archive' | 'project' | 'folder', id: number) => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const auth = useArchiveAuthorization(archive);
@@ -358,7 +370,7 @@ export function ArchiveDetailTools({
               <Text style={{ color: colors.text }}>
                 {kind === 'source'
                   ? t('archives.source3mf', { defaultValue: 'Source 3MF' })
-                  : 'Fusion F3D'}
+                  : translateNative('native.9faf6c0b18ae1f66')}
                 :{' '}
                 {path?.split('/').pop() ??
                   t('archives.notAttached', { defaultValue: 'Not attached' })}
@@ -445,7 +457,7 @@ export function ArchiveDetailTools({
         {candidates.map(candidate => (
           <PrimaryButton
             key={candidate.name}
-            label={`${candidate.name} (${candidate.size ?? 0} B)`}
+            label={translateNative('native.8f958fa987b58fac', { value0: String(candidate.name), value1: String(candidate.size ?? 0) })}
             variant="secondary"
             disabled={action.isPending}
             onPress={() =>
@@ -560,9 +572,7 @@ export function ArchiveDetailTools({
           ) : null}
           {media.data?.warnings.map(warning => (
             <Text key={warning} style={{ color: colors.warning }}>
-              {t(`archives.mediaWarning.${warning}`, {
-                defaultValue: warning.replace(/_/g, ' '),
-              })}
+              {warning.replace(/_/g, ' ')}
             </Text>
           ))}
           {media.data?.local_timelapse ? (
@@ -589,9 +599,7 @@ export function ArchiveDetailTools({
           {media.data?.remote_files.map(file => (
             <PrimaryButton
               key={file.path}
-              label={`${selectedPaths.includes(file.path) ? '✓ ' : ''}${
-                file.name
-              } (${file.size} B)`}
+              label={translateNative('native.f44996a22a5cc8a1', { value0: String(selectedPaths.includes(file.path) ? '✓ ' : ''), value1: String(file.name), value2: String(file.size) })}
               variant="secondary"
               onPress={() =>
                 setSelectedPaths(current =>

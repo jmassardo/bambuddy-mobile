@@ -1,15 +1,17 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton, SectionCard } from '@/components/common/AppUI';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { announcementText, isAllowedAnnouncementLink, useAnnouncements } from '@/hooks/useAnnouncements';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import { formatDate } from '@/utils/data';
 import type { Announcement } from '@/types/api';
 
 export default function AnnouncementsScreen({ route }: { route?: { params?: { id?: string } } }) {
+  useNativeLocale();
   const { t, language } = useTranslation();
   const { colors } = useTheme();
   const inbox = useAnnouncements();

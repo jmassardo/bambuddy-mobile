@@ -1,3 +1,5 @@
+import { nativeLabelTuple, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,7 +11,7 @@ import {
 import { settingsApi } from '@/api/settings';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import type { InventoryRecord } from '@/types/api';
 import { number, parseNumber, text } from '@/utils/inventory';
 import {
@@ -119,12 +121,13 @@ export function LocationEnvironmentReadings({
 }: {
   locationId: number;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const prefs = useEnvironmentPreferences().data ?? initialPrefs;
   const settings = useQuery({
-    queryKey: ['settings'],
+    queryKey: useServerSettingsKey(),
     queryFn: () => settingsApi.getSettings(),
   });
   const readings = useQuery({
@@ -184,11 +187,12 @@ export function LocationEnvironmentReadings({
   );
 }
 export function EnvironmentDefaults({ onClose }: { onClose: () => void }) {
+  useNativeLocale();
   const { showToast } = useToast();
   const { hasPermission } = useAuth();
   const client = useQueryClient();
   const settings = useQuery({
-    queryKey: ['settings'],
+    queryKey: useServerSettingsKey(),
     queryFn: () => settingsApi.getSettings(),
   });
   const prefsQuery = useEnvironmentPreferences();
@@ -211,29 +215,29 @@ export function EnvironmentDefaults({ onClose }: { onClose: () => void }) {
   }, [settings.data, prefsQuery.data, ready]);
   const save = useMutation({
     mutationFn: async (resetExisting: boolean) => {
-      const pollInterval = parseNumber(interval, 'Polling interval', 60, 3600);
+      const pollInterval = parseNumber(interval, translateNative('native.b7baf88b4c0da1cc'), 60, 3600);
       for (const category of categories) {
         const row = prefs.defaults[category];
         const low = parseNumber(
           row.alertBelow,
-          'Below threshold',
+          translateNative('native.68e5035e8c7fd946'),
           -Infinity,
           Infinity,
           true,
         );
         const high = parseNumber(
           row.alertAbove,
-          'Above threshold',
+          translateNative('native.a486a816765db9de'),
           -Infinity,
           Infinity,
           true,
         );
         if (low !== null && high !== null && low >= high)
           throw new Error(
-            'Below threshold must be lower than above threshold.',
+            translateNative('native.c4ddbea55c35ee0d'),
           );
         if (row.notifyOnAlert && low === null && high === null)
-          throw new Error('Notifications require at least one threshold.');
+          throw new Error(translateNative('native.80f1e1a27aea6a04'));
       }
       if (resetExisting) {
         for (const printer of [false, true]) {
@@ -290,7 +294,7 @@ export function EnvironmentDefaults({ onClose }: { onClose: () => void }) {
         ].map(key => client.invalidateQueries({ queryKey: [key] })),
       );
       setReset(false);
-      showToast('Environmental options saved.', 'success');
+      showToast(translateNative('native.7fe6b43129f2bdef'), 'success');
       onClose();
     },
     onError: (error: Error) => showToast(error.message, 'error'),
@@ -309,7 +313,7 @@ export function EnvironmentDefaults({ onClose }: { onClose: () => void }) {
     }));
   return (
     <InventoryModal
-      title="Environmental defaults and display"
+      title={translateNative('native.308f983e172c24a2')}
       onClose={onClose}
     >
       {categories.map(category => (
@@ -317,64 +321,64 @@ export function EnvironmentDefaults({ onClose }: { onClose: () => void }) {
           <InventoryText>{category}</InventoryText>
           {category !== 'battery' && (
             <TextField
-              label="Alert above"
+              label={translateNative('native.7fad037d89f65bfa')}
               value={prefs.defaults[category].alertAbove}
               onChangeText={value => change(category, 'alertAbove', value)}
             />
           )}
           <TextField
-            label="Alert below"
+            label={translateNative('native.350adbffee8b46f8')}
             value={prefs.defaults[category].alertBelow}
             onChangeText={value => change(category, 'alertBelow', value)}
           />
           <Toggle
-            label="Notify by default"
+            label={translateNative('native.eaba79aca5a6fa65')}
             value={prefs.defaults[category].notifyOnAlert}
             onChange={value => change(category, 'notifyOnAlert', value)}
           />
           <Toggle
-            label="Show on cards by default"
+            label={translateNative('native.74f0ff9b915594f7')}
             value={prefs.defaults[category].showOnCard}
             onChange={value => change(category, 'showOnCard', value)}
           />
         </React.Fragment>
       ))}
       <TextField
-        label="Polling interval (seconds)"
+        label={translateNative('native.afd18dfe4254ba81')}
         value={interval}
         onChangeText={setInterval}
         keyboardType="number-pad"
       />
       <Toggle
-        label="Color environmental values"
+        label={translateNative('native.a1be8f7a42ee452e')}
         value={prefs.colorize}
         onChange={value => setPrefs(old => ({ ...old, colorize: value }))}
       />
       {(['below', 'optimal', 'above'] as const).map(key => (
         <ChoiceField
           key={key}
-          label={`${key} color`}
+          label={translateNative('native.03453f7d3f6bc8b6', { value0: String(key) })}
           value={prefs[key]}
           options={Object.keys(palette).map(value => ({ value, label: value }))}
           onChange={value => setPrefs(old => ({ ...old, [key]: value }))}
         />
       ))}
       <PrimaryButton
-        label="Save defaults (leave existing bindings unchanged)"
+        label={translateNative('native.13795859a6130389')}
         loading={save.isPending}
         disabled={!ready}
         onPress={() => save.mutate(false)}
       />
       <PrimaryButton
-        label="Reset existing sensors to chosen defaults"
+        label={translateNative('native.4ce35182cb7564f6')}
         variant="danger"
         disabled={!ready || !hasPermission('smart_plugs:update')}
         onPress={() => setReset(true)}
       />
       <ConfirmModal
         visible={reset}
-        title="Reset existing environmental sensors?"
-        message="Temperature, humidity and battery bindings will receive these alert, notification and visibility values. Other sensor types remain unchanged."
+        title={translateNative('native.20284ef5a9a10136')}
+        message={translateNative('native.75beaad25049013f')}
         onClose={() => setReset(false)}
         onConfirm={() => save.mutate(true)}
         loading={save.isPending}
@@ -383,6 +387,7 @@ export function EnvironmentDefaults({ onClose }: { onClose: () => void }) {
   );
 }
 export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
+  useNativeLocale();
   const { showToast } = useToast();
   const { hasPermission } = useAuth();
   const canCreate = hasPermission('smart_plugs:create');
@@ -400,7 +405,7 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
   >(null);
   const prefs = useEnvironmentPreferences().data ?? initialPrefs;
   const settings = useQuery({
-    queryKey: ['settings'],
+    queryKey: useServerSettingsKey(),
     queryFn: () => settingsApi.getSettings(),
   });
   const sensors = useQuery({
@@ -457,12 +462,12 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
       if (operation === 'delete')
         return management.deleteSensor(number(editing, 'id'), printer);
       if (!target || !text(form, 'entity_id') || !text(form, 'name').trim())
-        throw new Error('Choose a target, entity and name.');
+        throw new Error(translateNative('native.61028c9bf43470b9'));
       const numeric = form.kind === 'numeric';
       const below = numeric
         ? parseNumber(
             text(form, 'alert_below'),
-            'Alert below',
+            translateNative('native.350adbffee8b46f8'),
             -Infinity,
             Infinity,
             true,
@@ -471,14 +476,14 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
       const above = numeric
         ? parseNumber(
             text(form, 'alert_above'),
-            'Alert above',
+            translateNative('native.7fad037d89f65bfa'),
             -Infinity,
             Infinity,
             true,
           )
         : null;
       if (below !== null && above !== null && below >= above)
-        throw new Error('Below threshold must be lower than above.');
+        throw new Error(translateNative('native.a3343246fe53e8a4'));
       const payload = {
         ...form,
         name: text(form, 'name').trim(),
@@ -488,7 +493,7 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
         alert_state: !numeric && form.alert_state ? form.alert_state : null,
         sort_order: parseNumber(
           text(form, 'sort_order', '0'),
-          'Sort order',
+          translateNative('native.7b209e16efe1dbf2'),
           0,
           999,
         ),
@@ -552,14 +557,14 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
       setEditing(undefined);
       setConfirmation(null);
       setRelated([]);
-      showToast('Sensor bindings updated.', 'success');
+      showToast(translateNative('native.db0f2c07aaea6913'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
   return (
-    <InventoryModal title="Environmental sensor bindings" onClose={onClose}>
+    <InventoryModal title={translateNative('native.309b6348e235209f')} onClose={onClose}>
       <Toggle
-        label="Printer bindings (off: storage locations)"
+        label={translateNative('native.8ca98e1c94b4b69e')}
         value={printer}
         onChange={value => {
           setPrinter(value);
@@ -568,7 +573,7 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
         }}
       />
       <ChoiceField
-        label={printer ? 'Printer' : 'Location'}
+        label={printer ? translateNative('screen.printer') : translateNative('native.4fa01b8a6af1174b')}
         value={target}
         options={(targets.data ?? []).map(row => ({
           value: text(row, 'id'),
@@ -583,7 +588,7 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
         ))}
       {canCreate && (
         <PrimaryButton
-          label="Bind entity"
+          label={translateNative('native.d7ad30056ebb6bb0')}
           disabled={!target}
           onPress={() => {
             setEditing(null);
@@ -615,16 +620,16 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
         ))}
       {editing !== undefined && (
         <InventoryModal
-          title={editing ? 'Edit sensor' : 'Bind entity'}
+          title={editing ? translateNative('native.9641da7c5bceeedf') : translateNative('native.d7ad30056ebb6bb0')}
           onClose={() => setEditing(undefined)}
         >
           <SearchBar
             value={search}
             onChangeText={setSearch}
-            placeholder="Search HA entities / current values"
+            placeholder={translateNative('native.43583b3c969b4904')}
           />
           <ChoiceField
-            label="Entity"
+            label={translateNative('native.11dffa658091c19e')}
             value={text(form, 'entity_id')}
             options={(entities.data ?? [])
               .filter(row =>
@@ -643,8 +648,8 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
           />
           <Fields
             fields={[
-              ['name', 'Display name'],
-              ['sort_order', 'Sort order'],
+              nativeLabelTuple(['name', 'native.a6034f05a5105e39']),
+              nativeLabelTuple(['sort_order', 'native.7b209e16efe1dbf2']),
             ]}
             values={{
               name: text(form, 'name'),
@@ -657,8 +662,8 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
           {form.kind === 'numeric' ? (
             <Fields
               fields={[
-                ['alert_below', 'Alert below (optional)'],
-                ['alert_above', 'Alert above (optional)'],
+                nativeLabelTuple(['alert_below', 'native.61c435f9f3460061']),
+                nativeLabelTuple(['alert_above', 'native.1b5ef7865b338606']),
               ]}
               values={{
                 alert_below: text(form, 'alert_below'),
@@ -670,11 +675,11 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
             />
           ) : (
             <ChoiceField
-              label="Alert state"
+              label={translateNative('native.529085e0eadd5e4f')}
               value={text(form, 'alert_state')}
               options={['', 'on', 'off'].map(value => ({
                 value,
-                label: value || 'No alert',
+                label: value || translateNative('native.2a2befaf4dca1f78'),
               }))}
               onChange={value =>
                 setForm(old => ({ ...old, alert_state: value }))
@@ -682,14 +687,14 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
             />
           )}
           <Toggle
-            label="Notify on alert"
+            label={translateNative('native.b9334be609ad095f')}
             value={!!form.notify_on_alert}
             onChange={value =>
               setForm(old => ({ ...old, notify_on_alert: value }))
             }
           />
           <Toggle
-            label="Show on card / dashboard"
+            label={translateNative('native.c8844c03d4ae37a8')}
             value={
               form[printer ? 'show_on_printer_card' : 'show_on_card'] !== false
             }
@@ -702,7 +707,7 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
           />
           {printer && (
             <Toggle
-              label="Block printing while alerting"
+              label={translateNative('native.891120515c2d6628')}
               value={!!form.block_print}
               onChange={value =>
                 setForm(old => ({ ...old, block_print: value }))
@@ -710,8 +715,7 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
             />
           )}
           <InventoryText>
-            Related environmental entities (optional)
-          </InventoryText>
+            {translateNative('native.c0b118de3fa44a7e')}</InventoryText>
           {(entities.data ?? [])
             .filter(
               row =>
@@ -754,7 +758,7 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
             ))}
           {(editing ? canUpdate : canCreate) && (
             <PrimaryButton
-              label="Save binding"
+              label={translateNative('native.fee04c4b3b991c3a')}
               disabled={!!existing && !canUpdate}
               loading={mutation.isPending}
               onPress={() =>
@@ -766,7 +770,7 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
           )}
           {!!editing && canDelete && (
             <PrimaryButton
-              label="Delete binding"
+              label={translateNative('native.72201c6ae14ac6b1')}
               variant="danger"
               onPress={() => setConfirmation('delete')}
             />
@@ -775,16 +779,16 @@ export function EnvironmentBindings({ onClose }: { onClose: () => void }) {
             visible={confirmation !== null}
             title={
               confirmation === 'delete'
-                ? 'Delete sensor binding?'
-                : 'Overwrite existing binding?'
+                ? translateNative('native.481dfee2e13b4924')
+                : translateNative('native.4e3e88e4aeb69359')
             }
             message={
               confirmation === 'delete'
-                ? 'Only this binding is removed. The Home Assistant entity is not deleted.'
-                : `This entity is already bound as ${text(
+                ? translateNative('native.d5be1db5a44c3cce')
+                : translateNative('native.1ee92e4acb57084c', { value0: String(text(
                     existing,
                     'name',
-                  )}. Replace its configuration?`
+                  )) })
             }
             onClose={() => setConfirmation(null)}
             onConfirm={() =>
@@ -803,3 +807,4 @@ const styles = StyleSheet.create({
   readings: { gap: 4, paddingVertical: 4 },
   reading: { fontSize: 12 },
 });
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

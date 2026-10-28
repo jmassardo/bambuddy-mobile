@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import { NativeTranslation, nativeLabelTuple, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, {
   Circle,
@@ -15,7 +17,7 @@ import {
   inventoryRequest,
 } from '@/api/inventoryManagement';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import type { InventoryRecord } from '@/types/api';
 import { number, parseNumber, remaining, text } from '@/utils/inventory';
 import { formatCurrency, formatDateTime } from '@/utils/data';
@@ -36,6 +38,7 @@ function cssColor(raw: string) {
   return /^[a-f\d]{6}([a-f\d]{2})?$/i.test(clean) ? `#${clean}` : '#808080';
 }
 export function SpoolSwatch({ spool }: { spool: InventoryRecord }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const colors = [
     text(spool, 'rgba', '808080FF'),
@@ -123,13 +126,14 @@ export function SpoolDetails({
   onLabels: (ids: number[]) => void;
   onChanged: () => Promise<void>;
 }) {
+  useNativeLocale();
   const { showToast } = useToast();
   const { hasPermission } = useAuth();
   const canWrite = hasPermission('inventory:update');
   const canDelete = hasPermission('inventory:delete');
   const client = useQueryClient();
   const id = number(spool, 'id');
-  const backend = useMemo(() => inventoryBackend(spoolman), [spoolman]);
+  const backend = useLocalizedMemo(() => inventoryBackend(spoolman), [spoolman]);
   const detail = useQuery({
     queryKey: ['inventorySpool', spoolman, id],
     queryFn: () => backend.spool(id),
@@ -193,8 +197,8 @@ export function SpoolDetails({
           {
             [spoolman ? 'spoolman_spool_id' : 'spool_id']: id,
             printer_id: parseNumber(target.printer_id, 'Printer', 1),
-            ams_id: parseNumber(target.ams_id, 'AMS ID', 0, 255),
-            tray_id: parseNumber(target.tray_id, 'Tray ID', 0, 3),
+            ams_id: parseNumber(target.ams_id, translateNative('native.a66abd595876fb98'), 0, 255),
+            tray_id: parseNumber(target.tray_id, translateNative('native.c416d6e6d5881867'), 0, 3),
           },
         );
       return inventoryRequest(
@@ -210,7 +214,7 @@ export function SpoolDetails({
       setConfirm(null);
       setAssign(false);
       if (operation === 'delete') onClose();
-      showToast('Spool updated.', 'success');
+      showToast(translateNative('native.59ecb8f28d814a80'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
@@ -221,7 +225,7 @@ export function SpoolDetails({
     number(row, 'last_scale_weight') < number(row, 'core_weight') ||
     Math.abs(discrepancy) <= 50;
   return (
-    <InventoryModal title={`Spool #${id}`} onClose={onClose}>
+    <InventoryModal title={translateNative('native.695cc238a31cecd5', { value0: String(id) })} onClose={onClose}>
       {detail.isError && <InventoryText>{detail.error.message}</InventoryText>}
       <SpoolSwatch spool={row} />
       {[
@@ -271,121 +275,101 @@ export function SpoolDetails({
             : text(row, key, '—')}
         </InventoryText>
       ))}
-      <InventoryText>
-        {Math.round(remaining(row))} g net remaining ·{' '}
-        {Math.round(trackedGross)} g tracked gross ·{' '}
-        {Math.round(
+      <InventoryText><NativeTranslation id="native.72bb4bcfc0a25f7a" values={{ value0: (Math.round(remaining(row))), value1: (Math.round(trackedGross)), value2: (Math.round(
           Math.max(
             0,
             number(row, 'weight_used') - number(row, 'weight_used_baseline'),
           ),
-        )}{' '}
-        g consumed since reset
-      </InventoryText>
+        )) }} /></InventoryText>
       <LocationEnvironmentReadings locationId={number(row, 'location_id')} />
       {scale != null && (
-        <SectionCard title="Scale reconciliation">
-          <InventoryText>
-            Measured gross {number(row, 'last_scale_weight')} g · measured net{' '}
-            {Math.max(
+        <SectionCard title={translateNative('native.c2c53f83fdd62cb1')}>
+          <InventoryText><NativeTranslation id="native.40cd37641d1ec766" values={{ value0: (number(row, 'last_scale_weight')), value1: (Math.max(
               0,
               number(row, 'last_scale_weight') - number(row, 'core_weight'),
-            )}{' '}
-            g · tracked gross {Math.round(trackedGross)} g · discrepancy{' '}
-            {Math.round(discrepancy)} g
-          </InventoryText>
+            )), value2: (Math.round(trackedGross)), value3: (Math.round(discrepancy)) }} /></InventoryText>
           <InventoryText>
             {matches
-              ? 'Within 50 g tolerance (or below tare)'
-              : '⚠ Measured and tracked weights disagree'}
+              ? translateNative('native.90544d691c37aa8d')
+              : translateNative('native.2b812694885775a6')}
           </InventoryText>
           {canWrite && (
             <PrimaryButton
-              label="Trust measured scale weight and reconcile tracking"
+              label={translateNative('native.9dd4a7e9fcca3648')}
               onPress={() => setConfirm('scale')}
             />
           )}
         </SectionCard>
       )}
       {assignment && (
-        <InventoryText>
-          Assigned: {text(assignment, 'printer_name')} · AMS{' '}
-          {number(assignment, 'ams_id')} / tray {number(assignment, 'tray_id')}
-        </InventoryText>
+        <InventoryText><NativeTranslation id="native.0142f6a9b1b2a8f1" values={{ value0: (text(assignment, 'printer_name')), value1: (number(assignment, 'ams_id')), value2: (number(assignment, 'tray_id')) }} /></InventoryText>
       )}
       {canWrite && (
         <>
-          <PrimaryButton label="Edit spool" onPress={() => onEdit(row)} />
+          <PrimaryButton label={translateNative('native.060e4f38051c717e')} onPress={() => onEdit(row)} />
           <PrimaryButton
-            label="Copy as new spool (no unique identity)"
+            label={translateNative('native.eae86bd2cb264031')}
             variant="secondary"
             onPress={() => onCopy(row)}
           />
           <PrimaryButton
-            label="Assign printer slot"
+            label={translateNative('native.b61d3e270ecb92b1')}
             variant="secondary"
             onPress={() => setAssign(true)}
           />
           {!!assignment && (
             <PrimaryButton
-              label="Unassign printer slot"
+              label={translateNative('native.6407f3c05d1f3252')}
               variant="secondary"
               onPress={() => setConfirm('unassign')}
             />
           )}
           <PrimaryButton
-            label="Reset this consumed counter"
+            label={translateNative('native.ff0eb6a21af62944')}
             variant="secondary"
             onPress={() => setConfirm('reset-consumed-counter')}
           />
           <PrimaryButton
-            label="Mark empty"
+            label={translateNative('native.9fe9538bfc156f23')}
             variant="secondary"
             onPress={() => setConfirm('empty')}
           />
           <PrimaryButton
-            label={row.archived_at ? 'Restore' : 'Archive'}
+            label={row.archived_at ? translateNative('native.3d4ea31b4516a8ec') : translateNative('screen.archive')}
             variant="secondary"
             onPress={() => setConfirm(row.archived_at ? 'restore' : 'archive')}
           />
         </>
       )}
       <PrimaryButton
-        label="Compose label"
+        label={translateNative('native.09deced065cf52b9')}
         variant="secondary"
         onPress={() => onLabels([id])}
       />
       {canDelete && (
         <PrimaryButton
-          label="Delete spool"
+          label={translateNative('native.a5daeca144d82220')}
           variant="danger"
           onPress={() => setConfirm('delete')}
         />
       )}
       {!spoolman && (
-        <SectionCard title="Usage history">
+        <SectionCard title={translateNative('native.860d649d3dfa11c5')}>
           {usage.isError && (
             <InventoryText>{usage.error.message}</InventoryText>
           )}
           {(usage.data ?? []).map(record => (
             <View key={number(record, 'id')}>
-              <InventoryText>
-                {text(record, 'print_name', 'Print')} ·{' '}
-                {number(record, 'weight_used')} g ·{' '}
-                {number(record, 'percent_used')}% consumed
-              </InventoryText>
-              <InventoryText>
-                {formatDateTime(record.created_at)} · {text(record, 'status')} ·
-                cost {record.cost == null ? '—' : formatCurrency(record.cost)}
-              </InventoryText>
+              <InventoryText><NativeTranslation id="native.1b75353b9b5882f3" values={{ value0: (text(record, 'print_name', 'Print')), value1: (number(record, 'weight_used')), value2: (number(record, 'percent_used')) }} /></InventoryText>
+              <InventoryText><NativeTranslation id="native.f7c6271ceccf0982" values={{ value0: (formatDateTime(record.created_at)), value1: (text(record, 'status')), value2: (record.cost == null ? '—' : formatCurrency(record.cost)) }} /></InventoryText>
             </View>
           ))}
           {!usage.data?.length && (
-            <InventoryText>No recorded usage.</InventoryText>
+            <InventoryText>{translateNative('native.ab85bf3d311c93d3')}</InventoryText>
           )}
           {canWrite && (
             <PrimaryButton
-              label="Clear this usage history"
+              label={translateNative('native.16a02b32cb201bc8')}
               variant="danger"
               loading={mutation.isPending}
               onPress={() => setConfirm('usage')}
@@ -395,11 +379,11 @@ export function SpoolDetails({
       )}
       {assign && (
         <InventoryModal
-          title="Assign spool to printer slot"
+          title={translateNative('native.ebf12b4f8723203f')}
           onClose={() => setAssign(false)}
         >
           <ChoiceField
-            label="Printer"
+            label={translateNative('screen.printer')}
             value={target.printer_id}
             options={(printers.data ?? []).map(printer => ({
               value: text(printer, 'id'),
@@ -411,8 +395,8 @@ export function SpoolDetails({
           />
           <Fields
             fields={[
-              ['ams_id', 'AMS ID (255: external spool)'],
-              ['tray_id', 'Tray ID (0–3)'],
+              nativeLabelTuple(['ams_id', 'native.1cfc76b81cca160d']),
+              nativeLabelTuple(['tray_id', 'native.96625a96060c1243']),
             ]}
             values={target}
             onChange={(key, value) =>
@@ -420,7 +404,7 @@ export function SpoolDetails({
             }
           />
           <PrimaryButton
-            label="Assign"
+            label={translateNative('native.aff9b055e1df6025')}
             loading={mutation.isPending}
             onPress={() => mutation.mutate('assign')}
           />
@@ -430,19 +414,17 @@ export function SpoolDetails({
         visible={confirm !== null}
         title={
           confirm === 'usage'
-            ? 'Clear usage history?'
+            ? translateNative('native.5cfafdb69590c436')
             : confirm === 'reset-consumed-counter'
-            ? 'Reset consumed counter?'
-            : 'Confirm spool action'
+            ? translateNative('native.9bda7dc518525f3a')
+            : translateNative('native.02a1fd4354c5a018')
         }
         message={
           confirm === 'usage'
-            ? 'Usage records will be permanently deleted. Remaining stock is unchanged.'
+            ? translateNative('native.d4bd74f4ded82479')
             : confirm === 'reset-consumed-counter'
-            ? 'Only the consumption baseline changes. Remaining filament and history stay unchanged.'
-            : `${
-                confirm ?? ''
-              } will update this spool. Delete permanently removes it.`
+            ? translateNative('native.29537e46517d8c29')
+            : translateNative('native.a255d5681d39c736', { value0: String(confirm ?? '') })
         }
         onClose={() => setConfirm(null)}
         onConfirm={() => {

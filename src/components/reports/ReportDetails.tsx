@@ -1,13 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { InlineTabBar } from '@/components/common/AppUI';
 import { SimpleBarChart } from '@/components/common/Charts';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { reportsApi } from '@/api/reports';
 import { spacing } from '@/theme/tokens';
+import { formatWeekday } from '@/utils/formatters';
 import {
   formatPreferredCurrency as money,
   formatPreferredDate,
@@ -49,6 +52,7 @@ export function AccuracyReport({
   stats,
   printerNames,
 }: Pick<Props, 'stats' | 'printerNames'>) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const accuracy =
@@ -98,26 +102,27 @@ export function RecordsReport({
   archives,
   currency,
 }: Pick<Props, 'archives' | 'currency'>) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const records = useMemo(() => reportRecords(archives), [archives]);
+  const records = useLocalizedMemo(() => reportRecords(archives), [archives]);
   const label = (value: string) => t(`stats.${value}`, { defaultValue: value });
   return (
     <View style={styles.group}>
       {(
         [
           [
-            'Longest successful print',
+            translateNative('native.f8df4aa97cb0ac03'),
             records.longest,
             formatDuration(records.longest.value),
           ],
           [
-            'Heaviest print',
+            translateNative('native.45555a31eb2a9757'),
             records.heaviest,
             formatWeight(records.heaviest.value),
           ],
           [
-            'Most expensive print (filament + measured energy)',
+            translateNative('native.87209a605f30a64d'),
             records.costliest,
             money(records.costliest.value, currency),
           ],
@@ -155,6 +160,7 @@ export function ExplorationReport({
   currency,
   scope,
 }: Omit<Props, 'stats'>) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [metric, setMetric] = useState<ReportMetric>('prints');
@@ -176,9 +182,8 @@ export function ExplorationReport({
   );
   const materialRows = splitReport(archives, 'filament_type', metric);
   const colorRows = splitReport(archives, 'filament_color', colorMetric);
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const dayRows = days.map((day, index) => ({
-    label: label(day),
+  const dayRows = Array.from({ length: 7 }, (_, index) => ({
+    label: formatWeekday(index),
     value: archives
       .filter(item => parseServerDate(reportTimestamp(item)).getDay() === index)
       .reduce((sum, item) => sum + metricValue(item, metric), 0),
@@ -347,6 +352,7 @@ export function PurchasingReports({
   scope,
   currency,
 }: Pick<Props, 'scope' | 'currency'>) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { hasPermission } = useAuth();
@@ -391,8 +397,8 @@ export function PurchasingReports({
         )}
       </Text>
       {[
-        { title: 'Supplier purchasing report', query: supplier },
-        { title: 'Material-number purchasing report', query: material },
+        { get title() { return translateNative('native.9c90cb8f73a5518a'); }, query: supplier },
+        { get title() { return translateNative('native.3de0989b0e76b67f'); }, query: material },
       ].map(({ title, query }) => (
         <View key={title} style={styles.group}>
           <Text style={{ color: colors.text }}>{label(title)}</Text>

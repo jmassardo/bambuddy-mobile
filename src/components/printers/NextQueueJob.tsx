@@ -1,7 +1,8 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import type { PrintQueueItem } from '@/types/api';
 import { spacing } from '@/theme/tokens';
 
@@ -14,6 +15,7 @@ export function NextQueueJob({
   additionalCount: number;
   onPress?: () => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const variants = (

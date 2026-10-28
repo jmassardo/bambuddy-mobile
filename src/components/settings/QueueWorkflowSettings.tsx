@@ -1,3 +1,5 @@
+import { nativeLabelTuple, translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -7,7 +9,7 @@ import {
   SectionCard,
   TextField,
 } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { WorkflowNumberField } from './WorkflowFields';
 import { OptionChipsField, SwitchRow, settingsStyles } from './shared';
 import {
@@ -27,6 +29,7 @@ export function QueueWorkflowSettings({
 }: {
   controller: SettingsScreenController;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { draft } = controller.state;
   const set = (key: string, value: unknown) =>
@@ -60,10 +63,10 @@ export function QueueWorkflowSettings({
   return (
     <>
       <SectionCard
-        title={fieldLabel('quickPresets', 'Temperature and fan quick presets')}
+        title={fieldLabel('quickPresets', translateNative('native.6bccd9bd5dba98f5'))}
         subtitle={fieldLabel(
           'quickPresetsHelp',
-          'Three shortcuts per category, shared with printer controls. Off remains a separate shortcut.',
+          translateNative('native.ad9f041bddee69b4'),
         )}
       >
         {QUICK_PRESETS.map(category => {
@@ -104,16 +107,16 @@ export function QueueWorkflowSettings({
         })}
       </SectionCard>
       <SectionCard
-        title={fieldLabel('keepWarm', 'Preheat and keep bed warm')}
+        title={fieldLabel('keepWarm', translateNative('native.3b2afee7314d379c'))}
         subtitle={fieldLabel(
           'keepWarmHelp',
-          'Keep-warm requires preheat and plate-clear confirmation, and only holds heat for chamber-heated materials. The print’s higher bed target takes precedence.',
+          translateNative('native.3ad35084ce4d65e1'),
         )}
       >
         <SwitchRow
           label={fieldLabel(
             'queue_keep_bed_warm',
-            'Keep bed warm while awaiting plate clear',
+            translateNative('native.4833e2dd435f6361'),
           )}
           value={draft.queue_keep_bed_warm === true}
           disabled={!draft.preheat_enabled || !draft.require_plate_clear}
@@ -122,7 +125,7 @@ export function QueueWorkflowSettings({
         <WorkflowNumberField
           label={fieldLabel(
             'queue_keep_warm_bed_temp',
-            'Keep-warm bed target (°C)',
+            translateNative('native.c85ba6a3fd16d526'),
           )}
           value={Number(draft.queue_keep_warm_bed_temp ?? 90)}
           min={40}
@@ -132,7 +135,7 @@ export function QueueWorkflowSettings({
         <WorkflowNumberField
           label={fieldLabel(
             'queue_keep_warm_max_minutes',
-            'Maximum keep-warm duration (minutes)',
+            translateNative('native.23a654493e1b9d7f'),
           )}
           value={Number(draft.queue_keep_warm_max_minutes ?? 120)}
           min={5}
@@ -147,7 +150,7 @@ export function QueueWorkflowSettings({
         >
           {fieldLabel(
             'preheatTargetsHelp',
-            'Per-material chamber targets in °C. Zero skips the chamber phase, not bed heating or soak. The highest loaded-material target is used.',
+            translateNative('native.7dcfd80dfed55e3e'),
           )}
         </Text>
         {Object.entries(preheat).map(([material, value]) => (
@@ -169,29 +172,29 @@ export function QueueWorkflowSettings({
           />
         ))}
         <PrimaryButton
-          label={fieldLabel('resetTargets', 'Reset all preheat targets')}
+          label={fieldLabel('resetTargets', translateNative('native.3d97fd767eafcbc1'))}
           variant="secondary"
           onPress={() => set('preheat_filament_targets', '')}
         />
       </SectionCard>
       <SectionCard
-        title={fieldLabel('drying', 'Automatic drying')}
+        title={fieldLabel('drying', translateNative('native.c6dcf1bb1b0f9487'))}
         subtitle={fieldLabel(
           'dryingHelp',
-          'Requires supported AMS hardware. Print drying also requires compatible printer firmware; the server reduces drying temperatures while printing.',
+          translateNative('native.1d44e210d6efe9a7'),
         )}
       >
         {[
-          ['queue_drying_enabled', 'Dry filament between queued prints'],
-          ['queue_drying_block', 'Block queue until drying completes'],
-          [
+          nativeLabelTuple(['queue_drying_enabled', 'native.f1b83ddc16d3b74d']),
+          nativeLabelTuple(['queue_drying_block', 'native.86b79e7d66cda22b']),
+          nativeLabelTuple([
             'ambient_drying_enabled',
-            'Dry idle printers when humidity exceeds threshold',
-          ],
-          [
+            'native.1d7ed1a4b01b8d14',
+          ]),
+          nativeLabelTuple([
             'print_drying_enabled',
-            'Allow drying while printing on supported printers',
-          ],
+            'native.eea7068a5b381fb7',
+          ]),
         ].map(([key, label]) => (
           <SwitchRow
             key={key}
@@ -204,15 +207,15 @@ export function QueueWorkflowSettings({
           />
         ))}
         <OptionChipsField
-          label={fieldLabel('sustainedTrigger', 'Ambient humidity trigger')}
+          label={fieldLabel('sustainedTrigger', translateNative('native.d1dd179c92982ba1'))}
           value={
             Number(draft.ambient_drying_sustained_minutes ?? 0) > 0
               ? 'sustained'
               : 'immediate'
           }
           options={[
-            { key: 'immediate', label: fieldLabel('immediate', 'Immediate') },
-            { key: 'sustained', label: fieldLabel('sustained', 'Sustained') },
+            { key: 'immediate', label: fieldLabel('immediate', translateNative('native.1171787785ee928d')) },
+            { key: 'sustained', label: fieldLabel('sustained', translateNative('native.5806186070f1c43e')) },
           ]}
           onChange={value =>
             set(
@@ -225,7 +228,7 @@ export function QueueWorkflowSettings({
           <WorkflowNumberField
             label={fieldLabel(
               'sustainedMinutes',
-              'Sustained humidity duration (minutes)',
+              translateNative('native.e430354b064b4e9b'),
             )}
             value={Number(draft.ambient_drying_sustained_minutes)}
             min={5}
@@ -235,16 +238,16 @@ export function QueueWorkflowSettings({
         ) : null}
       </SectionCard>
       <SectionCard
-        title={fieldLabel('dryingPresets', 'Material drying presets')}
+        title={fieldLabel('dryingPresets', translateNative('native.9a12cdbd9e88c886'))}
       >
         {Object.entries(drying).map(([material, preset]) => (
           <View key={material}>
             {(
               [
-                ['n3f', 'AMS 2 Pro (N3F) °C', 30, 65],
-                ['n3f_hours', 'AMS 2 Pro (N3F) hours', 1, 24],
-                ['n3s', 'AMS HT (N3S) °C', 30, 85],
-                ['n3s_hours', 'AMS HT (N3S) hours', 1, 24],
+                nativeLabelTuple(['n3f', 'AMS 2 Pro (N3F) °C', 30, 65]),
+                nativeLabelTuple(['n3f_hours', 'AMS 2 Pro (N3F) hours', 1, 24]),
+                nativeLabelTuple(['n3s', 'native.fdb6d3a9d6f7f5d9', 30, 85]),
+                nativeLabelTuple(['n3s_hours', 'native.e1b1ffcaa07d29fd', 1, 24]),
               ] as const
             ).map(([key, label, min, max]) => (
               <WorkflowNumberField
@@ -271,16 +274,16 @@ export function QueueWorkflowSettings({
           </View>
         ))}
         <PrimaryButton
-          label={fieldLabel('resetDrying', 'Reset drying presets')}
+          label={fieldLabel('resetDrying', translateNative('native.3111fd5c0dd2998c'))}
           variant="secondary"
           onPress={() => set('drying_presets', '')}
         />
       </SectionCard>
       <SectionCard
-        title={fieldLabel('humidityTriggers', 'Drying humidity thresholds')}
+        title={fieldLabel('humidityTriggers', translateNative('native.5021abddbb50d67b'))}
         subtitle={fieldLabel(
           'humidityHelp',
-          'Relative humidity 5–95%. Clear a material override to inherit Default; clear Default to inherit the AMS fair threshold. These triggers are shared with filament alarms.',
+          translateNative('native.368bcdc6ca0dc5a0'),
         )}
       >
         {[
@@ -333,10 +336,10 @@ export function QueueWorkflowSettings({
         })}
       </SectionCard>
       <SectionCard
-        title={fieldLabel('gcode', 'Per-model G-code snippets')}
+        title={fieldLabel('gcode', translateNative('native.44b0918f742e4f9b'))}
         subtitle={fieldLabel(
           'gcodeHelp',
-          'Inserted only when a queue item enables G-code injection. Review commands carefully before running a print.',
+          translateNative('native.05929c3ce30e345f'),
         )}
       >
         {printersQuery.isError ? (
@@ -349,7 +352,7 @@ export function QueueWorkflowSettings({
             >
               {fieldLabel(
                 'printerModelsUnavailable',
-                'Unable to load configured printer models. Existing saved snippets remain editable.',
+                translateNative('native.920528f62eb25dc4'),
               )}
             </Text>
             <PrimaryButton
@@ -378,7 +381,7 @@ export function QueueWorkflowSettings({
           >
             {fieldLabel(
               'noModels',
-              'Add a printer to configure model-specific snippets.',
+              translateNative('native.2a004521d42c51f1'),
             )}
           </Text>
         ) : null}
@@ -394,8 +397,8 @@ export function QueueWorkflowSettings({
               >
                 {model} •{' '}
                 {snippet?.start_gcode || snippet?.end_gcode
-                  ? fieldLabel('configured', 'Configured')
-                  : fieldLabel('notConfigured', 'Not configured')}
+                  ? fieldLabel('configured', translateNative('native.77b12cea493c6ee5'))
+                  : fieldLabel('notConfigured', translateNative('native.e26dc4caf4a4ad54'))}
               </Text>
               {(['start_gcode', 'end_gcode'] as const).map(field => (
                 <TextField

@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import { NativeTranslation, nativeLabelTuple, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -58,7 +60,7 @@ import { NfcInventoryScanModal } from '@/components/inventory/NfcInventoryScanMo
 import { SpoolEditor } from '@/components/inventory/SpoolEditor';
 import { SpoolDetails, SpoolSwatch } from '@/components/inventory/SpoolDetails';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import type { InventoryRecord } from '@/types/api';
@@ -80,7 +82,14 @@ import {
 } from '@/utils/inventory';
 import { shareBlob } from '@/utils/share';
 
+const INVENTORY_FILTER_LABELS: Record<string, string> = {
+  get material() { return translateNative('native.d9621937608f6468'); }, get brand() { return translateNative('native.c6e3d939851b066b'); }, get category() { return translateNative('native.1d391aa0521102b6'); },
+  get material_number() { return translateNative('native.c691b8219b077f90'); }, get core_weight_catalog_id() { return translateNative('native.305fc440b54b012d'); },
+  get location_id() { return translateNative('native.db579643a2c06c8e'); },
+};
+
 export default function InventoryScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -119,7 +128,7 @@ export default function InventoryScreen() {
   const spoolman =
     spoolmanSettings.data?.spoolman_enabled === 'true' &&
     !!spoolmanSettings.data?.spoolman_url;
-  const backend = useMemo(() => inventoryBackend(spoolman), [spoolman]);
+  const backend = useLocalizedMemo(() => inventoryBackend(spoolman), [spoolman]);
   const spools = useQuery({
     queryKey: ['inventorySpools', spoolman],
     queryFn: backend.spools,
@@ -136,7 +145,7 @@ export default function InventoryScreen() {
     enabled: spoolmanSettings.isSuccess,
   });
   const settings = useQuery({
-    queryKey: ['settings'],
+    queryKey: useServerSettingsKey(),
     queryFn: () => settingsApi.getSettings(),
   });
   const catalog = useQuery({
@@ -151,7 +160,7 @@ export default function InventoryScreen() {
     queryKey: ['inventoryLocations'],
     queryFn: () => inventoryRequest<InventoryRecord[]>('/inventory/locations'),
   });
-  const rows = useMemo(() => spools.data ?? [], [spools.data]);
+  const rows = useLocalizedMemo(() => spools.data ?? [], [spools.data]);
   const assignmentId = (row: InventoryRecord) =>
     number(row, spoolman ? 'spoolman_spool_id' : 'spool_id');
   const assignedIds = new Set((assignments.data ?? []).map(assignmentId));
@@ -349,8 +358,8 @@ export default function InventoryScreen() {
         : old.filter(id => !ids.includes(id)),
     );
   const filterOptions = (key: string) => [
-    { value: '', label: 'All' },
-    { value: NO_INVENTORY_VALUE, label: 'None / unassigned' },
+    { value: '', get label() { return translateNative('common.all'); } },
+    { value: NO_INVENTORY_VALUE, get label() { return translateNative('native.c98ecd8e14a17650'); } },
     ...[...new Set(rows.map(row => text(row, key)).filter(Boolean))].map(
       value => ({ value, label: value }),
     ),
@@ -367,7 +376,7 @@ export default function InventoryScreen() {
         message={
           spoolmanSettings.error?.message ??
           spools.error?.message ??
-          'Unable to load inventory.'
+          translateNative('native.9ede148fd3fc1677')
         }
         onRetry={() => {
           void spoolmanSettings.refetch();
@@ -399,8 +408,8 @@ export default function InventoryScreen() {
         ListHeaderComponent={
           <View style={styles.stack}>
             <InventoryText>
-              {spoolman ? 'Spoolman inventory' : 'Built-in inventory'} ·{' '}
-              {filtered.length} visible ·{' '}
+              {spoolman ? translateNative('native.abc6c7724d1a761e') : translateNative('native.05b96edeaae0e309')} ·{' '}
+              {filtered.length} {translateNative('native.622adb6be883b3ee')}{' '}
               {rows
                 .reduce(
                   (sum, row) =>
@@ -413,8 +422,7 @@ export default function InventoryScreen() {
                   0,
                 )
                 .toFixed(0)}{' '}
-              g total consumed
-            </InventoryText>
+              {translateNative('native.e9862d079a16d262')}</InventoryText>
             <SearchBar
               value={search}
               onChangeText={setSearch}
@@ -428,11 +436,11 @@ export default function InventoryScreen() {
               tabs={[
                 {
                   key: 'active',
-                  label: t('inventory.active', { defaultValue: 'Active' }),
+                  get label() { return translateNative('inventory.active', { defaultValue: 'Active' }); },
                 },
                 {
                   key: 'archived',
-                  label: t('inventory.archived', { defaultValue: 'Archived' }),
+                  get label() { return translateNative('inventory.archived', { defaultValue: 'Archived' }); },
                 },
               ]}
               onChange={setArchive}
@@ -442,15 +450,15 @@ export default function InventoryScreen() {
               tabs={[
                 {
                   key: 'cards',
-                  label: t('inventory.cards', { defaultValue: 'Cards' }),
+                  get label() { return translateNative('inventory.cards', { defaultValue: 'Cards' }); },
                 },
                 ...(hasPermission('inventory:forecast_read')
                   ? [
                       {
                         key: 'forecast',
-                        label: t('inventory.forecast', {
+                        get label() { return translateNative('inventory.forecast', {
                           defaultValue: 'Forecast',
-                        }),
+                        }); },
                       },
                     ]
                   : []),
@@ -458,20 +466,20 @@ export default function InventoryScreen() {
               onChange={setView}
             />
             <ChoiceField
-              label="Inventory tools"
+              label={translateNative('native.af0c0def77bf1df9')}
               value={tool}
               options={[
-                { value: '', label: 'Choose a tool' },
-                { value: 'filters', label: 'Filters, sorting and grouping' },
-                { value: 'locations', label: 'Locations' },
-                { value: 'suppliers', label: 'Suppliers' },
-                { value: 'catalog', label: 'Spool core catalog' },
-                { value: 'colors', label: 'Color catalog' },
+                { value: '', get label() { return translateNative('native.6b4ed3bb2d5558fd'); } },
+                { value: 'filters', get label() { return translateNative('native.d7b9b1e7cc30f0b7'); } },
+                { value: 'locations', get label() { return translateNative('native.fae26139f3ce4483'); } },
+                { value: 'suppliers', get label() { return translateNative('native.695ec3c3d8d36b4e'); } },
+                { value: 'catalog', get label() { return translateNative('native.1dd36ca1babacbca'); } },
+                { value: 'colors', get label() { return translateNative('native.92df6ffa4d005959'); } },
                 ...(hasPermission('smart_plugs:read')
                   ? [
                       {
                         value: 'bindings',
-                        label: 'Environmental sensor bindings',
+                        get label() { return translateNative('native.309b6348e235209f'); },
                       },
                     ]
                   : []),
@@ -479,11 +487,11 @@ export default function InventoryScreen() {
                   ? [
                       {
                         value: 'environment',
-                        label: 'Environmental defaults and colors',
+                        get label() { return translateNative('native.316fe145309ad581'); },
                       },
                       {
                         value: 'policy',
-                        label: 'Spoolman sync policy / AMS thresholds',
+                        get label() { return translateNative('native.347c2478527b4d37'); },
                       },
                     ]
                   : []),
@@ -510,14 +518,14 @@ export default function InventoryScreen() {
                   onPress={() => setEditor(null)}
                 />
                 <PrimaryButton
-                  label="Scan spool NFC"
+                  label={translateNative('native.0184b3e475a8c900')}
                   variant="secondary"
                   onPress={() => setScan(true)}
                 />
                 {!spoolman && (
                   <>
                     <PrimaryButton
-                      label="Import CSV"
+                      label={translateNative('native.1313a7e043c6a4a2')}
                       variant="secondary"
                       loading={action.isPending}
                       onPress={() => {
@@ -525,7 +533,7 @@ export default function InventoryScreen() {
                       }}
                     />
                     <PrimaryButton
-                      label="Export CSV"
+                      label={translateNative('native.0b34e87efafc8013')}
                       variant="secondary"
                       loading={action.isPending}
                       onPress={() =>
@@ -535,7 +543,7 @@ export default function InventoryScreen() {
                   </>
                 )}
                 <PrimaryButton
-                  label="Reset all consumed counters (including archived)"
+                  label={translateNative('native.e167006e1fceeb5a')}
                   variant="secondary"
                   onPress={() =>
                     setConfirmation({
@@ -547,12 +555,12 @@ export default function InventoryScreen() {
               </>
             )}
             <PrimaryButton
-              label="Assignment history"
+              label={translateNative('native.16bad5912d6c178c')}
               variant="secondary"
               onPress={() => navigation.navigate('SpoolAssignmentHistory')}
             />
             <Toggle
-              label={`Select all visible (${filtered.length})`}
+              label={translateNative('native.37b27bb6c1f8cc18', { value0: String(filtered.length) })}
               value={
                 !!filtered.length &&
                 filtered.every(row => selected.includes(number(row, 'id')))
@@ -565,22 +573,22 @@ export default function InventoryScreen() {
               }
             />
             {!!selected.length && (
-              <SectionCard title={`${selected.length} selected`}>
+              <SectionCard title={translateNative('native.df8179da1ed8585c', { value0: String(selected.length) })}>
                 <View style={styles.stack}>
                   <PrimaryButton
-                    label="Compose labels"
+                    label={translateNative('native.51263f4b09e9ffc9')}
                     variant="secondary"
                     onPress={() => setLabelIds(selected)}
                   />
                   {canWrite && (
                     <>
                       <PrimaryButton
-                        label="Selective bulk edit"
+                        label={translateNative('native.f9be0e70a808435f')}
                         variant="secondary"
                         onPress={() => setTool('bulk')}
                       />
                       <PrimaryButton
-                        label="Assign location"
+                        label={translateNative('native.d97806b061f7da52')}
                         variant="secondary"
                         onPress={() => setTool('locations')}
                       />
@@ -605,7 +613,7 @@ export default function InventoryScreen() {
                   )}
                   {canDelete && (
                     <PrimaryButton
-                      label="Delete selected"
+                      label={translateNative('native.083338609db94db9')}
                       variant="danger"
                       onPress={() =>
                         setConfirmation({
@@ -616,7 +624,7 @@ export default function InventoryScreen() {
                     />
                   )}
                   <PrimaryButton
-                    label="Clear selection"
+                    label={translateNative('native.1a163117d04ef04b')}
                     variant="secondary"
                     onPress={() => setSelected([])}
                   />
@@ -630,16 +638,14 @@ export default function InventoryScreen() {
         }
         ListEmptyComponent={
           view === 'cards' ? (
-            <InventoryText>No spools match these filters.</InventoryText>
+            <InventoryText>{translateNative('native.70ae44e5e2bd7b5d')}</InventoryText>
           ) : null
         }
         renderItem={({ item: group }) => (
           <SectionCard
             title={
               group.spools.length > 1
-                ? `${title(group.spools[0])} · ${
-                    group.spools.length
-                  } similar spools · ${Math.round(group.remaining)} g total`
+                ? translateNative('native.886137838efe0604', { value0: String(title(group.spools[0])), value1: String(group.spools.length), value2: String(Math.round(group.remaining)) })
                 : title(group.spools[0])
             }
           >
@@ -647,7 +653,7 @@ export default function InventoryScreen() {
               {group.spools.length > 1 && (
                 <>
                   <Toggle
-                    label="Select group"
+                    label={translateNative('native.e127fc7d67596d04')}
                     value={group.spools.every(row =>
                       selected.includes(number(row, 'id')),
                     )}
@@ -661,8 +667,8 @@ export default function InventoryScreen() {
                   <PrimaryButton
                     label={
                       expanded.includes(group.key)
-                        ? 'Collapse group'
-                        : 'Expand group'
+                        ? translateNative('native.f84c8f02215e11be')
+                        : translateNative('native.2d6584818854d802')
                     }
                     variant="secondary"
                     onPress={() =>
@@ -686,7 +692,7 @@ export default function InventoryScreen() {
                       <SpoolSwatch spool={row} />
                       <Text style={{ color: colors.text }}>{title(row)}</Text>
                       <InventoryText>
-                        {Math.round(remaining(row))} g remaining ·{' '}
+                        {Math.round(remaining(row))} {translateNative('native.5e9d633a8be5a275')}{' '}
                         {Math.round(
                           Math.max(
                             0,
@@ -694,26 +700,25 @@ export default function InventoryScreen() {
                               number(row, 'weight_used_baseline'),
                           ),
                         )}{' '}
-                        g consumed
-                        {lowStock(row, threshold) ? ' · ⚠ low stock' : ''}
+                        {translateNative('native.d81cb8e388831ec1')}{lowStock(row, threshold) ? translateNative('native.232f898e8661a99a') : ''}
                       </InventoryText>
                       <InventoryText>
-                        {text(row, 'storage_location', 'No location')} ·{' '}
-                        {row.slicer_filament ? 'Configured' : 'Stock'}
-                        {assignedIds.has(number(row, 'id')) ? ' · In AMS' : ''}
+                        {text(row, 'storage_location', translateNative('native.768998b76a4dd100'))} ·{' '}
+                        {row.slicer_filament ? translateNative('native.77b12cea493c6ee5') : translateNative('native.16c3fd3158cb0666')}
+                        {assignedIds.has(number(row, 'id')) ? translateNative('native.741ea09338e89cef') : ''}
                       </InventoryText>
                       <LocationEnvironmentReadings
                         locationId={number(row, 'location_id')}
                       />
                     </Pressable>
                     <Toggle
-                      label={`Select spool #${number(row, 'id')}`}
+                      label={translateNative('native.79ffe26ef144caaf', { value0: String(number(row, 'id')) })}
                       value={selected.includes(number(row, 'id'))}
                       onChange={value => toggleIds([number(row, 'id')], value)}
                     />
                     {canWrite && (
                       <PrimaryButton
-                        label="Edit spool"
+                        label={translateNative('native.060e4f38051c717e')}
                         variant="secondary"
                         onPress={() => setEditor(row)}
                       />
@@ -726,7 +731,7 @@ export default function InventoryScreen() {
       />
       {tool === 'filters' && (
         <InventoryModal
-          title="Filters, sorting and grouping"
+          title={translateNative('native.d7b9b1e7cc30f0b7')}
           onClose={() => setTool('')}
         >
           {[
@@ -739,13 +744,13 @@ export default function InventoryScreen() {
           ].map(key => (
             <ChoiceField
               key={key}
-              label={key.replace(/_/g, ' ')}
+              label={INVENTORY_FILTER_LABELS[key]}
               value={filters[key] ?? ''}
               options={
                 key === 'location_id'
                   ? [
-                      { value: '', label: 'All' },
-                      { value: NO_INVENTORY_VALUE, label: 'None' },
+                      { value: '', get label() { return translateNative('common.all'); } },
+                      { value: NO_INVENTORY_VALUE, get label() { return translateNative('common.none'); } },
                       ...(locations.data ?? []).map(row => ({
                         value: text(row, 'id'),
                         label: text(row, 'name'),
@@ -753,8 +758,8 @@ export default function InventoryScreen() {
                     ]
                   : key === 'core_weight_catalog_id'
                   ? [
-                      { value: '', label: 'All' },
-                      { value: NO_INVENTORY_VALUE, label: 'None' },
+                      { value: '', get label() { return translateNative('common.all'); } },
+                      { value: NO_INVENTORY_VALUE, get label() { return translateNative('common.none'); } },
                       ...(coreCatalog.data ?? []).map(row => ({
                         value: text(row, 'id'),
                         label: text(row, 'name'),
@@ -766,11 +771,11 @@ export default function InventoryScreen() {
             />
           ))}
           <ChoiceField
-            label="Supplier"
+            label={translateNative('native.04cc704850e6a9f5')}
             value={filters.supplier_id ?? ''}
             options={[
-              { value: '', label: 'All' },
-              { value: NO_INVENTORY_VALUE, label: 'None' },
+              { value: '', get label() { return translateNative('common.all'); } },
+              { value: NO_INVENTORY_VALUE, get label() { return translateNative('common.none'); } },
               ...[
                 ...new Map(
                   rows
@@ -789,26 +794,26 @@ export default function InventoryScreen() {
           />
           {(
             [
-              ['usage', 'Used / new', ['', 'new', 'used']],
-              ['stock', 'Stock / configured', ['', 'stock', 'configured']],
-              ['ams', 'AMS assignment', ['', 'assigned', 'unassigned']],
+              nativeLabelTuple(['usage', 'Used / new', ['', 'new', 'used']]),
+              nativeLabelTuple(['stock', 'Stock / configured', ['', 'stock', 'configured']]),
+              nativeLabelTuple(['ams', 'native.60c275cd2ebda7d8', ['', 'assigned', 'unassigned']]),
             ] as const
           ).map(([key, name, options]) => (
             <ChoiceField
               key={key}
               label={name}
               value={filters[key] ?? ''}
-              options={options.map(value => ({ value, label: value || 'All' }))}
+              options={options.map(value => ({ value, label: value || translateNative('common.all') }))}
               onChange={value => setFilter(key, value)}
             />
           ))}
           <Toggle
-            label="Low stock only (per-spool override respected)"
+            label={translateNative('native.962de5e4ef350861')}
             value={!!filters.low}
             onChange={value => setFilter('low', value ? 'yes' : '')}
           />
           <ChoiceField
-            label="Sort by"
+            label={translateNative('native.37ba518147ea4546')}
             value={sort}
             options={[
               'id',
@@ -846,18 +851,18 @@ export default function InventoryScreen() {
               value,
               label:
                 value === 'rgba'
-                  ? 'Color swatch (rainbow order)'
+                  ? translateNative('native.05047c5b1f8214e3')
                   : value.replace(/_/g, ' '),
             }))}
             onChange={setSort}
           />
           <Toggle
-            label="Descending sort"
+            label={translateNative('native.ace0f76a3ac2199a')}
             value={descending}
             onChange={setDescending}
           />
           <Toggle
-            label="Group similar spools"
+            label={translateNative('native.d16b125369e3048b')}
             value={grouped}
             onChange={setGrouped}
           />
@@ -921,7 +926,7 @@ export default function InventoryScreen() {
       )}
       {tool === 'policy' && (
         <InventoryModal
-          title="Inventory integration settings"
+          title={translateNative('native.b3a869768750fb79')}
           onClose={() => setTool('')}
         >
           <SpoolmanPolicySettings />
@@ -954,13 +959,8 @@ export default function InventoryScreen() {
         onAssign={row => setDetail(row as unknown as InventoryRecord)}
       />
       {csv && (
-        <InventoryModal title="CSV import preview" onClose={() => setCsv(null)}>
-          <InventoryText>
-            Total {number(csv.preview, 'total')} · valid{' '}
-            {number(csv.preview, 'valid_count')} · errors{' '}
-            {number(csv.preview, 'error_count')} · skipped{' '}
-            {number(csv.preview, 'skipped_count')}
-          </InventoryText>
+        <InventoryModal title={translateNative('native.d86c8d047127fb02')} onClose={() => setCsv(null)}>
+          <InventoryText><NativeTranslation id="native.1cb9fdc341531e8b" values={{ value0: (number(csv.preview, 'total')), value1: (number(csv.preview, 'valid_count')), value2: (number(csv.preview, 'error_count')), value3: (number(csv.preview, 'skipped_count')) }} /></InventoryText>
           {(Array.isArray(csv.preview.warnings)
             ? csv.preview.warnings
             : []
@@ -970,10 +970,10 @@ export default function InventoryScreen() {
           {records(csv.preview.rows).map(row => (
             <SectionCard
               key={number(row, 'row_number')}
-              title={`Row ${number(row, 'row_number')} · ${text(
+              title={translateNative('native.206e4ad98470128c', { value0: String(number(row, 'row_number')), value1: String(text(
                 row,
                 'status',
-              )}`}
+              )) })}
             >
               <InventoryText>
                 {text(row, 'material')} · {text(row, 'brand')} ·{' '}
@@ -981,18 +981,18 @@ export default function InventoryScreen() {
               </InventoryText>
               <InventoryText>
                 {text(row, 'reason')}
-                {row.resolved_color ? ' · Catalog-resolved color' : ''}
+                {row.resolved_color ? translateNative('native.9be21c646cca5a05') : ''}
                 {row.cross_material_color
-                  ? ' · ⚠ Color from another material'
+                  ? translateNative('native.6dee7ccc370d415e')
                   : ''}
                 {row.duplicate_of_existing
-                  ? ' · ⚠ Duplicate of existing spool'
+                  ? translateNative('native.46d57e88523b14a5')
                   : ''}
               </InventoryText>
             </SectionCard>
           ))}
           <PrimaryButton
-            label="Import valid rows"
+            label={translateNative('native.47a78adf457aaf70')}
             disabled={!number(csv.preview, 'valid_count')}
             loading={action.isPending}
             onPress={() => action.mutate({ operation: 'import', ids: [] })}
@@ -1003,15 +1003,13 @@ export default function InventoryScreen() {
         visible={confirmation !== null}
         title={
           confirmation?.operation === 'reset-consumed-counter-bulk'
-            ? 'Reset consumed counters?'
-            : 'Confirm inventory action'
+            ? translateNative('native.73ac3e6430231782')
+            : translateNative('native.4dfde8b9c16ab2e4')
         }
         message={
           confirmation?.operation === 'reset-consumed-counter-bulk'
-            ? `Reset ${confirmation.ids.length} consumption baselines without changing remaining filament or usage history.`
-            : `${confirmation?.operation ?? ''} affects ${
-                confirmation?.ids.length ?? 0
-              } spools. Deletion is permanent.`
+            ? translateNative('native.c9e925c35d9918c5', { value0: String(confirmation.ids.length) })
+            : translateNative('native.ba157c69d570f1b8', { value0: String(confirmation?.operation ?? ''), value1: String(confirmation?.ids.length ?? 0) })
         }
         onClose={() => setConfirmation(null)}
         onConfirm={() => {
@@ -1031,3 +1029,4 @@ const styles = StyleSheet.create({
   },
   stack: { gap: spacing.sm },
 });
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

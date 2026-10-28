@@ -1,8 +1,9 @@
-import React, { useMemo, useRef, useState } from 'react';
+import { useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+import React, { useRef, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import { WebView, type WebViewHandle } from 'react-native-webview';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
@@ -76,6 +77,7 @@ export function RichProjectNotes({ value, editable = false, onChange }: {
   editable?: boolean;
   onChange?: (html: string) => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -85,7 +87,7 @@ export function RichProjectNotes({ value, editable = false, onChange }: {
   const [height, setHeight] = useState(editable ? 260 : 100);
   const [linkOpen, setLinkOpen] = useState(false);
   const [link, setLink] = useState('');
-  const html = useMemo(() => notesDocument(initial.current, editable, colors.text, colors.surface, serverUrl ?? ''), [editable, colors.text, colors.surface, serverUrl]);
+  const html = useLocalizedMemo(() => notesDocument(initial.current, editable, colors.text, colors.surface, serverUrl ?? ''), [editable, colors.text, colors.surface, serverUrl]);
   const command = (name: string, argument?: string) =>
     ref.current?.injectJavaScript(`window.noteCommand(${JSON.stringify(name)},${JSON.stringify(argument ?? null)});true;`);
   const tools = [

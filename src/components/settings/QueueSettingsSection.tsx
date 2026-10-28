@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { SectionCard, TextField } from '@/components/common/AppUI';
 import { SwitchRow, stringifyNumberField } from './shared';
@@ -5,7 +6,7 @@ import type { SettingsScreenController } from './useSettingsScreenController';
 import { PrintDefaultsSettings } from './PrintDefaultsSettings';
 import { QueueWorkflowSettings } from './QueueWorkflowSettings';
 import { WorkflowNumberField } from './WorkflowFields';
-import { useTranslation } from '@/i18n';
+
 import { SlicerSetupSection, type SlicerSetupValues } from '@/components/slicing/SlicerSetupSection';
 
 export function QueueSettingsSection({
@@ -13,6 +14,7 @@ export function QueueSettingsSection({
 }: {
   controller: SettingsScreenController;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { draft } = controller.state;
   const { setDraft } = controller.actions;
@@ -21,28 +23,28 @@ export function QueueSettingsSection({
     <>
       <PrintDefaultsSettings controller={controller} />
       <SectionCard
-        title="Dispatch behavior"
+        title={translateNative('native.f23b68ffeb1f8238')}
         subtitle={t('workflow.dispatchHelp', {
           defaultValue:
             'Queue ordering, preheat, plate confirmation, and staggering. Concurrent uploads use one connection and one host thread per printer.',
         })}
       >
         <SwitchRow
-          label="Shortest job first"
+          label={translateNative('native.0aaee7b37ab2af58')}
           value={Boolean(draft.queue_shortest_first)}
           onValueChange={value =>
             setDraft(current => ({ ...current, queue_shortest_first: value }))
           }
         />
         <SwitchRow
-          label="Require plate clear confirmation"
+          label={translateNative('native.8cf7ed110a50476d')}
           value={Boolean(draft.require_plate_clear)}
           onValueChange={value =>
             setDraft(current => ({ ...current, require_plate_clear: value }))
           }
         />
         <SwitchRow
-          label="Preheat before queued prints"
+          label={translateNative('native.7aebf6dd7c56a9c9')}
           value={Boolean(draft.preheat_enabled)}
           onValueChange={value =>
             setDraft(current => ({ ...current, preheat_enabled: value }))
@@ -63,7 +65,7 @@ export function QueueSettingsSection({
           }
         />
         <TextField
-          label="Stagger group size"
+          label={translateNative('native.48f543a445d7ea56')}
           value={stringifyNumberField(draft.stagger_group_size, '1')}
           onChangeText={value =>
             setDraft(current => ({
@@ -74,7 +76,7 @@ export function QueueSettingsSection({
           keyboardType="number-pad"
         />
         <TextField
-          label="Stagger interval (minutes)"
+          label={translateNative('native.5b26a21eb6e7ede3')}
           value={stringifyNumberField(draft.stagger_interval_minutes, '0')}
           onChangeText={value =>
             setDraft(current => ({
@@ -110,7 +112,7 @@ export function QueueSettingsSection({
           }
         />
         <TextField
-          label="Max pipeline copies"
+          label={translateNative('native.659bf3415dc60537')}
           value={stringifyNumberField(draft.pipeline_max_copies, '1')}
           onChangeText={value =>
             setDraft(current => ({

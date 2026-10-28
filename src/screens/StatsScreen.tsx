@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import React, { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Share from 'react-native-share';
 import { useNavigation } from '@react-navigation/native';
@@ -30,7 +32,7 @@ import { reportCsv, reportXlsxBase64 } from '@/utils/reportExport';
 import { ReportRangeControls, reportPresets, reportRangeKey } from '@/components/reports/ReportRangeControls';
 import { ReportLayout } from '@/components/reports/ReportLayout';
 import { AccuracyReport, ExplorationReport, PurchasingReports, RecordsReport, usePurchasingMode } from '@/components/reports/ReportDetails';
-import { useTranslation } from '@/i18n';
+
 import {
   formatCurrency,
   formatDate,
@@ -59,7 +61,7 @@ function printerKey(item: ApiRecord, printerNames?: Record<string, string>) {
   return printerNames?.[String(item.printer_id)] ?? pickString(
     item,
     ['printer_name', 'printer'],
-    item.printer_id == null ? 'Unknown printer' : `#${item.printer_id}`,
+    item.printer_id == null ? translateNative('native.d2f3cad436de827d') : `#${item.printer_id}`,
   );
 }
 
@@ -111,21 +113,21 @@ function failureReasonKey(item: ApiRecord) {
 function timeBucket(item: ApiRecord) {
   const value = getArchiveTimestamp(item);
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Unknown';
+  if (Number.isNaN(date.getTime())) return translateNative('native.ff12a040d13addb7');
   const hour = date.getHours();
-  if (hour < 6) return 'Night';
-  if (hour < 12) return 'Morning';
-  if (hour < 18) return 'Afternoon';
-  return 'Evening';
+  if (hour < 6) return translateNative('native.47db589c093cc231');
+  if (hour < 12) return translateNative('native.7cdba8a9ef2a37a7');
+  if (hour < 18) return translateNative('native.569c68713cb45a73');
+  return translateNative('native.9b14db557f5e32b5');
 }
 
 function buildStatsSummaryCsv(stats: ApiRecord, archives: ApiRecord[], range: RangeKey, printerId: number | null, userId: number | null, scope: ReportScope) {
   const rows = [
-    { metric: 'Total prints', value: String(pickNumber(stats, ['total_prints', 'prints_count'], archives.length)) },
-    { metric: 'Success rate', value: formatPercent(pickNumber(stats, ['success_rate'], pickNumber(stats, ['total_prints']) ? pickNumber(stats, ['successful_prints']) / pickNumber(stats, ['total_prints']) : 0), 1) },
-    { metric: 'Total print time', value: formatDuration(Math.round(pickNumber(stats, ['total_print_time_seconds', 'total_print_time'], pickNumber(stats, ['total_print_time_hours']) * 3600))) },
-    { metric: 'Filament used', value: formatWeight(pickNumber(stats, ['total_filament_grams', 'total_filament_g', 'filament_total_g'], 0)) },
-    { metric: 'Total cost', value: formatCurrency(pickNumber(stats, ['total_cost', 'cost_total'], 0)) },
+    { get metric() { return translateNative('native.185578091a522c97'); }, value: String(pickNumber(stats, ['total_prints', 'prints_count'], archives.length)) },
+    { get metric() { return translateNative('native.41d8c0b0fb9ced09'); }, value: formatPercent(pickNumber(stats, ['success_rate'], pickNumber(stats, ['total_prints']) ? pickNumber(stats, ['successful_prints']) / pickNumber(stats, ['total_prints']) : 0), 1) },
+    { get metric() { return translateNative('native.2f4a337b2e1eeca6'); }, value: formatDuration(Math.round(pickNumber(stats, ['total_print_time_seconds', 'total_print_time'], pickNumber(stats, ['total_print_time_hours']) * 3600))) },
+    { get metric() { return translateNative('native.844d300a3502db9f'); }, value: formatWeight(pickNumber(stats, ['total_filament_grams', 'total_filament_g', 'filament_total_g'], 0)) },
+    { get metric() { return translateNative('native.f95cddbff6adee85'); }, value: formatCurrency(pickNumber(stats, ['total_cost', 'cost_total'], 0)) },
     { metric: 'Range', value: range },
     { metric: 'From', value: scope.dateFrom ?? 'All' },
     { metric: 'To', value: scope.dateTo ?? 'All' },
@@ -150,7 +152,7 @@ function buildFailureRates(
   const rows = new Map<string, { key: string; label: string; total: number; failures: number; rate: number }>();
   items.forEach(item => {
     const key = keyFn(item) || 'Unknown';
-    const current = rows.get(key) ?? { key, label: labelFn(item) || 'Unknown', total: 0, failures: 0, rate: 0 };
+    const current = rows.get(key) ?? { key, label: labelFn(item) || translateNative('native.ff12a040d13addb7'), total: 0, failures: 0, rate: 0 };
     current.total += 1;
     if (isFailure(item)) current.failures += 1;
     current.rate = current.total > 0 ? current.failures / current.total : 0;
@@ -168,10 +170,11 @@ function isValidUserFilter(userId: number | null, isAdminFilter: boolean, usersL
 }
 
 export default function StatsScreen() {
+  useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Stats'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Statistics' });
+    navigation.setOptions({ get title() { return translateNative('native.826ae2f32f3bf893'); } });
   }, [navigation]);
 
   const { colors } = useTheme();
@@ -198,7 +201,7 @@ export default function StatsScreen() {
     return () => { active = false; };
   }, [showToast, t]);
   const params = range === 'custom' ? customDates : reportRange(range);
-  const queryParams = useMemo(() => ({
+  const queryParams = useLocalizedMemo(() => ({
     ...params,
     ...(selectedPrinterId ? { printerId: selectedPrinterId } : {}),
     ...(canFilterUser && selectedUserId !== null ? { createdById: selectedUserId } : {}),
@@ -234,19 +237,19 @@ export default function StatsScreen() {
   const flagsQuery = useQuery({ queryKey: ['ui-flags'], queryFn: reportsApi.flags });
   const inventoryMode = usePurchasingMode();
 
-  const usersData = useMemo(
+  const usersData = useLocalizedMemo(
     () => (usersQuery.data ?? []) as ApiRecord[],
     [usersQuery.data],
   );
 
-  const isUserFilterValid = useMemo(() => {
+  const isUserFilterValid = useLocalizedMemo(() => {
     return isValidUserFilter(selectedUserId, canFilterUser, usersQuery.isSuccess, usersData);
   }, [selectedUserId, canFilterUser, usersQuery.isSuccess, usersData]);
 
   React.useEffect(() => {
     if (!isUserFilterValid && selectedUserId !== null) {
       setUserFilterValidated(false);
-      showToast('Selected user is no longer available. Showing all users.', 'warning');
+      showToast(translateNative('native.287099fa63715304'), 'warning');
       setSelectedUserId(null);
     } else if (userFilterValidated && !isUserFilterValid) {
       setUserFilterValidated(true);
@@ -287,8 +290,8 @@ export default function StatsScreen() {
       }
       await shareBlob(new Blob([reportCsv(archivesQuery.data ?? [], queryParams)], { type: 'text/csv', lastModified: Date.now() }), `${filenameBase}.csv`);
     },
-    onSuccess: (_data, format) => showToast(`${format.toUpperCase()} export ready to share.`, 'success'),
-    onError: (error: Error) => showToast(error.message || 'Unable to export statistics.', 'error'),
+    onSuccess: (_data, format) => showToast(translateNative('native.6e87274835985d3c', { value0: String(format.toUpperCase()) }), 'success'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.49c7fbf6dffe8c58'), 'error'),
   });
 
   const statsSummaryMutation = useMutation({
@@ -309,24 +312,24 @@ export default function StatsScreen() {
       const blob = new Blob([csv], blobOptions);
       await shareBlob(blob, `${filenameBase}.csv`);
     },
-    onSuccess: () => showToast('Statistics summary exported.', 'success'),
-    onError: () => showToast('Unable to export statistics summary.', 'error'),
+    onSuccess: () => showToast(translateNative('native.70b44dbe91e4cb71'), 'success'),
+    onError: () => showToast(translateNative('native.9ebf6f64f2513714'), 'error'),
   });
 
   const recalculateCostsMutation = useMutation({
     mutationFn: api.recalculateCosts,
     onSuccess: async result => {
       await refreshAll();
-      showToast(result.message || 'Archive costs recalculated.', 'success');
+      showToast(result.message || translateNative('native.e4f729d601bbc009'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to recalculate archive costs.', 'error'),
+    onError: (error: Error) => showToast(error.message || translateNative('native.87040dbe0adb91fc'), 'error'),
   });
 
-  const archives = useMemo(
+  const archives = useLocalizedMemo(
     () => ((archivesQuery.data ?? []) as ApiRecord[]).filter(Boolean),
     [archivesQuery.data],
   );
-  const printerNames = useMemo(() => {
+  const printerNames = useLocalizedMemo(() => {
     const result: Record<string, string> = {};
     const names = aggregateStatsQuery.data?.printer_names;
     if (names && typeof names === 'object') {
@@ -337,8 +340,8 @@ export default function StatsScreen() {
   }, [aggregateStatsQuery.data, printersQuery.data]);
   const reportCurrency = pickString(flagsQuery.data, ['currency'], 'USD');
 
-  const printerOptions = useMemo<SelectorOption[]>(() => {
-    const options: SelectorOption[] = [{ key: 'all', label: 'All printers', value: null }];
+  const printerOptions = useLocalizedMemo<SelectorOption[]>(() => {
+    const options: SelectorOption[] = [{ key: 'all', get label() { return translateNative('native.b8ed6cb4c204100e'); }, value: null }];
     ((printersQuery.data ?? []) as ApiRecord[]).forEach(printer => {
       options.push({
         key: String(pickNumber(printer, ['id'])),
@@ -349,10 +352,10 @@ export default function StatsScreen() {
     return options;
   }, [printersQuery.data]);
 
-  const userOptions = useMemo<SelectorOption[]>(() => {
+  const userOptions = useLocalizedMemo<SelectorOption[]>(() => {
     const options: SelectorOption[] = [
-      { key: 'all', label: 'All users', value: null },
-      { key: 'system', label: t('stats.systemUser', { defaultValue: 'No user (system)' }), value: -1 },
+      { key: 'all', get label() { return translateNative('native.c311af34acd4fa38'); }, value: null },
+      { key: 'system', get label() { return translateNative('stats.systemUser', { defaultValue: 'No user (system)' }); }, value: -1 },
     ];
     ((usersQuery.data ?? []) as ApiRecord[]).forEach(row => {
       const id = pickNumber(row, ['id']);
@@ -365,16 +368,16 @@ export default function StatsScreen() {
     return options;
   }, [usersQuery.data, t]);
 
-  const selectedPrinterLabel = useMemo(
-    () => printerOptions.find(option => option.value === selectedPrinterId)?.label ?? 'All printers',
+  const selectedPrinterLabel = useLocalizedMemo(
+    () => printerOptions.find(option => option.value === selectedPrinterId)?.label ?? translateNative('native.b8ed6cb4c204100e'),
     [printerOptions, selectedPrinterId],
   );
-  const selectedUserLabel = useMemo(
-    () => userOptions.find(option => option.value === selectedUserId)?.label ?? 'All users',
+  const selectedUserLabel = useLocalizedMemo(
+    () => userOptions.find(option => option.value === selectedUserId)?.label ?? translateNative('native.c311af34acd4fa38'),
     [selectedUserId, userOptions],
   );
 
-  const quickStats = useMemo(() => ({
+  const quickStats = useLocalizedMemo(() => ({
     totalPrints: pickNumber(statsQuery.data, ['total_prints', 'prints_count'], archives.length),
     successRate: pickNumber(statsQuery.data, ['success_rate'], pickNumber(statsQuery.data, ['total_prints']) > 0 ? pickNumber(statsQuery.data, ['successful_prints']) / pickNumber(statsQuery.data, ['total_prints']) : 0),
     printTime: pickNumber(statsQuery.data, ['total_print_time_seconds', 'total_print_time'], pickNumber(statsQuery.data, ['total_print_time_hours']) * 3600),
@@ -382,7 +385,7 @@ export default function StatsScreen() {
     cost: pickNumber(statsQuery.data, ['total_cost', 'cost_total'], 0),
   }), [archives.length, statsQuery.data]);
 
-  const heatmap = useMemo(() => {
+  const heatmap = useLocalizedMemo(() => {
     const days: string[] = [];
     if (params.dateFrom && params.dateTo) {
       const cursor = new Date(`${params.dateFrom}T00:00:00`);
@@ -409,7 +412,7 @@ export default function StatsScreen() {
     return { days, counts, max };
   }, [archives, params.dateFrom, params.dateTo]);
 
-  const filamentTrends = useMemo(() => {
+  const filamentTrends = useLocalizedMemo(() => {
     const trendMap = new Map<string, { label: string; grams: number }>();
     archives.forEach(item => {
       const key = monthKey(getArchiveTimestamp(item));
@@ -421,7 +424,7 @@ export default function StatsScreen() {
     return Array.from(trendMap.values()).sort((a, b) => a.label.localeCompare(b.label));
   }, [archives]);
 
-  const printerBreakdown = useMemo(() => {
+  const printerBreakdown = useLocalizedMemo(() => {
     const byPrinter = new Map<string, { name: string; prints: number; grams: number; failures: number }>();
     archives.forEach(item => {
       const key = printerNames[String(item.printer_id)] ?? printerKey(item);
@@ -434,7 +437,7 @@ export default function StatsScreen() {
     return Array.from(byPrinter.values()).sort((a, b) => b.prints - a.prints);
   }, [archives, printerNames]);
 
-  const materialBreakdown = useMemo(() => {
+  const materialBreakdown = useLocalizedMemo(() => {
     const rows = new Map<string, number>();
     archives.forEach(item => {
       const key = materialKey(item);
@@ -445,14 +448,14 @@ export default function StatsScreen() {
       .sort((a, b) => b.grams - a.grams);
   }, [archives]);
 
-  const durationDistribution = useMemo(() => {
+  const durationDistribution = useLocalizedMemo(() => {
     const buckets = [
-      { label: '<1h', min: 0, max: 3600, count: 0 },
+      { get label() { return translateNative('native.eed6171f4de54462'); }, min: 0, max: 3600, count: 0 },
       { label: '1-2h', min: 3600, max: 7200, count: 0 },
       { label: '2-4h', min: 7200, max: 14400, count: 0 },
       { label: '4-8h', min: 14400, max: 28800, count: 0 },
       { label: '8-16h', min: 28800, max: 57600, count: 0 },
-      { label: '16h+', min: 57600, max: Infinity, count: 0 },
+      { get label() { return translateNative('native.69bb9fb14d87863a'); }, min: 57600, max: Infinity, count: 0 },
     ];
     archives.forEach(item => {
       const seconds = pickNumber(item, ['actual_time_seconds', 'print_time_seconds', 'print_time', 'duration_seconds'], 0);
@@ -463,7 +466,7 @@ export default function StatsScreen() {
     return buckets;
   }, [archives]);
 
-  const habitsData = useMemo(() => {
+  const habitsData = useLocalizedMemo(() => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const counts = new Array(7).fill(0);
     archives.forEach(item => {
@@ -473,7 +476,7 @@ export default function StatsScreen() {
     return days.map((label, i) => ({ label, value: counts[i] }));
   }, [archives]);
 
-  const hourlyData = useMemo(() => {
+  const hourlyData = useLocalizedMemo(() => {
     const hours = new Array(24).fill(0);
     archives.forEach(item => {
       const date = new Date(getArchiveTimestamp(item));
@@ -482,14 +485,14 @@ export default function StatsScreen() {
     return hours.map((count, h) => ({ label: `${h}`, value: count }));
   }, [archives]);
 
-  const failureRateByMaterial = useMemo(() => buildFailureRates(archives, materialKey), [archives]);
-  const failureRateByPrinter = useMemo(() => buildFailureRates(
+  const failureRateByMaterial = useLocalizedMemo(() => buildFailureRates(archives, materialKey), [archives]);
+  const failureRateByPrinter = useLocalizedMemo(() => buildFailureRates(
     archives,
     item => item.printer_id == null ? `name:${printerKey(item)}` : `id:${item.printer_id}`,
     item => printerKey(item, printerNames),
   ), [archives, printerNames]);
-  const failureRateByTimeOfDay = useMemo(() => buildFailureRates(archives, timeBucket), [archives]);
-  const failureReasons = useMemo(() => {
+  const failureRateByTimeOfDay = useLocalizedMemo(() => buildFailureRates(archives, timeBucket), [archives]);
+  const failureReasons = useLocalizedMemo(() => {
     const rows = new Map<string, number>();
     archives.filter(isFailure).forEach(item => {
       const key = failureReasonKey(item);
@@ -501,13 +504,13 @@ export default function StatsScreen() {
   }, [archives]);
 
   if (statsQuery.isLoading || archivesQuery.isLoading) {
-    return <LoadingScreen message="Loading statistics…" />;
+    return <LoadingScreen message={translateNative('native.78103ae6f7539825')} />;
   }
 
   if (statsQuery.isError || archivesQuery.isError) {
     return (
       <ErrorState
-        message="Unable to load statistics."
+        message={translateNative('native.d259ab430ccef33c')}
         onRetry={() => void refreshAll()}
       />
     );
@@ -532,8 +535,8 @@ export default function StatsScreen() {
         }
       >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Print statistics</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Quick stats, exports, failure analysis, and printer breakdowns.</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{translateNative('native.1e998d66d2ced9cd')}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{translateNative('native.4432e07e01f3ee7d')}</Text>
         </View>
 
         <ReportRangeControls
@@ -544,7 +547,7 @@ export default function StatsScreen() {
 
         {(selectedPrinterId !== null || selectedUserId !== null) && (
           <View style={styles.activeFilters}>
-            <Text style={[styles.activeFiltersLabel, { color: colors.textSecondary }]}>Active filters:</Text>
+            <Text style={[styles.activeFiltersLabel, { color: colors.textSecondary }]}>{translateNative('native.ea8a72360e8512f1')}</Text>
             {selectedPrinterId !== null && (
               <Pressable
                 style={[styles.filterBadge, { backgroundColor: colors.accentBg, borderColor: `${colors.accent}44` }]}
@@ -566,48 +569,48 @@ export default function StatsScreen() {
               </Pressable>
             )}
             <Pressable onPress={() => { setSelectedPrinterId(null); setSelectedUserId(null); }} style={styles.clearFiltersBadge}>
-              <Text style={[styles.clearFiltersText, { color: colors.textSecondary }]}>Clear all</Text>
+              <Text style={[styles.clearFiltersText, { color: colors.textSecondary }]}>{translateNative('native.e0c9e7047ac670ee')}</Text>
             </Pressable>
           </View>
         )}
 
-        <SectionCard title="Filters & export" subtitle="Limit statistics by printer or user, then export the current view.">
+        <SectionCard title={translateNative('native.96c944d7b6cedf1a')} subtitle={translateNative('native.d36309c1d711dd12')}>
           <View style={styles.filterGrid}>
             <Pressable style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setSelector('printer')}>
-              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Printer</Text>
+              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>{translateNative('screen.printer')}</Text>
               <Text style={[styles.filterValue, { color: colors.text }]} numberOfLines={1}>{selectedPrinterLabel}</Text>
             </Pressable>
             {canFilterUser ? (
               <Pressable style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setSelector('user')}>
-                <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>User</Text>
+                <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>{translateNative('native.79911ae711e1198c')}</Text>
                 <Text style={[styles.filterValue, { color: colors.text }]} numberOfLines={1}>{selectedUserLabel}</Text>
               </Pressable>
             ) : null}
           </View>
           <View style={styles.actions}>
             <PrimaryButton
-              label={exportMutation.isPending ? 'Exporting…' : 'Export CSV'}
+              label={exportMutation.isPending ? translateNative('native.d437dda8a411fea8') : translateNative('native.0b34e87efafc8013')}
               variant="secondary"
               onPress={() => void exportMutation.mutateAsync('csv')}
               loading={exportMutation.isPending}
               disabled={exportMutation.isPending}
             />
             <PrimaryButton
-              label={exportMutation.isPending ? 'Exporting…' : 'Export Excel'}
+              label={exportMutation.isPending ? translateNative('native.d437dda8a411fea8') : translateNative('native.4a9a8c12888936dd')}
               variant="secondary"
               onPress={() => void exportMutation.mutateAsync('xlsx')}
               loading={exportMutation.isPending}
               disabled={exportMutation.isPending}
             />
             <PrimaryButton
-              label={exportMutation.isPending ? 'Exporting…' : 'Export JSON'}
+              label={exportMutation.isPending ? translateNative('native.d437dda8a411fea8') : translateNative('native.acf1a2579eb4526f')}
               variant="secondary"
               onPress={() => void exportMutation.mutateAsync('json')}
               loading={exportMutation.isPending}
               disabled={exportMutation.isPending}
             />
             <PrimaryButton
-              label={statsSummaryMutation.isPending ? 'Exporting…' : 'Export summary'}
+              label={statsSummaryMutation.isPending ? translateNative('native.d437dda8a411fea8') : translateNative('native.4efb8b780f21a5cd')}
               variant="secondary"
               onPress={() => void statsSummaryMutation.mutateAsync()}
               loading={statsSummaryMutation.isPending}
@@ -615,7 +618,7 @@ export default function StatsScreen() {
             />
           </View>
           {hasPermission('archives:update_all') && <PrimaryButton
-            label={recalculateCostsMutation.isPending ? 'Recalculating…' : 'Recalculate costs'}
+            label={recalculateCostsMutation.isPending ? translateNative('native.a016f35810e12eec') : translateNative('native.5d8b340ffecf3406')}
             onPress={() => void recalculateCostsMutation.mutateAsync()}
             loading={recalculateCostsMutation.isPending}
             disabled={recalculateCostsMutation.isPending}
@@ -623,62 +626,62 @@ export default function StatsScreen() {
         </SectionCard>
 
         <View style={styles.grid}>
-          <StatCard label="Total prints" value={String(Math.round(quickStats.totalPrints))} />
-          <StatCard label="Success rate" value={formatPercent(quickStats.successRate, 1)} />
-          <StatCard label="Print time" value={formatDuration(quickStats.printTime)} />
-          <StatCard label="Filament used" value={formatWeight(quickStats.filament)} />
-          <StatCard label="Cost" value={formatCurrency(quickStats.cost)} />
+          <StatCard label={translateNative('native.185578091a522c97')} value={String(Math.round(quickStats.totalPrints))} />
+          <StatCard label={translateNative('native.41d8c0b0fb9ced09')} value={formatPercent(quickStats.successRate, 1)} />
+          <StatCard label={translateNative('native.e3f6c45e9f8c8d80')} value={formatDuration(quickStats.printTime)} />
+          <StatCard label={translateNative('native.844d300a3502db9f')} value={formatWeight(quickStats.filament)} />
+          <StatCard label={translateNative('common.cost')} value={formatCurrency(quickStats.cost)} />
         </View>
 
         {canFilterUser && selectedUserId !== null && (
           <SectionCard
-            title="User details"
-            subtitle={`Per-user breakdown for ${selectedUserLabel}.`}
+            title={translateNative('native.bf2a3f4f2464a499')}
+            subtitle={translateNative('native.fc38f171550352da', { value0: String(selectedUserLabel) })}
           >
             <View style={[styles.userDetailCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
               <View style={styles.userDetailRow}>
-                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>User ID</Text>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>{translateNative('native.41a4a4d43f428c88')}</Text>
                 <Text style={[styles.userDetailValue, { color: colors.text }]}>{selectedUserId}</Text>
               </View>
               <View style={[styles.userDetailDivider, { backgroundColor: colors.border }]} />
               <View style={styles.userDetailRow}>
-                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>Selected User</Text>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>{translateNative('native.25aa70e7a115eef2')}</Text>
                 <Text style={[styles.userDetailValue, { color: colors.text }]} numberOfLines={2}>{selectedUserLabel}</Text>
               </View>
               <View style={[styles.userDetailDivider, { backgroundColor: colors.border }]} />
               <View style={styles.userDetailRow}>
-                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>Total Prints</Text>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>{translateNative('native.736e819e822204c0')}</Text>
                 <Text style={[styles.userDetailValue, { color: colors.accent }]}>
                   {String(Math.round(quickStats.totalPrints))}
                 </Text>
               </View>
               <View style={[styles.userDetailDivider, { backgroundColor: colors.border }]} />
               <View style={styles.userDetailRow}>
-                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>Filament Used</Text>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>{translateNative('native.2b991e7b05d0d160')}</Text>
                 <Text style={[styles.userDetailValue, { color: colors.accent }]}>{formatWeight(quickStats.filament)}</Text>
               </View>
               <View style={[styles.userDetailDivider, { backgroundColor: colors.border }]} />
               <View style={styles.userDetailRow}>
-                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>Total Cost</Text>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>{translateNative('native.3e7049754bd78122')}</Text>
                 <Text style={[styles.userDetailValue, { color: colors.accent }]}>{formatCurrency(quickStats.cost)}</Text>
               </View>
               <View style={[styles.userDetailDivider, { backgroundColor: colors.border }]} />
               <View style={styles.userDetailRow}>
-                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>Print Time</Text>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>{translateNative('native.ca4716dc67ff2ce8')}</Text>
                 <Text style={[styles.userDetailValue, { color: colors.accent }]}>{formatDuration(quickStats.printTime)}</Text>
               </View>
               <View style={[styles.userDetailDivider, { backgroundColor: colors.border }]} />
               <View style={styles.userDetailRow}>
-                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>Success Rate</Text>
+                <Text style={[styles.userDetailLabel, { color: colors.textSecondary }]}>{translateNative('native.03009a45705d4dfc')}</Text>
                 <Text style={[styles.userDetailValue, { color: colors.accent }]}>{formatPercent(quickStats.successRate, 1)}</Text>
               </View>
             </View>
             {usersQuery.isLoading ? (
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Loading user details…</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{translateNative('native.86a90a467bf9c675')}</Text>
             ) : usersQuery.isError ? (
-              <Text style={[styles.emptyText, { color: colors.warning }]}>Unable to load user details.</Text>
+              <Text style={[styles.emptyText, { color: colors.warning }]}>{translateNative('native.bb45b731e25f87c0')}</Text>
             ) : usersQuery.isSuccess && usersData.length === 0 ? (
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No user data available. Please ensure users exist.</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{translateNative('native.193b5ce7bd9771ed')}</Text>
             ) : null}
           </SectionCard>
         )}
@@ -708,14 +711,14 @@ export default function StatsScreen() {
         {inventoryMode.data !== true && <SectionCard key="purchasing" title={t('stats.purchasing', { defaultValue: 'Purchasing reports' })}>
           <PurchasingReports scope={queryParams} currency={reportCurrency} />
         </SectionCard>}
-        <SectionCard title="Failure Analysis" subtitle="Failure rates by material, printer, time of day, and common reasons.">
-          <FailureList title="By material" rows={failureRateByMaterial} colors={colors} formatValue={row => `${formatPercent(row.rate, 0)} • ${row.failures}/${row.total}`} />
-          <FailureList title="By printer" rows={failureRateByPrinter} colors={colors} formatValue={row => `${formatPercent(row.rate, 0)} • ${row.failures}/${row.total}`} />
-          <FailureList title="By time of day" rows={failureRateByTimeOfDay} colors={colors} formatValue={row => `${formatPercent(row.rate, 0)} • ${row.failures}/${row.total}`} />
+        <SectionCard title={translateNative('nav.failure-analysis')} subtitle={translateNative('native.af4358d15cbc725b')}>
+          <FailureList title={translateNative('native.c22d8f8cea134ef5')} rows={failureRateByMaterial} colors={colors} formatValue={row => `${formatPercent(row.rate, 0)} • ${row.failures}/${row.total}`} />
+          <FailureList title={translateNative('native.1431e6d7a579da92')} rows={failureRateByPrinter} colors={colors} formatValue={row => `${formatPercent(row.rate, 0)} • ${row.failures}/${row.total}`} />
+          <FailureList title={translateNative('native.4b1e36ad9ff19a2c')} rows={failureRateByTimeOfDay} colors={colors} formatValue={row => `${formatPercent(row.rate, 0)} • ${row.failures}/${row.total}`} />
           <FailureReasonList rows={failureReasons} colors={colors} />
         </SectionCard>
 
-        <SectionCard title="Activity heatmap" subtitle="Daily print volume for the selected range.">
+        <SectionCard title={translateNative('native.94d43ac1d977be00')} subtitle={translateNative('native.4c4c75cf0974da8e')}>
           <View style={styles.heatmapWrap}>
             {heatmap.days.map(day => (
               <View key={day} style={styles.heatmapItem}>
@@ -733,7 +736,7 @@ export default function StatsScreen() {
           </View>
         </SectionCard>
 
-        <SectionCard title="Filament trends" subtitle="Material usage from recent print history.">
+        <SectionCard title={translateNative('native.38483102ad776003')} subtitle={translateNative('native.b51fade981aebeb3')}>
           {filamentTrends.length > 0 ? (
             filamentTrends.map(row => {
               const max = Math.max(...filamentTrends.map(entry => entry.grams), 1);
@@ -755,7 +758,7 @@ export default function StatsScreen() {
               );
             })
           ) : (
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No trend data is available for the selected range.</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{translateNative('native.02a26f8675328478')}</Text>
           )}
           {materialBreakdown.length > 0 ? (
             <View style={styles.materialWrap}>
@@ -769,7 +772,7 @@ export default function StatsScreen() {
           ) : null}
         </SectionCard>
 
-        <SectionCard title="Printer breakdown" subtitle="Print counts, failures, and filament by printer.">
+        <SectionCard title={translateNative('native.511b7e03670c82e5')} subtitle={translateNative('native.9766388731d2ddd3')}>
           {printerBreakdown.length > 0 ? (
             printerBreakdown.map(printer => (
               <View
@@ -781,49 +784,49 @@ export default function StatsScreen() {
               >
                 <View style={styles.printerHeader}>
                   <Text style={[styles.printerName, { color: colors.text }]}>{printer.name}</Text>
-                  <Text style={[styles.printerCount, { color: colors.textSecondary }]}>{printer.prints} prints</Text>
+                  <Text style={[styles.printerCount, { color: colors.textSecondary }]}><NativeTranslation id="native.2a5721842f3783d9" values={{ value0: (printer.prints) }} /></Text>
                 </View>
                 <View style={styles.printerStats}>
-                  <Text style={[styles.printerMeta, { color: colors.textSecondary }]}>Filament: {formatWeight(printer.grams)}</Text>
-                  <Text style={[styles.printerMeta, { color: printer.failures > 0 ? colors.warning : colors.textSecondary }]}>Failures: {printer.failures}</Text>
+                  <Text style={[styles.printerMeta, { color: colors.textSecondary }]}><NativeTranslation id="native.b31e5fb0ff81b7b5" values={{ value0: (formatWeight(printer.grams)) }} /></Text>
+                  <Text style={[styles.printerMeta, { color: printer.failures > 0 ? colors.warning : colors.textSecondary }]}><NativeTranslation id="native.78a7e802de4a2396" values={{ value0: (printer.failures) }} /></Text>
                 </View>
               </View>
             ))
           ) : (
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No printer data is available for the selected range.</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{translateNative('native.9921898254f89202')}</Text>
           )}
         </SectionCard>
 
-        <SectionCard title="Print duration distribution" subtitle="How long your prints typically take.">
+        <SectionCard title={translateNative('native.d2a3f0c42a783b66')} subtitle={translateNative('native.e2ca59e57fabf101')}>
           {durationDistribution.some(b => b.count > 0) ? (
             <SimpleBarChart
               data={durationDistribution.map(b => ({ label: b.label, value: b.count }))}
               height={160}
             />
           ) : (
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No duration data available.</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{translateNative('native.391f8c27cfbf7624')}</Text>
           )}
         </SectionCard>
 
-        <SectionCard title="Print habits" subtitle="Which days do you print most?">
+        <SectionCard title={translateNative('native.f221a4b0bd59714f')} subtitle={translateNative('native.11b422545ca01fef')}>
           {habitsData.some(d => d.value > 0) ? (
             <SimpleBarChart
               data={habitsData.map(d => ({ label: d.label, value: d.value, color: colors.info }))}
               height={160}
             />
           ) : (
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No habits data available.</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{translateNative('native.4c32def2caf928c0')}</Text>
           )}
         </SectionCard>
 
-        <SectionCard title="Time of day" subtitle="When you start prints during the day.">
+        <SectionCard title={translateNative('native.68bcf106e2b5c209')} subtitle={translateNative('native.6e447cc9bab39acc')}>
           {hourlyData.some(d => d.value > 0) ? (
             <SimpleBarChart
               data={hourlyData.map(d => ({ label: d.label, value: d.value, color: colors.warning }))}
               height={160}
             />
           ) : (
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No time-of-day data available.</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{translateNative('native.29d4e3595729d58f')}</Text>
           )}
         </SectionCard>
         </ReportLayout>
@@ -831,7 +834,7 @@ export default function StatsScreen() {
 
       <SelectionModal
         visible={selector === 'printer'}
-        title="Select printer"
+        title={translateNative('native.e45e1427971b8b4c')}
         options={printerOptions}
         selectedValue={selectedPrinterId}
         onClose={() => setSelector(null)}
@@ -843,7 +846,7 @@ export default function StatsScreen() {
 
       <SelectionModal
         visible={selector === 'user'}
-        title="Select user"
+        title={translateNative('native.82b311825b5bbbcc')}
         options={userOptions}
         selectedValue={selectedUserId}
         onClose={() => setSelector(null)}
@@ -867,8 +870,9 @@ function FailureList({
   colors: ReturnType<typeof useTheme>['colors'];
   formatValue: (row: { label: string; total: number; failures: number; rate: number }) => string;
 }) {
+  useNativeLocale();
   if (rows.length === 0) {
-    return <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No failure data available.</Text>;
+    return <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{translateNative('native.0956166278de8ee6')}</Text>;
   }
 
   const max = Math.max(...rows.map(row => row.rate), 0.01);
@@ -903,15 +907,16 @@ function FailureReasonList({
   rows: { label: string; count: number }[];
   colors: ReturnType<typeof useTheme>['colors'];
 }) {
+  useNativeLocale();
   if (rows.length === 0) {
-    return <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No failure reasons recorded.</Text>;
+    return <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{translateNative('native.8dc865ae121c119b')}</Text>;
   }
 
   const max = Math.max(...rows.map(row => row.count), 1);
 
   return (
     <View style={styles.failureSection}>
-      <Text style={[styles.failureTitle, { color: colors.text }]}>Most common reasons</Text>
+      <Text style={[styles.failureTitle, { color: colors.text }]}>{translateNative('native.aa8f6565bb671aa5')}</Text>
       {rows.map(row => (
         <View key={row.label} style={styles.barRow}>
           <View style={styles.barHeader}>
@@ -947,6 +952,7 @@ function SelectionModal({
   onClose: () => void;
   onSelect: (value: number | null) => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -976,7 +982,7 @@ function SelectionModal({
             }}
             ItemSeparatorComponent={SelectionItemSeparator}
           />
-          <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
+          <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         </Pressable>
       </Pressable>
     </Modal>
@@ -984,6 +990,7 @@ function SelectionModal({
 }
 
 function SelectionItemSeparator() {
+  useNativeLocale();
   return <View style={{ height: spacing.sm }} />;
 }
 

@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -14,16 +15,17 @@ import { BulkPlugPower, PlugPowerControl, plugPowerState, QuickSmartPlugPanel } 
 import { useAuth } from '@/contexts/AuthContext';
 
 export function SmartPlugsSection({ controller }: { controller: SettingsScreenController }) {
+  useNativeLocale();
   const smartPlugs = controller.queries.smartPlugsQuery.data ?? [];
   const { hasPermission } = useAuth();
   const [editor, setEditor] = useState<SmartPlug | 'new' | null>(null);
 
   return (
     <>
-      <SectionCard title="Smart plugs" subtitle="Add, edit, test, and control power devices.">
-        <Text style={[settingsStyles.helper, { color: controller.colors.textSecondary }]}>Manage Tasmota, Home Assistant, MQTT, and REST-based plugs from mobile.</Text>
+      <SectionCard title={translateNative('native.5d7721ec0453e1bd')} subtitle={translateNative('native.eab71014b0db74c9')}>
+        <Text style={[settingsStyles.helper, { color: controller.colors.textSecondary }]}>{translateNative('native.7d1f4eafa90d2764')}</Text>
         <PrimaryButton
-          label={controller.state.editingPlug ? 'Editing plug…' : 'Add smart plug'}
+          label={controller.state.editingPlug ? translateNative('native.ee79a473c09f0193') : translateNative('native.5f6128ede25edfd8')}
           variant="secondary"
           onPress={() => setEditor('new')}
           disabled={!hasPermission('smart_plugs:create')}
@@ -44,7 +46,7 @@ export function SmartPlugsSection({ controller }: { controller: SettingsScreenCo
           />
         ))
       ) : (
-        <EmptyState icon="⏻" title="No smart plugs" message="Create a plug to monitor online status and power state here." />
+        <EmptyState icon="⏻" title={translateNative('native.17da078585e179ac')} message={translateNative('native.c50898528cc1dc2c')} />
       )}
       {editor ? <SmartPlugEditor plug={editor === 'new' ? undefined : editor} existingPlugs={smartPlugs} canControl={controller.permissions.canControlSmartPlugs} onClose={() => setEditor(null)} /> : null}
     </>
@@ -66,6 +68,7 @@ function SmartPlugCardMobile({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { showToast } = useToast();
 
@@ -84,31 +87,31 @@ function SmartPlugCardMobile({
     <SectionCard
       title={plug.name}
       subtitle={describePlugConnection(plug)}
-      right={<StatusBadge label={reachable ? 'online' : 'offline'} color={reachable ? colors.success : colors.error} />}
+      right={<StatusBadge label={reachable ? translateNative('native.901d5a89d9f5cad2') : translateNative('native.c4b60eea6e399455')} color={reachable ? colors.success : colors.error} />}
     >
       <View style={settingsStyles.plugSummaryRow}>
-        <StatusBadge label={currentState || 'unknown'} color={isOn ? colors.accent : colors.textTertiary} />
-        {powerValue != null ? <StatusBadge label={`${Math.round(powerValue)} W`} color={colors.accent} /> : null}
+        <StatusBadge label={currentState || translateNative('native.649d2a9c05f2b32c')} color={isOn ? colors.accent : colors.textTertiary} />
+        {powerValue != null ? <StatusBadge label={translateNative('native.170a1ba723f191c5', { value0: String(Math.round(powerValue)) })} color={colors.accent} /> : null}
         <StatusBadge label={plug.plug_type} color={colors.textTertiary} />
       </View>
       <PlugPowerControl plug={plug} canControl={canControl} />
       <View style={settingsStyles.actions}>
         <PrimaryButton
-          label={statusQuery.isFetching ? 'Testing…' : 'Test connection'}
+          label={statusQuery.isFetching ? translateNative('native.36b1241a43893d02') : translateNative('native.c281bbb20123f577')}
           variant="secondary"
           onPress={async () => {
             const result = await statusQuery.refetch();
             if (result.data?.reachable) {
-              showToast(`${plug.name} is reachable.`, 'success');
+              showToast(translateNative('native.de14f048ee7530b7', { value0: String(plug.name) }), 'success');
               return;
             }
-            showToast(`${plug.name} is offline.`, 'error');
+            showToast(translateNative('native.e730acab1882c891', { value0: String(plug.name) }), 'error');
           }}
           disabled={statusQuery.isFetching}
           loading={statusQuery.isFetching}
         />
-        <PrimaryButton label="Edit" variant="secondary" onPress={onEdit} disabled={!canEdit} />
-        <PrimaryButton label="Delete" variant="danger" onPress={onDelete} disabled={!canDelete} />
+        <PrimaryButton label={translateNative('common.edit')} variant="secondary" onPress={onEdit} disabled={!canEdit} />
+        <PrimaryButton label={translateNative('common.delete')} variant="danger" onPress={onDelete} disabled={!canDelete} />
       </View>
     </SectionCard>
   );

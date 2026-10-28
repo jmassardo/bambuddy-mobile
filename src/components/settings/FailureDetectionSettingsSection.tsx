@@ -1,4 +1,7 @@
-import React, { useRef, useState } from 'react';
+import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+import { localizedStatus } from '@/utils/statusLabel';
+
+import React, { useRef } from 'react';
 import { Text } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -8,7 +11,7 @@ import {
 } from '@/components/common/AppUI';
 import { workflowSettingsApi } from '@/api/workflowSettings';
 import { printersApi } from '@/api/printers';
-import { useTranslation } from '@/i18n';
+
 import { aiDetectionSummary } from '@/utils/aiDetection';
 import { OptionChipsField, SwitchRow, settingsStyles } from './shared';
 import { WorkflowNumberField } from './WorkflowFields';
@@ -31,6 +34,7 @@ export function FailureDetectionSettingsSection({
 }: {
   controller: SettingsScreenController;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { draft } = controller.state;
   const { setDraft } = controller.actions;
@@ -40,7 +44,7 @@ export function FailureDetectionSettingsSection({
     queryFn: workflowSettingsApi.getDetectionStatus,
     refetchInterval: 10000,
   });
-  const [testMessage, setTestMessage] = useState('');
+  const [testMessage, setTestMessage] = useNativeMessageState('');
   const editRevision = useRef(0);
   const save = useMutation({
     mutationFn: async () => {
@@ -62,27 +66,25 @@ export function FailureDetectionSettingsSection({
       const result = await workflowSettingsApi.testDetection(url, token);
       if (!result.ok)
         throw new Error(
-          result.error ?? result.body ?? `HTTP ${result.status_code ?? '?'}`,
+          result.error ?? result.body ?? translateNative('native.3f24c1778d182094', { value0: String(result.status_code ?? '?') }),
         );
       if (editRevision.current !== revision) {
         setTestMessage(
-          t('workflow.testChanged', {
+          nativeMessage('workflow.testChanged', () => ({
             defaultValue:
               'Configuration changed during the test. Save and test the pending edits again.',
-          }),
+          })),
         );
         return;
       }
       setTestMessage(
-        result.auth_ok === null
-          ? t('workflow.testTokenUnknown', {
+        result.auth_ok === null ? nativeMessage('workflow.testTokenUnknown', () => ({
               defaultValue:
                 'Service reachable. Token authentication could not be verified.',
-            })
-          : t('workflow.testHealthy', {
+            })) : nativeMessage('workflow.testHealthy', () => ({
               defaultValue:
                 'Saved configuration is reachable; authentication accepted.',
-            }),
+            })),
       );
       await Promise.all([
         status.refetch(),
@@ -106,67 +108,67 @@ export function FailureDetectionSettingsSection({
   return (
     <>
       <SectionCard
-        title={fieldLabel('failureDetection', 'Failure detection')}
+        title={fieldLabel('failureDetection', translateNative('native.8d9d76d1eabcbf13'))}
         subtitle={fieldLabel(
           'failureDetectionHelp',
-          'Obico ML service configuration. Test saves pending settings before verifying runtime credentials.',
+          translateNative('native.3f7a17e9127e2900'),
         )}
       >
         <SwitchRow
-          label={fieldLabel('obico_enabled', 'Failure detection enabled')}
+          label={fieldLabel('obico_enabled', translateNative('native.ce4bb5bfb5837958'))}
           value={draft.obico_enabled === true}
           onValueChange={value => set('obico_enabled', value)}
         />
         <TextField
-          label={fieldLabel('obico_ml_url', 'Server URL')}
+          label={fieldLabel('obico_ml_url', translateNative('native.301fd81a82ae3258'))}
           value={String(draft.obico_ml_url ?? '')}
           onChangeText={value => set('obico_ml_url', value)}
           autoCapitalize="none"
         />
         <TextField
-          label={fieldLabel('obico_ml_token', 'ML token')}
+          label={fieldLabel('obico_ml_token', translateNative('native.b60124149c2a461f'))}
           value={String(draft.obico_ml_token ?? '')}
           onChangeText={value => set('obico_ml_token', value)}
           autoCapitalize="none"
           secureTextEntry
         />
         <OptionChipsField
-          label={fieldLabel('sensitivity', 'Sensitivity')}
+          label={fieldLabel('sensitivity', translateNative('native.e1ff2cad9ddd16a9'))}
           value={String(draft.obico_sensitivity ?? 'medium')}
           options={['low', 'medium', 'high'].map(key => ({
             key,
-            label: fieldLabel(key, key),
+            label: localizedStatus(key),
           }))}
           onChange={value => set('obico_sensitivity', value)}
         />
         <OptionChipsField
-          label={fieldLabel('action', 'Action')}
+          label={fieldLabel('action', translateNative('native.97af5b0829e9bf70'))}
           value={String(draft.obico_action ?? 'notify')}
           options={[
-            { key: 'notify', label: fieldLabel('notify', 'Notify') },
-            { key: 'pause', label: fieldLabel('pause', 'Pause') },
+            { key: 'notify', label: fieldLabel('notify', translateNative('native.8cfae299f560cf4b')) },
+            { key: 'pause', label: fieldLabel('pause', translateNative('native.362b1658df45e7f1')) },
             {
               key: 'pause_and_off',
-              label: fieldLabel('pauseAndOff', 'Pause + power off'),
+              label: fieldLabel('pauseAndOff', translateNative('native.cf8aad8108008103')),
             },
           ]}
           onChange={value => set('obico_action', value)}
         />
         <WorkflowNumberField
-          label={fieldLabel('pollInterval', 'Poll interval (seconds)')}
+          label={fieldLabel('pollInterval', translateNative('native.ae2994813541c587'))}
           value={Number(draft.obico_poll_interval ?? 10)}
           min={5}
           max={120}
           onChange={value => set('obico_poll_interval', value)}
         />
         <OptionChipsField
-          label={fieldLabel('monitorPrinters', 'Monitored printers')}
+          label={fieldLabel('monitorPrinters', translateNative('native.4d49bd96125df144'))}
           value={selected === null ? 'all' : 'custom'}
           options={[
-            { key: 'all', label: fieldLabel('allPrinters', 'All printers') },
+            { key: 'all', label: fieldLabel('allPrinters', translateNative('native.b8ed6cb4c204100e')) },
             {
               key: 'custom',
-              label: fieldLabel('customPrinters', 'Choose printers'),
+              label: fieldLabel('customPrinters', translateNative('native.ac3448f3d6c08f52')),
             },
           ]}
           onChange={value =>
@@ -203,7 +205,7 @@ export function FailureDetectionSettingsSection({
           >
             {fieldLabel(
               'printerTargetsUnavailable',
-              'Unable to load printers. The saved monitored-printer selection is preserved.',
+              translateNative('native.9797a6ebd6b2260c'),
             )}
           </Text>
         ) : null}
@@ -216,14 +218,14 @@ export function FailureDetectionSettingsSection({
           >
             {fieldLabel(
               'noMonitoredPrinters',
-              'No printers selected. No printers will be monitored.',
+              translateNative('native.04d329a6a33d2583'),
             )}
           </Text>
         ) : null}
         <PrimaryButton
           label={fieldLabel(
             'saveFailureDetection',
-            'Save failure-detection settings',
+            translateNative('native.13c6d2b8cd0e4479'),
           )}
           onPress={() => save.mutate()}
           loading={save.isPending}
@@ -234,7 +236,7 @@ export function FailureDetectionSettingsSection({
           }
         />
         <PrimaryButton
-          label={fieldLabel('saveAndTest', 'Save and test connection')}
+          label={fieldLabel('saveAndTest', translateNative('native.b24c14516c4998c4'))}
           variant="secondary"
           onPress={() => test.mutate()}
           loading={test.isPending}
@@ -264,7 +266,7 @@ export function FailureDetectionSettingsSection({
       <SectionCard
         title={fieldLabel(
           'effectiveDetectionStatus',
-          'Effective service diagnostics',
+          translateNative('native.df5f291e69734133'),
         )}
       >
         {status.isError && status.data ? (
@@ -273,7 +275,7 @@ export function FailureDetectionSettingsSection({
           >
             {fieldLabel(
               'statusStale',
-              'Unable to refresh service diagnostics. Values below are last known, not current.',
+              translateNative('native.b3941b491472a05c'),
             )}
           </Text>
         ) : null}
@@ -312,7 +314,7 @@ export function FailureDetectionSettingsSection({
               >
                 {fieldLabel(
                   'externalUrlMissing',
-                  'External URL is not configured. The ML service must be able to reach this server for frames.',
+                  translateNative('native.537ededb34c40e00'),
                 )}
               </Text>
             ) : null}
@@ -336,7 +338,7 @@ export function FailureDetectionSettingsSection({
               >
                 {fieldLabel(
                   'noDecisions',
-                  'No printer decisions yet. Unmeasured printers are not classified as safe.',
+                  translateNative('native.8001c7c92b376503'),
                 )}
               </Text>
             ) : null}
@@ -350,7 +352,7 @@ export function FailureDetectionSettingsSection({
                 ]}
               >
                 {printers.find(printer => String(printer.id) === id)?.name ??
-                  `Printer ${id}`}
+                  translateNative('native.d2ac42f573b54355', { value0: String(id) })}
                 : {aiDetectionSummary(decision)}
                 {decision.error ? `\n${decision.error}` : ''}
               </Text>
@@ -366,7 +368,7 @@ export function FailureDetectionSettingsSection({
             {status.isError
               ? fieldLabel(
                   'statusUnavailable',
-                  'Failure-detection service status unavailable.',
+                  translateNative('native.765c140b3f1c14ab'),
                 )
               : t('common.loading')}
           </Text>
@@ -379,13 +381,13 @@ export function FailureDetectionSettingsSection({
         />
       </SectionCard>
       <SectionCard
-        title={fieldLabel('detectionHistory', 'Recent detection decisions')}
+        title={fieldLabel('detectionHistory', translateNative('native.45fa378cf68ce1b3'))}
       >
         {status.isError && !status.data ? (
           <Text
             style={[settingsStyles.helper, { color: controller.colors.error }]}
           >
-            {fieldLabel('historyUnavailable', 'Detection history unavailable.')}
+            {fieldLabel('historyUnavailable', translateNative('native.aec6de6263313bb7'))}
           </Text>
         ) : !status.data?.history.length ? (
           <Text
@@ -394,7 +396,7 @@ export function FailureDetectionSettingsSection({
               { color: controller.colors.textSecondary },
             ]}
           >
-            {fieldLabel('noHistory', 'No recent decisions.')}
+            {fieldLabel('noHistory', translateNative('native.349ea05cb90b03c2'))}
           </Text>
         ) : (
           status.data.history.map((event, index) => (

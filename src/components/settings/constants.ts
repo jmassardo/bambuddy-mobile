@@ -1,3 +1,5 @@
+import { translateNative } from '@/i18n';
+
 import type {
   KProfile,
   MQTTStatus,
@@ -31,40 +33,40 @@ import type {
 } from './types';
 
 export const SECTION_ITEMS: SectionItem[] = [
-  { key: 'general', icon: 'settings', title: 'General', description: 'Locale, archive defaults, print defaults, pricing, and update settings.' },
-  { key: 'plugs', icon: 'power', title: 'Plugs', description: 'Smart plug inventory, online state, power controls, and device management.' },
-  { key: 'notifications', icon: 'bell', title: 'Notifications', description: 'Provider status and shortcuts into user notification settings.' },
-  { key: 'queue', icon: 'list-ordered', title: 'Queue', description: 'Default print options, preheat, staggering, and slicer preferences.' },
-  { key: 'filament', icon: 'package', title: 'Filament', description: 'Warnings, Spoolman, RFID handling, and forecasting defaults.' },
-  { key: 'kprofiles', icon: 'activity', title: 'K-Profile & Pressure Advance', description: 'Pressure advance calibration data (K, N values), nozzle diameter, and filament mapping.' },
-  { key: 'network', icon: 'globe', title: 'Network', description: 'External URLs, FTP retry, Prometheus, and Home Assistant.' },
-  { key: 'mqtt', icon: 'wifi', title: 'MQTT', description: 'Broker configuration, topic prefix, and connection testing.' },
-  { key: 'navigation', icon: 'menu', title: 'Navigation', description: 'Choose which pages appear and arrange tabs and the More menu.' },
-  { key: 'custom-navigation', icon: 'link', title: 'Custom Navigation', description: 'Add custom external links that appear in your navigation menu.' },
-  { key: 'apikeys', icon: 'key', title: 'API Keys', description: 'Create and revoke API keys for scripts and integrations.' },
-  { key: 'external-cameras', icon: 'camera', title: 'External Cameras', description: 'Configure IP camera streams, test connectivity, and map cameras to printers.' },
-  { key: 'virtual-printer', icon: 'printer', title: 'Virtual Printer', description: 'Virtual printer status plus start and stop controls.' },
-  { key: 'spoolbuddy', icon: 'nfc', title: 'SpoolBuddy', description: 'Devices, NFC/scales, and calibration shortcuts.' },
-  { key: 'failure-detection', icon: 'shield', title: 'Failure Detection', description: 'Obico service status and model settings.' },
-  { key: 'users', icon: 'users', title: 'Users & Security', description: 'Auth, SMTP, LDAP, OIDC, and 2FA management.' },
-  { key: 'backup', icon: 'download', title: 'Backup', description: 'Local backups, exports, GitHub backup status, and recovery.' },
-  { key: 'storage-locations', icon: 'layers', title: 'Storage Locations', description: 'Shelves, drawers, and boxes for organizing filament spools.' },
+  { key: 'general', icon: 'settings', get title() { return translateNative('native.c16ffe4ebbc1709c'); }, get description() { return translateNative('native.e8e8c616754923df'); } },
+  { key: 'plugs', icon: 'power', get title() { return translateNative('native.80608e341c939a66'); }, get description() { return translateNative('native.816eabbac21d350b'); } },
+  { key: 'notifications', icon: 'bell', get title() { return translateNative('nav.notifications'); }, get description() { return translateNative('native.8938dd5d82829b38'); } },
+  { key: 'queue', icon: 'list-ordered', get title() { return translateNative('nav.queue'); }, get description() { return translateNative('native.da7c4043ae3f5288'); } },
+  { key: 'filament', icon: 'package', get title() { return translateNative('native.12e2b8020ce55e27'); }, get description() { return translateNative('native.9a23111fd32b278b'); } },
+  { key: 'kprofiles', icon: 'activity', get title() { return translateNative('native.41f3d1901c0427a3'); }, get description() { return translateNative('native.90d3d09aaaae9a0f'); } },
+  { key: 'network', icon: 'globe', get title() { return translateNative('native.00a012a19434828d'); }, get description() { return translateNative('native.b5acb1cb7f2dc4f3'); } },
+  { key: 'mqtt', icon: 'wifi', title: 'MQTT', get description() { return translateNative('native.88945d6427d630b4'); } },
+  { key: 'navigation', icon: 'menu', get title() { return translateNative('native.7b38ba5754ceef25'); }, get description() { return translateNative('native.dbbf6223e5db542e'); } },
+  { key: 'custom-navigation', icon: 'link', get title() { return translateNative('native.a1c4b3f5c132cb28'); }, get description() { return translateNative('native.cf0c4cd240b65c9f'); } },
+  { key: 'apikeys', icon: 'key', get title() { return translateNative('native.adae33bba17225f0'); }, get description() { return translateNative('native.5ff7c81fc01db560'); } },
+  { key: 'external-cameras', icon: 'camera', get title() { return translateNative('native.724525fdc0864e45'); }, get description() { return translateNative('native.f46365e68cc9ab58'); } },
+  { key: 'virtual-printer', icon: 'printer', get title() { return translateNative('native.71857dc2f2ceb994'); }, get description() { return translateNative('native.9b9a7ddaa90a4afd'); } },
+  { key: 'spoolbuddy', icon: 'nfc', title: 'SpoolBuddy', get description() { return translateNative('native.2f51ac476d19abca'); } },
+  { key: 'failure-detection', icon: 'shield', get title() { return translateNative('native.fed81c0826013e72'); }, get description() { return translateNative('native.69b646236fede2bb'); } },
+  { key: 'users', icon: 'users', get title() { return translateNative('native.34e82b55772de6df'); }, get description() { return translateNative('native.f85cadaeeac78e06'); } },
+  { key: 'backup', icon: 'download', get title() { return translateNative('native.e82edc1b9645b22d'); }, get description() { return translateNative('native.e826fb871b47b733'); } },
+  { key: 'storage-locations', icon: 'layers', get title() { return translateNative('native.c33a41f402ba70a5'); }, get description() { return translateNative('native.5a2d547192e13637'); } },
 ];
 
 export const LANGUAGE_OPTIONS = availableLanguages;
 export const NOTIFICATION_LANGUAGE_OPTIONS = availableLanguages;
 
 export const DATE_FORMAT_OPTIONS = [
-  { key: 'system', label: 'System' },
+  { key: 'system', get label() { return translateNative('nav.system'); } },
   { key: 'us', label: 'MM/DD/YYYY' },
   { key: 'eu', label: 'DD/MM/YYYY' },
   { key: 'iso', label: 'YYYY-MM-DD' },
 ] as const satisfies ReadonlyArray<OptionItem>;
 
 export const TIME_FORMAT_OPTIONS = [
-  { key: 'system', label: 'System' },
-  { key: '12h', label: '12 hour' },
-  { key: '24h', label: '24 hour' },
+  { key: 'system', get label() { return translateNative('nav.system'); } },
+  { key: '12h', get label() { return translateNative('native.465c5e19723e5e9d'); } },
+  { key: '24h', get label() { return translateNative('native.27e4bb12cc9c0fe6'); } },
 ] as const satisfies ReadonlyArray<OptionItem>;
 
 export const CURRENCY_OPTIONS = [
@@ -76,7 +78,7 @@ export const CURRENCY_OPTIONS = [
 export const SMTP_SECURITY_OPTIONS: Array<OptionItem<SmtpSecurity>> = [
   { key: 'starttls', label: 'STARTTLS' },
   { key: 'ssl', label: 'SSL' },
-  { key: 'none', label: 'None' },
+  { key: 'none', get label() { return translateNative('common.none'); } },
 ];
 
 export const SMTP_PORT_BY_SECURITY: Record<SmtpSecurity, number> = {
@@ -89,13 +91,13 @@ export const SMART_PLUG_TYPE_OPTIONS: Array<OptionItem<SmartPlugType>> = [
   { key: 'tasmota', label: 'Tasmota' },
   { key: 'homeassistant', label: 'Home Assistant' },
   { key: 'mqtt', label: 'MQTT' },
-  { key: 'rest', label: 'REST' },
+  { key: 'rest', get label() { return translateNative('native.34f62c31ffec265a'); } },
 ];
 
 export const EXTERNAL_CAMERA_TYPE_OPTIONS: Array<OptionItem<ExternalCameraType>> = [
   { key: 'mjpeg', label: 'MJPEG' },
   { key: 'rtsp', label: 'RTSP' },
-  { key: 'snapshot', label: 'Snapshot' },
+  { key: 'snapshot', get label() { return translateNative('native.98cdfe45ad61054b'); } },
 ];
 
 export const DEFAULT_SMTP_SETTINGS: SMTPSettings = {
@@ -126,7 +128,7 @@ export const EMPTY_PROVIDER_FORM: ProviderFormState = {
   issuer_url: '',
   client_id: '',
   client_secret: '',
-  scopes: 'openid email profile',
+  get scopes() { return translateNative('native.a78c1991f70d3ab8'); },
   is_enabled: true,
 };
 
@@ -263,20 +265,20 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
     case 'notifications':
       return `${(queries.notificationProviders ?? []).length} providers`;
     case 'queue':
-      return pickBoolean(settings, ['preheat_enabled']) ? 'Preheat enabled' : 'Preheat disabled';
+      return pickBoolean(settings, ['preheat_enabled']) ? translateNative('native.2ec4b547f7d1df5b') : translateNative('native.84fbff152ecea1e7');
     case 'filament':
       return `Low stock ${pickNumber(settings, ['low_stock_threshold'], 20)}%`;
     case 'kprofiles':
       return `${(queries.kprofiles ?? []).length} profiles`;
     case 'network':
-      return `External URL set • Prometheus ${pickBoolean(settings, ['prometheus_enabled']) ? 'enabled' : 'disabled'}`;
+      return `External URL set • Prometheus ${pickBoolean(settings, ['prometheus_enabled']) ? translateNative('native.6786e575ee872370') : translateNative('native.08e76ba2b69926c4')}`;
     case 'mqtt': {
       const mqtt = queries.mqttStatus;
       if (!mqtt) return 'Checking…';
       return `${mqtt.enabled ? 'Enabled' : 'Disabled'} • ${mqtt.connected ? 'Connected' : 'Disconnected'} • ${mqtt.broker}:${mqtt.port}`;
     }
     case 'navigation':
-      return pickString(settings, ['default_sidebar_order']) ? 'Customized' : 'Default order';
+      return pickString(settings, ['default_sidebar_order']) ? translateNative('native.37be3bba93bb8283') : translateNative('native.ac77ddfd82114632');
     case 'custom-navigation':
       return `${(queries.customNavItems ?? []).length} custom links`;
     case 'apikeys':
@@ -288,11 +290,11 @@ export function summarize(section: SectionKey, queries: SectionSummaryQueries) {
     case 'spoolbuddy':
       return `${(queries.spoolbuddyDevices ?? []).length} devices`;
     case 'failure-detection':
-      return pickBoolean(queries.obicoStatus, ['enabled']) ? 'Enabled' : 'Disabled';
+      return pickBoolean(queries.obicoStatus, ['enabled']) ? translateNative('common.enabled') : translateNative('common.disabled');
     case 'users':
-      return pickBoolean(queries.advancedAuthStatus, ['advanced_auth_enabled']) ? 'Security enabled' : 'Basic auth';
+      return pickBoolean(queries.advancedAuthStatus, ['advanced_auth_enabled']) ? translateNative('native.c4d355ef26a57929') : translateNative('native.395bd020ccc498d8');
     case 'backup':
-      return pickString(queries.githubBackupStatus, ['last_backup_status'], 'No recent backup');
+      return pickString(queries.githubBackupStatus, ['last_backup_status'], translateNative('native.942bcda081837f61'));
     case 'storage-locations':
       return `${(queries.storageLocations ?? []).length} locations`;
     default:

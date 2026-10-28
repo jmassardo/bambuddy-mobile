@@ -1,7 +1,8 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 import {
@@ -19,6 +20,7 @@ export function PresetFilters({
   value: Filters;
   onChange: (value: Filters) => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   return (

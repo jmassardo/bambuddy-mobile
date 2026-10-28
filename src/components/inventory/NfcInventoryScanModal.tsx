@@ -1,4 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -44,17 +46,17 @@ type ScanPhase =
 
 function scanDescription(phase: ScanPhase): string {
   switch (phase.phase) {
-    case 'checking': return 'Checking NFC capability...';
-    case 'unsupported': return 'NFC is not supported on this device.';
-    case 'disabled': return 'NFC is turned off. Please enable it to scan spool tags.';
-    case 'ready': return 'Ready to scan. Hold a Bambu spool near your phone.';
-    case 'scanning': return 'Reading NFC tag...';
-    case 'lookup': return 'Checking inventory...';
-    case 'not_found': return 'Spool not in inventory.';
-    case 'found': return 'Spool found.';
-    case 'duplicate': return 'Multiple spools use this tag.';
-    case 'error': return 'Scan failed. Tap retry to try again.';
-    case 'cancelled': return 'Scan cancelled.';
+    case 'checking': return translateNative('native.92df392a81bc83d2');
+    case 'unsupported': return translateNative('native.ca484467ec74c655');
+    case 'disabled': return translateNative('native.601edb73fd31663f');
+    case 'ready': return translateNative('native.f2fd6a3c4899d482');
+    case 'scanning': return translateNative('native.9bd10a10034e60c7');
+    case 'lookup': return translateNative('native.82734108a1e1c82a');
+    case 'not_found': return translateNative('native.60d042b242a12a17');
+    case 'found': return translateNative('native.f1522078b548271d');
+    case 'duplicate': return translateNative('native.56a92fea627c7d2c');
+    case 'error': return translateNative('native.111d3913eb1a77d7');
+    case 'cancelled': return translateNative('native.1fb8f43bb5c86145');
   }
 }
 
@@ -67,6 +69,7 @@ export function NfcInventoryScanModal({
   _toast,
   spoolman = false,
 }: NfcInventoryScanModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const nfc = useNfc();
   const isMountedRef = useRef(false);
@@ -93,7 +96,7 @@ export function NfcInventoryScanModal({
       } else if (nfc.status === 'reading') {
         setPhase({ phase: 'scanning' });
       } else {
-        setPhase({ phase: 'error', message: 'Scan failed. Tap retry to try again.' });
+        setPhase({ phase: 'error', get message() { return translateNative('native.111d3913eb1a77d7'); } });
       }
     }
   }, [visible, nfc.status]);
@@ -128,11 +131,11 @@ export function NfcInventoryScanModal({
       } else if (result.status === 'cancelled' || result.status === 'timeout') {
         setPhase({ phase: 'cancelled' });
       } else {
-        setPhase({ phase: 'error', message: result.status === 'read_error' ? 'Failed to read tag.' : result.status });
+        setPhase({ phase: 'error', message: result.status === 'read_error' ? translateNative('native.0c812d53400b09f0') : result.status });
       }
     } catch {
       if (isMountedRef.current && sessionToken === scanSessionRef.current) {
-        setPhase({ phase: 'error', message: 'Scan failed. Tap retry to try again.' });
+        setPhase({ phase: 'error', get message() { return translateNative('native.111d3913eb1a77d7'); } });
       }
     } finally {
       isProcessingRef.current = false;
@@ -207,7 +210,7 @@ export function NfcInventoryScanModal({
   const cardStyle: ViewStyle = { maxHeight };
 
   // Compute actions based on phase
-  const actions = useMemo((): Array<{
+  const actions = useLocalizedMemo((): Array<{
     label: string;
     onPress: () => void;
     disabled: boolean;
@@ -215,49 +218,49 @@ export function NfcInventoryScanModal({
     loading?: boolean;
   }> => {
     if (phase.phase === 'ready') {
-      return [{ label: 'Scan RFID', onPress: handleStartScan, disabled: isProcessingRef.current }];
+      return [{ get label() { return translateNative('native.dfa42b6b4a8ceb18'); }, onPress: handleStartScan, disabled: isProcessingRef.current }];
     }
     if (phase.phase === 'scanning' || phase.phase === 'lookup') {
       return [
-        { label: 'Cancel', onPress: handleCancelScan, disabled: false }
+        { get label() { return translateNative('common.cancel'); }, onPress: handleCancelScan, disabled: false }
       ];
     }
     if (phase.phase === 'not_found') {
       return [
-        { label: 'Add to inventory', onPress: handleAddToInventory, disabled: false },
-        { label: 'Scan another', onPress: handleScanAnother, disabled: isProcessingRef.current },
-        { label: 'Done', onPress: handleDone, disabled: false, destructive: true },
+        { get label() { return translateNative('native.66e8fed372985bb5'); }, onPress: handleAddToInventory, disabled: false },
+        { get label() { return translateNative('native.9e3aed9ca27b49a5'); }, onPress: handleScanAnother, disabled: isProcessingRef.current },
+        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, destructive: true },
       ];
     }
     if (phase.phase === 'duplicate') {
       return [
-        { label: 'Scan another', onPress: handleScanAnother, disabled: isProcessingRef.current },
-        { label: 'Done', onPress: handleDone, disabled: false, destructive: true },
+        { get label() { return translateNative('native.9e3aed9ca27b49a5'); }, onPress: handleScanAnother, disabled: isProcessingRef.current },
+        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, destructive: true },
       ];
     }
     if (phase.phase === 'found') {
       return [
-        { label: 'Edit spool', onPress: handleEditSpool, disabled: false },
-        { label: 'Assign to slot', onPress: handleAssignSpool, disabled: false },
-        { label: 'Scan another', onPress: handleScanAnother, disabled: isProcessingRef.current },
-        { label: 'Done', onPress: handleDone, disabled: false, destructive: true },
+        { get label() { return translateNative('native.060e4f38051c717e'); }, onPress: handleEditSpool, disabled: false },
+        { get label() { return translateNative('native.1dd4c6bd868053df'); }, onPress: handleAssignSpool, disabled: false },
+        { get label() { return translateNative('native.9e3aed9ca27b49a5'); }, onPress: handleScanAnother, disabled: isProcessingRef.current },
+        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, destructive: true },
       ];
     }
     if (phase.phase === 'error') {
       return [
-        { label: 'Retry', onPress: handleRetry, disabled: isProcessingRef.current },
-        { label: 'Done', onPress: handleDone, disabled: false, destructive: true },
+        { get label() { return translateNative('common.retry'); }, onPress: handleRetry, disabled: isProcessingRef.current },
+        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, destructive: true },
       ];
     }
     if (phase.phase === 'cancelled') {
       return [
-        { label: 'Scan again', onPress: handleStartScan, disabled: isProcessingRef.current },
-        { label: 'Done', onPress: handleDone, disabled: false, destructive: true },
+        { get label() { return translateNative('native.1f08b975eae81786'); }, onPress: handleStartScan, disabled: isProcessingRef.current },
+        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, destructive: true },
       ];
     }
     // unsupported / disabled / checking
     return [
-      { label: 'Done', onPress: handleDone, disabled: false, destructive: true },
+      { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, destructive: true },
     ];
   }, [phase, handleStartScan, handleCancelScan, handleAddToInventory, handleEditSpool, handleAssignSpool, handleScanAnother, handleDone, handleRetry, isProcessingRef]);
 
@@ -314,17 +317,17 @@ export function NfcInventoryScanModal({
             <Text style={[styles.title, { color: colors.text }]} numberOfLines={0}>
               {(() => {
                 switch (phase.phase) {
-                  case 'checking': return 'NFC Check';
-                  case 'unsupported': return 'NFC Not Available';
-                  case 'disabled': return 'NFC Disabled';
-                  case 'ready': return 'Ready to Scan';
-                  case 'scanning': return 'Reading Tag';
-                  case 'lookup': return 'Checking Inventory';
-                  case 'not_found': return 'Spool Not in Inventory';
-                  case 'found': return 'Spool Found';
-                  case 'duplicate': return 'Multiple Spools';
-                  case 'error': return 'Scan Failed';
-                  case 'cancelled': return 'Scan Cancelled';
+                  case 'checking': return translateNative('native.f37a07f30d0a7976');
+                  case 'unsupported': return translateNative('native.8cb7fd3b4df2d91a');
+                  case 'disabled': return translateNative('native.d3a82babc0d66bc7');
+                  case 'ready': return translateNative('native.c511750cbb9f6d49');
+                  case 'scanning': return translateNative('native.5a290dcb50b14003');
+                  case 'lookup': return translateNative('native.b3f8c48c4ccae90e');
+                  case 'not_found': return translateNative('native.a525773013b4cb00');
+                  case 'found': return translateNative('native.1ae994a808a386cd');
+                  case 'duplicate': return translateNative('native.07ee170b69efcb80');
+                  case 'error': return translateNative('native.0571baa7c7c6090d');
+                  case 'cancelled': return translateNative('native.9db3fc60e37e4b35');
                 }
               })()}
             </Text>
@@ -345,7 +348,7 @@ export function NfcInventoryScanModal({
                 </Text>
                 {pickNumber(phase.spool, ['state']) !== null && (
                   <Text style={[styles.spoolState, { color: colors.accent }]}>
-                    {pickNumber(phase.spool, ['state']) === 10 ? 'Archived' : 'Active'}
+                    {pickNumber(phase.spool, ['state']) === 10 ? translateNative('native.09a6280015b8766a') : translateNative('native.338a8c40557b22a0')}
                   </Text>
                 )}
               </View>
@@ -354,9 +357,7 @@ export function NfcInventoryScanModal({
             {/* Duplicate spool list */}
             {phase.phase === 'duplicate' && (
               <View style={styles.duplicateList}>
-                <Text style={[styles.spoolLabel, { color: colors.textSecondary }]} numberOfLines={0}>
-                  {phase.spools.length} spool(s) match this tag:
-                </Text>
+                <Text style={[styles.spoolLabel, { color: colors.textSecondary }]} numberOfLines={0}><NativeTranslation id="native.f3b785a40965592c" values={{ value0: (phase.spools.length) }} /></Text>
                 {phase.spools.map((spool) => (
                   <View key={pickNumber(spool, ['id'])} style={styles.spoolItem}>
                     <Text style={[styles.spoolName, { color: colors.text }]} numberOfLines={1}>
@@ -367,7 +368,7 @@ export function NfcInventoryScanModal({
                       {pickString(spool, ['color_name'])}
                     </Text>
                     <Text style={[styles.spoolState, { color: colors.accent }]}>
-                      {pickNumber(spool, ['state']) === 10 ? 'Archived' : 'Active'}
+                      {pickNumber(spool, ['state']) === 10 ? translateNative('native.09a6280015b8766a') : translateNative('native.338a8c40557b22a0')}
                     </Text>
                   </View>
                 ))}

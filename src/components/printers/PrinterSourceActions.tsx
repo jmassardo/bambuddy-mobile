@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,11 +9,12 @@ import { ConfirmOutcomeDialog } from '@/components/archives/ArchiveWorkflowUI';
 import { PrintModal } from '@/components/printers/PrintModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import { fontSize, spacing } from '@/theme/tokens';
 
 export function PrinterSourceActions({ printerId }: { printerId: number }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { user, hasPermission } = useAuth();

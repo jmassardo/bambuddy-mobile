@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import {
   AlertCircle,
@@ -24,20 +25,20 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { fontSize, spacing } from '../../theme/tokens';
-import { useTranslation } from '@/i18n';
 
 interface LoadingScreenProps {
   message?: string;
 }
 
-export function LoadingScreen({ message = 'Loading...' }: LoadingScreenProps) {
+export function LoadingScreen({ message = translateNative('common.loading') }: LoadingScreenProps) {
+  useNativeLocale();
   const { colors } = useTheme();
-  const { text } = useTranslation();
+  useTranslation();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ActivityIndicator size="large" color={colors.accent} />
-      <Text style={[styles.message, { color: colors.textSecondary }]}>{text(message)}</Text>
+      <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
     </View>
   );
 }
@@ -105,8 +106,9 @@ const EMPTY_STATE_ICONS: Record<
 };
 
 export function EmptyState({ icon = '📭', title, message }: EmptyStateProps) {
+  useNativeLocale();
   const { colors } = useTheme();
-  const { text } = useTranslation();
+  useTranslation();
   const iconName = EMPTY_STATE_ICON_MAP[icon] ?? icon;
   const IconComponent = EMPTY_STATE_ICONS[iconName] ?? Archive;
 
@@ -115,9 +117,9 @@ export function EmptyState({ icon = '📭', title, message }: EmptyStateProps) {
       <View style={[styles.emptyIconWrap, { backgroundColor: colors.surfaceElevated }]}>
         <IconComponent size={28} color={colors.textTertiary} strokeWidth={2} />
       </View>
-      <Text style={[styles.emptyTitle, { color: colors.text }]}>{text(title)}</Text>
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>{title}</Text>
       {message && (
-        <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{text(message)}</Text>
+        <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>
       )}
     </View>
   );
@@ -128,9 +130,10 @@ interface OfflineStateProps {
   onRetry?: () => void;
 }
 
-export function OfflineState({ message = 'No network connection. Tap to retry.', onRetry }: OfflineStateProps) {
+export function OfflineState({ message = translateNative('native.c1644b8beb53389c'), onRetry }: OfflineStateProps) {
+  useNativeLocale();
   const { colors } = useTheme();
-  const { text, t } = useTranslation();
+  const { t } = useTranslation();
 
   return (
     <View style={styles.emptyContainer}>
@@ -138,7 +141,7 @@ export function OfflineState({ message = 'No network connection. Tap to retry.',
         <WifiOff size={28} color={colors.warning} strokeWidth={2} />
       </View>
       <Text style={[styles.emptyTitle, { color: colors.warning }]}>{t('common.offline', { defaultValue: 'No network' })}</Text>
-      <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{text(message)}</Text>
+      <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>
       {onRetry && (
         <Text
           style={[styles.retryButton, { color: colors.accent }]}
@@ -157,8 +160,9 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
+  useNativeLocale();
   const { colors } = useTheme();
-  const { text, t } = useTranslation();
+  const { t } = useTranslation();
 
   return (
     <View style={styles.emptyContainer}>
@@ -166,7 +170,7 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
         <AlertCircle size={28} color={colors.error} strokeWidth={2} />
       </View>
       <Text style={[styles.emptyTitle, { color: colors.error }]}>{t('common.error')}</Text>
-      <Text style={[styles.emptyMessage, { color: colors.textSecondary }]} accessibilityRole="alert">{text(message)}</Text>
+      <Text style={[styles.emptyMessage, { color: colors.textSecondary }]} accessibilityRole="alert">{message}</Text>
       {onRetry && (
         <Text
           style={[styles.retryButton, { color: colors.accent }]}

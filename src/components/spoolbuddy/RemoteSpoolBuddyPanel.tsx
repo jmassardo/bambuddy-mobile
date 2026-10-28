@@ -1,3 +1,7 @@
+import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
+import { localizedStatus } from '@/utils/statusLabel';
+
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
@@ -21,7 +25,7 @@ import { useSpoolBuddyTare } from '@/hooks/useSpoolBuddyTare';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
-import { useTranslation } from '@/i18n';
+
 import { formatDateTime } from '@/utils/data';
 import type {
   InventorySpool,
@@ -46,24 +50,20 @@ const commands: Record<
   { label: string; detail: string }
 > = {
   restart_browser: {
-    label: 'Restart browser',
-    detail:
-      'Restart only the kiosk browser on the remote device. The phone browser is not affected.',
+    get label() { return translateNative('native.f929da86d5dae8a8'); },
+    get detail() { return translateNative('native.c45f71f632019e56'); },
   },
   restart_daemon: {
-    label: 'Restart daemon',
-    detail:
-      'Restart the remote NFC/scale daemon. Readings will briefly disconnect.',
+    get label() { return translateNative('native.1825e1368c293be3'); },
+    get detail() { return translateNative('native.89063694be2a43d6'); },
   },
   reboot: {
-    label: 'Reboot device',
-    detail:
-      'Reboot the remote unit. The kiosk and hardware will disconnect while it restarts.',
+    get label() { return translateNative('native.109f4c5f5070e6ee'); },
+    get detail() { return translateNative('native.bc6a20ac24e5326a'); },
   },
   shutdown: {
-    label: 'Shut down device',
-    detail:
-      'Power off the remote unit. Physical access is required to turn it on again. This does not remove its server registration.',
+    get label() { return translateNative('native.09f3a5efd8990f31'); },
+    get detail() { return translateNative('native.14d3e8820de4a693'); },
   },
 };
 
@@ -85,6 +85,7 @@ export function RemoteSpoolBuddyModal({
   deviceId: string | null;
   onClose: () => void;
 }) {
+  useNativeLocale();
   const { t } = useTranslation();
   return (
     <SimpleModal
@@ -103,6 +104,7 @@ export function RemoteSpoolBuddyModal({
 }
 
 export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const tr = (key: string, defaultValue: string) =>
     t(`spoolbuddy.${key}`, { defaultValue });
@@ -116,7 +118,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
   const [confirmation, setConfirmation] = React.useState<Confirmation | null>(
     null,
   );
-  const [feedback, setFeedback] = React.useState('');
+  const [feedback, setFeedback] = useNativeMessageState('');
   const [spoolMode, setSpoolMode] = React.useState<SpoolMode>('existing');
   const [search, setSearch] = React.useState('');
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
@@ -131,7 +133,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
     React.useState<SpoolBuddyDiagnostic | null>(null);
   const [diagnosticRunning, setDiagnosticRunning] = React.useState(false);
   const [diagnosticRun, setDiagnosticRun] = React.useState(0);
-  const [diagnosticMessage, setDiagnosticMessage] = React.useState('');
+  const [diagnosticMessage, setDiagnosticMessage] = useNativeMessageState('');
   const [updateQueued, setUpdateQueued] = React.useState(false);
   const [updateReconnect, setUpdateReconnect] = React.useState(false);
   const devices = useQuery({
@@ -242,14 +244,14 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
     const timer = setTimeout(() => {
       setDiagnosticRunning(false);
       setDiagnosticMessage(
-        t('spoolbuddy.diagnosticTimeout', {
+        nativeMessage('spoolbuddy.diagnosticTimeout', () => ({
           defaultValue:
             'Diagnostic timed out after 30 seconds. Check the daemon and retry.',
-        }),
+        })),
       );
     }, 30000);
     return () => clearTimeout(timer);
-  }, [diagnosticRunning, t]);
+  }, [diagnosticRunning, setDiagnosticMessage, t]);
   React.useEffect(() => {
     if (updateStatus === 'pending' || updateStatus === 'updating') {
       setUpdateQueued(false);
@@ -286,46 +288,32 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
       updateReconnectBaseline.current = remote.reconnectRevision;
       setUpdateReconnect(false);
       setFeedback(
-        reconnected
-          ? t('spoolbuddy.updateReconnected', {
+        reconnected ? nativeMessage('spoolbuddy.updateReconnected', () => ({
               defaultValue:
                 'Remote device reconnected after update. Verify the reported version below.',
-            })
-          : t('spoolbuddy.updateVersionVerified', {
+            })) : nativeMessage('spoolbuddy.updateVersionVerified', () => ({
               defaultValue:
                 'Update completed. Remote device reports version {{version}}.',
               version: expectedVersion ?? '',
-            }),
+            })),
       );
       void update.refetch();
       void devices.refetch();
     }
-  }, [
-    online,
-    updateReconnect,
-    remote.online,
-    remote.reconnectRevision,
-    remote.updateStatus,
-    remote.updateReportedAt,
-    updateStatus,
-    device?.firmware_version,
-    update,
-    devices,
-    t,
-  ]);
+  }, [online, updateReconnect, remote.online, remote.reconnectRevision, remote.updateStatus, remote.updateReportedAt, updateStatus, device?.firmware_version, update, devices, t, setFeedback]);
   React.useEffect(() => {
     if (!updateQueued) return;
     const timer = setTimeout(() => {
       setUpdateQueued(false);
       setFeedback(
-        t('spoolbuddy.updateTimeout', {
+        nativeMessage('spoolbuddy.updateTimeout', () => ({
           defaultValue:
             'Update acknowledgement timed out. Check remote daemon status and SSH setup before retrying.',
-        }),
+        })),
       );
     }, 30000);
     return () => clearTimeout(timer);
-  }, [updateQueued, t]);
+  }, [updateQueued, t, setFeedback]);
 
   function execute(title: string, run: () => Promise<void>) {
     mutation.mutate({ title, message: '', run });
@@ -347,11 +335,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
     try {
       const result = await spoolbuddyApi.write(deviceId, spoolId);
       setFeedback(
-        result.warnings?.join('\n') ||
-          tr(
-            'writeQueued',
-            'Write queued on remote hardware. Waiting for the device result; do not remove the tag.',
-          ),
+        result.warnings?.join('\n') || nativeMessage('writeQueued', () => ({ defaultValue: 'Write queued on remote hardware. Waiting for the device result; do not remove the tag.' })),
       );
     } catch (writeError) {
       setSpoolBuddyState(deviceId, {
@@ -407,14 +391,11 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
     }
     if (tag) {
       matchSpoolBuddyTag(deviceId, tag.uid, tag.tray, created);
-      setFeedback(tr('spoolAddedLinked', 'Spool added and remote tag linked.'));
+      setFeedback(nativeMessage('spoolAddedLinked', () => ({ defaultValue: 'Spool added and remote tag linked.' })));
       await refreshSpools();
     } else
       setFeedback(
-        tr(
-          'spoolCreatedForWrite',
-          'Spool created. Select Write to queue its remote NFC write.',
-        ),
+        nativeMessage('spoolCreatedForWrite', () => ({ defaultValue: 'Spool created. Select Write to queue its remote NFC write.' })),
       );
   }
   async function finishSpoolmanTagCreate(pending: PendingTagCreate) {
@@ -427,7 +408,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
     setPendingTagCreate(null);
     matchSpoolBuddyTag(deviceId, pending.uid, pending.tray, linked);
     await refreshSpools();
-    setFeedback(tr('spoolAddedLinked', 'Spool added and remote tag linked.'));
+    setFeedback(nativeMessage('spoolAddedLinked', () => ({ defaultValue: 'Spool added and remote tag linked.' })));
   }
   const textStyle = [styles.text, { color: colors.text }];
   const reported = (value: unknown) =>
@@ -598,7 +579,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                   }; ${
                     pendingTagCreate.weight == null
                       ? reported(null)
-                      : pendingTagCreate.weight + ' g'
+                      : translateNative('native.9c765a3ca5313e91', { value0: String(pendingTagCreate.weight) })
                   }`,
                   () => finishSpoolmanTagCreate(pendingTagCreate),
                 )
@@ -654,7 +635,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                     'physicalWriteLinkFailed',
                     'Physical write succeeded; inventory link failed',
                   )
-                : tr(`job.${remote.writeStatus}`, remote.writeStatus),
+                : localizedStatus(remote.writeStatus),
             message: remote.message ? ` — ${remote.message}` : '',
           })}
         </Text>
@@ -769,10 +750,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                   await refreshSpools();
                   matchSpoolBuddyTag(deviceId, uid, tray, linked);
                   setFeedback(
-                    tr(
-                      'tagLinkedNoWrite',
-                      'Remote tag linked to inventory. No NFC write was performed.',
-                    ),
+                    nativeMessage('tagLinkedNoWrite', () => ({ defaultValue: 'Remote tag linked to inventory. No NFC write was performed.' })),
                   );
                 },
               );
@@ -817,7 +795,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
             variant="danger"
             disabled={mutation.isPending || !canEdit}
             onPress={() =>
-              execute('Cancel write', async () => {
+              execute(translateNative('native.d17f9d7dde1093a8'), async () => {
                 await spoolbuddyApi.cancelWrite(deviceId);
                 setSpoolBuddyState(deviceId, {
                   writeStatus: 'cancelled',
@@ -827,10 +805,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                   ),
                 });
                 setFeedback(
-                  tr(
-                    'cancellationAcknowledged',
-                    'Cancellation acknowledged by server, not proof that an in-progress physical write was interrupted.',
-                  ),
+                  nativeMessage('cancellationAcknowledged', () => ({ defaultValue: 'Cancellation acknowledged by server, not proof that an in-progress physical write was interrupted.' })),
                 );
               })
             }
@@ -906,10 +881,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                   await refreshSpools();
                   setSelectedId(null);
                   setFeedback(
-                    tr(
-                      'untagged',
-                      'Inventory tag link removed. Physical tag unchanged.',
-                    ),
+                    nativeMessage('untagged', () => ({ defaultValue: 'Inventory tag link removed. Physical tag unchanged.' })),
                   );
                 },
               )
@@ -940,7 +912,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
         <PrimaryButton
           label={tr('tare', 'Tare empty scale')}
           disabled={!canEdit || !online || !device?.has_scale || locked}
-          onPress={() => execute('Tare', () => tare.tare(remote.rawAdc, false))}
+          onPress={() => execute(translateNative('native.416ea710d44b2003'), () => tare.tare(remote.rawAdc, false))}
         />
         {tare.step === 'idle' ? (
           <PrimaryButton
@@ -974,7 +946,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                   !remote.stable
                 }
                 onPress={() =>
-                  execute('Set zero', () => tare.tare(remote.rawAdc, true))
+                  execute(translateNative('native.35d7ba9151cb96b8'), () => tare.tare(remote.rawAdc, true))
                 }
               />
             ) : (
@@ -999,7 +971,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                     !remote.stable
                   }
                   onPress={() =>
-                    execute('Save calibration', async () => {
+                    execute(translateNative('native.6d6dfbff460690d0'), async () => {
                       await spoolbuddyApi.calibrate(
                         deviceId,
                         positiveWeight,
@@ -1008,10 +980,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                       );
                       tare.setStep('idle');
                       setFeedback(
-                        tr(
-                          'calibrationSaved',
-                          'Known-weight calibration saved.',
-                        ),
+                        nativeMessage('calibrationSaved', () => ({ defaultValue: 'Known-weight calibration saved.' })),
                       );
                       await devices.refetch();
                     })
@@ -1124,19 +1093,14 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
               label={tr('runRetryDiagnostic', 'Run / retry diagnostic')}
               disabled={!online || locked || diagnostic == null}
               onPress={() =>
-                execute('Run diagnostic', async () => {
+                execute(translateNative('native.b0071563173e2b04'), async () => {
                   if (!diagnostic) return;
                   setDiagnosticMessage('');
                   try {
                     await spoolbuddyApi.diagnose(deviceId, diagnostic);
                   } catch (diagnosticError) {
                     setDiagnosticMessage(
-                      diagnosticError instanceof Error
-                        ? diagnosticError.message
-                        : tr(
-                            'diagnosticQueueFailed',
-                            'Unable to queue diagnostic.',
-                          ),
+                      diagnosticError instanceof Error ? diagnosticError.message : nativeMessage('diagnosticQueueFailed', () => ({ defaultValue: 'Unable to queue diagnostic.' })),
                     );
                     throw diagnosticError;
                   }
@@ -1172,10 +1136,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                   'queuedAcknowledgement',
                   'queued; waiting for acknowledgement',
                 )
-              : tr(
-                  `updateStatus.${updateStatus ?? 'idle'}`,
-                  updateStatus ?? 'idle',
-                ),
+              : localizedStatus(updateStatus ?? 'idle'),
             message: updateMessage ?? '',
             reconnect: updateReconnect
               ? '\n' +
@@ -1228,10 +1189,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                 setUpdateQueued(true);
                 setUpdateReconnect(true);
                 setFeedback(
-                  tr(
-                    'updateQueued',
-                    'Update queued. Waiting for server-reported progress.',
-                  ),
+                  nativeMessage('updateQueued', () => ({ defaultValue: 'Update queued. Waiting for server-reported progress.' })),
                 );
                 await devices.refetch();
               },
@@ -1262,7 +1220,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
               disabled={!ssh.data?.public_key}
               onPress={() => {
                 Clipboard.setString(ssh.data!.public_key);
-                setFeedback(tr('sshKeyCopied', 'SSH public key copied.'));
+                setFeedback(nativeMessage('sshKeyCopied', () => ({ defaultValue: 'SSH public key copied.' })));
               }}
             />
             {ssh.isError ? (
@@ -1308,7 +1266,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                 async () => {
                   await spoolbuddyApi.command(deviceId, command);
                   setFeedback(
-                    t('spoolbuddy.commandQueued', {
+                    nativeMessage('spoolbuddy.commandQueued', () => ({
                       defaultValue:
                         '{{command}} queued for {{device}}. Server acknowledgement is not proof of device recovery. Monitor last seen / online state.',
                       command: tr(
@@ -1316,7 +1274,7 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
                         commands[command].label,
                       ),
                       device: deviceId,
-                    }),
+                    })),
                   );
                   await devices.refetch();
                 },

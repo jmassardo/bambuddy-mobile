@@ -1,4 +1,6 @@
-import React, { useMemo, useRef, useState } from 'react';
+import { NativeTranslation, nativeLabelTuple, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React, { useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Line, Polyline } from 'react-native-svg';
@@ -56,6 +58,7 @@ export function InventoryForecast({
   spools: InventoryRecord[];
   spoolman: boolean;
 }) {
+  useNativeLocale();
   const { hasAnyPermission } = useAuth();
   const canWrite = hasAnyPermission(
     'inventory:forecast_write',
@@ -64,7 +67,7 @@ export function InventoryForecast({
   const { showToast } = useToast();
   const client = useQueryClient();
   const settings = useQuery({
-    queryKey: ['settings'],
+    queryKey: useServerSettingsKey(),
     queryFn: () => settingsApi.getSettings(),
   });
   const config = useQuery({
@@ -89,7 +92,7 @@ export function InventoryForecast({
   const [showShopping, setShowShopping] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [supplyDays, setSupplyDays] = useState(false);
-  const forecasts = useMemo(
+  const forecasts = useLocalizedMemo(
     () =>
       buildSkuForecasts(
         spools,
@@ -140,21 +143,21 @@ export function InventoryForecast({
           ...editSku.identity,
           lead_time_days: parseNumber(
             form.lead ?? '',
-            'Lead time (0 inherits global)',
+            translateNative('native.aff204143a1a80ab'),
             0,
           ),
           safety_margin_value: parseNumber(
             form.margin ?? '',
-            'Safety margin',
+            translateNative('native.c19bde406ce64557'),
             0,
           ),
           safety_margin_unit: form.unit,
           alerts_snoozed: !!editSku.config?.alerts_snoozed,
         });
-      if (!cartSku) throw new Error('Choose a SKU first.');
+      if (!cartSku) throw new Error(translateNative('native.ad6e7e64b419e2a7'));
       const requested = parseNumber(
         form.quantity ?? '',
-        supplyDays ? 'Days of supply' : 'Quantity',
+        supplyDays ? translateNative('native.fa410ac6e4daddcb') : 'Quantity',
         1,
       );
       const quantity = supplyDays
@@ -167,7 +170,7 @@ export function InventoryForecast({
         : requested;
       if (!Number.isInteger(quantity) || !quantity || quantity < 1)
         throw new Error(
-          'Choose a positive whole spool quantity. Days-of-supply needs consumption data and demand exceeding stock.',
+          translateNative('native.3a1208d2848b9f9d'),
         );
       return management.addShopping({
         ...cartSku.identity,
@@ -179,20 +182,18 @@ export function InventoryForecast({
       await refresh();
       setEditSku(null);
       setCartSku(null);
-      showToast('Forecast updated.', 'success');
+      showToast(translateNative('native.3185deb507128db2'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
   return (
     <SectionCard
-      title="SKU forecasts and replenishment"
-      subtitle="Filtered spools are aggregated by material, subtype, brand and color."
+      title={translateNative('native.f55d6964e95083e2')}
+      subtitle={translateNative('native.e275ae81f0e1c3cc')}
     >
       {spoolman && (
         <InventoryText>
-          Spoolman does not provide internal usage history; consumption deltas
-          are used when available.
-        </InventoryText>
+          {translateNative('native.be5770dc1440c122')}</InventoryText>
       )}
       {[config, usage, shopping]
         .filter(query => query.isError)
@@ -200,7 +201,7 @@ export function InventoryForecast({
           <InventoryText key={index}>{query.error?.message}</InventoryText>
         ))}
       <ChoiceField
-        label="Sort SKUs"
+        label={translateNative('native.53723816466bb4b3')}
         value={sort}
         options={[
           'name',
@@ -211,9 +212,9 @@ export function InventoryForecast({
         ].map(value => ({ value, label: value }))}
         onChange={setSort}
       />
-      <Toggle label="Descending" value={descending} onChange={setDescending} />
+      <Toggle label={translateNative('native.302bf67d25000cd5')} value={descending} onChange={setDescending} />
       <ChoiceField
-        label="Chart timeframe (days)"
+        label={translateNative('native.965c4e23105ba825')}
         value={timeframe}
         options={['7', '30', '60', '90', '180'].map(value => ({
           value,
@@ -222,41 +223,33 @@ export function InventoryForecast({
         onChange={setTimeframe}
       />
       <PrimaryButton
-        label={`Shopping list (${shopping.data?.length ?? 0})`}
+        label={translateNative('native.2bdb1de6063aff0c', { value0: String(shopping.data?.length ?? 0) })}
         variant="secondary"
         onPress={() => setShowShopping(true)}
       />
       {sorted.map(sku => (
         <View key={sku.key} style={styles.sku}>
-          <InventoryText>
-            {label(sku.identity)} · {sku.rows.length} spools ·{' '}
-            {Math.round(sku.stock)} g
-          </InventoryText>
+          <InventoryText><NativeTranslation id="native.eea3b8b9fb0dd591" values={{ value0: (label(sku.identity)), value1: (sku.rows.length), value2: (Math.round(sku.stock)) }} /></InventoryText>
           <InventoryText>
             {sku.dailyRate === null
-              ? 'Insufficient consumption data'
-              : `${sku.dailyRate.toFixed(1)} g/day · depletion in ${
-                  sku.daysLeft
-                } days · reorder in ${sku.daysToReorder} days`}
+              ? translateNative('native.cb62170bc4ff8b7d')
+              : translateNative('native.0452f42b92558955', { value0: String(sku.dailyRate.toFixed(1)), value1: String(sku.daysLeft), value2: String(sku.daysToReorder) })}
           </InventoryText>
-          <InventoryText>
-            Lead {sku.lead} d · safety {Math.round(sku.safety)} g · reorder
-            point {Math.round(sku.reorderPoint)} g
-          </InventoryText>
+          <InventoryText><NativeTranslation id="native.257acd29ee38fff8" values={{ value0: (sku.lead), value1: (Math.round(sku.safety)), value2: (Math.round(sku.reorderPoint)) }} /></InventoryText>
           <InventoryText>
             {sku.config?.alerts_snoozed
-              ? 'Alerts snoozed'
+              ? translateNative('native.53ef20334e9ef167')
               : sku.stockBreak
-              ? '⚠ Stock break before delivery'
+              ? translateNative('native.06589876aa2b9299')
               : sku.reorder
-              ? '⚠ Reorder point reached'
-              : 'Stock healthy'}
+              ? translateNative('native.b073f77cbbdaac8d')
+              : translateNative('native.cab421c068d19441')}
           </InventoryText>
           <PrimaryButton
             label={
               expanded.includes(sku.key)
-                ? 'Collapse SKU'
-                : 'Expand SKU / spools'
+                ? translateNative('native.7bb7b95dbd0345d8')
+                : translateNative('native.e304a1555179303d')
             }
             variant="secondary"
             onPress={() =>
@@ -271,15 +264,12 @@ export function InventoryForecast({
             <>
               <ForecastChart sku={sku} days={Number(timeframe)} />
               {sku.rows.map(row => (
-                <InventoryText key={number(row, 'id')}>
-                  #{number(row, 'id')} · {Math.round(remaining(row))} g ·{' '}
-                  {text(row, 'storage_location', 'No location')}
-                </InventoryText>
+                <InventoryText key={number(row, 'id')}><NativeTranslation id="native.5b834bdcd165773f" values={{ value0: (number(row, 'id')), value1: (Math.round(remaining(row))), value2: (text(row, 'storage_location', translateNative('native.768998b76a4dd100'))) }} /></InventoryText>
               ))}
               {canWrite && (
                 <>
                   <PrimaryButton
-                    label="Edit lead time and safety margin"
+                    label={translateNative('native.67637d74d1af61ca')}
                     variant="secondary"
                     onPress={() => {
                       setEditSku(sku);
@@ -293,8 +283,8 @@ export function InventoryForecast({
                   <PrimaryButton
                     label={
                       sku.config?.alerts_snoozed
-                        ? 'Restore alerts'
-                        : 'Snooze SKU alerts'
+                        ? translateNative('native.76560e8c80402de6')
+                        : translateNative('native.027a34d9a2326a9d')
                     }
                     variant="secondary"
                     onPress={() =>
@@ -302,7 +292,7 @@ export function InventoryForecast({
                     }
                   />
                   <PrimaryButton
-                    label="Add to shopping list"
+                    label={translateNative('native.c2a6370e6c231893')}
                     onPress={() => {
                       setCartSku(sku);
                       setSupplyDays(false);
@@ -317,13 +307,13 @@ export function InventoryForecast({
       ))}
       {editSku && (
         <InventoryModal
-          title={`Replenishment: ${label(editSku.identity)}`}
+          title={translateNative('native.8fd3ea3bafdf8bdd', { value0: String(label(editSku.identity)) })}
           onClose={() => setEditSku(null)}
         >
           <Fields
             fields={[
-              ['lead', 'Lead time days (0 inherits global)'],
-              ['margin', 'Safety margin'],
+              nativeLabelTuple(['lead', 'native.cc0130c7c00d7727']),
+              nativeLabelTuple(['margin', 'native.c19bde406ce64557']),
             ]}
             values={form}
             onChange={(key, value) =>
@@ -331,13 +321,13 @@ export function InventoryForecast({
             }
           />
           <ChoiceField
-            label="Safety margin unit"
+            label={translateNative('native.cf34381d4de222bf')}
             value={form.unit}
             options={['days', 'g'].map(value => ({ value, label: value }))}
             onChange={value => setForm(old => ({ ...old, unit: value }))}
           />
           <PrimaryButton
-            label="Save SKU assumptions"
+            label={translateNative('native.c432ceafcfbf6da6')}
             loading={save.isPending}
             onPress={() => save.mutate('config')}
           />
@@ -345,16 +335,16 @@ export function InventoryForecast({
       )}
       {cartSku && (
         <InventoryModal
-          title={`Add ${label(cartSku.identity)}`}
+          title={translateNative('native.bd77fa42fb71f20a', { value0: String(label(cartSku.identity)) })}
           onClose={() => setCartSku(null)}
         >
           <Toggle
-            label="Calculate from desired days of supply"
+            label={translateNative('native.2e11a5f67a63915f')}
             value={supplyDays}
             onChange={setSupplyDays}
           />
           <TextField
-            label={supplyDays ? 'Days of supply' : 'Quantity of spools'}
+            label={supplyDays ? translateNative('native.fa410ac6e4daddcb') : translateNative('native.1a87ff9a2c2f1afc')}
             value={form.quantity}
             onChangeText={value =>
               setForm(old => ({ ...old, quantity: value }))
@@ -362,12 +352,12 @@ export function InventoryForecast({
             keyboardType="numeric"
           />
           <TextField
-            label="Purchasing note"
+            label={translateNative('native.6b1548b2db629214')}
             value={form.note}
             onChangeText={value => setForm(old => ({ ...old, note: value }))}
           />
           <PrimaryButton
-            label="Add to persistent list"
+            label={translateNative('native.6a138b3b6a03592c')}
             loading={save.isPending}
             onPress={() => save.mutate('cart')}
           />
@@ -395,9 +385,10 @@ function ForecastChart({
   days: number;
   incoming?: number;
 }) {
+  useNativeLocale();
   if (sku.dailyRate === null)
     return (
-      <InventoryText>No projection without a consumption rate.</InventoryText>
+      <InventoryText>{translateNative('native.01379c601e9bdfe5')}</InventoryText>
     );
   const max = Math.max(1, sku.stock + incoming, sku.reorderPoint);
   const points = Array.from(
@@ -415,9 +406,7 @@ function ForecastChart({
   ).join(' ');
   return (
     <View
-      accessibilityLabel={`Stock projection over ${days} days; delivery in ${
-        sku.lead
-      } days; incoming ${Math.round(incoming)} grams`}
+      accessibilityLabel={translateNative('native.6e7899b28d056595', { value0: String(days), value1: String(sku.lead), value2: String(Math.round(incoming)) })}
     >
       <Svg viewBox="0 0 300 145" height={145} width="100%">
         <Line
@@ -435,9 +424,7 @@ function ForecastChart({
           strokeWidth="2"
         />
       </Svg>
-      <InventoryText>
-        Green: projected stock · amber: reorder point · {days} days
-      </InventoryText>
+      <InventoryText><NativeTranslation id="native.d19c1307bf62b5d4" values={{ value0: (days) }} /></InventoryText>
     </View>
   );
 }
@@ -456,6 +443,7 @@ function ShoppingList({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
+  useNativeLocale();
   const { showToast } = useToast();
   const [logistics, setLogistics] = useState(false);
   const [confirm, setConfirm] = useState<{
@@ -475,13 +463,13 @@ function ShoppingList({
       item?: InventoryRecord;
     }) => {
       if (action === 'clear') return management.clearShopping();
-      if (!item) throw new Error('Missing shopping-list item.');
+      if (!item) throw new Error(translateNative('native.2484fe77040f5aaa'));
       const id = number(item, 'id');
       if (action === 'remove') return management.remove('shopping-list', id);
       if (action === 'edit') {
         const qty = parseNumber(quantity, 'Quantity', 1);
         if (!Number.isInteger(qty))
-          throw new Error('Quantity must be a whole number.');
+          throw new Error(translateNative('native.1e9f20a7b292c74e'));
         // The current server exposes status-only PATCH, so replace an edited line.
         const replacement = await management.addShopping({
           ...skuIdentity(item),
@@ -498,7 +486,7 @@ function ShoppingList({
       }
       if (action !== 'receive') return management.shoppingStatus(id, action);
       if (item.status === 'received')
-        throw new Error('This line has already been received.');
+        throw new Error(translateNative('native.f18065dc24089043'));
       const sku = forecasts.find(row => row.key === skuKey(item));
       const receiptKey = `inventory-receipt:${serverUrl}:${spoolman}:${id}`;
       const storedQuantity =
@@ -536,7 +524,7 @@ function ShoppingList({
       await onSaved();
       setConfirm(null);
       setEditing(null);
-      showToast('Shopping list updated.', 'success');
+      showToast(translateNative('native.c26b44650ae70076'), 'success');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
@@ -563,7 +551,7 @@ function ShoppingList({
       new Blob(
         [
           [
-            'SKU,Quantity,Status,Note,Lead days,Depletion days,Reorder grams',
+            translateNative('native.a33c3fcda68cb2b2'),
             ...lines,
           ].join('\n'),
         ],
@@ -573,14 +561,14 @@ function ShoppingList({
     );
   };
   return (
-    <InventoryModal title="Shopping list" onClose={onClose}>
+    <InventoryModal title={translateNative('native.9d03081558ad05f2')} onClose={onClose}>
       <Toggle
-        label="Logistics view"
+        label={translateNative('native.3ce4956fb6f64ba8')}
         value={logistics}
         onChange={setLogistics}
       />
       <PrimaryButton
-        label="Export CSV"
+        label={translateNative('native.0b34e87efafc8013')}
         variant="secondary"
         onPress={() => {
           exportCsv().catch((error: Error) =>
@@ -590,7 +578,7 @@ function ShoppingList({
       />
       {canWrite && (
         <PrimaryButton
-          label="Clear shopping list"
+          label={translateNative('native.e8bd9dd39bb01492')}
           variant="danger"
           disabled={!items.length}
           onPress={() => setConfirm({ action: 'clear' })}
@@ -611,16 +599,15 @@ function ShoppingList({
                 (sku ? (
                   <>
                     <InventoryText>
-                      Delivery in {sku.lead} days ·{' '}
+                      {translateNative('native.68c6521626075560')}{sku.lead} {translateNative('native.255066a3568fc188')}{' '}
                       {sku.stockBreak
-                        ? 'Stock break risk before delivery'
-                        : 'Delivery before depletion'}{' '}
+                        ? translateNative('native.789f56a007bdcb45')
+                        : translateNative('native.6b61659b954ead25')}{' '}
                       ·{' '}
                       {Math.round(
                         number(item, 'quantity_spools') * sku.averageSpool,
                       )}{' '}
-                      g incoming
-                    </InventoryText>
+                      {translateNative('native.7d74c4235e963f56')}</InventoryText>
                     <ForecastChart
                       sku={sku}
                       days={Math.max(30, sku.lead * 2)}
@@ -631,16 +618,14 @@ function ShoppingList({
                   </>
                 ) : (
                   <InventoryText>
-                    No matching filtered inventory SKU; delivery projection
-                    unavailable.
-                  </InventoryText>
+                    {translateNative('native.65617b41eb7f31b5')}</InventoryText>
                 ))}
               {canWrite && (
                 <>
                   {item.status !== 'received' && (
                     <>
                       <PrimaryButton
-                        label="Edit quantity"
+                        label={translateNative('native.46d31745ca0cb56a')}
                         variant="secondary"
                         onPress={() => {
                           setEditing(item);
@@ -648,7 +633,7 @@ function ShoppingList({
                         }}
                       />
                       <ChoiceField
-                        label="Status"
+                        label={translateNative('common.status')}
                         value={text(item, 'status', 'pending')}
                         options={['pending', 'purchased'].map(value => ({
                           value,
@@ -659,13 +644,13 @@ function ShoppingList({
                         }
                       />
                       <PrimaryButton
-                        label="Receive into stock"
+                        label={translateNative('native.da4515dcfbeded16')}
                         onPress={() => setConfirm({ action: 'receive', item })}
                       />
                     </>
                   )}
                   <PrimaryButton
-                    label="Remove line"
+                    label={translateNative('native.463aaa6ee43e24f0')}
                     variant="danger"
                     onPress={() => setConfirm({ action: 'remove', item })}
                   />
@@ -676,17 +661,17 @@ function ShoppingList({
         })}
       {editing && (
         <InventoryModal
-          title="Edit shopping quantity"
+          title={translateNative('native.e10f6e195402f410')}
           onClose={() => setEditing(null)}
         >
           <TextField
-            label="Quantity of spools"
+            label={translateNative('native.1a87ff9a2c2f1afc')}
             value={quantity}
             onChangeText={setQuantity}
             keyboardType="number-pad"
           />
           <PrimaryButton
-            label="Save quantity"
+            label={translateNative('native.c6b0b4affd8b86ae')}
             loading={mutation.isPending}
             onPress={() => mutation.mutate({ action: 'edit', item: editing })}
           />
@@ -696,13 +681,13 @@ function ShoppingList({
         visible={confirm !== null}
         title={
           confirm?.action === 'receive'
-            ? 'Receive into inventory?'
-            : 'Remove shopping entries?'
+            ? translateNative('native.a8a96ffa459f860b')
+            : translateNative('native.e6aaf8afd6f75686')
         }
         message={
           confirm?.action === 'receive'
-            ? 'Creates the ordered quantity as new stock spools, then marks this line received. Do not receive the same physical shipment twice.'
-            : 'The selected shopping entries will be removed; inventory spools are not deleted.'
+            ? translateNative('native.7007724c392a8dcf')
+            : translateNative('native.a44f72f5bc288fb2')
         }
         onClose={() => setConfirm(null)}
         onConfirm={() => {
@@ -720,3 +705,4 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
 });
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

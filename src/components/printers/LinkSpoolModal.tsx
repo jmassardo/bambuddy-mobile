@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -60,6 +62,7 @@ export function LinkSpoolModal({
   colorHint,
   onClose,
 }: LinkSpoolModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -72,7 +75,7 @@ export function LinkSpoolModal({
     staleTime: 30_000,
   });
 
-  const filteredSpools = useMemo(() => {
+  const filteredSpools = useLocalizedMemo(() => {
     const term = search.trim().toLowerCase();
     const material = materialHint?.trim().toLowerCase() ?? '';
     const color = normalizeHex(colorHint);
@@ -113,7 +116,7 @@ export function LinkSpoolModal({
 
   const linkMutation = useMutation({
     mutationFn: (spoolId: number) => {
-      if (!spoolTag) throw new Error('No spool tag is available for this slot.');
+      if (!spoolTag) throw new Error(translateNative('native.ca2e9d650c381b2f'));
       return api.linkSpool(spoolId, {
         spoolTag,
         printerId,
@@ -126,11 +129,11 @@ export function LinkSpoolModal({
         queryClient.invalidateQueries({ queryKey: ['linkedSpools'] }),
         queryClient.invalidateQueries({ queryKey: ['inventorySpools'] }),
       ]);
-      showToast('Spool linked to tag.', 'success');
+      showToast(translateNative('native.53171f4f772b9cf1'), 'success');
       onClose();
     },
     onError: error =>
-      showToast(getErrorMessage(error, 'Unable to link spool.'), 'error'),
+      showToast(getErrorMessage(error, translateNative('native.c856ed965f92d0e5')), 'error'),
   });
 
   return (
@@ -150,7 +153,7 @@ export function LinkSpoolModal({
         >
           <View style={styles.header}>
             <View style={styles.headerText}>
-              <Text style={[styles.title, { color: colors.text }]}>Link spool</Text>
+              <Text style={[styles.title, { color: colors.text }]}>{translateNative('native.5610b4993e70840e')}</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                 {slotLabel}
               </Text>
@@ -176,8 +179,7 @@ export function LinkSpoolModal({
               <Link2 size={16} color={colors.accentLight} strokeWidth={2} />
               <View style={styles.tagText}>
                 <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>
-                  RFID tag / spool UUID
-                </Text>
+                  {translateNative('native.8146efb291fe1148')}</Text>
                 <Text style={[styles.tagValue, { color: colors.text }]} numberOfLines={2}>
                   {spoolTag}
                 </Text>
@@ -191,16 +193,15 @@ export function LinkSpoolModal({
               ]}
             >
               <Text style={[styles.tagValue, { color: colors.textSecondary }]}>
-                This slot does not currently report a tag or spool UUID.
-              </Text>
+                {translateNative('native.cce105b8a74e47ba')}</Text>
             </View>
           )}
 
           <TextField
-            label="Find a spool"
+            label={translateNative('native.7ed66e89b9e6fb69')}
             value={search}
             onChangeText={setSearch}
-            placeholder="Material, brand, color, ID…"
+            placeholder={translateNative('native.898af67559d22bc3')}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -214,8 +215,7 @@ export function LinkSpoolModal({
               <View style={styles.stateBlock}>
                 <ActivityIndicator color={colors.accent} />
                 <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-                  Loading spools…
-                </Text>
+                  {translateNative('native.ca20f4e92ab7bd73')}</Text>
               </View>
             ) : null}
 
@@ -223,8 +223,7 @@ export function LinkSpoolModal({
               <View style={styles.stateBlock}>
                 <Search size={20} color={colors.textTertiary} strokeWidth={2} />
                 <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-                  No spools matched this slot.
-                </Text>
+                  {translateNative('native.b26d96b45780df01')}</Text>
               </View>
             ) : null}
 
@@ -255,7 +254,7 @@ export function LinkSpoolModal({
                   />
                   <View style={styles.rowText}>
                     <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>
-                      {[spool.brand, spool.material].filter(Boolean).join(' • ') || `Spool #${spool.id}`}
+                      {[spool.brand, spool.material].filter(Boolean).join(' • ') || translateNative('native.695cc238a31cecd5', { value0: String(spool.id) })}
                     </Text>
                     <Text
                       style={[styles.rowSubtitle, { color: colors.textSecondary }]}
@@ -266,15 +265,13 @@ export function LinkSpoolModal({
                         .join(' • ')}
                     </Text>
                   </View>
-                  <Text style={[styles.rowMeta, { color: colors.textSecondary }]}>
-                    {remainingWeight(spool)}g
-                  </Text>
+                  <Text style={[styles.rowMeta, { color: colors.textSecondary }]}><NativeTranslation id="native.7eb7cac004ef21f5" values={{ value0: (remainingWeight(spool)) }} /></Text>
                 </Pressable>
               );
             })}
           </ScrollView>
 
-          <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
+          <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         </View>
       </View>
     </Modal>

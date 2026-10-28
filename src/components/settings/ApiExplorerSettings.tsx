@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
+import React, { useEffect, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useQuery } from '@tanstack/react-query';
@@ -15,7 +17,7 @@ import {
   SettingRow,
   TextField,
 } from '@/components/common/AppUI';
-import { useTranslation } from '@/i18n';
+
 import { useTheme } from '@/theme';
 import type { WorkflowExplorerResponse } from '@/types/api';
 import { settingsStyles } from './shared';
@@ -23,6 +25,7 @@ import { settingsStyles } from './shared';
 type Operation = ReturnType<typeof listOperations>[number];
 
 export function ApiExplorerSettings() {
+  useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const server = useServerStore(state => state.serverUrl);
@@ -39,7 +42,7 @@ export function ApiExplorerSettings() {
   const [response, setResponse] = useState<WorkflowExplorerResponse | null>(
     null,
   );
-  const [error, setError] = useState('');
+  const [error, setError] = useNativeMessageState('');
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -47,7 +50,7 @@ export function ApiExplorerSettings() {
     setSelected(null);
     setResponse(null);
   }, [server]);
-  const operations = useMemo(
+  const operations = useLocalizedMemo(
     () => (schema.data ? listOperations(schema.data) : []),
     [schema.data],
   );
@@ -116,21 +119,17 @@ export function ApiExplorerSettings() {
           style={[settingsStyles.helper, { color: colors.text }]}
         >
           {
-            'GET /api/v1/webhook/queue\nGET /api/v1/webhook/printer/{id}/status\nPOST /api/v1/webhook/queue/add\nPOST /api/v1/webhook/printer/{id}/start\nPOST /api/v1/webhook/printer/{id}/stop\nPOST /api/v1/webhook/printer/{id}/cancel'
+            translateNative('native.ac0d6e66841f8555')
           }
         </Text>
         <Text
           selectable
           style={[settingsStyles.helper, { color: colors.textSecondary }]}
-        >{`curl -H 'X-API-Key: <your key>' '${
-          server ?? ''
-        }/api/v1/webhook/queue'`}</Text>
+        >{translateNative('native.3bb1064a78c7d2c2', { value0: String(server ?? '') })}</Text>
         <Text
           selectable
           style={[settingsStyles.helper, { color: colors.textSecondary }]}
-        >{`curl -X POST -H 'X-API-Key: <your key>' -H 'Content-Type: application/json' -d '{"archive_id":42,"printer_id":1}' '${
-          server ?? ''
-        }/api/v1/webhook/queue/add'`}</Text>
+        >{translateNative('native.fde20ebcc952bdd5', { value0: String(server ?? '') })}</Text>
         <Text style={[settingsStyles.helper, { color: colors.textSecondary }]}>
           {label(
             'webhookPermissions',
@@ -280,7 +279,7 @@ export function ApiExplorerSettings() {
             <>
               <Text
                 style={[settingsStyles.helper, { color: colors.text }]}
-              >{`HTTP ${response.status} ${response.statusText} • ${response.duration} ms`}</Text>
+              >{translateNative('native.1a4c99996e99fe40', { value0: String(response.status), value1: String(response.statusText), value2: String(response.duration) })}</Text>
               <Text
                 selectable
                 style={[settingsStyles.helper, { color: colors.textSecondary }]}

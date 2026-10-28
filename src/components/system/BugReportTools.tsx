@@ -1,3 +1,5 @@
+import { nativeMessage, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, Image, Linking, StyleSheet, Text, View } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -14,7 +16,7 @@ import { SwitchRow } from '@/components/settings/shared';
 import { requireBackupSuccess } from '@/components/settings/backupWorkflow';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
-import { useTranslation } from '@/i18n';
+
 import { SystemHealthPanel } from './SystemHealthPanel';
 import { DiagnosticChecklist } from './DiagnosticChecklist';
 import {
@@ -97,6 +99,7 @@ export function BugReportCollectionGuard() {
 }
 
 export function BugReportTools() {
+  useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
@@ -112,7 +115,7 @@ export function BugReportTools() {
   const [email, setEmail] = useState('');
   const [include, setInclude] = useState(true);
   const [screenshot, setScreenshot] = useState<string>();
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useNativeMessageState('');
   const [issueUrl, setIssueUrl] = useState<string>();
   const [now, setNow] = useState(Date.now());
   const hydratedRun = useRef<string | undefined>(undefined);
@@ -189,11 +192,11 @@ export function BugReportTools() {
       })
       .catch((error: Error) =>
         setMessage(
-          t('system.report.draftSaveError', {
+          nativeMessage('system.report.draftSaveError', () => ({
             defaultValue:
               'Unable to save report edits: {{error}}. Keep this screen open and retry the edit before restarting the app.',
             error: error.message,
-          }),
+          })),
         ),
       );
   };

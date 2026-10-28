@@ -1,8 +1,9 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { getAuthToken } from '@/api/http';
-import { useTranslation } from '@/i18n';
+
 import { CameraMessage } from './CameraControls';
 
 export function allowOverlayNavigation(expected: string, candidate: string) {
@@ -15,6 +16,7 @@ export function allowOverlayNavigation(expected: string, candidate: string) {
 }
 
 export function OverlayPreview({ url }: { url: string }) {
+  useNativeLocale();
   const { t } = useTranslation();
   const [failed, setFailed] = useState(false);
   const jwt = getAuthToken();

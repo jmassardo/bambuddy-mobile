@@ -1,3 +1,5 @@
+import { translateNative } from '@/i18n';
+
 import { useServerStore } from './server';
 import type {
   WorkflowOpenApiDocument,
@@ -67,7 +69,7 @@ export function schemaExample(
 
 function serverUrl() {
   const url = useServerStore.getState().serverUrl;
-  if (!url) throw new Error('Server URL not configured');
+  if (!url) throw new Error(translateNative('native.8dd96f594e1dd592'));
   return url.replace(/\/+$/, '');
 }
 
@@ -84,14 +86,14 @@ export function buildExplorerRequest(
     path.includes('..') ||
     /[?#\\]/.test(path)
   )
-    throw new Error('Operation must use a path on this server');
+    throw new Error(translateNative('native.9d474073ed7fb63e'));
   let resolved = path;
   const query: string[] = [];
   const headers: Record<string, string> = { Accept: 'application/json' };
   for (const parameter of operation.parameters ?? []) {
     const value = parameters[`${parameter.in}:${parameter.name}`] ?? '';
     if (parameter.required && !value.trim())
-      throw new Error(`Required ${parameter.in} parameter: ${parameter.name}`);
+      throw new Error(translateNative('native.5f97ed1c82391b79', { value0: String(parameter.in), value1: String(parameter.name) }));
     if (!value) continue;
     if (parameter.in === 'path')
       resolved = resolved.replace(
@@ -110,7 +112,7 @@ export function buildExplorerRequest(
     )
       headers[parameter.name] = value;
   }
-  if (/\{[^}]+\}/.test(resolved)) throw new Error('Fill all path parameters');
+  if (/\{[^}]+\}/.test(resolved)) throw new Error(translateNative('native.0ab93970663af50a'));
   if (apiKey.trim()) headers['X-API-Key'] = apiKey.trim();
   return {
     path: resolved + (query.length ? `?${query.join('&')}` : ''),
@@ -126,7 +128,7 @@ export const apiExplorerApi = {
     };
     const response = await fetch(`${serverUrl()}/openapi.json`, options);
     if (!response.ok)
-      throw new Error(`OpenAPI schema: HTTP ${response.status}`);
+      throw new Error(translateNative('native.06fd01d5fdbedb2c', { value0: String(response.status) }));
     return response.json();
   },
   execute: async (
@@ -138,14 +140,14 @@ export const apiExplorerApi = {
     apiKey: string,
   ): Promise<WorkflowExplorerResponse> => {
     const built = buildExplorerRequest(path, operation, parameters, apiKey);
-    if (!METHODS.has(method)) throw new Error('Unsupported request method');
+    if (!METHODS.has(method)) throw new Error(translateNative('native.4d62b92561518592'));
     let payload: string | undefined;
     if (method !== 'get' && method !== 'head' && body.trim()) {
       JSON.parse(body);
       payload = body;
       built.headers['Content-Type'] = 'application/json';
     } else if (operation.requestBody?.required && !body.trim())
-      throw new Error('Request body is required');
+      throw new Error(translateNative('native.2ef08de2d06c3bba'));
     const abort = new AbortController();
     const timeout = setTimeout(() => abort.abort(), 30000);
     const start = Date.now();
