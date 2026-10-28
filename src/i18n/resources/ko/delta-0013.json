@@ -1,0 +1,12 @@
+{
+  "native.197a317960cf55b6": "재고 부족 기준 {{threshold}}%",
+  "native.2c6f1553291f3699": "공급자 {{count}}개",
+  "native.2d8f4b1110eef95b": "가상 프린터 {{count}}대",
+  "native.8114475cf643fbbc": "위치 {{count}}개",
+  "native.8f615a72dd98661e": "{{count}}개 설정됨",
+  "native.c4bfec3810af5347": "키 {{keys}}개 • 카메라 토큰 {{tokens}}개",
+  "native.cb19f6798e4c8df9": "스마트 플러그 {{count}}개",
+  "native.d605514f8d9014a3": "장치 {{count}}개",
+  "native.d9dd8c0c1c350e4c": "프로필 {{count}}개",
+  "native.f509a8cbfea53808": "사용자 지정 링크 {{count}}개"
+}
