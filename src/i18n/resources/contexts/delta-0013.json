@@ -1,0 +1,173 @@
+{
+  "native.197a317960cf55b6": {
+    "english": "Low stock {{threshold}}%",
+    "context": "shared",
+    "placeholders": [
+      "threshold"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/constants.ts",
+        "line": 271,
+        "kind": "translation-default",
+        "owner": "summarize",
+        "existingKey": "settings.summary.stock",
+        "source": "'Low stock {{threshold}}%'"
+      }
+    ]
+  },
+  "native.2c6f1553291f3699": {
+    "english": "{{count}} providers",
+    "context": "shared",
+    "placeholders": [
+      "count"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/constants.ts",
+        "line": 267,
+        "kind": "translation-default",
+        "owner": "summarize",
+        "existingKey": "settings.summary.providers",
+        "source": "'{{count}} providers'"
+      }
+    ]
+  },
+  "native.2d8f4b1110eef95b": {
+    "english": "{{count}} virtual printers",
+    "context": "shared",
+    "placeholders": [
+      "count"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/constants.ts",
+        "line": 290,
+        "kind": "translation-default",
+        "owner": "summarize",
+        "existingKey": "settings.summary.printers",
+        "source": "'{{count}} virtual printers'"
+      }
+    ]
+  },
+  "native.8114475cf643fbbc": {
+    "english": "{{count}} locations",
+    "context": "shared",
+    "placeholders": [
+      "count"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/constants.ts",
+        "line": 300,
+        "kind": "translation-default",
+        "owner": "summarize",
+        "existingKey": "settings.summary.locations",
+        "source": "'{{count}} locations'"
+      }
+    ]
+  },
+  "native.8f615a72dd98661e": {
+    "english": "{{count}} configured",
+    "context": "shared",
+    "placeholders": [
+      "count"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/constants.ts",
+        "line": 288,
+        "kind": "translation-default",
+        "owner": "summarize",
+        "existingKey": "settings.summary.cameras",
+        "source": "'{{count}} configured'"
+      }
+    ]
+  },
+  "native.c4bfec3810af5347": {
+    "english": "{{keys}} keys • {{tokens}} camera tokens",
+    "context": "shared",
+    "placeholders": [
+      "keys",
+      "tokens"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/constants.ts",
+        "line": 286,
+        "kind": "translation-default",
+        "owner": "summarize",
+        "existingKey": "settings.summary.keys",
+        "source": "'{{keys}} keys • {{tokens}} camera tokens'"
+      }
+    ]
+  },
+  "native.cb19f6798e4c8df9": {
+    "english": "{{count}} smart plugs",
+    "context": "shared",
+    "placeholders": [
+      "count"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/constants.ts",
+        "line": 265,
+        "kind": "translation-default",
+        "owner": "summarize",
+        "existingKey": "settings.summary.plugs",
+        "source": "'{{count}} smart plugs'"
+      }
+    ]
+  },
+  "native.d605514f8d9014a3": {
+    "english": "{{count}} devices",
+    "context": "shared",
+    "placeholders": [
+      "count"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/constants.ts",
+        "line": 292,
+        "kind": "translation-default",
+        "owner": "summarize",
+        "existingKey": "settings.summary.devices",
+        "source": "'{{count}} devices'"
+      }
+    ]
+  },
+  "native.d9dd8c0c1c350e4c": {
+    "english": "{{count}} profiles",
+    "context": "shared",
+    "placeholders": [
+      "count"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/constants.ts",
+        "line": 273,
+        "kind": "translation-default",
+        "owner": "summarize",
+        "existingKey": "settings.summary.profiles",
+        "source": "'{{count}} profiles'"
+      }
+    ]
+  },
+  "native.f509a8cbfea53808": {
+    "english": "{{count}} custom links",
+    "context": "shared",
+    "placeholders": [
+      "count"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/constants.ts",
+        "line": 284,
+        "kind": "translation-default",
+        "owner": "summarize",
+        "existingKey": "settings.summary.links",
+        "source": "'{{count}} custom links'"
+      }
+    ]
+  }
+}
