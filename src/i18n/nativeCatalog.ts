@@ -171,3 +171,25 @@ for (const language of Object.keys(rootRows) as Language[]) {
   const values = rootRows[language].split('|');
   Object.assign(nativeCatalogs[language], Object.fromEntries(rootKeys.map((key, index) => [key, values[index]])));
 }
+const authMethodKeys = ['auth.useBackupCode', 'auth.useAuthenticatorApp', 'auth.useEmailCode'] as const;
+const authMethodRows: Record<Language, string> = {
+  en: 'Use Backup Code|Use Authenticator App|Use Email Code',
+  de: 'Backup-Code verwenden|Authentifizierungs-App verwenden|E-Mail-Code verwenden',
+  es: 'Usar código de respaldo|Usar aplicación de autenticación|Usar código por correo',
+  fr: 'Utiliser un code de secours|Utiliser l’application d’authentification|Utiliser un code par e-mail',
+  ja: 'バックアップコードを使用|認証アプリを使用|メールのコードを使用',
+  it: 'Usa codice di backup|Usa app di autenticazione|Usa codice email',
+  ko: '백업 코드 사용|인증 앱 사용|이메일 코드 사용',
+  nl: 'Back-upcode gebruiken|Authenticator-app gebruiken|E-mailcode gebruiken',
+  'pt-BR': 'Usar código de backup|Usar aplicativo autenticador|Usar código por e-mail',
+  'zh-CN': '使用备用验证码|使用身份验证应用|使用邮箱验证码',
+  'zh-TW': '使用備用驗證碼|使用驗證器應用程式|使用電子郵件驗證碼',
+  sv: 'Använd reservkod|Använd autentiseringsapp|Använd e-postkod',
+  tr: 'Yedek kod kullan|Kimlik doğrulama uygulamasını kullan|E-posta kodu kullan',
+  ru: 'Использовать резервный код|Использовать приложение-аутентификатор|Использовать код из письма',
+  uk: 'Використати резервний код|Використати застосунок-автентифікатор|Використати код з листа',
+};
+for (const language of Object.keys(authMethodRows) as Language[]) {
+  const values = authMethodRows[language].split('|');
+  Object.assign(nativeCatalogs[language], Object.fromEntries(authMethodKeys.map((key, index) => [key, values[index]])));
+}

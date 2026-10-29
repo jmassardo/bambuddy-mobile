@@ -326,12 +326,37 @@ describe('LoginScreen', () => {
     await act(async () => { findPressableForText(renderer, 'Login').props.onPress(); });
     await act(async () => { findInput(renderer, 'Enter the authenticator app code')!.props.onChangeText('123456'); });
     expect(findPressableForText(renderer, 'Verify Code').props.disabled).toBe(false);
-    const selected = renderer.root.findAll(node => node.props.accessibilityRole === 'radio' && node.props.accessibilityState?.checked);
-    expect(selected.length).toBeGreaterThan(0);
-    await act(async () => { selected[0].props.onPress(); });
-    expect(findInput(renderer, 'Enter the authenticator app code')!.props.value).toBe('123456');
+    expect(findText(renderer, 'Verification method')).toBeNull();
+    expect(findText(renderer, 'Authenticator app')).toBeNull();
+    expect(findText(renderer, 'BACKUP')).toBeNull();
+    const labels = renderer.root.findAllByType(Text).map(textContent);
+    expect(labels.indexOf('Use Backup Code')).toBeGreaterThan(labels.lastIndexOf('Verify Code'));
+    expect(labels.indexOf('Use Backup Code')).toBeLessThan(labels.indexOf('Back to sign in'));
     await act(async () => { findPressableForText(renderer, 'Verify Code').props.onPress(); });
     expect(mockVerify2FA).toHaveBeenCalledWith({ pre_auth_token: 'pre', code: '123456', method: 'totp' });
+  });
+
+  it('switches between backup and authenticator codes below verification without reusing entered codes', async () => {
+    mockLogin.mockResolvedValue({ requires_2fa: true, pre_auth_token: 'pre', available_methods: ['totp', 'backup', 'email'] });
+    const renderer = await renderScreen();
+    await act(async () => {
+      findInput(renderer, 'Username')!.props.onChangeText('operator');
+      findInput(renderer, 'Password')!.props.onChangeText('password');
+    });
+    await act(async () => { findPressableForText(renderer, 'Login').props.onPress(); });
+    await act(async () => { findInput(renderer, 'Enter the authenticator app code')!.props.onChangeText('123456'); });
+    await act(async () => { findPressableForText(renderer, 'Use Backup Code').props.onPress(); });
+    expect(findInput(renderer, 'Enter a complete backup code')!.props.value).toBe('');
+    expect(findInput(renderer, 'Enter a complete backup code')!.props.keyboardType).toBe('default');
+    expect(findPressableForText(renderer, 'Verify Code').props.disabled).toBe(true);
+    await act(async () => { findInput(renderer, 'Enter a complete backup code')!.props.onChangeText('AbCd-1234-EfGh'); });
+    await act(async () => { findPressableForText(renderer, 'Verify Code').props.onPress(); });
+    expect(mockVerify2FA).toHaveBeenCalledWith({ pre_auth_token: 'pre', code: 'AbCd-1234-EfGh', method: 'backup' });
+    await act(async () => { findPressableForText(renderer, 'Use Authenticator App').props.onPress(); });
+    expect(findInput(renderer, 'Enter the authenticator app code')!.props.value).toBe('');
+    await act(async () => { findPressableForText(renderer, 'Use Email Code').props.onPress(); });
+    expect(findInput(renderer, 'Enter the email verification code')).toBeTruthy();
+    expect(findText(renderer, 'Send email code')).not.toBeNull();
   });
 
   it('shows the forgot password email form', async () => {

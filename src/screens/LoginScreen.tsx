@@ -332,6 +332,11 @@ export default function LoginScreen() {
 
   const oidcProviders = oidcProvidersQuery.data ?? [];
   const oidcBusy = oidcStartMutation.isPending || oidcExchangeMutation.isPending;
+  const selectVerificationMethod = (method: string) => {
+    setSelectedMethod(method);
+    setCode('');
+    setError('');
+  };
 
   return (
     <KeyboardAvoidingView
@@ -412,58 +417,6 @@ export default function LoginScreen() {
 
           {step === '2fa' && (
             <>
-              {availableMethods.length > 1 ? (
-                <View style={styles.methodSection}>
-                  <Text style={[styles.methodTitle, { color: colors.textSecondary }]}>
-                    {translateNative('native.87ef9c17760bbff8')}</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.methodRow}
-                  >
-                    {availableMethods.map(method => {
-                      const active = selectedMethod === method;
-                      const label =
-                        method === 'email'
-                          ? translateNative('native.2bb21b2ac53816a9')
-                          : method === 'totp'
-                            ? translateNative('native.3b9f4be797fa8236')
-                            : method.toUpperCase();
-                      return (
-                        <Pressable
-                          key={method}
-                          accessibilityRole="radio"
-                          accessibilityState={{ checked: active }}
-                          disabled={submitMutation.isPending || emailMutation.isPending}
-                          onPress={() => {
-                            if (active) return;
-                            setSelectedMethod(method);
-                            setCode('');
-                            setError('');
-                          }}
-                          style={[
-                            styles.methodChip,
-                            {
-                              backgroundColor: active ? colors.accentBg : colors.surfaceElevated,
-                              borderColor: active ? colors.accent : colors.border,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.methodChipText,
-                              { color: active ? colors.accentLight : colors.textSecondary },
-                            ]}
-                          >
-                            {label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              ) : null}
-
               <TextField
                 label={selectedMethod === 'email' ? translateNative('native.dcea23edb648a9a8') : selectedMethod === 'backup' ? translateNative('native.ff24fc18f7c9ee3a') : translateNative('native.746c42b71473bb1b')}
                 value={code}
@@ -569,6 +522,23 @@ export default function LoginScreen() {
                 (availableMethods.length > 1 && selectedMethod == null)
               }
             />
+            {availableMethods.includes('backup') && selectedMethod !== 'backup' ? (
+              <PrimaryButton
+                label={t('auth.useBackupCode')}
+                variant="secondary"
+                disabled={submitMutation.isPending || emailMutation.isPending}
+                onPress={() => selectVerificationMethod('backup')}
+              />
+            ) : null}
+            {availableMethods.filter(method => method !== 'backup' && method !== selectedMethod).map(method => (
+              <PrimaryButton
+                key={method}
+                label={method === 'totp' ? t('auth.useAuthenticatorApp') : method === 'email' ? t('auth.useEmailCode') : method.toUpperCase()}
+                variant="secondary"
+                disabled={submitMutation.isPending || emailMutation.isPending}
+                onPress={() => selectVerificationMethod(method)}
+              />
+            ))}
             <PrimaryButton label={t('auth.backToSignIn', { defaultValue: 'Back to sign in' })} variant="secondary" disabled={submitMutation.isPending || emailMutation.isPending}
               onPress={() => { setPreAuthToken(null); setCode(''); setPassword(''); setSelectedMethod(null); setAvailableMethods([]); setEmailDelivered(false); setError(''); setStep('credentials'); }} />
             </>
@@ -653,26 +623,6 @@ const styles = StyleSheet.create({
   link: {
     fontSize: fontSize.sm,
     textAlign: 'right',
-  },
-  methodSection: {
-    gap: spacing.sm,
-  },
-  methodTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-  },
-  methodRow: {
-    gap: spacing.sm,
-  },
-  methodChip: {
-    borderWidth: 1,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  methodChipText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
   },
   methodHint: {
     fontSize: fontSize.xs,
