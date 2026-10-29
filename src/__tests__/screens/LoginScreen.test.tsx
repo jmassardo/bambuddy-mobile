@@ -2,6 +2,7 @@
 import React from 'react';
 import { Linking, Text, TextInput } from 'react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { waitFor } from '@testing-library/react-native';
 import ReactTestRenderer, { act, type ReactTestInstance } from 'react-test-renderer';
 import LoginScreen from '@/screens/LoginScreen';
 import {
@@ -25,6 +26,9 @@ const mockLDAPStatus = jest.fn();
 const mockProviders = jest.fn();
 const mockAuthorize = jest.fn();
 const mockExchange = jest.fn();
+const mockGetAuthStatus = jest.fn();
+const mockSetServerUrl = jest.fn();
+let mockServerUrl: string | null = 'https://bambuddy.test';
 const renderers: ReactTestRenderer.ReactTestRenderer[] = [];
 
 jest.mock('@/api/auth', () => ({ authApi: {
@@ -50,6 +54,7 @@ jest.mock('@react-navigation/native', () => ({
 
 jest.mock('@/api/client', () => ({
   api: {
+    getAuthStatus: () => mockGetAuthStatus(),
     verify2FA: (...args: unknown[]) => mockVerify2FA(...args),
     forgotPassword: (...args: unknown[]) => mockForgotPassword(...args),
     forgotPasswordConfirm: (...args: unknown[]) => mockForgotPasswordConfirm(...args),
@@ -98,6 +103,8 @@ jest.mock('@/contexts/AuthContext', () => ({
     loginWithToken: mockLoginWithToken,
     loading: false,
     requiresSetup: false,
+    serverConnected: true,
+    setServerConnected: jest.fn(),
   }),
 }));
 
@@ -113,9 +120,15 @@ jest.mock('@/theme', () => ({
 }));
 
 jest.mock('@/api/server', () => ({
-  useServerStore: Object.assign((selector: (state: { serverUrl: string }) => unknown) =>
-    selector({ serverUrl: 'https://bambuddy.test' }), { getState: () => ({ serverUrl: 'https://bambuddy.test' }) }),
+  isInsecureUrl: (url: string) => /^http:\/\//i.test(url),
+  useServerStore: Object.assign((selector: (state: { serverUrl: string | null }) => unknown) =>
+    selector({ serverUrl: mockServerUrl }), { getState: () => ({
+      serverUrl: mockServerUrl,
+      setServerUrl: (url: string) => mockSetServerUrl(url),
+      clearServerUrl: jest.fn(),
+    }) }),
 }));
+jest.mock('@/config/demo', () => ({ isDemoConfigured: () => false, demoConfig: {} }));
 
 jest.mock('react-native/Libraries/Linking/Linking', () => ({
   __esModule: true,
@@ -140,10 +153,12 @@ function findText(root: ReactTestRenderer.ReactTestRenderer, value: string) {
 }
 
 function findPressableForText(root: ReactTestRenderer.ReactTestRenderer, value: string) {
-  let current = findText(root, value);
-  while (current) {
-    if (typeof current.props.onPress === 'function') return current;
-    current = current.parent;
+  for (const candidate of root.root.findAllByType(Text).filter(node => textContent(node) === value)) {
+    let current: ReactTestInstance | null = candidate;
+    while (current) {
+      if (typeof current.props.onPress === 'function') return current;
+      current = current.parent;
+    }
   }
   throw new Error(`Pressable for text "${value}" not found`);
 }
@@ -155,6 +170,9 @@ function findInput(root: ReactTestRenderer.ReactTestRenderer, placeholder: strin
 describe('LoginScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockServerUrl = 'https://bambuddy.test';
+    mockSetServerUrl.mockImplementation(async (url: string) => { mockServerUrl = url; });
+    mockGetAuthStatus.mockResolvedValue({ auth_enabled: true, requires_setup: false });
     mockLogin.mockResolvedValue({ access_token: 'token', user: { id: 1, username: 'test', is_admin: true } });
     mockVerify2FA.mockResolvedValue({ access_token: 'token', user: { id: 1, username: 'test', is_admin: true } });
     mockForgotPassword.mockResolvedValue({ message: 'sent' });
@@ -197,6 +215,38 @@ describe('LoginScreen', () => {
     expect(findPressableForText(renderer, 'Login').props.disabled).toBe(true);
   });
 
+  it('connects and signs in on the same form without sending credentials to an unconfirmed server', async () => {
+    const renderer = await renderScreen();
+    expect(findInput(renderer, 'https://bambuddy.example.com')!.props.value).toBe('https://bambuddy.test');
+    await act(async () => {
+      findInput(renderer, 'Username')!.props.onChangeText('operator');
+      findInput(renderer, 'Password')!.props.onChangeText('password');
+      findInput(renderer, 'https://bambuddy.example.com')!.props.onChangeText('https://another.test/');
+    });
+    expect(findPressableForText(renderer, 'Login').props.disabled).toBe(true);
+    await act(async () => {
+      findPressableForText(renderer, 'Connect').props.onPress();
+      await new Promise<void>(r => setTimeout(r, 10));
+    });
+    expect(mockSetServerUrl).toHaveBeenCalledWith('https://another.test');
+    expect(mockGetAuthStatus).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(findInput(renderer, 'Username')!.props.value).toBe('operator'));
+    expect(findPressableForText(renderer, 'Login').props.disabled).toBe(false);
+    await act(async () => { findPressableForText(renderer, 'Login').props.onPress(); });
+    expect(mockLogin).toHaveBeenCalledWith('operator', 'password', true);
+  });
+
+  it('does not request authentication methods until a server is configured', async () => {
+    mockServerUrl = null;
+    const renderer = await renderScreen();
+    expect(findInput(renderer, 'https://bambuddy.example.com')).toBeTruthy();
+    expect(findText(renderer, 'Connect')).not.toBeNull();
+    expect(mockPolicy).not.toHaveBeenCalled();
+    expect(mockLDAPStatus).not.toHaveBeenCalled();
+    expect(mockProviders).not.toHaveBeenCalled();
+    expect(mockReset).not.toHaveBeenCalled();
+  });
+
   it('allows directory credentials when local-account login is disabled', async () => {
     mockPolicy.mockResolvedValue({ local_login_enabled: false, autologin_provider_id: null });
     mockLDAPStatus.mockResolvedValue({ ldap_enabled: true, ldap_configured: true });
@@ -218,20 +268,20 @@ describe('LoginScreen', () => {
     mockLDAPStatus.mockReturnValue(new Promise(resolve => { resolveLDAP = resolve; }));
     const renderer = await renderScreen();
     expect(findInput(renderer, 'Username')).toBeUndefined();
-    expect(findText(renderer, 'Login')).toBeNull();
+    expect(() => findPressableForText(renderer, 'Login')).toThrow();
     await act(async () => {
       resolveLDAP({ ldap_enabled: true, ldap_configured: true });
       await new Promise<void>(r => setTimeout(r, 10));
     });
     expect(findInput(renderer, 'Username')).toBeTruthy();
-    expect(findText(renderer, 'Login')).not.toBeNull();
+    expect(() => findPressableForText(renderer, 'Login')).not.toThrow();
   });
 
   it('does not delay confirmed local sign-in while LDAP status is unknown', async () => {
     mockLDAPStatus.mockReturnValue(new Promise(() => {}));
     const renderer = await renderScreen();
     expect(findInput(renderer, 'Username')).toBeTruthy();
-    expect(findText(renderer, 'Login')).not.toBeNull();
+    expect(() => findPressableForText(renderer, 'Login')).not.toThrow();
   });
 
   it('does not expose credentials if local login is disabled and LDAP status is unavailable', async () => {
@@ -239,7 +289,7 @@ describe('LoginScreen', () => {
     mockLDAPStatus.mockRejectedValue(new Error('Directory status unavailable'));
     const renderer = await renderScreen();
     expect(findInput(renderer, 'Username')).toBeUndefined();
-    expect(findText(renderer, 'Login')).toBeNull();
+    expect(() => findPressableForText(renderer, 'Login')).toThrow();
     expect(findText(renderer, 'Retry directory sign-in status')).not.toBeNull();
     mockLDAPStatus.mockResolvedValue({ ldap_enabled: true, ldap_configured: true });
     await act(async () => {
@@ -264,6 +314,24 @@ describe('LoginScreen', () => {
 
     expect(findInput(renderer, 'Enter the authenticator app code')).toBeTruthy();
     expect(findText(renderer, 'Verify Code')).not.toBeNull();
+  });
+
+  it('verifies an authenticator code directly when multiple MFA methods are available', async () => {
+    mockLogin.mockResolvedValue({ requires_2fa: true, pre_auth_token: 'pre', available_methods: ['backup', 'totp', 'email'] });
+    const renderer = await renderScreen();
+    await act(async () => {
+      findInput(renderer, 'Username')!.props.onChangeText('operator');
+      findInput(renderer, 'Password')!.props.onChangeText('password');
+    });
+    await act(async () => { findPressableForText(renderer, 'Login').props.onPress(); });
+    await act(async () => { findInput(renderer, 'Enter the authenticator app code')!.props.onChangeText('123456'); });
+    expect(findPressableForText(renderer, 'Verify Code').props.disabled).toBe(false);
+    const selected = renderer.root.findAll(node => node.props.accessibilityRole === 'radio' && node.props.accessibilityState?.checked);
+    expect(selected.length).toBeGreaterThan(0);
+    await act(async () => { selected[0].props.onPress(); });
+    expect(findInput(renderer, 'Enter the authenticator app code')!.props.value).toBe('123456');
+    await act(async () => { findPressableForText(renderer, 'Verify Code').props.onPress(); });
+    expect(mockVerify2FA).toHaveBeenCalledWith({ pre_auth_token: 'pre', code: '123456', method: 'totp' });
   });
 
   it('shows the forgot password email form', async () => {
@@ -355,6 +423,22 @@ describe('LoginScreen', () => {
     await act(async () => { renderer.root.findByProps({ testID: 'oidcBrowser' }).props.onToken('exchange-token'); await new Promise<void>(r => setTimeout(r, 10)); });
     expect(mockExchange).toHaveBeenCalledWith('exchange-token');
     expect(mockLoginWithToken).toHaveBeenCalledWith('oidc-session', expect.objectContaining({ id: 1 }), true);
+  });
+
+  it('starts automatic SSO again after confirming a different server', async () => {
+    mockPolicy.mockResolvedValue({ local_login_enabled: false, autologin_provider_id: 3 });
+    mockProviders.mockResolvedValue([{ id: 3, name: 'Identity', has_icon: false, is_autologin: true }]);
+    Object.defineProperty(globalThis, 'crypto', { configurable: true, value: { getRandomValues: (b: Uint8Array) => { b.fill(3); return b; } } });
+    mockAuthorize.mockImplementation(async (_providerId: number, state: string) => ({ auth_url: `https://identity/authorize?state=${state}&redirect_uri=${encodeURIComponent(`${mockServerUrl}/api/v1/auth/oidc/callback`)}` }));
+    const renderer = await renderScreen();
+    await waitFor(() => expect(renderer.root.findByProps({ testID: 'oidcBrowser' })).toBeTruthy());
+    await act(async () => { renderer.root.findByProps({ testID: 'oidcBrowser' }).props.onCancel(); });
+    await act(async () => { findInput(renderer, 'https://bambuddy.example.com')!.props.onChangeText('https://another.test'); });
+    await act(async () => { findPressableForText(renderer, 'Connect').props.onPress(); });
+    await waitFor(() => {
+      expect(mockAuthorize).toHaveBeenCalledTimes(2);
+      expect(renderer.root.findByProps({ testID: 'oidcBrowser' }).props.serverUrl).toContain('another.test');
+    });
   });
 
   it('rejects mismatched native callback state and completes a fresh state-checked native exchange', async () => {

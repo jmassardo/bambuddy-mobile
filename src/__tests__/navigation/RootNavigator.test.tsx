@@ -17,6 +17,7 @@ const mockAuth = {
   authEnabled: true,
   loading: false,
   requiresSetup: false,
+  serverConnected: true,
   hasPermission: jest.fn(() => true),
 };
 let mockBillingEnabled = true;
@@ -105,6 +106,7 @@ describe('RootNavigator', () => {
     mockAuth.authEnabled = true;
     mockAuth.loading = false;
     mockAuth.requiresSetup = false;
+    mockAuth.serverConnected = true;
     mockAuth.hasPermission.mockReturnValue(true);
     mockBillingEnabled = true;
     mockServerUrl = 'https://bambuddy.test';
@@ -142,11 +144,24 @@ describe('RootNavigator', () => {
   it('keeps setup and sign-in gates ahead of consent and all app routes', async () => {
     mockAuth.user = null;
     const view = await render(<RootNavigator />);
-    expect(registeredRoutes).toEqual(['Login']);
+    expect(registeredRoutes).toEqual(['Login', 'ServerSetup', 'Scanner']);
     registeredRoutes.length = 0;
     mockServerUrl = '';
     await view.rerender(<RootNavigator />);
-    expect(registeredRoutes).toEqual(['ServerSetup', 'Scanner']);
+    expect(registeredRoutes).toEqual(['Login', 'ServerSetup', 'Scanner']);
+  });
+
+  it('keeps the unified sign-in route mounted during server checks and failed connections', async () => {
+    mockAuth.user = null;
+    mockAuth.loading = true;
+    const view = await render(<RootNavigator />);
+    expect(registeredRoutes).toEqual(['Login', 'ServerSetup', 'Scanner']);
+    registeredRoutes.length = 0;
+    mockAuth.loading = false;
+    mockAuth.authEnabled = false;
+    mockAuth.serverConnected = false;
+    await view.rerender(<RootNavigator />);
+    expect(registeredRoutes).toEqual(['Login', 'ServerSetup', 'Scanner']);
   });
 
   it('does not expose authenticated-only consent or finance in guest mode', async () => {
@@ -163,6 +178,6 @@ describe('RootNavigator', () => {
     expect(registeredRoutes).toEqual([]);
     mockAuth.user = null;
     await view.rerender(<RootNavigator entryReady={false} />);
-    expect(registeredRoutes).toEqual(['Login']);
+    expect(registeredRoutes).toEqual(['Login', 'ServerSetup', 'Scanner']);
   });
 });

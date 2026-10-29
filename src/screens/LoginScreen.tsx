@@ -22,7 +22,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
-import { LoadingScreen } from '@/components/common/StateScreens';
+import ServerSetupScreen from './ServerSetupScreen';
 import { useServerStore } from '@/api/server';
 import type { LoginResponse } from '@/types/api';
 import { authApi } from '@/api/auth';
@@ -78,9 +78,10 @@ export default function LoginScreen() {
     navigation.setOptions({ title: translateNative('native.62a155bdfe8d655f'), headerShown: false });
   }, [navigation, titleLocale]);
   const { colors } = useTheme();
-  const { login, loginWithToken, user, loading, requiresSetup } = useAuth();
+  const { login, loginWithToken, loading } = useAuth();
   const { showToast } = useToast();
   const serverUrl = useServerStore(state => state.serverUrl);
+  const [serverReady, setServerReady] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -110,40 +111,38 @@ export default function LoginScreen() {
   const pendingOidcState = React.useRef<string | null>(null);
 
   useEffect(() => {
-    if (!serverUrl) {
-      navigation.reset({ index: 0, routes: [{ name: 'ServerSetup' }] });
-    }
-  }, [navigation, serverUrl]);
-
-  useEffect(() => {
-    if (requiresSetup) {
-      navigation.reset({ index: 0, routes: [{ name: 'Setup' }] });
-      return;
-    }
-    if (user) {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Main', params: { screen: 'Dashboard' } }],
-      });
-    }
-  }, [requiresSetup, navigation, user]);
+    autoStarted.current = false;
+    pendingOidcState.current = null;
+    setAuthorizationUrl(null);
+    setCallbackServer(null);
+    setPreAuthToken(null);
+    setAvailableMethods([]);
+    setSelectedMethod(null);
+    setCode('');
+    setEmailDelivered(false);
+    setStep('credentials');
+    setError('');
+  }, [serverUrl, setError]);
 
   const oidcProvidersQuery = useQuery({
-    queryKey: ['oidcProviders'],
+    queryKey: ['oidcProviders', serverUrl],
     queryFn: () => api.getOIDCProviders(),
+    enabled: Boolean(serverUrl) && !loading,
   });
   const policyQuery = useQuery({
-    queryKey: ['advancedAuthStatus'],
+    queryKey: ['advancedAuthStatus', serverUrl],
     queryFn: authApi.getAdvancedAuthStatus,
+    enabled: Boolean(serverUrl) && !loading,
   });
   const ldapStatusQuery = useQuery({
-    queryKey: ['ldapStatus'],
+    queryKey: ['ldapStatus', serverUrl],
     queryFn: authApi.getLDAPStatus,
+    enabled: Boolean(serverUrl) && !loading,
   });
   const localLoginEnabled = policyQuery.data?.local_login_enabled === true;
   const ldapLoginEnabled = ldapStatusQuery.data?.ldap_enabled === true;
   const credentialsEnabled = localLoginEnabled || ldapLoginEnabled;
-  const credentialsPolicyPending = !credentialsEnabled && (policyQuery.isPending || ldapStatusQuery.isPending);
+  const credentialsPolicyPending = Boolean(serverUrl) && !credentialsEnabled && (policyQuery.isPending || ldapStatusQuery.isPending);
   const emailMutation = useMutation({
     mutationFn: async () => {
       if (!preAuthToken) throw new Error(translateNative('native.974f3faf99939c0e'));
@@ -163,7 +162,7 @@ export default function LoginScreen() {
       const methods = loginResponse.available_methods ?? loginResponse.two_fa_methods ?? [];
       setPreAuthToken(loginResponse.pre_auth_token);
       setAvailableMethods(methods);
-      setSelectedMethod(methods.length === 1 ? methods[0] : null);
+      setSelectedMethod(methods.includes('totp') ? 'totp' : methods[0] ?? null);
       setStep('2fa');
       setCode('');
       setEmailDelivered(false);
@@ -253,7 +252,7 @@ export default function LoginScreen() {
         const methods = result.available_methods ?? [];
         setPreAuthToken(result.pre_auth_token ?? null);
         setAvailableMethods(methods);
-        setSelectedMethod(methods.length === 1 ? methods[0] : null);
+        setSelectedMethod(methods.includes('totp') ? 'totp' : methods[0] ?? null);
         setCode('');
         setEmailDelivered(false);
         setStep('2fa');
@@ -324,16 +323,12 @@ export default function LoginScreen() {
   const startOidc = oidcStartMutation.mutate;
   useEffect(() => {
     const id = policyQuery.data?.autologin_provider_id;
-    if (!loading && id && step === 'credentials' && !autoStarted.current &&
+    if (serverReady && !loading && id && step === 'credentials' && !autoStarted.current &&
         oidcProvidersQuery.data?.some(p => p.id === id)) {
       autoStarted.current = true;
       startOidc(id);
     }
-  }, [loading, policyQuery.data, oidcProvidersQuery.data, startOidc, step]);
-
-  if (loading) {
-    return <LoadingScreen message={translateNative('native.d041a71daf02b592')} />;
-  }
+  }, [serverReady, loading, policyQuery.data, oidcProvidersQuery.data, startOidc, step]);
 
   const oidcProviders = oidcProvidersQuery.data ?? [];
   const oidcBusy = oidcStartMutation.isPending || oidcExchangeMutation.isPending;
@@ -366,7 +361,10 @@ export default function LoginScreen() {
             style={styles.logoImage}
             resizeMode="contain"
           />
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
+            {step === '2fa' ? translateNative('native.55178b88e5e360a1') : step === 'forgot' ? translateNative('native.b47b4b42ad4c4632') : step === 'reset' ? translateNative('native.539cd2a37d713bd6') : translateNative('native.62a155bdfe8d655f')}
+          </Text>
+          {step !== '2fa' ? <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {step === 'forgot'
               ? translateNative('native.957d9b50dbb848d3')
               : step === 'reset'
@@ -374,7 +372,12 @@ export default function LoginScreen() {
                 : oidcBusy
                   ? translateNative('native.595d910db8026f25')
                   : translateNative('native.c657b68c31e11c85')}
-          </Text>
+          </Text> : null}
+
+          {step === 'credentials' ? <ServerSetupScreen embedded disabled={submitMutation.isPending || oidcBusy} onReadyChange={setServerReady} /> : (
+            <TextField label={translateNative('native.301fd81a82ae3258')} value={serverUrl ?? ''} editable={false} />
+          )}
+          {loading ? <Text style={[styles.methodHint, { color: colors.textSecondary }]}>{translateNative('native.d041a71daf02b592')}</Text> : null}
 
           {step === 'credentials' && credentialsEnabled && (
             <>
@@ -429,8 +432,11 @@ export default function LoginScreen() {
                       return (
                         <Pressable
                           key={method}
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: active }}
                           disabled={submitMutation.isPending || emailMutation.isPending}
                           onPress={() => {
+                            if (active) return;
                             setSelectedMethod(method);
                             setCode('');
                             setError('');
@@ -480,8 +486,6 @@ export default function LoginScreen() {
                 label={emailMutation.isPending ? t('auth.sending', { defaultValue: 'Sending…' }) : emailDelivered ? t('auth.resendEmailCode', { defaultValue: 'Resend email code' }) : t('auth.sendEmailCode', { defaultValue: 'Send email code' })}
                 onPress={() => emailMutation.mutate()} disabled={emailMutation.isPending}
               /> : null}
-              <PrimaryButton label={t('auth.backToSignIn', { defaultValue: 'Back to sign in' })} variant="secondary" disabled={submitMutation.isPending || emailMutation.isPending}
-                onPress={() => { setPreAuthToken(null); setCode(''); setPassword(''); setSelectedMethod(null); setAvailableMethods([]); setEmailDelivered(false); setError(''); setStep('credentials'); }} />
             </>
           )}
 
@@ -538,7 +542,7 @@ export default function LoginScreen() {
 
           {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
 
-          {step === 'credentials' || step === '2fa' ? <SwitchRow label={t('auth.rememberMe', { defaultValue: 'Remember me' })} description={t('auth.rememberMeHint', { defaultValue: 'Off: keep the session only until the app process closes. On: save securely in Keychain/Keystore.' })} value={remember} onValueChange={setRemember} disabled={submitMutation.isPending || oidcBusy} /> : null}
+          {step === 'credentials' && (credentialsEnabled || oidcProviders.length > 0) ? <SwitchRow label={t('auth.rememberMe', { defaultValue: 'Remember me' })} value={remember} onValueChange={setRemember} disabled={submitMutation.isPending || oidcBusy} /> : null}
           {step === 'credentials' && credentialsPolicyPending ? <Text style={{ color: colors.textSecondary }}>{t('auth.loadingPolicy', { defaultValue: 'Loading login policy…' })}</Text> : null}
           {step === 'credentials' && policyQuery.data?.local_login_enabled === false && ldapStatusQuery.data?.ldap_enabled === false ? <Text style={{ color: colors.textSecondary }}>{t('auth.localLoginDisabled', { defaultValue: 'Local sign-in is disabled. Choose a single sign-on provider below.' })}</Text> : null}
           {step === 'credentials' && !localLoginEnabled && ldapLoginEnabled ? <Text style={{ color: colors.textSecondary }}>{t('auth.directoryLoginHint', { defaultValue: 'Sign in with your directory account.' })}</Text> : null}
@@ -549,11 +553,12 @@ export default function LoginScreen() {
               label={submitMutation.isPending ? translateNative('native.1aeddc7b0b18d572') : translateNative('native.62a155bdfe8d655f')}
               onPress={() => submitMutation.mutate()}
               loading={submitMutation.isPending}
-              disabled={username.trim().length === 0 || password.length === 0 || oidcBusy}
+              disabled={!serverReady || loading || username.trim().length === 0 || password.length === 0 || oidcBusy}
             />
           )}
 
           {step === '2fa' && (
+            <>
             <PrimaryButton
               label={submitMutation.isPending ? translateNative('native.5c1bf88a5cba056e') : translateNative('native.55178b88e5e360a1')}
               onPress={() => submitMutation.mutate()}
@@ -564,6 +569,9 @@ export default function LoginScreen() {
                 (availableMethods.length > 1 && selectedMethod == null)
               }
             />
+            <PrimaryButton label={t('auth.backToSignIn', { defaultValue: 'Back to sign in' })} variant="secondary" disabled={submitMutation.isPending || emailMutation.isPending}
+              onPress={() => { setPreAuthToken(null); setCode(''); setPassword(''); setSelectedMethod(null); setAvailableMethods([]); setEmailDelivered(false); setError(''); setStep('credentials'); }} />
+            </>
           )}
 
           {step === 'forgot' && (
@@ -595,7 +603,7 @@ export default function LoginScreen() {
                   onPress={() => {
                     oidcStartMutation.mutate(provider.id);
                   }}
-                  disabled={oidcBusy}
+                  disabled={!serverReady || loading || oidcBusy}
                 />
               ))}
               <Text style={[styles.oidcHint, { color: colors.textTertiary }]}>{t('auth.oidcBrowserHint', { defaultValue: 'Sign in inside the secure authorization window. Cancel to choose another sign-in method.' })}</Text>
@@ -623,9 +631,14 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   logoImage: {
-    width: 120,
-    height: 120,
+    width: 80,
+    height: 80,
     alignSelf: 'center',
+  },
+  title: {
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.bold,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: fontSize.base,

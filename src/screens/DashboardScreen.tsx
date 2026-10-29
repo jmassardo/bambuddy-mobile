@@ -22,7 +22,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { Grid2x2, List, Plus } from 'lucide-react-native';
+import { Grid2x2, List, ListChecks, Plus, SlidersHorizontal } from 'lucide-react-native';
 import { api } from '@/api/client';
 import {
   InlineTabBar,
@@ -336,6 +336,7 @@ export default function PrintersDashboardScreen() {
   const [filter, setFilter] = useState<FilterMode>('all');
   const [locationFilter, setLocationFilter] = useState<string | null>(null);
   const [hideOffline, setHideOffline] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [descending, setDescending] = useState(false);
   const [choices, setChoices] = useState<{ title: string; options: { label: string; select: () => void }[] } | null>(null);
   const [sortBy, setSortBy] = useState<PrinterSortMode>('status');
@@ -721,13 +722,13 @@ export default function PrintersDashboardScreen() {
         }}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={{ color: colors.text }}>{FILTERS.filter(item => item.key !== 'all').map(item => `${t(`fleet.state.${item.key}`, { defaultValue: item.label })}: ${fleetCounts[item.key as keyof typeof fleetCounts] ?? 0}`).join(' · ')}{fleetCounts.loading ? ` · ${t('fleet.loadingCount', { defaultValue: '{{count}} loading', count: fleetCounts.loading })}` : ''}</Text>
+            {showFilters ? <Text style={{ color: colors.text }}>{FILTERS.filter(item => item.key !== 'all').map(item => `${t(`fleet.state.${item.key}`, { defaultValue: item.label })}: ${fleetCounts[item.key as keyof typeof fleetCounts] ?? 0}`).join(' · ')}{fleetCounts.loading ? ` · ${t('fleet.loadingCount', { defaultValue: '{{count}} loading', count: fleetCounts.loading })}` : ''}</Text> : null}
             {nextFinisher ? <Text style={{ color: colors.textSecondary }}>{t('fleet.nextFinisher', { defaultValue: 'Next finisher: {{name}} · {{minutes}} min · {{eta}}', name: nextFinisher.name, minutes: statusByPrinter.get(nextFinisher.id)?.remaining_time ?? '—', eta: new Date(Date.now() + (statusByPrinter.get(nextFinisher.id)?.remaining_time ?? 0) * 60000).toLocaleTimeString() })}</Text> : null}
-            <ScrollView horizontal contentContainerStyle={styles.bulkActions}>
+            {selectionMode ? <ScrollView horizontal contentContainerStyle={styles.bulkActions}>
               <PrimaryButton label={t('fleet.selectAll', { defaultValue: 'Select all visible' })} variant="secondary" onPress={() => setSelectedPrinterIds(filteredPrinters.map(printer => printer.id))} />
               <PrimaryButton label={t('fleet.selectState', { defaultValue: 'Select by state' })} variant="secondary" onPress={() => setChoices({ get title() { return translateNative('fleet.selectState', { defaultValue: 'Select by state' }); }, options: FILTERS.filter(item => item.key !== 'all').map(item => ({ get label() { return translateNative(`fleet.state.${item.key}`, { defaultValue: item.label }); }, select: () => setSelectedPrinterIds(printers.filter(printer => classifyPrinter(printer, statusByPrinter.get(printer.id), maintenanceByPrinter.get(printer.id)) === item.key).map(printer => printer.id)) })) })} />
               <PrimaryButton label={t('fleet.selectLocation', { defaultValue: 'Select by location' })} variant="secondary" onPress={() => setChoices({ get title() { return translateNative('fleet.selectLocation', { defaultValue: 'Select by location' }); }, options: locations.map(location => ({ label: location || t('fleet.noLocation', { defaultValue: 'No location' }), select: () => setSelectedPrinterIds(printers.filter(printer => (printer.location ?? '') === location).map(printer => printer.id)) })) })} />
-            </ScrollView>
+            </ScrollView> : null}
             {selectionMode ? (
               <View
                 style={[
@@ -785,7 +786,7 @@ export default function PrintersDashboardScreen() {
             ) : null}
 
             <View style={styles.toolbarRow}>
-              <View style={{ flex: 1 }}>
+              <View style={styles.search}>
                 <SearchBar
                   value={search}
                   onChangeText={setSearch}
@@ -817,6 +818,27 @@ export default function PrintersDashboardScreen() {
                 </Text>
               </View>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={translateNative('common.filters')}
+                accessibilityState={{ expanded: showFilters, selected: hideOffline || locationFilter !== null || descending || sortBy !== 'status' || sortSecondary !== 'name' }}
+                hitSlop={6}
+                onPress={() => setShowFilters(current => !current)}
+                style={[styles.viewToggle, { backgroundColor: showFilters ? colors.accentBg : colors.surfaceElevated, borderColor: colors.border }]}
+              >
+                <SlidersHorizontal size={16} color={colors.text} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={selectionMode ? translateNative('common.cancel') : t('fleet.selectAll', { defaultValue: 'Select all visible' })}
+                accessibilityState={{ selected: selectionMode }}
+                hitSlop={6}
+                disabled={filteredPrinters.length === 0 && !selectionMode}
+                onPress={() => setSelectedPrinterIds(selectionMode ? [] : filteredPrinters.map(printer => printer.id))}
+                style={[styles.viewToggle, { backgroundColor: selectionMode ? colors.accentBg : colors.surfaceElevated, borderColor: colors.border }]}
+              >
+                <ListChecks size={16} color={colors.text} />
+              </Pressable>
+              <Pressable
                 onPress={() => setViewMode(m => m === 'normal' ? 'compact' : 'normal')}
                 style={[styles.viewToggle, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
               >
@@ -838,7 +860,9 @@ export default function PrintersDashboardScreen() {
               tabs={FILTERS.map(item => ({ key: item.key, get label() { return translateNative(`fleet.state.${item.key}`, { defaultValue: item.label }); } }))}
               onChange={setFilter}
             />
-            <View style={styles.bulkActions}>
+            {choices ? <FleetModal title={choices.title} onClose={() => setChoices(null)}>{choices.options.map(option => <PrimaryButton key={option.label} label={option.label} variant="secondary" onPress={() => { option.select(); setChoices(null); }} />)}</FleetModal> : null}
+            {showFilters ? <View style={[styles.filtersPanel, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <View style={styles.filterOptions}>
               <Text style={{ color: colors.text }}>{t('fleet.hideOffline', { defaultValue: 'Hide offline' })}</Text>
               <Switch value={hideOffline} onValueChange={setHideOffline} accessibilityLabel={t('fleet.hideOffline', { defaultValue: 'Hide offline' })} />
               <PrimaryButton label={locationFilter === null ? t('fleet.allLocations', { defaultValue: 'All locations' }) : locationFilter || t('fleet.noLocation', { defaultValue: 'No location' })} variant="secondary" onPress={() => setChoices({ get title() { return translateNative('fleet.locationFilter', { defaultValue: 'Filter location' }); }, options: [
@@ -847,7 +871,6 @@ export default function PrintersDashboardScreen() {
               ] })} />
               <PrimaryButton label={descending ? t('fleet.descending', { defaultValue: 'Descending ↓' }) : t('fleet.ascending', { defaultValue: 'Ascending ↑' })} variant="secondary" onPress={() => setDescending(!descending)} />
             </View>
-            {choices ? <FleetModal title={choices.title} onClose={() => setChoices(null)}>{choices.options.map(option => <PrimaryButton key={option.label} label={option.label} variant="secondary" onPress={() => { option.select(); setChoices(null); }} />)}</FleetModal> : null}
             <View style={styles.sortRow}>
               <Text style={[styles.sortLabel, { color: colors.textSecondary }]}>{translateNative('native.835f56bb1efa85f9')}</Text>
               <View
@@ -919,19 +942,8 @@ export default function PrintersDashboardScreen() {
                   );
                 })}
               </View>
-              <View
-                style={[
-                  styles.sortIndicator,
-                  { backgroundColor: colors.accentBg + '33', borderColor: colors.accent + '66' },
-                ]}
-              >
-                <Text style={[styles.sortIndicatorText, { color: colors.accent }]}>
-                  {sortSecondary !== 'none' && sortSecondary !== sortBy
-                    ? `${SECONDARY_SORT_OPTIONS.find(o => o.key === sortSecondary)?.label ?? ''}`
-                    : ''}
-                </Text>
-              </View>
             </View>
+            </View> : null}
           </View>
         }
         ListEmptyComponent={
@@ -979,6 +991,19 @@ const styles = StyleSheet.create({
   header: {
     gap: spacing.md,
     marginBottom: spacing.md,
+  },
+  search: { flex: 1 },
+  filtersPanel: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  filterOptions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   bulkBar: {
     borderWidth: 1,
@@ -1058,9 +1083,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   sortControl: {
+    flex: 1,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     borderWidth: 1,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.lg,
     padding: 2,
   },
   sortOption: {
@@ -1081,16 +1108,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     opacity: 0.7,
-  },
-  sortIndicator: {
-    borderWidth: 1,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  sortIndicatorText: {
-    fontSize: fontSize.xs,
-    fontWeight: '600',
   },
   addBtn: {
     width: 32,

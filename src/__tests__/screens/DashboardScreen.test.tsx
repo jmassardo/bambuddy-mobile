@@ -248,6 +248,37 @@ describe('DashboardScreen', () => {
     expect(toJSON()).toBeTruthy();
   });
 
+  it('keeps advanced controls collapsed and preserves filters when the panel closes', async () => {
+    statuses = [
+      defaultStatuses[0],
+      { data: printerStatus('IDLE', false), isLoading: false, isRefetching: false },
+    ];
+    const screen = await render(<DashboardScreen />);
+    expect(screen.queryByRole('button', { name: 'Sort by name' })).toBeNull();
+    expect(screen.queryByLabelText('Hide offline')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Select by state' })).toBeNull();
+    expect(screen.getAllByTestId('printer-card')).toHaveLength(2);
+    await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+    await fireEvent(screen.getByLabelText('Hide offline'), 'valueChange', true);
+    await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+    expect(screen.queryByLabelText('Hide offline')).toBeNull();
+    expect(printerNames(screen.getAllByTestId('printer-card'))).toEqual(['Printer Alpha']);
+    expect(screen.getByRole('button', { name: 'Filters' }).props.accessibilityState).toEqual({ expanded: false, selected: true });
+    await screen.unmount();
+  });
+
+  it('shows bulk controls only after entering selection and hides them on cancel', async () => {
+    const screen = await render(<DashboardScreen />);
+    expect(screen.queryByRole('button', { name: 'Select by state' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Select all visible' }));
+    expect(screen.getByRole('button', { name: 'Select by state' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Clear selected plates' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('button', { name: 'Select by state' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Clear selected plates' })).toBeNull();
+    await screen.unmount();
+  });
+
   it('combines location, finished status, and offline visibility, then reverses ETA sorting', async () => {
     printers = [
       { id: 1, name: 'Soon', model: 'P1S', location: 'Lab' },
@@ -262,6 +293,7 @@ describe('DashboardScreen', () => {
       { data: printerStatus('FINISH'), isLoading: false, isRefetching: false },
     ];
     const screen = await render(<DashboardScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
     await fireEvent.press(screen.getByRole('button', { name: 'All locations' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Lab' }));
     await fireEvent(screen.getByLabelText('Hide offline'), 'valueChange', true);
@@ -292,6 +324,7 @@ describe('DashboardScreen', () => {
     const screen = await render(<DashboardScreen />);
     await fireEvent.press(screen.getByRole('button', { name: 'Printing' }));
     await fireEvent.changeText(screen.getByPlaceholderText('Search printers…'), 'lab');
+    await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Sort by name' }));
 
     await waitFor(() => {
@@ -332,12 +365,14 @@ describe('DashboardScreen', () => {
       { data: printerStatus('IDLE'), isLoading: false, isRefetching: false },
     ];
     const firstMount = await render(<DashboardScreen />);
+    await fireEvent.press(firstMount.getByRole('button', { name: 'Filters' }));
     await fireEvent.press(firstMount.getByRole('button', { name: 'Sort by name' }));
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('bambuddy-printer-sort', 'name');
     await firstMount.unmount();
 
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('name');
     const secondMount = await render(<DashboardScreen />);
+    await fireEvent.press(secondMount.getByRole('button', { name: 'Filters' }));
     await waitFor(() => {
       expect(printerNames(secondMount.getAllByTestId('printer-card'))).toEqual(['Alpha', 'Zulu']);
       expect(
