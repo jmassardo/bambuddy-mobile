@@ -2754,7 +2754,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "bfeef0f2cd72be1bab61da6194d7c3cdeeeecaecbbcbea54472a3c83d1467f74",
       "disposition": "Tag-action captions use a closed three-way getter table; actual tags and filenames remain raw.",
-      "fileDigest": "9b3ea5e6c75cf7dbaecd79b9cd4500b2c55f86530142546c57527730bd6fc2d4"
+      "fileDigest": "6146928e5ed1150c258e16710496579cf57b5ca69da724808d1751851951895a"
     },
     {
       "file": "src/screens/FinanceScreen.tsx",
@@ -2964,7 +2964,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "45e46c2a92268c35bffedc8d3d2f404d3c44dd3c95330e58356995be9fe7c164",
       "disposition": "Private title/dialog/chrome callsites are authored. Batch status uses bounded mappings; job names/backend errors stay raw.",
-      "fileDigest": "6524a6732119548b9c06008f159b61fe25c38b5105a40978519336896788453b"
+      "fileDigest": "8ab5ea892e278a13e0dc55e9cab819bf24856acefd38ccc0321b9e92e579f70e"
     },
     {
       "file": "src/screens/QueueScreen.tsx",
@@ -2979,7 +2979,7 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "cc8a9966a1077d0cd62545d98f10bf7a1894d136acf2c96aeb78c4566b1fa729",
       "disposition": "Private title/dialog/chrome callsites are authored. Batch status uses bounded mappings; job names/backend errors stay raw.",
-      "fileDigest": "6524a6732119548b9c06008f159b61fe25c38b5105a40978519336896788453b"
+      "fileDigest": "8ab5ea892e278a13e0dc55e9cab819bf24856acefd38ccc0321b9e92e579f70e"
     },
     {
       "file": "src/screens/QueueScreen.tsx",
@@ -2994,7 +2994,7 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "41b715065c1f858670673a0868be6ae290a2e99b2bcab031d2106d7e9a8c6d6a",
       "disposition": "Private title/dialog/chrome callsites are authored. Batch status uses bounded mappings; job names/backend errors stay raw.",
-      "fileDigest": "6524a6732119548b9c06008f159b61fe25c38b5105a40978519336896788453b"
+      "fileDigest": "8ab5ea892e278a13e0dc55e9cab819bf24856acefd38ccc0321b9e92e579f70e"
     },
     {
       "file": "src/screens/SlicerPipelinesScreen.tsx",

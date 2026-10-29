@@ -14,7 +14,7 @@ import {
   View,
   Switch,
 } from 'react-native';
-import { CheckCircle, ChevronDown, ChevronRight, Pause, X } from 'lucide-react-native';
+import { CheckCircle, ChevronDown, ChevronRight, Ellipsis, Pause, SlidersHorizontal, X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { filesApi } from '@/api/files';
@@ -161,6 +161,8 @@ export default function FilesScreen() {
   const queryClient = useQueryClient();
   const [folderStack, setFolderStack] = useState<FolderNode[]>([{ id: null, name: 'Library' }]);
   const [search, setSearch] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [showTools, setShowTools] = useState(false);
   const [viewMode, setViewMode] = useLibraryPreference<FileViewMode>('view', 'list');
   const [sortBy, setSortBy] = useLibraryPreference<FileSort>('sort', 'name');
   const [ascending, setAscending] = useLibraryPreference('ascending', true);
@@ -901,15 +903,15 @@ export default function FilesScreen() {
         }
         ListHeaderComponent={
           <View style={styles.headerStack}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
+            {showTools ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
               <StatCard label={trashMode ? translateNative('native.4ce05d4bcd1624f1') : translateNative('nav.files')} value={String(trashMode ? trashQuery.data?.total ?? 0 : fileStats.files)} helper={trashMode ? translateNative('native.a63e1aa0c6af223f', { value0: String(trashQuery.data?.retention_days ?? 0) }) : translateNative('native.a020db6f7868f790')} />
               <StatCard label={translateNative('native.cd479ad06e8dcbb0')} value={String(fileStats.folders)} helper={translateNative('native.a020db6f7868f790')} />
               <StatCard label={translateNative('native.96b716d3aee0a481')} value={formatFileSize(fileStats.totalSize)} helper={translateNative('native.9e61d87fb9ce80a0')} />
               <StatCard label={translateNative('native.0157f54b2e4d9f8e')} value={String(Array.isArray(tagsQuery.data) ? tagsQuery.data.length : 0)} helper={translateNative('native.4350f7dee62e9c10')} />
               <StatCard label={translateNative('native.1aa2dacf31a3885e')} value={String(pendingUploads.length)} helper={translateNative('native.66cef8911feba51c')} />
-            </ScrollView>
+            </ScrollView> : null}
 
-            <SectionCard title={trashMode ? translateNative('native.c5d674f5ecb57613') : translateNative('native.59afdb0fe24b38cd')} subtitle={trashMode ? translateNative('native.9ac32dc9cc86fd54') : translateNative('native.fc1cc3bd8d107f6e')}>
+            <View style={styles.headerStack}>
               {trashMode ? <Text style={[styles.trashMeta, {color: colors.textSecondary}]}>{t('library.retentionSummary', {defaultValue: '{{days}} days retention', days: trashQuery.data?.retention_days ?? 0})}</Text> : null}
               {!trashMode ? (
                 <Breadcrumb
@@ -920,17 +922,28 @@ export default function FilesScreen() {
                   }}
                 />
               ) : null}
+              <View style={styles.toolbar}>
+              <View style={styles.toolbarSearch}>
               <SearchBar
                 value={search}
                 onChangeText={setSearch}
                 placeholder={trashMode ? translateNative('native.b907ac888b8e72c6') : translateNative('native.711ebae14d85e742')}
-                onFilterPress={trashMode ? undefined : () => setShowTagFilterModal(true)}
               />
+              </View>
+              {!trashMode ? <Pressable accessibilityRole="button" accessibilityLabel={t('common.filters')} accessibilityState={{ expanded: showFilters, selected: Boolean(uploader) || typeFilter !== 'all' || selectedFileTypes.length > 0 || dateRangeFilter !== 'all' || sizeRangeFilter !== 'all' || selectedTagIds.length > 0 }} onPress={() => setShowFilters(value => !value)} style={[styles.toolbarButton, { backgroundColor: showFilters ? colors.accentBg : colors.surfaceElevated, borderColor: colors.border }]}>
+                <SlidersHorizontal size={18} color={colors.text} />
+              </Pressable> : null}
+              <Pressable accessibilityRole="button" accessibilityLabel={t('nav.more')} accessibilityState={{ expanded: showTools }} onPress={() => setShowTools(value => !value)} style={[styles.toolbarButton, { backgroundColor: showTools ? colors.accentBg : colors.surfaceElevated, borderColor: colors.border }]}>
+                <Ellipsis size={18} color={colors.text} />
+              </Pressable>
+              </View>
+              {trashMode ? <PrimaryButton label={translateNative('native.0c71d3b8f04c10c2')} variant="secondary" onPress={() => { setTrashMode(false); setSelectedIds([]); setShowTools(false); }} /> : null}
               {!trashMode ? <>
                 {projectLinkTarget !== null ? <SectionCard title={t('library.linkProjectTitle', {defaultValue: 'Link to project #{{id}}', id: projectLinkTarget})} subtitle={t('library.linkProjectInstructions', {defaultValue: 'Browse to a folder or select files, then link them. Existing project links on those items will be replaced.'})}>
                   {currentFolder.id !== null && hasPermission('library:update_all') ? <PrimaryButton label={t('library.linkCurrentProject', {defaultValue: 'Link current folder to this project'})} onPress={() => linkProjectMutation.mutate({folderId: currentFolder.id!})} disabled={linkProjectMutation.isPending} /> : null}
                   <PrimaryButton label={t('common.done', {defaultValue: 'Done'})} variant="secondary" onPress={() => setProjectLinkTarget(null)} />
                 </SectionCard> : null}
+                {showFilters ? <>
                 <TextField label={t('library.uploaderFilter', {defaultValue: 'Uploader (independent filter)'})} value={uploader} onChangeText={setUploader} placeholder={t('library.anyUploader', {defaultValue: 'Any uploader'})} />
                 <ScrollView horizontal contentContainerStyle={styles.filterRow}>
                   <Chip label={t('library.anyUploader', {defaultValue: 'Any uploader'})} selected={!uploader} onPress={() => setUploader('')} />
@@ -947,11 +960,13 @@ export default function FilesScreen() {
                   <Chip label={t('library.wrapNames', {defaultValue: 'Wrap names'})} selected={wrapNames} onPress={() => setWrapNames(value => !value)} />
                   <Chip label={t('library.showModified', {defaultValue: 'Show modified date'})} selected={showModified} onPress={() => setShowModified(value => !value)} />
                 </ScrollView>
+                <PrimaryButton label={translateNative('native.0157f54b2e4d9f8e')} variant="secondary" onPress={() => setShowTagFilterModal(true)} />
+                </> : null}
                 {browseTree ? <LibraryFolderTree tree={(foldersQuery.data ?? []).filter(isRecord)} sort={folderSort} ascending={folderAscending} collapsed={collapseFolders} wrap={wrapNames} onChoose={id => {
                   const path = id === null ? [] : folderPath((foldersQuery.data ?? []).filter(isRecord), id);
                   if (path) { setFolderStack([{id: null, name: 'Library'}, ...path]); setSelectedIds([]); }
                 }} /> : null}
-                {currentFolder.id !== null ? <View style={styles.headerActions}>
+                {showTools && currentFolder.id !== null ? <View style={styles.headerActions}>
                   {hasPermission('library:update_all') ? <>
                     <PrimaryButton label={t('library.renameFolder', {defaultValue: 'Rename current folder'})} variant="secondary" onPress={() => {setRenameItem({id: currentFolder.id!, name: currentFolder.name, is_folder: true}); setRenameValue(currentFolder.name);}} />
                     <PrimaryButton label={t('library.linkFolder', {defaultValue: 'Link current folder'})} variant="secondary" onPress={() => {
@@ -986,6 +1001,7 @@ export default function FilesScreen() {
                   ))}
                 </ScrollView>
               ) : null}
+              {showFilters && !trashMode ? <>
               {!trashMode ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
                   <Chip label={translateNative('native.3a091845df86138f')} selected={typeFilter === 'all' && selectedFileTypes.length === 0} onPress={() => { setTypeFilter('all'); setSelectedFileTypes([]); }} />
@@ -1059,7 +1075,8 @@ export default function FilesScreen() {
                   ))}
                 </ScrollView>
               ) : null}
-              <View style={styles.headerActions}>
+              </> : null}
+              {showTools || (trashMode && selectedIds.length > 0) ? <View style={styles.headerActions}>
                 {((typeFilter !== 'all' || selectedFileTypes.length > 0 || dateRangeFilter !== 'all' || sizeRangeFilter !== 'all') && !trashMode) ? (
                   <PrimaryButton
                     label={translateNative('native.42cc919f7bae50c1')}
@@ -1109,14 +1126,16 @@ export default function FilesScreen() {
                   onPress={() => setShowExternalFolderModal(true)}
                   disabled={trashMode || !hasPermission('settings:update')}
                 />
-                <PrimaryButton
-                  label={trashMode ? translateNative('native.0c71d3b8f04c10c2') : translateNative('native.6b5fa8bbe4976d18')}
+                {!trashMode ? <PrimaryButton
+                  label={translateNative('native.6b5fa8bbe4976d18')}
                   variant="secondary"
                   onPress={() => {
-                    setTrashMode(current => !current);
+                    setTrashMode(true);
                     setSelectedIds([]);
+                    setShowTools(false);
+                    setShowFilters(false);
                   }}
-                />
+                /> : null}
                 {trashMode ? (
                   <>
                   <PrimaryButton label={t('library.selectAllTrash', {defaultValue: 'Select all trash'})} variant="secondary" onPress={() => setSelectedIds(entries.map(item => Number(pickId(item))))} />
@@ -1134,7 +1153,7 @@ export default function FilesScreen() {
                   </>
                 ) : null}
                 {!trashMode && hasAnyPermission('library:update_all', 'library:update_own') ? <PrimaryButton label={t('library.generateMissing', {defaultValue: 'Generate all missing thumbnails'})} variant="secondary" disabled={thumbnailMutation.isPending} onPress={() => thumbnailMutation.mutate(undefined)} /> : null}
-              </View>
+              </View> : null}
               {pendingUploads.length > 0 ? (
                 <View style={[styles.pendingUploads, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
                   <Text style={[styles.pendingUploadsTitle, { color: colors.text }]}>{translateNative('native.1aa2dacf31a3885e')}</Text>
@@ -1142,10 +1161,10 @@ export default function FilesScreen() {
                     {pendingUploads.length} {translateNative('native.7845800c79eda7dc')}{nativeEnglishSuffix(pendingUploads.length === 1 ? '' : 's')} {translateNative('native.78ca1e5f873dd227')}</Text>
                 </View>
               ) : null}
-            </SectionCard>
-            {trashMode ? <LibraryPolicy /> : null}
+            </View>
+            {showTools && trashMode ? <LibraryPolicy /> : null}
 
-            {!trashMode ? (
+            {showTools && !trashMode ? (
               <SectionCard
                 title={translateNative('native.bf4fde65a97edbc0')}
                 subtitle={translateNative('native.7a2bc11857b4725b')}
@@ -1711,6 +1730,16 @@ export default function FilesScreen() {
 }
 
 const styles = StyleSheet.create({
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  toolbarSearch: { flex: 1 },
+  toolbarButton: {
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
   },
