@@ -6,6 +6,8 @@ import {
   StyleSheet,
   Text,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import {
   CheckCircle,
@@ -182,6 +184,7 @@ function OptionChip({
 }
 
 interface QueueItemCardContentProps {
+  cardStyle?: StyleProp<ViewStyle>;
   item: PrintQueueItem;
   printerState?: string | null;
   selected?: boolean;
@@ -208,6 +211,7 @@ interface QueueItemCardContentProps {
 }
 
 export function QueueItemCardContent({
+  cardStyle,
   item,
   printerState,
   selected = false,
@@ -315,6 +319,7 @@ export function QueueItemCardContent({
           backgroundColor: selected ? colors.accentBg : colors.card,
           borderColor: selected ? colors.accent : colors.cardBorder,
         },
+        cardStyle,
       ]}
     >
       <View style={styles.headerRow}>
@@ -726,17 +731,17 @@ export function QueueItemCard({
           onPress={onPress}
           onLongPress={handleLongPress}
           style={({ pressed }) => [
-            styles.card,
             {
-              backgroundColor: selected ? colors.accentBg : colors.card,
-              borderColor: isActiveDrag ? colors.accent : isAdjacentToTarget ? colors.highlight : colors.cardBorder,
-              borderWidth: isAdjacentToTarget ? 2 : 1,
               opacity: isActiveDrag ? opacity.value : pressed && !parentIsDragging ? 0.96 : parentIsDragging && isAdjacentToTarget ? 0.85 : 1,
               transform: isAdjacentToTarget && !isActiveDrag ? [{ scale: 1.03 }] : [],
             },
           ]}
         >
           <QueueItemCardContent
+            cardStyle={[
+              isActiveDrag && { borderColor: colors.accent },
+              isAdjacentToTarget && { borderColor: isActiveDrag ? colors.accent : colors.highlight, borderWidth: 2 },
+            ]}
             item={item}
             printerState={printerState}
             selected={selected}

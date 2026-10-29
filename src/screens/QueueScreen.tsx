@@ -9,9 +9,10 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
-import { Ellipsis, SlidersHorizontal } from 'lucide-react-native';
+import { ChevronDown, ChevronRight, Ellipsis, SlidersHorizontal } from 'lucide-react-native';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { ApiError } from '@/api/http';
@@ -43,7 +44,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 
 import { useTheme } from '@/theme';
-import { borderRadius, spacing } from '@/theme/tokens';
+import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type {
   PrintBatch,
   PrintQueueItem,
@@ -102,6 +103,7 @@ export default function QueueScreen() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [batchName, setBatchName] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<number[]>([]);
+  const [batchTools, setBatchTools] = useState<number | null>(null);
   const [batchDetailId, setBatchDetailId] = useState<number | null>(null);
   const [launch, setLaunch] = useState<{
     item: PrintQueueItem;
@@ -445,18 +447,15 @@ export default function QueueScreen() {
         batch = first.batch_id;
       if (!batch) return card(first);
       return (
-        <SectionCard
-          key={`batch-${batch}`}
-          title={`${first.batch_name ?? `#${batch}`} · ${block.length} ${tr(
-            'pending',
-          )}`}
-        >
-          <View style={styles.row}>
-            <PrimaryButton
-              label={tr(
+        <View key={`batch-${batch}`} style={styles.listSection}>
+          <View style={styles.batchHeader}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={tr(
                 collapsed.includes(batch) ? translateNative('native.b30e4ae6f07f6a30') : translateNative('native.74a215e67407dd5d'),
               )}
-              variant="secondary"
+              accessibilityState={{ expanded: !collapsed.includes(batch) }}
+              style={styles.batchToggle}
               onPress={() =>
                 setCollapsed(current =>
                   current.includes(batch)
@@ -464,7 +463,26 @@ export default function QueueScreen() {
                     : [...current, batch],
                 )
               }
-            />
+            >
+              {collapsed.includes(batch) ? <ChevronRight size={18} color={colors.textSecondary} /> : <ChevronDown size={18} color={colors.textSecondary} />}
+              <Text style={[styles.batchTitle, { color: colors.textSecondary }]}>
+                {`${first.batch_name ?? `#${batch}`} · ${block.length} ${tr('pending')}`}
+              </Text>
+            </Pressable>
+            {(hasPermission('queue:reorder') && sort === 'position') || hasPermission('queue:update_all') ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${t('nav.more')} · ${first.batch_name ?? `#${batch}`}`}
+                accessibilityState={{ expanded: batchTools === batch }}
+                hitSlop={4}
+                style={styles.batchMore}
+                onPress={() => setBatchTools(current => current === batch ? null : batch)}
+              >
+                <Ellipsis size={18} color={colors.textSecondary} />
+              </Pressable>
+            ) : null}
+          </View>
+          {batchTools === batch ? <View style={styles.row}>
             {hasPermission('queue:reorder') && sort === 'position' && (
               <>
                 <PrimaryButton
@@ -494,9 +512,9 @@ export default function QueueScreen() {
                 }
               />
             )}
-          </View>
+          </View> : null}
           {!collapsed.includes(batch) && block.map(card)}
-        </SectionCard>
+        </View>
       );
     });
   };
@@ -863,18 +881,20 @@ export default function QueueScreen() {
                 </>
               )}
             </View> : null}
-            <SectionCard title={tr('Queued items')}>
+            <View style={styles.listSection}>
+              <Text accessibilityRole="header" style={[styles.sectionTitle, { color: colors.text }]}>{tr('Queued items')}</Text>
               {layout === 'position'
                 ? renderPending(filteredPending)
                 : Array.from(new Set(filteredPending.map(printerLabel))).map(
                     label => (
-                      <SectionCard key={label} title={label}>
+                      <View key={label} style={styles.listSection}>
+                        <Text accessibilityRole="header" style={[styles.batchTitle, { color: colors.textSecondary }]}>{label}</Text>
                         {renderPending(
                           filteredPending.filter(
                             i => printerLabel(i) === label,
                           ),
                         )}
-                      </SectionCard>
+                      </View>
                     ),
                   )}
               {!filteredPending.length && (
@@ -883,10 +903,11 @@ export default function QueueScreen() {
                   message={tr('Add a configured print from Files or Archives.')}
                 />
               )}
-            </SectionCard>
-            {active.filter(filter).length > 0 ? <SectionCard title={tr('Currently printing')}>
+            </View>
+            {active.filter(filter).length > 0 ? <View style={styles.listSection}>
+              <Text accessibilityRole="header" style={[styles.sectionTitle, { color: colors.text }]}>{tr('Currently printing')}</Text>
               {active.filter(filter).map(card)}
-            </SectionCard> : null}
+            </View> : null}
           </>
         )}
         {tab === 'history' && (
@@ -1117,6 +1138,12 @@ export default function QueueScreen() {
 }
 
 const styles = StyleSheet.create({
+  listSection: { gap: spacing.md },
+  sectionTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },
+  batchHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  batchToggle: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44 },
+  batchTitle: { flexShrink: 1, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+  batchMore: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   toolbarSearch: { flex: 1 },
   toolbarButton: {

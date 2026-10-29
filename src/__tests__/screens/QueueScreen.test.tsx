@@ -415,7 +415,10 @@ describe('queue management workflows', () => {
     expect(renderer.root.findAllByType(Choice)).toHaveLength(0);
     expect(renderer.root.findAllByType(Pressable).some(n => n.props.accessibilityLabel === 'Select visible pending')).toBe(false);
     expect(button(renderer.root, 'start-2')).toBeTruthy();
-    const titles = renderer.root.findAllByType(SectionCard).map(node => node.props.title.toLowerCase());
+    expect(renderer.root.findAllByType(SectionCard)).toHaveLength(0);
+    const titles = renderer.root.findAllByType(Text)
+      .filter(node => node.props.accessibilityRole === 'header')
+      .map(node => node.props.children.toLowerCase());
     expect(titles.indexOf('queued items')).toBeGreaterThanOrEqual(0);
     expect(titles.indexOf('queued items')).toBeLessThan(titles.indexOf('currently printing'));
     await press(renderer, 'Filters');
@@ -426,6 +429,26 @@ describe('queue management workflows', () => {
     expect(renderer.root.findAllByType(Pressable).some(n => n.props.accessibilityLabel === 'start-2')).toBe(false);
     await press(renderer, 'More');
     expect(button(renderer.root, 'Select visible pending')).toBeTruthy();
+  });
+  it('uses flat batch headings with collapsible jobs and contextual management actions', async () => {
+    mockQueueItems = [
+      { ...mockItems[0], batch_id: 8, batch_name: 'Production' },
+      { ...mockItems[1], batch_id: 8, batch_name: 'Production' },
+    ];
+    await renderScreen();
+    expect(renderer.root.findAllByType(SectionCard)).toHaveLength(0);
+    expect(button(renderer.root, 'start-1')).toBeTruthy();
+    expect(renderer.root.findAllByType(Pressable).some(n => n.props.accessibilityLabel === 'Ungroup')).toBe(false);
+    await press(renderer, 'Collapse batch');
+    expect(renderer.root.findAllByType(Pressable).some(n => n.props.accessibilityLabel === 'start-1')).toBe(false);
+    await press(renderer, 'Expand batch');
+    expect(button(renderer.root, 'start-1')).toBeTruthy();
+    await press(renderer, 'More · Production');
+    expect(button(renderer.root, 'Batch up')).toBeTruthy();
+    expect(button(renderer.root, 'Batch down')).toBeTruthy();
+    expect(button(renderer.root, 'Ungroup')).toBeTruthy();
+    await press(renderer, 'More · Production');
+    expect(renderer.root.findAllByType(Pressable).some(n => n.props.accessibilityLabel === 'Ungroup')).toBe(false);
   });
   it.each([8, null])(
     'allows queue:update_own to start staged jobs owned by %s without printer-control permission',

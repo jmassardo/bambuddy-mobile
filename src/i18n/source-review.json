@@ -1850,7 +1850,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "303501a3914b4bcb7c5f904611dc59dd89bce8cc7b46facfb69f4add5766fc71",
       "disposition": "Private source-authored caption factory in QueueItemCard: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "c60edf581e0a31d7b03b90e6b8474979ae6b0e1df74ccbc00d35f430f69b5188"
+      "fileDigest": "4a9f968bea2b83630a7a7f084c2b57e9dc2aac544fbdb127fc39506c7ce432c3"
     },
     {
       "file": "src/components/queue/QueueItemCard.tsx",
@@ -1865,7 +1865,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "303501a3914b4bcb7c5f904611dc59dd89bce8cc7b46facfb69f4add5766fc71",
       "disposition": "Private source-authored caption factory in QueueItemCard: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "c60edf581e0a31d7b03b90e6b8474979ae6b0e1df74ccbc00d35f430f69b5188"
+      "fileDigest": "4a9f968bea2b83630a7a7f084c2b57e9dc2aac544fbdb127fc39506c7ce432c3"
     },
     {
       "file": "src/components/reports/ReportDetails.tsx",
@@ -2964,7 +2964,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "45e46c2a92268c35bffedc8d3d2f404d3c44dd3c95330e58356995be9fe7c164",
       "disposition": "Private title/dialog/chrome callsites are authored. Batch status uses bounded mappings; job names/backend errors stay raw.",
-      "fileDigest": "8ab5ea892e278a13e0dc55e9cab819bf24856acefd38ccc0321b9e92e579f70e"
+      "fileDigest": "ebc57f6bb2dbca211743e99f5b516eb1d9532ed7300f403610849a844335faab"
     },
     {
       "file": "src/screens/QueueScreen.tsx",
@@ -2979,7 +2979,7 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "cc8a9966a1077d0cd62545d98f10bf7a1894d136acf2c96aeb78c4566b1fa729",
       "disposition": "Private title/dialog/chrome callsites are authored. Batch status uses bounded mappings; job names/backend errors stay raw.",
-      "fileDigest": "8ab5ea892e278a13e0dc55e9cab819bf24856acefd38ccc0321b9e92e579f70e"
+      "fileDigest": "ebc57f6bb2dbca211743e99f5b516eb1d9532ed7300f403610849a844335faab"
     },
     {
       "file": "src/screens/QueueScreen.tsx",
@@ -2994,7 +2994,7 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "41b715065c1f858670673a0868be6ae290a2e99b2bcab031d2106d7e9a8c6d6a",
       "disposition": "Private title/dialog/chrome callsites are authored. Batch status uses bounded mappings; job names/backend errors stay raw.",
-      "fileDigest": "8ab5ea892e278a13e0dc55e9cab819bf24856acefd38ccc0321b9e92e579f70e"
+      "fileDigest": "ebc57f6bb2dbca211743e99f5b516eb1d9532ed7300f403610849a844335faab"
     },
     {
       "file": "src/screens/SlicerPipelinesScreen.tsx",
