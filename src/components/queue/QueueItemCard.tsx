@@ -185,6 +185,7 @@ function OptionChip({
 
 interface QueueItemCardContentProps {
   cardStyle?: StyleProp<ViewStyle>;
+  dragHandle?: React.ReactNode;
   item: PrintQueueItem;
   printerState?: string | null;
   selected?: boolean;
@@ -212,6 +213,7 @@ interface QueueItemCardContentProps {
 
 export function QueueItemCardContent({
   cardStyle,
+  dragHandle,
   item,
   printerState,
   selected = false,
@@ -323,11 +325,7 @@ export function QueueItemCardContent({
       ]}
     >
       <View style={styles.headerRow}>
-        {dragEnabled ? (
-          <View style={styles.gripHandle}>
-            <GripVertical size={16} color={colors.textTertiary} strokeWidth={2} />
-          </View>
-        ) : null}
+        {dragEnabled ? dragHandle : null}
         {showSelection ? (
           <Pressable
             onPress={onToggleSelect}
@@ -719,54 +717,59 @@ export function QueueItemCard({
         _isDragging={parentIsDragging}
         _dragIndex={dragIndex}
         dragTargetIndex={dragTargetIndex}
-        dragEnabled
+        dragEnabled={false}
       />
     );
   }
 
   return (
-    <GestureDetector gesture={panGesture}>
-      <Animated.View style={[animatedStyle]}>
-        <Pressable
-          onPress={onPress}
-          onLongPress={handleLongPress}
-          style={({ pressed }) => [
-            {
-              opacity: isActiveDrag ? opacity.value : pressed && !parentIsDragging ? 0.96 : parentIsDragging && isAdjacentToTarget ? 0.85 : 1,
-              transform: isAdjacentToTarget && !isActiveDrag ? [{ scale: 1.03 }] : [],
-            },
+    <Animated.View style={[animatedStyle]}>
+      <Pressable
+        onPress={onPress}
+        onLongPress={handleLongPress}
+        style={({ pressed }) => [
+          {
+            opacity: isActiveDrag ? opacity.value : pressed && !parentIsDragging ? 0.96 : parentIsDragging && isAdjacentToTarget ? 0.85 : 1,
+            transform: isAdjacentToTarget && !isActiveDrag ? [{ scale: 1.03 }] : [],
+          },
+        ]}
+      >
+        <QueueItemCardContent
+          dragHandle={
+            <GestureDetector gesture={panGesture}>
+              <View collapsable={false} testID="queue-drag-handle" style={styles.gripHandle}>
+                <GripVertical size={16} color={colors.textTertiary} strokeWidth={2} />
+              </View>
+            </GestureDetector>
+          }
+          cardStyle={[
+            isActiveDrag && { borderColor: colors.accent },
+            isAdjacentToTarget && { borderColor: isActiveDrag ? colors.accent : colors.highlight, borderWidth: 2 },
           ]}
-        >
-          <QueueItemCardContent
-            cardStyle={[
-              isActiveDrag && { borderColor: colors.accent },
-              isAdjacentToTarget && { borderColor: isActiveDrag ? colors.accent : colors.highlight, borderWidth: 2 },
-            ]}
-            item={item}
-            printerState={printerState}
-            selected={selected}
-            showSelection={showSelection}
-            onToggleSelect={onToggleSelect}
-            onStart={onStart}
-            onCancel={onCancel}
-            onPause={onPause}
-            onStop={onStop}
-            onDelete={onDelete}
-            onRetry={onRetry}
-            onReassign={onReassign}
-            onMoveUp={onMoveUp}
-            onMoveDown={onMoveDown}
-            _onDragStart={onDragStart}
-            _onDragMove={onDragMove}
-            _onDragEnd={onDragEnd}
-            _isDragging={parentIsDragging}
-            _dragIndex={dragIndex}
-            dragTargetIndex={dragTargetIndex}
-            dragEnabled
-          />
-        </Pressable>
-      </Animated.View>
-    </GestureDetector>
+          item={item}
+          printerState={printerState}
+          selected={selected}
+          showSelection={showSelection}
+          onToggleSelect={onToggleSelect}
+          onStart={onStart}
+          onCancel={onCancel}
+          onPause={onPause}
+          onStop={onStop}
+          onDelete={onDelete}
+          onRetry={onRetry}
+          onReassign={onReassign}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+          _onDragStart={onDragStart}
+          _onDragMove={onDragMove}
+          _onDragEnd={onDragEnd}
+          _isDragging={parentIsDragging}
+          _dragIndex={dragIndex}
+          dragTargetIndex={dragTargetIndex}
+          dragEnabled
+        />
+      </Pressable>
+    </Animated.View>
   );
 }
 

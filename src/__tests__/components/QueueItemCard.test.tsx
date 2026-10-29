@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, type ViewStyle } from 'react-native';
 import ReactTestRenderer, { act, type ReactTestInstance } from 'react-test-renderer';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { QueueItemCard } from '@/components/queue/QueueItemCard';
 import type { PrintQueueItem } from '@/types/api';
 
@@ -65,6 +66,7 @@ it('keeps one job frame while preserving selection, drag-target highlighting and
     await act(async () => {
       renderer = ReactTestRenderer.create(<QueueItemCard item={item} dragEnabled onPress={onPress} />);
     });
+
     expect(cardFrames(renderer)).toHaveLength(1);
     await act(async () => {
       renderer.root.findAll(node => node !== renderer.root && node.props.onPress === onPress)[0].props.onPress();
@@ -76,6 +78,55 @@ it('keeps one job frame while preserving selection, drag-target highlighting and
       renderer.update(<QueueItemCard item={item} dragEnabled index={1} isDragging dragIndex={0} dragTargetIndex={1} />);
     });
     expect(cardFrames(renderer)).toEqual([expect.objectContaining({ borderColor: mockColors.highlight, borderWidth: 2 })]);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+  }
+});
+
+it('attaches reordering only to the grip and preserves drag callbacks', async () => {
+  const item = { id: 1, status: 'pending', library_file_name: 'Gear' } as PrintQueueItem;
+  const onDragStart = jest.fn();
+  const onDragMove = jest.fn();
+  const onDragEnd = jest.fn();
+  const onReorder = jest.fn();
+  const props = { item, dragEnabled: true, index: 1, onDragStart, onDragMove, onDragEnd, onReorder };
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+  try {
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<QueueItemCard {...props} />);
+    });
+    const detector = renderer.root.findByType(GestureDetector);
+    expect(detector.props.children.props.testID).toBe('queue-drag-handle');
+    expect(detector.findAllByType(Text)).toHaveLength(0);
+    await act(async () => {
+      detector.props.gesture.onStart.mock.calls[0][0]();
+      detector.props.gesture.onUpdate.mock.calls[0][0]({ translationY: -40 });
+    });
+    expect(onDragStart).toHaveBeenCalledWith(1);
+    expect(onDragMove).toHaveBeenCalledWith(1, 0);
+    await act(async () => {
+      renderer.update(<QueueItemCard {...props} isDragging dragIndex={1} dragTargetIndex={0} />);
+    });
+    await act(async () => {
+      renderer.root.findByType(GestureDetector).props.gesture.onEnd.mock.calls[0][0]();
+    });
+    expect(onDragEnd).toHaveBeenCalledTimes(1);
+    expect(onReorder).toHaveBeenCalledWith('up');
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+  }
+});
+
+it('omits drag affordances when dragging is disabled', async () => {
+  const item = { id: 1, status: 'pending', library_file_name: 'Gear' } as PrintQueueItem;
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+  try {
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<QueueItemCard item={item} />);
+    });
+    expect(renderer.root.findAllByType(GestureDetector)).toHaveLength(0);
+    expect(renderer.root.findAllByProps({ testID: 'queue-drag-handle' })).toHaveLength(0);
+    expect(renderer.root.findAllByType(Text).some(node => node.props.children === 'Drag to reorder')).toBe(false);
   } finally {
     if (renderer) await act(async () => renderer.unmount());
   }

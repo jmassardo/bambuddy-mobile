@@ -1850,7 +1850,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "303501a3914b4bcb7c5f904611dc59dd89bce8cc7b46facfb69f4add5766fc71",
       "disposition": "Private source-authored caption factory in QueueItemCard: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "4a9f968bea2b83630a7a7f084c2b57e9dc2aac544fbdb127fc39506c7ce432c3"
+      "fileDigest": "ec69dabf15c7a32d9bdbfef8900c92def9bf6147c99f4574eb786fe9f0f07e99"
     },
     {
       "file": "src/components/queue/QueueItemCard.tsx",
@@ -1865,7 +1865,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "303501a3914b4bcb7c5f904611dc59dd89bce8cc7b46facfb69f4add5766fc71",
       "disposition": "Private source-authored caption factory in QueueItemCard: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "4a9f968bea2b83630a7a7f084c2b57e9dc2aac544fbdb127fc39506c7ce432c3"
+      "fileDigest": "ec69dabf15c7a32d9bdbfef8900c92def9bf6147c99f4574eb786fe9f0f07e99"
     },
     {
       "file": "src/components/reports/ReportDetails.tsx",
