@@ -50,6 +50,7 @@ import type { ActionSheetAction } from '@/components/common/ActionSheetModal';
 import type { AMSTray, MaintenanceStatus, PrinterStatus } from '@/types/api';
 import { CheckCircle, Gauge } from 'lucide-react-native';
 import { getPrinterModelImagePath, withCacheBuster } from '@/utils/data';
+import { getPrinterFleetState } from '@/utils/printerFleet';
 
 type PrinterStatusWithThumbnail = PrinterStatus & {
   task_thumbnail_url?: string | null;
@@ -114,8 +115,13 @@ export function PrinterCard({
   const taskThumbnailUrl = (status as PrinterStatusWithThumbnail | undefined)
     ?.task_thumbnail_url;
   const hmsErrors = filterKnownHMSErrors(status?.hms_errors ?? []);
-  const badgeLabel = getStatusLabel(status);
-  const badgeColor = getBadgeColor(printer, status, colors, hmsErrors);
+  const fleetState = getPrinterFleetState({ printer, status, maintenance, queueCount });
+  const badgeLabel = fleetState === 'issues' && status?.state !== 'FAILED'
+    ? translateNative('native.5e5e66783e07dfdd')
+    : getStatusLabel(status, queueCount);
+  const badgeColor = (maintenance?.dueCount ?? 0) > 0 && !hmsErrors.length && status?.connected && status.state !== 'FAILED'
+    ? colors.warning
+    : getBadgeColor(printer, status, colors, hmsErrors, queueCount);
   const currentPrintName = stripExtension(
     status?.subtask_name || status?.current_print || status?.gcode_file,
   );
@@ -596,6 +602,8 @@ export function PrinterCard({
           isPrinting={isPrinting}
           progress={progress}
           status={status}
+          badgeLabel={badgeLabel}
+          badgeColor={badgeColor}
           canClearPlate={canClearPlate}
           clearPlatePending={clearPlateMutation.isPending}
           onClearPlate={() => Alert.alert(t('fleet.clearPlate', { defaultValue: 'Mark plate as cleared?' }), t('fleet.clearPlateWarning', { defaultValue: 'Confirm the physical plate is empty. Queued jobs may start automatically.' }), [

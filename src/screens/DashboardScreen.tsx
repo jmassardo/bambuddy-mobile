@@ -43,7 +43,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useTheme } from '@/theme';
 
 import { FleetModal } from '@/components/printers/FleetModal';
-import { countFleetStates, isBulkApplicable, type FleetBulkAction } from '@/utils/printerFleet';
+import { countFleetStates, getPrinterFleetState, isBulkApplicable, type FleetBulkAction } from '@/utils/printerFleet';
 import { borderRadius, fontSize, spacing } from '@/theme/tokens';
 import type {
   MaintenanceStatus,
@@ -57,6 +57,7 @@ const FILTERS = [
   { key: 'printing', get label() { return translateNative('native.58b5ceab5adaa853'); } },
   { key: 'paused', get label() { return translateNative('native.2e8d3baadb9cc3fd'); } },
   { key: 'finished', get label() { return translateNative('native.90a4f4400cd3eda4'); } },
+  { key: 'queued', get label() { return translateNative('native.e3f9fafdd8daaba0'); } },
   { key: 'idle', get label() { return translateNative('native.a3b81f922d798281'); } },
   { key: 'issues', get label() { return translateNative('native.5e5e66783e07dfdd'); } },
   { key: 'offline', get label() { return translateNative('native.460c8b942025eaac'); } },
@@ -91,6 +92,7 @@ const STATUS_SORT_RANK: Record<PrinterMode, number> = {
   printing: 1,
   paused: 2,
   finished: 3,
+  queued: 3,
   idle: 3,
   offline: 4,
 };
@@ -218,16 +220,9 @@ function classifyPrinter(
   printer: Printer,
   status: PrinterStatus | undefined,
   maintenance: MaintenanceSummary | undefined,
+  queueCount = 0,
 ): PrinterMode {
-  if (printer.is_active === false) return 'issues';
-  if (!status?.connected) return 'offline';
-  if ((status.hms_errors?.length ?? 0) > 0) return 'issues';
-  if ((maintenance?.dueCount ?? 0) > 0) return 'issues';
-  if (status.state === 'RUNNING') return 'printing';
-  if (status.state === 'PAUSE') return 'paused';
-  if (status.state === 'FAILED') return 'issues';
-  if (status.state === 'FINISH') return 'finished';
-  return 'idle';
+  return getPrinterFleetState({ printer, status, maintenance, queueCount });
 }
 
 export function comparePrinters(
@@ -481,7 +476,12 @@ export default function PrintersDashboardScreen() {
       .sort((a, b) => a.position - b.position || a.id - b.id)[0],
   ])), [printers, queueQuery.data, statusByPrinter]);
   const locations = useLocalizedMemo(() => [...new Set(printers.map(printer => printer.location ?? ''))].sort(), [printers]);
-  const fleetCounts = countFleetStates(printers.map(printer => statusByPrinter.get(printer.id)));
+  const fleetCounts = countFleetStates(printers.map(printer => ({
+    printer,
+    status: statusByPrinter.get(printer.id),
+    maintenance: maintenanceByPrinter.get(printer.id),
+    queueCount: queueCounts.get(printer.id),
+  })));
   const nextFinisher = printers.filter(printer => {
     const status = statusByPrinter.get(printer.id);
     return status?.connected && status.state === 'RUNNING' && status.remaining_time != null && status.remaining_time > 0;
@@ -494,7 +494,7 @@ export default function PrintersDashboardScreen() {
       .filter(printer => {
         const status = statusByPrinter.get(printer.id);
         const maintenance = maintenanceByPrinter.get(printer.id);
-        const mode = classifyPrinter(printer, status, maintenance);
+        const mode = classifyPrinter(printer, status, maintenance, queueCounts.get(printer.id));
         const matchesSearch =
           !term ||
           [printer.name, printer.model, printer.location]
@@ -505,10 +505,6 @@ export default function PrintersDashboardScreen() {
 
         if (!matchesSearch || (hideOffline && !status?.connected) || (locationFilter !== null && (printer.location ?? '') !== locationFilter)) return false;
         if (filter === 'all') return true;
-        if (filter === 'printing') return !!status?.connected && status.state === 'RUNNING';
-        if (filter === 'paused') return !!status?.connected && status.state === 'PAUSE';
-        if (filter === 'finished') return !!status?.connected && status.state === 'FINISH';
-        if (filter === 'offline') return !status?.connected;
         return mode === filter;
       })
       .sort((first, second) =>
@@ -521,7 +517,7 @@ export default function PrintersDashboardScreen() {
           sortSecondary,
         ),
       );
-  }, [filter, hideOffline, locationFilter, descending, maintenanceByPrinter, printers, search, sortBy, sortSecondary, statusByPrinter]);
+  }, [filter, hideOffline, locationFilter, descending, maintenanceByPrinter, printers, queueCounts, search, sortBy, sortSecondary, statusByPrinter]);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = async () => {
@@ -730,7 +726,7 @@ export default function PrintersDashboardScreen() {
             {nextFinisher ? <Text style={{ color: colors.textSecondary }}>{t('fleet.nextFinisher', { defaultValue: 'Next finisher: {{name}} · {{minutes}} min · {{eta}}', name: nextFinisher.name, minutes: statusByPrinter.get(nextFinisher.id)?.remaining_time ?? '—', eta: new Date(Date.now() + (statusByPrinter.get(nextFinisher.id)?.remaining_time ?? 0) * 60000).toLocaleTimeString() })}</Text> : null}
             {selectionMode ? <ScrollView horizontal contentContainerStyle={styles.bulkActions}>
               <PrimaryButton label={t('fleet.selectAll', { defaultValue: 'Select all visible' })} variant="secondary" onPress={() => setSelectedPrinterIds(filteredPrinters.map(printer => printer.id))} />
-              <PrimaryButton label={t('fleet.selectState', { defaultValue: 'Select by state' })} variant="secondary" onPress={() => setChoices({ get title() { return translateNative('fleet.selectState', { defaultValue: 'Select by state' }); }, options: FILTERS.filter(item => item.key !== 'all').map(item => ({ get label() { return translateNative(`fleet.state.${item.key}`, { defaultValue: item.label }); }, select: () => setSelectedPrinterIds(printers.filter(printer => classifyPrinter(printer, statusByPrinter.get(printer.id), maintenanceByPrinter.get(printer.id)) === item.key).map(printer => printer.id)) })) })} />
+              <PrimaryButton label={t('fleet.selectState', { defaultValue: 'Select by state' })} variant="secondary" onPress={() => setChoices({ get title() { return translateNative('fleet.selectState', { defaultValue: 'Select by state' }); }, options: FILTERS.filter(item => item.key !== 'all').map(item => ({ get label() { return translateNative(`fleet.state.${item.key}`, { defaultValue: item.label }); }, select: () => setSelectedPrinterIds(printers.filter(printer => classifyPrinter(printer, statusByPrinter.get(printer.id), maintenanceByPrinter.get(printer.id), queueCounts.get(printer.id)) === item.key).map(printer => printer.id)) })) })} />
               <PrimaryButton label={t('fleet.selectLocation', { defaultValue: 'Select by location' })} variant="secondary" onPress={() => setChoices({ get title() { return translateNative('fleet.selectLocation', { defaultValue: 'Select by location' }); }, options: locations.map(location => ({ label: location || t('fleet.noLocation', { defaultValue: 'No location' }), select: () => setSelectedPrinterIds(printers.filter(printer => (printer.location ?? '') === location).map(printer => printer.id)) })) })} />
             </ScrollView> : null}
             {selectionMode ? (

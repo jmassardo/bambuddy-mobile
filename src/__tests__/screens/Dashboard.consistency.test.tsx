@@ -2,8 +2,11 @@ import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import DashboardScreen from '@/screens/DashboardScreen';
+import type { PrinterStatus, PrintQueueItem } from '@/types/api';
 
 const mockRefetch = jest.fn();
+let mockStatusQueries: { data: Partial<PrinterStatus>; isLoading: boolean }[] = [];
+let mockQueue: PrintQueueItem[] = [];
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: jest.fn(), setOptions: jest.fn() }),
@@ -12,13 +15,13 @@ jest.mock('@tanstack/react-query', () => ({
   useQuery: ({ queryKey }: { queryKey: unknown[] }) => ({
     data: queryKey[0] === 'printers'
       ? [{ id: 1, name: 'Printer Alpha', model: 'X1 Carbon', location: 'Lab' }]
-      : [],
+      : queryKey[0] === 'queue' ? mockQueue : [],
     isLoading: false,
     isError: false,
     isRefetching: true,
     refetch: mockRefetch,
   }),
-  useQueries: () => [],
+  useQueries: () => mockStatusQueries,
   useMutation: () => ({ mutate: jest.fn(), isPending: false }),
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
@@ -57,7 +60,37 @@ jest.mock('@/theme', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockStatusQueries = [];
+  mockQueue = [];
   jest.mocked(AsyncStorage.getItem).mockResolvedValue(null);
+});
+
+it('moves a cleared FINISH printer to Idle and then Queued when a matching job is waiting', async () => {
+  const finished: Partial<PrinterStatus> = {
+    connected: true,
+    state: 'FINISH',
+    awaiting_plate_clear: true,
+    hms_errors: [],
+  };
+  mockStatusQueries = [{ data: finished, isLoading: false }];
+  const view = await render(<DashboardScreen />);
+  await fireEvent.press(view.getByRole('tab', { name: 'Finished' }));
+  expect(view.getByText('Printer Alpha')).toBeTruthy();
+  await fireEvent.press(view.getByRole('tab', { name: 'Idle' }));
+  expect(view.queryByText('Printer Alpha')).toBeNull();
+
+  mockStatusQueries = [{ data: { ...finished, awaiting_plate_clear: false }, isLoading: false }];
+  await view.rerender(<DashboardScreen />);
+  expect(view.getByText('Printer Alpha')).toBeTruthy();
+  await fireEvent.press(view.getByRole('tab', { name: 'Finished' }));
+  expect(view.queryByText('Printer Alpha')).toBeNull();
+
+  mockQueue = [{ id: 1, printer_id: 1, status: 'pending' } as PrintQueueItem];
+  await view.rerender(<DashboardScreen />);
+  await fireEvent.press(view.getByRole('tab', { name: 'Queued' }));
+  expect(view.getByText('Printer Alpha')).toBeTruthy();
+  await fireEvent.press(view.getByRole('tab', { name: 'Idle' }));
+  expect(view.queryByText('Printer Alpha')).toBeNull();
 });
 
 it('only activates native pull refresh for an explicit gesture, not background queries', async () => {
