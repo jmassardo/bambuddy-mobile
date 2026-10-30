@@ -119,6 +119,39 @@ it('assigns a direct Spoolman spool without importing it into local inventory', 
   expect(api.assignSpool).not.toHaveBeenCalled();
 });
 
+it('explains failed assignment prerequisites and retries without enabling unsafe assignments', async () => {
+  jest.mocked(api.getAssignments).mockRejectedValueOnce(new Error('Assignments unavailable')).mockResolvedValue([]);
+  const screen = await mount(<AssignSpoolModal visible printerId={7} amsId={1} trayId={2} slotLabel="AMS B 3" onClose={jest.fn()} />);
+  await screen.findByText('Assignments unavailable');
+  expect(screen.getByText('Brand • PETG')).toBeDisabled();
+  expect(api.assignSpool).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByText('Retry'));
+  await waitFor(() => expect(screen.queryByText('Assignments unavailable')).toBeNull());
+  expect(screen.getByText('Brand • PETG')).toBeEnabled();
+});
+
+it('announces rotation state and disables it when an AMS tray is loaded', async () => {
+  const dryingStatus = {
+    ...idle,
+    supports_drying: true,
+    ams: [{ id: 1, module_type: 'n3f', tray: [tray], dry_time: 0 }],
+  } as unknown as PrinterStatus;
+  jest.mocked(api.getPrinterStatus).mockResolvedValue(dryingStatus);
+  const screen = await mount(<TrayDetailModal visible printerId={7} tray={tray} context={context} isPrinting={false} onClose={jest.fn()} />);
+  const rotation = await screen.findByRole('switch', { name: 'Rotate tray during drying' });
+  expect(rotation.props.accessibilityState).toEqual({ checked: false, disabled: false });
+  await fireEvent.press(rotation);
+  expect(rotation.props.accessibilityState.checked).toBe(true);
+  await act(async () => {
+    screen.client.setQueryData(['printerStatus', 7], {
+      ...dryingStatus,
+      ams: [{ ...dryingStatus.ams[0], tray: [{ ...tray, state: 11 }] }],
+    });
+  });
+  await waitFor(() => expect(screen.getByRole('switch', { name: 'Rotate tray during drying' })).toBeDisabled());
+  expect(screen.getByRole('switch', { name: 'Rotate tray during drying' }).props.accessibilityState.checked).toBe(false);
+});
+
 it.each([[254, 0], [255, 1]])('external tray %i keeps bindings in local slot %i and transport global', async (globalTrayId, localTrayId) => {
   jest.mocked(api.getSlotPresets).mockResolvedValue({
     [255 * 4 + localTrayId]: { ams_id: 255, tray_id: localTrayId, preset_id: 'builtin_GFL99', preset_name: 'External profile' },

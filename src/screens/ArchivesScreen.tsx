@@ -11,6 +11,8 @@ import {
   Image,
   Linking,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -18,6 +20,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { CheckCircle, Download, Ellipsis, Pause, SlidersHorizontal, X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
@@ -130,20 +133,26 @@ function SimpleModal({
   const { colors } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}> 
+      <SafeAreaProvider style={styles.container}>
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}>
         <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderText}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
               {subtitle ? <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
             </View>
-            <Pressable onPress={onClose}>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={translateNative('common.close')} style={styles.modalClose}>
               <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
-          {children}
+          <ScrollView style={styles.modalBodyScroll} contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            {children}
+          </ScrollView>
         </View>
-      </View>
+      </SafeAreaView>
+      </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -211,7 +220,7 @@ export default function ArchivesScreen() {
        
       title: translateNative('nav.archives'),
       headerRight: () => (
-        <Pressable onPress={() => setShowExportModal(true)} style={styles.headerButton} hitSlop={8}>
+        <Pressable onPress={() => setShowExportModal(true)} style={styles.headerButton} hitSlop={8} accessibilityRole="button" accessibilityLabel={translateNative('native.d2ff97dc9d5b8666')}>
           <Download size={18} color={colors.text} strokeWidth={2} />
         </Pressable>
       ),
@@ -408,13 +417,19 @@ export default function ArchivesScreen() {
     onError: (error: Error) => showToast(error.message, 'error'),
   });
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const refreshAll = async () => {
-    await Promise.all([
-      archivesQuery.refetch(),
-      printersQuery.refetch(),
-      tagsQuery.refetch(),
-      statsQuery.refetch(),
-    ]);
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        archivesQuery.refetch(),
+        printersQuery.refetch(),
+        tagsQuery.refetch(),
+        statsQuery.refetch(),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const statusCounts = {
@@ -512,10 +527,12 @@ export default function ArchivesScreen() {
           </View>
         )}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         columnWrapperStyle={viewMode === 'grid' ? styles.gridRow : undefined}
         refreshControl={
           <RefreshControl
-            refreshing={archivesQuery.isRefetching || printersQuery.isRefetching || statsQuery.isRefetching}
+            testID="archives-refresh"
+            refreshing={isRefreshing}
             onRefresh={() => {
               refreshAll();
             }}
@@ -1012,8 +1029,12 @@ const styles = StyleSheet.create({
   modalScroll: {
     maxHeight: 360,
   },
+  modalClose: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  modalBodyScroll: { flexGrow: 0, flexShrink: 1 },
+  modalBody: { gap: spacing.md },
   modalFooter: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: spacing.sm,
     marginTop: spacing.sm,

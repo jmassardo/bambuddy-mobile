@@ -331,6 +331,10 @@ export function QueueItemCardContent({
         {showSelection ? (
           <Pressable
             onPress={onToggleSelect}
+            accessibilityRole="checkbox"
+            accessibilityLabel={title}
+            accessibilityState={{ checked: selected }}
+            hitSlop={8}
             style={[
               styles.selectBox,
               {

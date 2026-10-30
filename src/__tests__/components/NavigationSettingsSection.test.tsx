@@ -13,13 +13,14 @@ import {
   BUILT_IN_NAV_ITEMS,
   type BuiltInNavId,
 } from '@/navigation/navigationConfig';
+import { useCustomNavStore } from '@/store/navigationStore';
 
 const mockGetSettings = jest.fn();
 const mockUpdateSettings = jest.fn();
 const mockQuery = jest.fn(async () => []);
 const mockShowToast = jest.fn();
 const mockInvalidateQueries = jest.fn(async () => undefined);
-let mockSettingsData = {
+let mockSettingsData: Record<string, unknown> = {
   default_sidebar_order: 'stats,settings,more,spoolbuddy',
 };
 const mockVirtualPrinterData = { printers: [], models: {} };
@@ -215,6 +216,41 @@ describe('NavigationSettingsSection', () => {
       default_sidebar_order: 'stats,settings,more,spoolbuddy',
     };
     latestController = undefined;
+  });
+
+  it('preserves dirty settings and navigation while refreshing untouched fields', async () => {
+    mockSettingsData = { default_sidebar_order: 'stats,settings,more,spoolbuddy', currency: 'USD', energy_cost_per_kwh: 0.15 };
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    await rendererAct(async () => { renderer = ReactTestRenderer.create(<ControllerHarness />); });
+    rendererAct(() => {
+      latestController!.actions.setDraft(current => ({ ...current, currency: 'EUR' }));
+      latestController!.actions.setMqttForm(current => ({ ...current, mqtt_password: 'unsaved-secret' }));
+      latestController!.actions.setNavigationOrderDraft(['energy', 'settings', 'more', 'spoolbuddy']);
+    });
+    mockSettingsData = { ...mockSettingsData, energy_cost_per_kwh: 0.25, mqtt_broker: 'updated-broker' };
+    await rendererAct(async () => { renderer.update(<ControllerHarness />); });
+    expect(latestController!.state.draft.currency).toBe('EUR');
+    expect(latestController!.state.draft.energy_cost_per_kwh).toBe(0.25);
+    expect(latestController!.state.mqttForm.mqtt_password).toBe('unsaved-secret');
+    expect(latestController!.state.mqttForm.mqtt_broker).toBe('updated-broker');
+    expect(latestController!.state.navigationOrderDraft[0]).toBe('energy');
+    rendererAct(() => renderer.unmount());
+  });
+
+  it('creates custom navigation only after a validated save', async () => {
+    const add = jest.spyOn(useCustomNavStore.getState(), 'addItem').mockImplementation(() => undefined);
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    await rendererAct(async () => { renderer = ReactTestRenderer.create(<ControllerHarness />); });
+    rendererAct(() => { latestController!.actions.openCustomNavModal(); });
+    expect(add).not.toHaveBeenCalled();
+    await rendererAct(async () => { await latestController!.actions.handleSaveCustomNav(); });
+    expect(add).not.toHaveBeenCalled();
+    rendererAct(() => latestController!.actions.setCustomNavForm(current => ({ ...current, name: 'Docs', url: 'https://example.com' })));
+    await rendererAct(async () => { await latestController!.actions.handleSaveCustomNav(); });
+    expect(add).toHaveBeenCalledWith(expect.objectContaining({ name: 'Docs', url: 'https://example.com' }));
+    expect(latestController!.state.customNavModalVisible).toBe(false);
+    rendererAct(() => renderer.unmount());
+    add.mockRestore();
   });
 
   it('renders every built-in item with visible items in their current order', () => {

@@ -20,6 +20,7 @@ export function SimpleBarChart({
   useNativeLocale();
   const { colors } = useTheme();
   const maxValue = Math.max(...data.map(d => d.value), 1);
+  const description = data.map(item => `${item.label}: ${formatValue(item.value)}`).join('; ');
 
   if (horizontal) {
     const barHeight = 28;
@@ -27,7 +28,7 @@ export function SimpleBarChart({
     const chartHeight = data.length * (barHeight + 8) + 8;
 
     return (
-      <View style={{ height: chartHeight }}>
+      <View style={{ height: chartHeight }} accessible={data.length > 0} accessibilityRole="image" accessibilityLabel={description}>
         <Svg width="100%" height={chartHeight}>
           {data.map((item, i) => {
             const y = i * (barHeight + 8) + 4;
@@ -75,7 +76,7 @@ export function SimpleBarChart({
   const chartAreaHeight = height - paddingTop - paddingBottom;
 
   return (
-    <View style={{ height, overflow: 'hidden' }}>
+    <View style={{ height, overflow: 'hidden' }} accessible={data.length > 0} accessibilityRole="image" accessibilityLabel={description}>
       <Svg width="100%" height={height} viewBox={`0 0 ${Math.max(chartWidth, 280)} ${height}`}>
         {/* Grid lines */}
         {[0, 0.25, 0.5, 0.75, 1].map(frac => {
@@ -140,7 +141,7 @@ export function SimpleDonutChart({ data, size = 120 }: DonutChartProps) {
 
   return (
     <View style={{ alignItems: 'center' }}>
-      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} accessible={data.length > 0} accessibilityRole="image" accessibilityLabel={data.map(item => `${item.label}: ${item.value} (${Math.round((item.value / total) * 100)}%)`).join('; ')}>
         {/* Background track */}
         <Circle
           cx={size / 2}
@@ -254,10 +255,15 @@ export function MultiSeriesLineChart({
   const xTickIndexes = points.length === 0
     ? []
     : Array.from(new Set([0, Math.floor((points.length - 1) / 2), points.length - 1]));
+  const description = series.map(entry => {
+    const values = points.map(point => point.values[entry.key])
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+    return values.length ? `${entry.label}: ${formatYAxis(Math.min(...values))}–${formatYAxis(Math.max(...values))}` : '';
+  }).filter(Boolean).join('; ');
 
   return (
     <View style={styles.lineChartRoot}>
-      <View style={{ height }}>
+      <View style={{ height }} accessible={Boolean(description)} accessibilityRole="image" accessibilityLabel={description}>
         <Svg width="100%" height={height} viewBox={`0 0 ${chartWidth} ${height}`}>
           {yTicks.map(tick => {
             const y = paddingTop + chartAreaHeight * tick;

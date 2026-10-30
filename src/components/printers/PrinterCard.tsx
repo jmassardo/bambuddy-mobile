@@ -591,6 +591,7 @@ export function PrinterCard({
         <PrinterCardCompact
           printer={printer}
           selected={selected}
+          selectionMode={selectionMode}
           isConnected={isConnected}
           isPrinting={isPrinting}
           progress={progress}
@@ -751,6 +752,9 @@ export function PrinterCard({
           <Pressable
             onPress={onToggleSelect}
             onLongPress={onLongPress}
+            accessibilityRole="checkbox"
+            accessibilityLabel={printer.name}
+            accessibilityState={{ checked: selected }}
             style={styles.selectionCover}
           />
           <View

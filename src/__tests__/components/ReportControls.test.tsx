@@ -23,6 +23,9 @@ it('applies and persists a validated custom range, never applying invalid dates'
       onApply={onApply}
     />,
   );
+  expect(view.getByText('30 Days · 2026-01-01 – 2026-01-30')).toBeTruthy();
+  expect(view.queryByRole('button', { name: 'Custom dates' })).toBeNull();
+  await fireEvent.press(view.getByRole('button', { name: 'Report timeframe' }));
   await fireEvent.press(view.getByRole('button', { name: 'Custom dates' }));
   await fireEvent.changeText(
     view.getByLabelText('From (YYYY-MM-DD)'),
@@ -54,6 +57,25 @@ it('applies and persists a validated custom range, never applying invalid dates'
       dateTo: '2026-03-01',
     }),
   );
+  await view.rerender(
+    <ReportRangeControls
+      value="custom"
+      scope={{ dateFrom: '2026-02-01', dateTo: '2026-03-01' }}
+      onApply={onApply}
+    />,
+  );
+  expect(view.queryByRole('button', { name: 'Apply dates' })).toBeNull();
+  expect(view.getByText('Custom dates · 2026-02-01 – 2026-03-01')).toBeTruthy();
+});
+
+it('discloses all presets, then applies and collapses a selected timeframe', async () => {
+  const onApply = jest.fn();
+  const view = await render(<ReportRangeControls value="30d" scope={{}} onApply={onApply} />);
+  await fireEvent.press(view.getByRole('button', { name: 'Report timeframe' }));
+  expect(view.getByRole('button', { name: '30 Days' }).props.accessibilityState.selected).toBe(true);
+  await fireEvent.press(view.getByRole('button', { name: '7 Days' }));
+  expect(onApply).toHaveBeenCalledWith('7d', undefined);
+  expect(view.queryByRole('button', { name: '7 Days' })).toBeNull();
 });
 
 it('persists reordering/hiding, restores hidden reports and resets the layout', async () => {

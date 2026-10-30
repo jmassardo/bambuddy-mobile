@@ -5,7 +5,9 @@ import { CommonActions, useNavigation, useRoute } from '@react-navigation/native
 import type { MainTabNavigationProp } from '@/navigation/types';
 import {
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,6 +16,7 @@ import {
   View,
   Switch,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { CheckCircle, ChevronDown, ChevronRight, Ellipsis, Pause, SlidersHorizontal, X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
@@ -92,20 +95,26 @@ function ModalShell({
   const { colors } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}> 
+      <SafeAreaProvider style={styles.container}>
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}>
         <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderText}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
               {subtitle ? <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
             </View>
-            <Pressable onPress={onClose}>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={translateNative('common.close')} style={styles.modalClose}>
               <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
-          {children}
+          <ScrollView style={styles.modalBodyScroll} contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            {children}
+          </ScrollView>
         </View>
-      </View>
+      </SafeAreaView>
+      </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -887,6 +896,7 @@ export default function FilesScreen() {
           );
         }}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         columnWrapperStyle={!trashMode && viewMode === 'grid' ? styles.gridRow : undefined}
         refreshControl={
           <RefreshControl
@@ -1320,7 +1330,7 @@ export default function FilesScreen() {
         subtitle={translateNative('native.df85b7b1f265481a')}
         onClose={() => setMoveIds([])}
       >
-        <ScrollView style={styles.modalScroll}>
+        <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
           {moveTargets.map(target => (
             <Pressable
               key={`${target.id ?? 'root'}-${target.name}`}
@@ -1349,7 +1359,7 @@ export default function FilesScreen() {
         onClose={() => setPreviewItem(null)}
       >
         {previewItem ? (
-          <ScrollView style={styles.modalScroll}>
+          <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
             <SectionCard title={translateNative('native.80eeaee4e1ff0774')} subtitle={translateNative('native.8e5ff6f10b3025f5')}>
               <Text style={[styles.previewLine, { color: colors.text }]}><NativeTranslation id="native.7321903a66f61e9a" values={{ value0: (pickString(previewItem, ['filename', 'name'], 'Unknown')) }} /></Text>
               <Text style={[styles.previewLine, { color: colors.text }]}><NativeTranslation id="native.4430e688efc60405" values={{ value0: (pickString(previewItem, ['file_type', 'type'], 'file').toUpperCase()) }} /></Text>
@@ -1441,7 +1451,7 @@ export default function FilesScreen() {
         {associationFolder ? <FolderAssociation folder={associationFolder} onSaved={() => {setAssociationFolder(null); void invalidateFiles();}} /> : null}
       </ModalShell>
       <ModalShell visible={combineIds.length > 0} title={t('library.combineModels', {defaultValue: 'Combine STL models'})} onClose={() => setCombineIds([])}>
-        <ScrollView style={styles.modalScroll}>
+        <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
           <TextField label={t('library.outputFilename', {defaultValue: 'Output filename'})} value={combinedName} onChangeText={setCombinedName} />
           {combineIds.map(id => <TextField key={id} label={t('library.copiesOf', {defaultValue: 'Copies: {{name}} (1–100)', name: entryName(entries.find(item => Number(pickId(item)) === id) ?? {})})} value={copies[id] ?? '1'} keyboardType="number-pad" onChangeText={value => setCopies(current => ({...current, [id]: value}))} />)}
           <View style={styles.toggleRow}>
@@ -1568,7 +1578,7 @@ export default function FilesScreen() {
         subtitle={translateNative('native.9f61ce32b62b89dd')}
         onClose={() => setShowTagFilterModal(false)}
       >
-        <ScrollView style={styles.modalScroll}>
+        <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
             {tagCatalog.map(tag => {
               const tagId = pickNumber(tag, ['id']);
@@ -1856,8 +1866,12 @@ const styles = StyleSheet.create({
   modalScroll: {
     maxHeight: 360,
   },
+  modalClose: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  modalBodyScroll: { flexGrow: 0, flexShrink: 1 },
+  modalBody: { gap: spacing.md },
   modalFooter: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: spacing.sm,
     marginTop: spacing.sm,

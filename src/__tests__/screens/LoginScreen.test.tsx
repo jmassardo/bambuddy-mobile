@@ -215,6 +215,18 @@ describe('LoginScreen', () => {
     expect(findPressableForText(renderer, 'Login').props.disabled).toBe(true);
   });
 
+  it('offers provider discovery retry without reopening disabled credential login', async () => {
+    mockPolicy.mockResolvedValue({ local_login_enabled: false, autologin_provider_id: null });
+    mockProviders.mockRejectedValue(new Error('Provider discovery unavailable'));
+    const renderer = await renderScreen();
+    expect(findText(renderer, 'Provider discovery unavailable')).toBeTruthy();
+    expect(findInput(renderer, 'Username')).toBeFalsy();
+    mockProviders.mockResolvedValue([{ id: 3, name: 'Identity', has_icon: false, is_autologin: false }]);
+    await act(async () => { findPressableForText(renderer, 'Retry').props.onPress(); });
+    await waitFor(() => expect(findText(renderer, 'Sign in with Identity')).toBeTruthy());
+    expect(findInput(renderer, 'Username')).toBeFalsy();
+  });
+
   it('connects and signs in on the same form without sending credentials to an unconfirmed server', async () => {
     const renderer = await renderScreen();
     expect(findInput(renderer, 'https://bambuddy.example.com')!.props.value).toBe('https://bambuddy.test');

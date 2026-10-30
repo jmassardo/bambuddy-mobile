@@ -215,3 +215,26 @@ for (const language of Object.keys(reprintRows) as Language[]) {
   const values = reprintRows[language].split('|');
   Object.assign(nativeCatalogs[language], Object.fromEntries(reprintKeys.map((key, index) => [key, values[index]])));
 }
+
+const consistencyKeys = ['projects.noMatchingSources', 'camera.noPrinters', 'archives.runsPerPage', 'pipelineManagement.noMatchingPipelines'] as const;
+const consistencyRows: Record<Language, string> = {
+  en: 'No matching project sources.|No printers available.|{{count}} per page|No pipelines match these filters.',
+  de: 'Keine passenden Projektquellen.|Keine Drucker verfügbar.|{{count}} pro Seite|Keine Pipelines entsprechen diesen Filtern.',
+  es: 'No hay fuentes de proyecto coincidentes.|No hay impresoras disponibles.|{{count}} por página|Ninguna canalización coincide con estos filtros.',
+  fr: 'Aucune source de projet correspondante.|Aucune imprimante disponible.|{{count}} par page|Aucun pipeline ne correspond à ces filtres.',
+  ja: '一致するプロジェクトソースがありません。|利用可能なプリンターがありません。|1ページあたり{{count}}件|これらのフィルターに一致するパイプラインはありません。',
+  it: 'Nessuna origine del progetto corrispondente.|Nessuna stampante disponibile.|{{count}} per pagina|Nessuna pipeline corrisponde a questi filtri.',
+  ko: '일치하는 프로젝트 소스가 없습니다.|사용 가능한 프린터가 없습니다.|페이지당 {{count}}개|이 필터와 일치하는 파이프라인이 없습니다.',
+  nl: 'Geen overeenkomende projectbronnen.|Geen printers beschikbaar.|{{count}} per pagina|Geen pipelines komen overeen met deze filters.',
+  'pt-BR': 'Nenhuma fonte de projeto correspondente.|Nenhuma impressora disponível.|{{count}} por página|Nenhum pipeline corresponde a estes filtros.',
+  'zh-CN': '没有匹配的项目来源。|没有可用的打印机。|每页 {{count}} 条|没有符合这些筛选条件的流水线。',
+  'zh-TW': '沒有符合的專案來源。|沒有可用的印表機。|每頁 {{count}} 筆|沒有符合這些篩選條件的管線。',
+  sv: 'Inga matchande projektkällor.|Inga skrivare tillgängliga.|{{count}} per sida|Inga pipelines matchar dessa filter.',
+  tr: 'Eşleşen proje kaynağı yok.|Kullanılabilir yazıcı yok.|Sayfa başına {{count}}|Bu filtrelerle eşleşen işlem hattı yok.',
+  ru: 'Нет подходящих источников проекта.|Нет доступных принтеров.|{{count}} на странице|Нет конвейеров, соответствующих этим фильтрам.',
+  uk: 'Немає відповідних джерел проєкту.|Немає доступних принтерів.|{{count}} на сторінці|Немає конвеєрів, що відповідають цим фільтрам.',
+};
+for (const language of Object.keys(consistencyRows) as Language[]) {
+  const values = consistencyRows[language].split('|');
+  Object.assign(nativeCatalogs[language], Object.fromEntries(consistencyKeys.map((key, index) => [key, values[index]])));
+}

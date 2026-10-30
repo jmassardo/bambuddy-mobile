@@ -302,8 +302,6 @@ export default function VirtualPrintersScreen() {
         }
       >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            {translateNative('nav.virtual-printers')}</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {translateNative('native.b91a1a51a54d1397')}</Text>
         </View>

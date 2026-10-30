@@ -2,36 +2,34 @@ import React from 'react';
 import * as ReactNative from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { NfcInventoryScanModal } from '@/components/inventory/NfcInventoryScanModal';
+import { colors as themeColors } from '@/theme/tokens';
+
+let mockThemeMode: 'light' | 'dark' = 'dark';
 
 jest.mock('react-native/Libraries/Modal/Modal', () => {
-  const React = require('react');
+  const MockReact = require('react');
   const { View } = require('react-native');
-  return { __esModule: true, default: ({ children, visible }: { children: React.ReactNode; visible: boolean }) => visible ? React.createElement(View, null, children) : null };
+  return { __esModule: true, default: ({ children, visible }: { children: React.ReactNode; visible: boolean }) => visible ? MockReact.createElement(View, null, children) : null };
 });
 
 jest.mock('react-native/Libraries/Components/Pressable/Pressable', () => {
-  const React = require('react');
+  const MockReact = require('react');
   const { View } = require('react-native');
-  return { __esModule: true, default: ({ children, ...props }: { children: React.ReactNode } & Record<string, unknown>) => React.createElement(View, props, children) };
+  return { __esModule: true, default: ({ children, ...props }: { children: React.ReactNode } & Record<string, unknown>) => MockReact.createElement(View, props, children) };
 });
 
 jest.mock('react-native/Libraries/Components/ScrollView/ScrollView', () => {
-  const React = require('react');
+  const MockReact = require('react');
   const { View } = require('react-native');
-  return { __esModule: true, default: ({ children, ...props }: { children: React.ReactNode } & Record<string, unknown>) => React.createElement(View, props, children) };
+  return { __esModule: true, default: ({ children, ...props }: { children: React.ReactNode } & Record<string, unknown>) => MockReact.createElement(View, props, children) };
 });
 
 jest.spyOn(ReactNative.AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
 
 jest.mock('@/theme', () => ({
   useTheme: () => ({
-    colors: {
-      error: '#dc2626', warning: '#f59e0b', accent: '#00AE42', accentDark: '#009438',
-      text: '#ffffff', textSecondary: '#9ca3af', textInverse: '#ffffff',
-      modalBg: '#2d2d2d', surfaceElevated: '#3d3d3d', overlay: 'rgba(0,0,0,0.5)',
-      border: '#3d3d3d', background: '#1a1a1a', surface: '#2d2d2d', surfaceHover: '#4a4a4a',
-    },
-    isDark: true,
+    colors: jest.requireActual<typeof import('@/theme/tokens')>('@/theme/tokens').colors[mockThemeMode],
+    isDark: mockThemeMode === 'dark',
   }),
 }));
 
@@ -76,6 +74,7 @@ describe('NfcInventoryScanModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockThemeMode = 'dark';
     mockNfc.mockReturnValue({ status: 'ready', checkCapability: jest.fn(), readTag: jest.fn(), cancelRead: jest.fn() });
     mockLookup.mockResolvedValue({ kind: 'not_found', uid: '04A1B2C3D4E5F6' });
   });
@@ -117,5 +116,33 @@ describe('NfcInventoryScanModal', () => {
       expect(btn.props.accessibilityLabel).toBeDefined();
       expect(typeof btn.props.accessibilityLabel).toBe('string');
     });
+  });
+
+  it.each(['light', 'dark'] as const)('gives scan actions a contrasting themed surface in %s mode', mode => {
+    mockThemeMode = mode;
+    const { renderer } = renderComponent();
+    const button = renderer.root.findAllByType(ReactNative.Pressable)[0];
+    expect(ReactNative.StyleSheet.flatten(button.props.style).backgroundColor).toBe(themeColors[mode].accent);
+    expect(ReactNative.StyleSheet.flatten(button.findByType(ReactNative.Text).props.style).color).toBe(themeColors[mode].textInverse);
+    act(() => renderer.unmount());
+  });
+
+  it('shows a lookup failure and keeps Done a neutral dismissal', async () => {
+    mockThemeMode = 'light';
+    const readTag = jest.fn().mockResolvedValue({ status: 'success', uid: 'UID' });
+    mockNfc.mockReturnValue({ status: 'ready', checkCapability: jest.fn(), readTag, cancelRead: jest.fn() });
+    mockLookup.mockResolvedValue({ kind: 'lookup_error', uid: 'UID', message: 'Inventory unavailable' });
+    const { renderer, onClose } = renderComponent();
+    await act(async () => { await renderer.root.findAllByType(ReactNative.Pressable)[0].props.onPress(); });
+    const description = renderer.root.findAllByType(ReactNative.Text)
+      .find(node => node.props.children === 'Inventory unavailable');
+    expect(description).toBeTruthy();
+    const done = renderer.root.findAllByType(ReactNative.Pressable)
+      .find(node => node.props.accessibilityLabel === 'Done')!;
+    expect(ReactNative.StyleSheet.flatten(done.props.style).backgroundColor).toBe(themeColors.light.surfaceElevated);
+    expect(ReactNative.StyleSheet.flatten(done.findByType(ReactNative.Text).props.style).color).toBe(themeColors.light.text);
+    act(() => done.props.onPress());
+    expect(onClose).toHaveBeenCalledTimes(1);
+    act(() => renderer.unmount());
   });
 });

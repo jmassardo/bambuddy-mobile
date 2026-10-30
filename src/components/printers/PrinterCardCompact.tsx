@@ -13,6 +13,7 @@ import { styles } from '@/components/printers/PrinterCard.styles';
 interface PrinterCardCompactProps {
   printer: Printer;
   selected: boolean;
+  selectionMode: boolean;
   isConnected: boolean;
   isPrinting: boolean;
   progress: number;
@@ -28,6 +29,7 @@ interface PrinterCardCompactProps {
 export function PrinterCardCompact({
   printer,
   selected,
+  selectionMode,
   isConnected,
   isPrinting,
   progress,
@@ -60,7 +62,7 @@ export function PrinterCardCompact({
         },
       ]}
     >
-      <Pressable onPress={onPress} onLongPress={onLongPress} accessibilityRole="button" accessibilityLabel={printer.name}>
+      <Pressable onPress={onPress} onLongPress={onLongPress} accessibilityRole={selectionMode ? 'checkbox' : 'button'} accessibilityLabel={printer.name} accessibilityState={selectionMode ? { checked: selected } : undefined}>
       <View style={styles.compactHeader}>
         <View
           style={[

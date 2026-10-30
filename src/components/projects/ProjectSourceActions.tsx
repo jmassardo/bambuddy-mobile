@@ -1,6 +1,7 @@
 import { useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
-import { Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { projectsApi } from '@/api/projects';
@@ -63,18 +64,21 @@ function ProjectSourceAction({ action, visible, onClose, projectId, projectName 
   const title = action === 'print'
     ? t('projects.printSource', { defaultValue: 'Choose a sliced project file or archive to print' })
     : t('projects.modelSource', { defaultValue: 'Choose a project STL or 3MF source' });
+  const filteredSources = sources.filter(item => item.sourceName.toLowerCase().includes(search.toLowerCase()));
   return <>
     <Modal visible={visible && source === null} transparent animationType="slide" onRequestClose={close}
       onDismiss={() => { if (source) setReady(true); }}>
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+      <SafeAreaProvider>
+      <KeyboardAvoidingView style={styles.viewport} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
           <Text style={{ color: colors.textSecondary }}>{projectName}</Text>
           <SearchBar value={search} onChangeText={setSearch} placeholder={t('projects.searchSources', { defaultValue: 'Search project sources' })} />
           {files.isError ? <ErrorState message={t('projects.fileSourceError', { defaultValue: 'Unable to load linked files.' })} onRetry={() => void files.refetch()} /> : null}
           {archives.isError ? <ErrorState message={t('projects.archiveSourceError', { defaultValue: 'Unable to load project archives.' })} onRetry={() => void archives.refetch()} /> : null}
-          <ScrollView contentContainerStyle={styles.sources}>
-            {sources.filter(item => item.sourceName.toLowerCase().includes(search.toLowerCase())).map(item => <PrimaryButton
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sources}>
+            {filteredSources.map(item => <PrimaryButton
               key={`${item.sourceType}-${item.sourceId}`} variant="secondary"
               label={item.sourceType === 'file'
                 ? t('projects.librarySource', { defaultValue: 'Library: {{name}}', name: item.sourceName })
@@ -84,12 +88,15 @@ function ProjectSourceAction({ action, visible, onClose, projectId, projectName 
                 // iOS must finish dismissing the picker before presenting another native modal.
                 if (Platform.OS !== 'ios') setReady(true);
               }} />)}
-            {files.isLoading || archives.isLoading ? <LoadingScreen message={t('projects.loadingSources', { defaultValue: 'Loading project sources…' })} /> : null}
+            {files.isLoading || archives.isLoading ? <LoadingScreen inline message={t('projects.loadingSources', { defaultValue: 'Loading project sources…' })} /> : null}
             {!sources.length && !files.isLoading && !archives.isLoading ? <Text style={{ color: colors.textSecondary }}>{t('projects.noSources', { defaultValue: 'No eligible sources. Link a library folder or add a printed archive to this project first.' })}</Text> : null}
+            {sources.length > 0 && !filteredSources.length ? <Text style={{ color: colors.textSecondary }}>{t('projects.noMatchingSources')}</Text> : null}
           </ScrollView>
           <PrimaryButton label={t('common.cancel')} variant="secondary" onPress={close} />
         </View>
-      </View>
+      </SafeAreaView>
+      </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
     {visible && ready && source ? action === 'pipeline'
       ? <RunWithPipelineModal visible {...source} onClose={close} onRunStarted={refreshProject} />
@@ -118,6 +125,7 @@ export function ProjectBatchPrintModal(props: ProjectActionProps) {
 }
 
 const styles = StyleSheet.create({
+  viewport: { flex: 1 },
   backdrop: { flex: 1, justifyContent: 'flex-end', padding: spacing.lg },
   card: { maxHeight: '90%', borderRadius: borderRadius.xl, padding: spacing.lg, gap: spacing.sm },
   title: { fontWeight: '600' },

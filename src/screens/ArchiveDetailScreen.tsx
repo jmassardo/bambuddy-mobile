@@ -15,6 +15,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   Camera,
   Image as ImageIcon,
@@ -634,6 +635,9 @@ export default function ArchiveDetailScreen() {
                 )}
                 <Pressable
                   onPress={() => setPendingPhotoDelete(photo)}
+                  accessibilityRole="button"
+                  accessibilityLabel={translateNative('native.b6870532d6ae062d')}
+                  hitSlop={10}
                   style={[
                     styles.photoDelete,
                     { backgroundColor: colors.error },
@@ -774,10 +778,12 @@ export default function ArchiveDetailScreen() {
         animationType="fade"
         onRequestClose={() => setShowQrModal(false)}
       >
-        <View
+        <SafeAreaProvider style={styles.container}>
+        <SafeAreaView
           style={[styles.centeredBackdrop, { backgroundColor: colors.overlay }]}
         >
-          <View
+          <ScrollView
+            contentContainerStyle={styles.qrContent}
             style={[
               styles.qrCard,
               { backgroundColor: colors.card, borderColor: colors.border },
@@ -812,8 +818,9 @@ export default function ArchiveDetailScreen() {
               variant="secondary"
               onPress={() => setShowQrModal(false)}
             />
-          </View>
-        </View>
+          </ScrollView>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
 
       {showProjectPageModal ? <EmbeddedArchiveProjectPage archive={archive} onClose={() => setShowProjectPageModal(false)} /> : null}
@@ -827,6 +834,8 @@ export default function ArchiveDetailScreen() {
         animationType="fade"
         onRequestClose={() => setFullscreenPhoto(null)}
       >
+        <SafeAreaProvider style={styles.container}>
+        <SafeAreaView style={styles.container}>
         <View
           style={[
             styles.fullscreenBackdrop,
@@ -836,6 +845,8 @@ export default function ArchiveDetailScreen() {
           <Pressable
             style={styles.fullscreenClose}
             onPress={() => setFullscreenPhoto(null)}
+            accessibilityRole="button"
+            accessibilityLabel={translateNative('common.close')}
           >
             <X size={20} color={colors.textInverse} strokeWidth={2} />
           </Pressable>
@@ -883,6 +894,8 @@ export default function ArchiveDetailScreen() {
             </View>
           ) : null}
         </View>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
 
       <Modal
@@ -890,7 +903,8 @@ export default function ArchiveDetailScreen() {
         animationType="slide"
         onRequestClose={() => setShowTimelapseFullscreen(false)}
       >
-        <View
+        <SafeAreaProvider style={styles.container}>
+        <SafeAreaView
           style={[
             styles.fullscreenContainer,
             { backgroundColor: colors.background },
@@ -939,7 +953,8 @@ export default function ArchiveDetailScreen() {
               onHttpError={() => setTimelapseError(true)}
             />
           ) : null}
-        </View>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
 
       <ConfirmModal
@@ -1102,10 +1117,9 @@ const styles = StyleSheet.create({
     width: '100%',
     borderWidth: 1,
     borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    gap: spacing.md,
-    alignItems: 'center',
+    maxHeight: '100%',
   },
+  qrContent: { padding: spacing.lg, gap: spacing.md, alignItems: 'center' },
   qrTitle: {
     fontSize: fontSize.xl,
     fontWeight: fontWeight.semibold,
@@ -1129,18 +1143,23 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   fullscreenClose: {
-    position: 'absolute',
-    top: spacing['3xl'],
-    right: spacing.lg,
-    zIndex: 1,
+    alignSelf: 'flex-end',
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fullscreenImage: {
     width: '100%',
-    height: '70%',
+    flex: 1,
+    minHeight: 160,
   },
   fullscreenActions: {
     width: '100%',
     marginTop: spacing.lg,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   fullscreenContainer: {
     flex: 1,

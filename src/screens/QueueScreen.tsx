@@ -4,7 +4,9 @@ import { localizedStatus } from '@/utils/statusLabel';
 
 import React, { useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,6 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronDown, ChevronRight, Ellipsis, SlidersHorizontal } from 'lucide-react-native';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
@@ -643,6 +646,7 @@ export default function QueueScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={queue.isRefetching}
@@ -1048,7 +1052,10 @@ export default function QueueScreen() {
         animationType="slide"
         onRequestClose={() => setBatchName(null)}
       >
-        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+        <SafeAreaProvider style={styles.container}>
+        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <ScrollView contentContainerStyle={styles.modal} keyboardShouldPersistTaps="handled">
           <LaunchField
             label={translateNative('native.3fbfdb405f0fd055')}
             value={batchName ?? ''}
@@ -1073,13 +1080,18 @@ export default function QueueScreen() {
             variant="secondary"
             onPress={() => setBatchName(null)}
           />
-        </View>
+        </ScrollView>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaProvider>
       </Modal>
       <Modal
         visible={batchDetailId != null}
         animationType="slide"
         onRequestClose={() => setBatchDetailId(null)}
       >
+        <SafeAreaProvider style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <ScrollView
           contentContainerStyle={[
             styles.modal,
@@ -1094,6 +1106,8 @@ export default function QueueScreen() {
             onPress={() => setBatchDetailId(null)}
           />
         </ScrollView>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
       {launch && (
         <PrintModal

@@ -246,6 +246,8 @@ export default function MoreScreen() {
       <View style={styles.accountCard}>
         <MenuItem
           icon="server"
+          disabled={changeServerMutation.isPending || logoutMutation.isPending}
+          loading={changeServerMutation.isPending}
           label={
             changeServerMutation.isPending
               ? t('more.disconnecting', { defaultValue: 'Disconnecting...' })
@@ -258,13 +260,15 @@ export default function MoreScreen() {
               ? t('more.leaveDemo', { defaultValue: 'Leave the demo and connect to your own BambuBuddy server' })
               : t('more.disconnectHelp', { defaultValue: 'Disconnect and connect to a different BambuBuddy server' })
           }
-          onPress={() => void changeServerMutation.mutateAsync()}
+          onPress={() => { if (!changeServerMutation.isPending && !logoutMutation.isPending) void changeServerMutation.mutateAsync(); }}
         />
         <MenuItem
           icon="power"
+          disabled={changeServerMutation.isPending || logoutMutation.isPending}
+          loading={logoutMutation.isPending}
           label={logoutMutation.isPending ? t('more.signingOut', { defaultValue: 'Signing out...' }) : t('more.signOut', { defaultValue: 'Sign out' })}
           subtitle={t('more.signOutHelp', { defaultValue: 'Disconnect this mobile session' })}
-          onPress={() => void logoutMutation.mutateAsync()}
+          onPress={() => { if (!changeServerMutation.isPending && !logoutMutation.isPending) void logoutMutation.mutateAsync(); }}
           destructive
         />
       </View>

@@ -14,6 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { launchCamera, launchImageLibrary, type Asset } from 'react-native-image-picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, Trash2, X } from 'lucide-react-native';
@@ -408,10 +409,11 @@ export function EditArchiveModal({
   return (
     <>
       <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-        <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}> 
+        <SafeAreaProvider>
+        <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.keyboardArea}
           >
             <View
@@ -427,6 +429,8 @@ export function EditArchiveModal({
                 </View>
                 <Pressable
                   onPress={onClose}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.close')}
                   style={[
                     styles.closeButton,
                     { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
@@ -568,6 +572,8 @@ export function EditArchiveModal({
                         />
                         <Pressable
                           onPress={() => setPendingPhotoDelete(photo)}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('common.delete')}
                           style={[styles.photoDelete, { backgroundColor: colors.error }]}
                         >
                           <Trash2 size={14} color={colors.textInverse} strokeWidth={2} />
@@ -623,7 +629,8 @@ export function EditArchiveModal({
               </View>
             </View>
           </KeyboardAvoidingView>
-        </View>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
 
       <ConfirmModal
@@ -678,8 +685,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   closeButton: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     alignItems: 'center',
@@ -783,8 +790,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     right: 6,
-    width: 28,
-    height: 28,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',

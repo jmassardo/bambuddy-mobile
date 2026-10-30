@@ -115,6 +115,20 @@ test('shows files before secondary controls and keeps uploader filtering when co
   await fireEvent.press(result.getByRole('button', {name: 'More'}));
   expect(result.getByText('Open trash')).toBeTruthy();
 });
+test('new folder has a named close action and preserves its draft and validation when reopened', async () => {
+  const result = await render(<FilesScreen />, {wrapper: TestProviders});
+  await result.findByText('widget.stl');
+  await fireEvent.press(result.getByRole('button', {name: 'More'}));
+  await fireEvent.press(result.getByRole('button', {name: 'New folder'}));
+  expect(result.getByRole('button', {name: 'Create'})).toBeDisabled();
+  await fireEvent.changeText(result.getByLabelText('Folder name'), 'Inbox');
+  expect(result.getByRole('button', {name: 'Create'})).not.toBeDisabled();
+  await fireEvent.press(result.getByRole('button', {name: 'Close'}));
+  expect(result.queryByLabelText('Folder name')).toBeNull();
+  await fireEvent.press(result.getByRole('button', {name: 'New folder'}));
+  expect(result.getByLabelText('Folder name').props.value).toBe('Inbox');
+});
+
 test('folder rename calls its folder endpoint rather than file rename', async () => {
   const result = await render(<FilesScreen />, {wrapper: TestProviders});
   await result.findByText('widget.stl');

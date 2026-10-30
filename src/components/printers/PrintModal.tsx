@@ -5,7 +5,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   View,
@@ -1099,6 +1101,7 @@ export function PrintModal(props: PrintModalProps) {
         edges={{ top: 'maximum', bottom: 'maximum' }}
         style={[styles.container, { backgroundColor: colors.background }]}
       >
+        <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <LaunchText>
           {editing
             ? translateNative('native.5f93040bef66c750')
@@ -1108,7 +1111,7 @@ export function PrintModal(props: PrintModalProps) {
             ? translateNative('native.d67377e1385602fe')
             : translateNative('native.18beb94dfed4ef1c')}
         </LaunchText>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={false}>
           {error ? <LaunchText>{error}</LaunchText> : null}
           {uploadProgress != null && (
             <LaunchText>{`${tr('Uploading')} ${Math.round(
@@ -2014,6 +2017,7 @@ export function PrintModal(props: PrintModalProps) {
             }}
           />
         </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
       <ConfirmModal
         visible={!!warning}
@@ -2033,6 +2037,7 @@ export function PrintModal(props: PrintModalProps) {
 }
 
 const styles = StyleSheet.create({
+  keyboard: { flex: 1 },
   container: { flex: 1, padding: spacing.md, paddingTop: spacing.xl },
   content: { gap: spacing.md, paddingBottom: spacing.xl },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

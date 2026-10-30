@@ -1,8 +1,9 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import ExternalLinkBrowserScreen from '@/screens/ExternalLinkBrowserScreen';
 
 const mockSetOptions = jest.fn();
+jest.mock('@/theme', () => ({ useTheme: () => ({ colors: new Proxy({}, { get: () => '#888888' }) }) }));
 const mockRoute = {
   params: {
     url: 'https://example.com/docs',
@@ -25,6 +26,14 @@ jest.mock('react-native-webview', () => {
 });
 
 describe('ExternalLinkBrowserScreen', () => {
+  it('retries a failed page without leaving the browser route', async () => {
+    const ui = await render(<ExternalLinkBrowserScreen />);
+    const previous = ui.getByTestId('external-link-webview');
+    const error = await render(previous.props.renderError('network', -1, 'Offline'));
+    expect(error.getByText('Offline')).toBeTruthy();
+    await fireEvent.press(error.getByText('Retry'));
+    expect(ui.getByTestId('external-link-webview')).not.toBe(previous);
+  });
   beforeEach(() => {
     jest.clearAllMocks();
   });

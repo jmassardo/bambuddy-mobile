@@ -45,6 +45,7 @@ jest.mock('@/components/common/AppUI', () => {
   const { View: MockView, Text: MockText, TextInput: MockTextInput, Pressable: MockPressable } = require('react-native');
   return {
     SectionCard: ({ title, children }: { title?: string; children: React.ReactNode }) => <MockView><MockText>{title}</MockText>{children}</MockView>,
+    Chip: ({ label, selected, disabled, onPress }: { label: string; selected?: boolean; disabled?: boolean; onPress: () => void }) => <MockPressable disabled={disabled} accessibilityRole="button" accessibilityState={{ selected, disabled }} onPress={onPress}><MockText>{label}</MockText></MockPressable>,
     TextField: ({ label, ...props }: { label: string }) => <MockTextInput accessibilityLabel={label} {...props} />,
     PrimaryButton: ({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) => <MockPressable accessibilityRole="button" disabled={disabled} accessibilityState={{ disabled }} onPress={onPress}><MockText>{label}</MockText></MockPressable>,
   };
@@ -129,7 +130,7 @@ it('restores persisted printer settings on revisit and supports disabling a came
   const revisited = await render(<PrinterCameraSettingsSection />, { wrapper: Wrapper });
   await waitFor(() => expect(revisited.getByLabelText('Use external camera').props.value).toBe(false));
   expect(revisited.getByLabelText('Stream URL').props.value).toBe('');
-  expect(revisited.getByText('✓ 90')).toBeTruthy();
+  expect(revisited.getByRole('button', { name: '90', selected: true })).toBeTruthy();
 });
 
 it('shows check analysis and edits bounded ROI while cancel never persists', async () => {

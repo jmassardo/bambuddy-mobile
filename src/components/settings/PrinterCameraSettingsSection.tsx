@@ -1,6 +1,6 @@
 import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Switch } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { printersApi } from '@/api/printers';
@@ -24,6 +24,7 @@ function PrinterCameraForm({ printer }: { printer: Printer }) {
   const [type, setType] = useState(printer.external_camera_type ?? 'mjpeg');
   const [snapshot, setSnapshot] = useState(printer.external_camera_snapshot_url ?? '');
   const [rotation, setRotation] = useState(printer.camera_rotation ?? 0);
+  const previousPrinter = useRef(printer);
   const reset = () => {
     setEnabled(printer.external_camera_enabled);
     setUrl(printer.external_camera_url ?? '');
@@ -32,11 +33,13 @@ function PrinterCameraForm({ printer }: { printer: Printer }) {
     setRotation(printer.camera_rotation ?? 0);
   };
   useEffect(() => {
-    setEnabled(printer.external_camera_enabled);
-    setUrl(printer.external_camera_url ?? '');
-    setType(printer.external_camera_type ?? 'mjpeg');
-    setSnapshot(printer.external_camera_snapshot_url ?? '');
-    setRotation(printer.camera_rotation ?? 0);
+    const previous = previousPrinter.current;
+    setEnabled(current => current === previous.external_camera_enabled ? printer.external_camera_enabled : current);
+    setUrl(current => current === (previous.external_camera_url ?? '') ? printer.external_camera_url ?? '' : current);
+    setType(current => current === (previous.external_camera_type ?? 'mjpeg') ? printer.external_camera_type ?? 'mjpeg' : current);
+    setSnapshot(current => current === (previous.external_camera_snapshot_url ?? '') ? printer.external_camera_snapshot_url ?? '' : current);
+    setRotation(current => current === (previous.camera_rotation ?? 0) ? printer.camera_rotation ?? 0 : current);
+    previousPrinter.current = printer;
   }, [printer]);
   const validUrl = validExternalCameraUrl(url.trim(), type);
   const validSnapshot = snapshot.trim() === '' || validExternalCameraUrl(snapshot.trim(), 'snapshot');
@@ -92,6 +95,8 @@ export function PrinterCameraSettingsSection() {
   return <>
     <CameraMessage>{t('camera.perPrinterSettings', { defaultValue: 'External cameras are configured on each printer. Changes apply to monitoring, snapshots and plate checks.' })}</CameraMessage>
     {printers.isError ? <PrimaryButton label={t('common.retry', { defaultValue: 'Retry' })} onPress={() => void printers.refetch()} /> : null}
+    {printers.isLoading ? <CameraMessage>{t('common.loading')}</CameraMessage> : null}
+    {printers.isSuccess && !printers.data.length ? <CameraMessage>{t('camera.noPrinters')}</CameraMessage> : null}
     {printers.data?.map(printer => <PrinterCameraForm key={printer.id} printer={printer} />)}
   </>;
 }

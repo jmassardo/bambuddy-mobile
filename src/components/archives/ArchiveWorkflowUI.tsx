@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -12,6 +13,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   pick,
   types,
@@ -107,7 +109,11 @@ export function ArchiveDialog({
       onRequestClose={onClose}
       onDismiss={onDismiss}
     >
+      <SafeAreaProvider>
+      <SafeAreaView style={[styles.dialogViewport, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView style={styles.dialogViewport} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.dialog,
           { backgroundColor: colors.background },
@@ -121,6 +127,9 @@ export function ArchiveDialog({
           variant="secondary"
         />
       </ScrollView>
+      </KeyboardAvoidingView>
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -716,6 +725,7 @@ export function ArchivePhotoGallery({
 }
 
 const styles = StyleSheet.create({
+  dialogViewport: { flex: 1 },
   dialog: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
   title: { fontSize: 22, fontWeight: '700' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

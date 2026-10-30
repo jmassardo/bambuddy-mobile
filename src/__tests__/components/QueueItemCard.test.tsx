@@ -91,6 +91,24 @@ it('keeps one job frame while preserving selection, drag-target highlighting and
   }
 });
 
+it('exposes an independently operable checkbox with the job name and selected state', async () => {
+  const item = { id: 1, status: 'pending', library_file_name: 'Gear' } as PrintQueueItem;
+  const onToggleSelect = jest.fn();
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+  try {
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<QueueItemCard item={item} showSelection selected onToggleSelect={onToggleSelect} />);
+    });
+    const checkbox = renderer.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityRole === 'checkbox')[0];
+    expect(checkbox.props.accessibilityLabel).toBe('Gear');
+    expect(checkbox.props.accessibilityState.checked).toBe(true);
+    await act(async () => renderer.root.findAll(node => node.props.onPress === onToggleSelect)[0].props.onPress());
+    expect(onToggleSelect).toHaveBeenCalledTimes(1);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+  }
+});
+
 it('attaches reordering only to the grip and preserves drag callbacks', async () => {
   const item = { id: 1, status: 'pending', library_file_name: 'Gear' } as PrintQueueItem;
   const onDragStart = jest.fn();

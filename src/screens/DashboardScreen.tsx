@@ -523,13 +523,19 @@ export default function PrintersDashboardScreen() {
       );
   }, [filter, hideOffline, locationFilter, descending, maintenanceByPrinter, printers, search, sortBy, sortSecondary, statusByPrinter]);
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = async () => {
-    await Promise.all([
-      printersQuery.refetch(),
-      queueQuery.refetch(),
-      maintenanceQuery.refetch(),
-      queryClient.invalidateQueries({ queryKey: ['printerStatus'] }),
-    ]);
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        printersQuery.refetch(),
+        queueQuery.refetch(),
+        maintenanceQuery.refetch(),
+        queryClient.invalidateQueries({ queryKey: ['printerStatus'] }),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const toggleSelectedPrinter = (printerId: number) => {
@@ -649,15 +655,13 @@ export default function PrintersDashboardScreen() {
         numColumns={viewMode === 'compact' ? 2 : 1}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         columnWrapperStyle={viewMode === 'compact' ? styles.gridRow : undefined}
         ItemSeparatorComponent={viewMode === 'compact' ? undefined : ListSeparator}
         refreshControl={
           <RefreshControl
-            refreshing={
-              printersQuery.isRefetching ||
-              queueQuery.isRefetching ||
-              maintenanceQuery.isRefetching
-            }
+            testID="printers-refresh"
+            refreshing={isRefreshing}
             onRefresh={() => {
               handleRefresh();
             }}
@@ -840,6 +844,9 @@ export default function PrintersDashboardScreen() {
               </Pressable>
               <Pressable
                 onPress={() => setViewMode(m => m === 'normal' ? 'compact' : 'normal')}
+                accessibilityRole="button"
+                accessibilityLabel={viewMode === 'normal' ? translateNative('native.7dec88bad08e1b80') : translateNative('native.33b836845ee11768')}
+                hitSlop={8}
                 style={[styles.viewToggle, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
               >
                 {viewMode === 'normal'
@@ -849,6 +856,9 @@ export default function PrintersDashboardScreen() {
               </Pressable>
               <Pressable
                 onPress={() => setShowAddPrinter(true)}
+                accessibilityRole="button"
+                accessibilityLabel={translateNative('native.112c324655102ccb')}
+                hitSlop={8}
                 style={[styles.addBtn, { backgroundColor: colors.accent }]}
               >
                 <Plus size={18} color={colors.textInverse} strokeWidth={2.5} />

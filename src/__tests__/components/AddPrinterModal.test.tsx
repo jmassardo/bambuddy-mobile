@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-shadow -- Test file with React/Text imports shadowing globals */
 import React from 'react';
-import { Switch, Text, TextInput } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactTestRenderer, { act, type ReactTestInstance } from 'react-test-renderer';
 import { AddPrinterModal } from '@/components/printers/AddPrinterModal';
@@ -119,6 +119,20 @@ describe('AddPrinterModal', () => {
     expect(findInput(renderer, '01P00A000000000')).toBeTruthy();
     expect(findInput(renderer, 'From printer settings')).toBeTruthy();
     expect(findInput(renderer, 'e.g. Garage, Print Farm')).toBeTruthy();
+  });
+
+  it('keeps the final printer model inside a bounded scrollable picker', async () => {
+    const renderer = renderModal();
+    await act(async () => findPressableForText(renderer, 'Select model').props.onPress());
+    const model = findPressableForText(renderer, 'X2D');
+    let ancestor = model.parent;
+    while (ancestor && ancestor.type !== ScrollView) ancestor = ancestor.parent;
+    expect(ancestor).not.toBeNull();
+    expect(StyleSheet.flatten(ancestor!.props.style).maxHeight).toBe(200);
+    expect(ancestor!.props.nestedScrollEnabled).toBe(true);
+    await act(async () => model.props.onPress());
+    expect(findPressableForText(renderer, 'X2D')).toBeTruthy();
+    act(() => renderer.unmount());
   });
 
   it.each([false, true])('scans a recalled custom CIDR even with detected subnets (Docker=%s)', async isDocker => {

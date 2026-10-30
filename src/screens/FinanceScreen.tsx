@@ -17,7 +17,9 @@ const financeCaptions: Record<string, string> = {
 import React, { useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -25,6 +27,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { financeApi } from '@/api/finance';
 import { reportsApi } from '@/api/reports';
@@ -278,12 +281,13 @@ export default function FinanceScreen() {
     );
   }, [filtered.length]);
   const pageItems = filtered.slice(page * 50, (page + 1) * 50);
-  const button = (text: string, onPress: () => void, disabled = false) => (
+  const button = (text: string, onPress: () => void, disabled = false, variant: 'primary' | 'secondary' | 'danger' = 'primary') => (
     <PrimaryButton
       key={text}
       label={label(text)}
       onPress={onPress}
       disabled={disabled || mutation.isPending}
+      variant={variant}
     />
   );
   const chooseUser = (
@@ -351,6 +355,7 @@ export default function FinanceScreen() {
     <>
       <ScrollView
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={ledger.isFetching || centers.isFetching}
@@ -478,6 +483,8 @@ export default function FinanceScreen() {
                     confirm(translateNative('native.a0011555dacc9ab3'), () =>
                       financeApi.deleteCenter(center.id),
                     ),
+                    false,
+                    'danger',
                   )}
               </View>
             );
@@ -506,6 +513,8 @@ export default function FinanceScreen() {
                       confirm(translateNative('native.2400a63cea171045'), () =>
                         financeApi.removeMember(manageId, member.user_id),
                       ),
+                      false,
+                      'danger',
                     )}
                   </>
                 )}
@@ -544,7 +553,7 @@ export default function FinanceScreen() {
                 'withdraw',
                 'manual_adjustment',
               ].map(kind =>
-                button(`${kind}${type === kind ? ' ✓' : ''}`, () => {
+                button(`${kind === 'all' ? t('common.all') : financeCaptions[kind] ?? kind}${type === kind ? ' ✓' : ''}`, () => {
                   setType(kind);
                   setPage(0);
                 }),
@@ -596,6 +605,8 @@ export default function FinanceScreen() {
                       confirm(translateNative('native.415f2f2fe723eb1a'), () =>
                         financeApi.deleteTransaction(tx.id),
                       ),
+                      false,
+                      'danger',
                     )}
                   </>
                 )}
@@ -635,7 +646,11 @@ export default function FinanceScreen() {
         }}
         animationType="slide"
       >
+        <SafeAreaProvider style={styles.viewport}>
+        <KeyboardAvoidingView style={styles.viewport} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView style={[styles.viewport, { backgroundColor: colors.background }]}>
         <ScrollView
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={[
             styles.content,
             { backgroundColor: colors.background },
@@ -717,12 +732,16 @@ export default function FinanceScreen() {
           {button(mutation.isPending ? translateNative('native.018c2002806e2312') : translateNative('common.save'), save)}
           {button(translateNative('common.cancel'), () => setForm(null))}
         </ScrollView>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaProvider>
       </Modal>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  viewport: { flex: 1 },
   content: {
     padding: spacing.lg,
     gap: spacing.md,

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { EmptyState } from '@/components/common/StateScreens';
+import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { PrimaryButton, SectionCard, StatusBadge } from '@/components/common/AppUI';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -34,7 +34,7 @@ export function SmartPlugsSection({ controller }: { controller: SettingsScreenCo
         <BulkPlugPower plugs={smartPlugs} canControl={controller.permissions.canControlSmartPlugs} />
         <QuickSmartPlugPanel />
       </SectionCard>
-      {smartPlugs.length > 0 ? (
+      {controller.queries.smartPlugsQuery.isLoading ? <LoadingScreen inline /> : controller.queries.smartPlugsQuery.isError ? <ErrorState message={controller.queries.smartPlugsQuery.error.message} onRetry={() => void controller.queries.smartPlugsQuery.refetch()} /> : smartPlugs.length > 0 ? (
         smartPlugs.map(plug => (
           <SmartPlugCardMobile
             key={plug.id}

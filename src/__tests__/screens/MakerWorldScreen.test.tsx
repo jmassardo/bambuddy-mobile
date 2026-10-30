@@ -56,6 +56,7 @@ function deferred<T>() {
 async function setup() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false, gcTime: Infinity } } });
   const screen = await render(<QueryClientProvider client={client}><MakerWorldScreen /></QueryClientProvider>);
+  await screen.findByPlaceholderText('https://makerworld.com/models/...');
   return { ...screen, client };
 }
 
@@ -71,6 +72,17 @@ beforeEach(() => {
     folder_id: payload.folder_id, profile_id: payload.profile_id, was_existing: false,
   }));
   jest.mocked(makerworldApi.deleteImport).mockResolvedValue(undefined);
+});
+
+it('does not claim sign-in is required before cloud status resolves', async () => {
+  const status = deferred<{ can_download: boolean; has_cloud_token: boolean }>();
+  jest.mocked(api.getMakerworldStatus).mockReturnValue(status.promise);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+  const screen = await render(<QueryClientProvider client={client}><MakerWorldScreen /></QueryClientProvider>);
+  expect(screen.queryByText('Cloud sign-in required')).toBeNull();
+  expect(screen.queryByPlaceholderText('https://makerworld.com/models/...')).toBeNull();
+  await act(async () => status.resolve({ can_download: false, has_cloud_token: false }));
+  expect(await screen.findByText('Cloud sign-in required')).toBeTruthy();
 });
 
 it('clears stale previews immediately and discards a late resolve after input changes', async () => {

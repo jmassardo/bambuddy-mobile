@@ -25,8 +25,22 @@ import { InventoryDirectory } from '@/components/inventory/InventoryDirectory';
 import { InventoryLabels } from '@/components/inventory/InventoryLabels';
 import { SpoolDetails } from '@/components/inventory/SpoolDetails';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import InventoryScreen from '@/screens/InventoryScreen';
+import { waitFor } from '@testing-library/react-native';
+
+const mockNavigation = { navigate: jest.fn(), setOptions: jest.fn() };
+jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
+  useNavigation: () => mockNavigation,
+}));
 
 jest.mock('@/api/http', () => ({ request: jest.fn(), requestBlob: jest.fn() }));
+jest.mock('@react-native-documents/picker', () => ({
+  pick: jest.fn(),
+  types: { csv: 'text/csv' },
+  errorCodes: { OPERATION_CANCELED: 'OPERATION_CANCELED' },
+  isErrorWithCode: () => false,
+}));
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     hasPermission: () => true,
@@ -83,6 +97,21 @@ jest.mock('react-native/Libraries/Components/ScrollView/ScrollView', () => {
     __esModule: true,
     default: ({ children }: { children: React.ReactNode }) =>
       ReactModule.createElement(Native.View, null, children),
+  };
+});
+jest.mock('react-native/Libraries/Lists/FlatList', () => {
+  const ReactModule = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ data, renderItem, ListHeaderComponent, ListEmptyComponent }: {
+      data: unknown[];
+      renderItem: (info: { item: unknown; index: number }) => React.ReactNode;
+      ListHeaderComponent?: React.ReactNode;
+      ListEmptyComponent?: React.ReactNode;
+    }) => ReactModule.createElement(View, null, ListHeaderComponent, data.length
+      ? data.map((item, index) => ReactModule.createElement(View, { key: index }, renderItem({ item, index })))
+      : ListEmptyComponent),
   };
 });
 const mockRequest = jest.mocked(request);
@@ -159,6 +188,33 @@ beforeEach(() => {
       return [{ id: 8, name: 'Dry cabinet' }];
     return [];
   });
+
+});
+
+it('keeps spool content reachable while disclosing secondary inventory tools and active-filter clearing', async () => {
+    const fallback = mockRequest.getMockImplementation()!;
+    mockRequest.mockImplementation(async (path, options) => {
+      if (path === '/settings/spoolman') return { spoolman_enabled: 'false' };
+      if (String(path).startsWith('/inventory/spools')) return [{ id: 1, brand: 'Bambu', material: 'PLA', label_weight: 1000, weight_used: 10 }];
+      return fallback(path, options);
+    });
+    const renderer = await mount(<InventoryScreen />);
+    expect(button(renderer, 'Add spool / quick stock')).toBeTruthy();
+    await waitFor(() => expect(renderer.root.findAll(node => String(node.props.accessibilityLabel ?? '').includes('Bambu')).length).toBeGreaterThan(0));
+    expect(renderer.root.findAllByType(PrimaryButton).some(node => node.props.label === 'Import CSV')).toBe(false);
+    expect(renderer.root.findAllByType(PrimaryButton).some(node => node.props.label === 'Clear all filters')).toBe(false);
+    const tools = () => renderer.root.findAll(node => node.props.accessibilityLabel === 'Inventory tools')[0];
+    await act(async () => tools().props.onPress());
+    expect(button(renderer, 'Import CSV')).toBeTruthy();
+    await press(renderer, 'Assignment history');
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('SpoolAssignmentHistory');
+    expect(tools().props.accessibilityState.expanded).toBe(false);
+    const { SearchBar } = require('@/components/common/AppUI');
+    await act(async () => renderer.root.findByType(SearchBar).props.onChangeText('Bambu'));
+    expect(tools().props.accessibilityState.selected).toBe(true);
+    expect(button(renderer, 'Clear all filters')).toBeTruthy();
+    await press(renderer, 'Clear all filters');
+    expect(tools().props.accessibilityState.selected).toBe(false);
 });
 
 it('confirms environmental category replacement before updating the existing binding', async () => {

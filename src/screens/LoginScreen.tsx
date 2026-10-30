@@ -29,6 +29,7 @@ import { authApi } from '@/api/auth';
 import { SwitchRow } from '@/components/settings/shared';
 import { createOidcState, oidcCallbackBase } from '@/utils/authSecurity';
 import { OIDCAuthorizationBrowser } from '@/components/common/OIDCAuthorizationBrowser';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function parseOidcCallback(url: string) {
   try {
@@ -78,6 +79,7 @@ export default function LoginScreen() {
     navigation.setOptions({ title: translateNative('native.62a155bdfe8d655f'), headerShown: false });
   }, [navigation, titleLocale]);
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { login, loginWithToken, loading } = useAuth();
   const { showToast } = useToast();
   const serverUrl = useServerStore(state => state.serverUrl);
@@ -354,7 +356,7 @@ export default function LoginScreen() {
         onError={message => { setAuthorizationUrl(null); pendingOidcState.current = null; setError(message); }}
         onCancel={() => { setAuthorizationUrl(null); pendingOidcState.current = null; setError(nativeMessage('native.4a766b4e99a17bfb')); }}
       /> : null}
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg }]} keyboardShouldPersistTaps="handled">
         <View
           style={[
             styles.card,
@@ -405,6 +407,8 @@ export default function LoginScreen() {
                 userName={serverHostname}
               />
               {localLoginEnabled ? <Pressable
+                accessibilityRole="button"
+                style={styles.linkTarget}
                 onPress={() => {
                   setError('');
                   setStep('forgot');
@@ -452,6 +456,8 @@ export default function LoginScreen() {
                 keyboardType="email-address"
               />
               <Pressable
+                accessibilityRole="button"
+                style={styles.linkTarget}
                 onPress={() => {
                   setError('');
                   setStep('credentials');
@@ -483,6 +489,8 @@ export default function LoginScreen() {
                 secureTextEntry
               />
               <Pressable
+                accessibilityRole="button"
+                style={styles.linkTarget}
                 onPress={() => {
                   setError('');
                   setStep('credentials');
@@ -501,6 +509,10 @@ export default function LoginScreen() {
           {step === 'credentials' && !localLoginEnabled && ldapLoginEnabled ? <Text style={{ color: colors.textSecondary }}>{t('auth.directoryLoginHint', { defaultValue: 'Sign in with your directory account.' })}</Text> : null}
           {step === 'credentials' && policyQuery.isError ? <PrimaryButton label={t('auth.retryPolicy', { defaultValue: 'Retry login policy' })} variant="secondary" onPress={() => void policyQuery.refetch()} /> : null}
           {step === 'credentials' && ldapStatusQuery.isError ? <PrimaryButton label={t('auth.retryDirectoryStatus', { defaultValue: 'Retry directory sign-in status' })} variant="secondary" onPress={() => void ldapStatusQuery.refetch()} /> : null}
+          {step === 'credentials' && oidcProvidersQuery.isError ? <>
+            <Text accessibilityRole="alert" style={{ color: colors.error }}>{oidcProvidersQuery.error.message}</Text>
+            <PrimaryButton label={t('common.retry')} variant="secondary" onPress={() => void oidcProvidersQuery.refetch()} />
+          </> : null}
           {step === 'credentials' && credentialsEnabled && (
             <PrimaryButton
               label={submitMutation.isPending ? translateNative('native.1aeddc7b0b18d572') : translateNative('native.62a155bdfe8d655f')}
@@ -624,6 +636,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     textAlign: 'right',
   },
+  linkTarget: { minHeight: 44, justifyContent: 'center' },
   methodHint: {
     fontSize: fontSize.xs,
     lineHeight: 18,

@@ -1315,7 +1315,7 @@ export default function CameraScreen() {
       <View
         style={[
           styles.stateCard,
-          { backgroundColor: colors.overlay, borderColor: colors.border },
+          { backgroundColor: colors.surface, borderColor: colors.border },
         ]}
       >
         <AlertCircle size={24} color={colors.warning} strokeWidth={2} />
@@ -1342,6 +1342,8 @@ export default function CameraScreen() {
         <View style={styles.stateWrap}>
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
+      ) : printerQuery.isError || statusQuery.isError ? (
+        renderState(translateNative('common.error'), printerQuery.error?.message ?? statusQuery.error?.message ?? translateNative('common.error'), translateNative('common.retry'), () => void refreshCamera())
       ) : cameraUnavailableReason ? (
         renderState(
           translateNative('native.dd79b585121476fc'),
@@ -1540,7 +1542,7 @@ export default function CameraScreen() {
           style={{ backgroundColor: colors.surface, borderColor: colors.border }}
         />
         {!isLandscape ? (
-          <View accessible accessibilityLabel={translateNative('native.9253545102ea9094', { value0: String(printer?.name || 'Camera') })} style={styles.headerTitle}>
+          <View accessible accessibilityLabel={translateNative('native.9253545102ea9094', { value0: String(printer?.name || 'Camera') })} style={[styles.headerTitle, { backgroundColor: colors.surface }]}>
             <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
               {printer?.name || translateNative('native.ac1081d67c0eb4a3')}
             </Text>
@@ -1680,7 +1682,7 @@ export default function CameraScreen() {
                 label={plateDetectionEnabled ? translateNative('native.32c1890bcaa41a4a') : translateNative('native.057463ce7bc12d2d')}
                 hint={translateNative('native.bcb575a73854cc64')}
                 onPress={() => void plateToggleMutation.mutateAsync(!plateDetectionEnabled)}
-                disabled={plateToggleMutation.isPending || !validPrinterId}
+                disabled={(authEnabled && !hasPermission('printers:update')) || plateToggleMutation.isPending || !validPrinterId}
                 selected={plateDetectionEnabled}
                 busy={plateToggleMutation.isPending}
                 icon={<Layers size={19} color={plateDetectionEnabled ? colors.accent : colors.text} strokeWidth={2} />}
@@ -1779,7 +1781,7 @@ export default function CameraScreen() {
               label={plateDetectionEnabled ? translateNative('native.32c1890bcaa41a4a') : translateNative('native.057463ce7bc12d2d')}
               variant="secondary"
               onPress={() => void plateToggleMutation.mutateAsync(!plateDetectionEnabled)}
-              disabled={plateToggleMutation.isPending || !validPrinterId}
+              disabled={(authEnabled && !hasPermission('printers:update')) || plateToggleMutation.isPending || !validPrinterId}
             />
             <View style={styles.plateStatsRow}>
               <Text style={[styles.plateMeta, { color: colors.textSecondary }]}> 
@@ -1854,6 +1856,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     minWidth: 0,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xs,
   },
   headerContext: {
     fontSize: fontSize.xs,

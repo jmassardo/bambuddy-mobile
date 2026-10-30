@@ -18,6 +18,14 @@ const mockMutate = jest.fn();
 const mockUseQuery = jest.fn();
 const mockUseQueries = jest.fn();
 const mockShowToast = jest.fn();
+jest.mock('react-native/Libraries/Components/RefreshControl/RefreshControl', () => {
+  const ReactModule = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: (props: Record<string, unknown>) => ReactModule.createElement(View, props),
+  };
+});
 
 const defaultPrinters = [
   { id: 1, name: 'Printer Alpha', model: 'X1 Carbon', location: 'Lab', serial_number: 'SER-1' },

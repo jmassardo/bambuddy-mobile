@@ -45,6 +45,8 @@ export function useWebSocket(options?: UseWebSocketOptions) {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const disposedRef = useRef(false);
+  const connectingRef = useRef(false);
+  const connectionGenerationRef = useRef(0);
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -244,7 +246,9 @@ export function useWebSocket(options?: UseWebSocketOptions) {
 
   const connect = useCallback(async () => {
     if (disposedRef.current || !serverUrl || !isConnectedRef.current) return;
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (connectingRef.current || wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) return;
+    connectingRef.current = true;
+    const generation = connectionGenerationRef.current;
 
     let token: string | undefined;
     let mintSuccess = false;
@@ -265,9 +269,11 @@ export function useWebSocket(options?: UseWebSocketOptions) {
       }
       // Auth-disabled deployment — connect without token
       mintSuccess = true;
+    } finally {
+      if (generation === connectionGenerationRef.current) connectingRef.current = false;
     }
 
-    if (disposedRef.current) return;
+    if (disposedRef.current || generation !== connectionGenerationRef.current) return;
     if (tokenMintShutdownRef.current && !mintSuccess) return;
 
     const ws = new WebSocket(wsUrl(serverUrl, token));
@@ -375,6 +381,37 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     wsRef.current = ws;
   }, [serverUrl, addError]);
 
+  const reconnect = useCallback(async () => {
+    if (disposedRef.current || !serverUrl || !isConnectedRef.current) return;
+    connectionGenerationRef.current += 1;
+    connectingRef.current = false;
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+    const socket = wsRef.current;
+    wsRef.current = null;
+    if (socket) {
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onclose = null;
+      socket.onerror = null;
+      spoolBuddySocketClosed(socket);
+      socket.close();
+    }
+    reconnectAttemptRef.current = 0;
+    tokenMintFailuresRef.current = 0;
+    tokenMintShutdownRef.current = false;
+    setIsConnected(false);
+    setIsReconnecting(true);
+    await connect();
+    if (!wsRef.current) setIsReconnecting(false);
+  }, [connect, serverUrl]);
+
   useEffect(() => {
     const wasOffline = !isConnectedRef.current;
     isConnectedRef.current = connectivityConnected;
@@ -406,6 +443,8 @@ export function useWebSocket(options?: UseWebSocketOptions) {
 
     return () => {
       disposedRef.current = true;
+      connectionGenerationRef.current += 1;
+      connectingRef.current = false;
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (invalidationTimeoutRef.current) clearTimeout(invalidationTimeoutRef.current);
       if (printerStatusTimeoutRef.current) clearTimeout(printerStatusTimeoutRef.current);
@@ -424,5 +463,5 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     setErrors([]);
   }, []);
 
-  return { isConnected, isReconnecting, isLiveUpdatesAvailable, errors, sendMessage, clearErrors };
+  return { isConnected, isReconnecting, isLiveUpdatesAvailable, errors, sendMessage, clearErrors, reconnect };
 }

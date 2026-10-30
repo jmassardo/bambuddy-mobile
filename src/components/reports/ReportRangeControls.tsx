@@ -1,9 +1,11 @@
 import { nativeMessage, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
 
 import React, { useEffect, useState } from 'react';
-import { Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Input, PrimaryButton, SectionCard } from '@/components/common/AppUI';
+import { Chip, Input, PrimaryButton, SectionCard } from '@/components/common/AppUI';
+import { spacing } from '@/theme/tokens';
 
 import { useTheme } from '@/theme';
 import {
@@ -48,6 +50,7 @@ export function ReportRangeControls({
   useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
+  const [expanded, setExpanded] = useState(false);
   const [custom, setCustom] = useState(value === 'custom');
   const [from, setFrom] = useState(scope.dateFrom ?? '');
   const [to, setTo] = useState(scope.dateTo ?? '');
@@ -68,19 +71,42 @@ export function ReportRangeControls({
     ).catch(() => setError(nativeMessage('Unable to retain timeframe')));
   }
   return (
-    <SectionCard title={label('Report timeframe')}>
+    <SectionCard
+      title={label('Report timeframe')}
+      right={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={label('Report timeframe')}
+          accessibilityState={{ expanded }}
+          onPress={() => setExpanded(current => !current)}
+          style={styles.disclosure}
+        >
+          {expanded ? <ChevronUp size={20} color={colors.text} /> : <ChevronDown size={20} color={colors.text} />}
+        </Pressable>
+      }
+    >
+      <Text style={{ color: colors.text }}>
+        {label(names[reportPresets.indexOf(value)])}
+        {scope.dateFrom || scope.dateTo ? ` · ${scope.dateFrom?.slice(0, 10) ?? '—'} – ${scope.dateTo?.slice(0, 10) ?? '—'}` : ''}
+      </Text>
+      {expanded && <>
+      <View style={styles.presets}>
       {reportPresets.map((preset, index) => (
-        <PrimaryButton
+        <Chip
           key={preset}
-          variant="secondary"
-          label={`${label(names[index])}${value === preset ? ' ✓' : ''}`}
+          selected={value === preset}
+          label={label(names[index])}
           onPress={() => {
             setError('');
             setCustom(preset === 'custom');
-            if (preset !== 'custom') apply(preset);
+            if (preset !== 'custom') {
+              apply(preset);
+              setExpanded(false);
+            }
           }}
         />
       ))}
+      </View>
       {custom && (
         <>
           <Input
@@ -104,10 +130,12 @@ export function ReportRangeControls({
               }
               setError('');
               apply('custom', { dateFrom: from, dateTo: to });
+              setExpanded(false);
             }}
           />
         </>
       )}
+      </>}
       {!!error && (
         <Text accessibilityRole="alert" style={{ color: colors.error }}>
           {error}
@@ -116,3 +144,17 @@ export function ReportRangeControls({
     </SectionCard>
   );
 }
+
+const styles = StyleSheet.create({
+  disclosure: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  presets: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+});

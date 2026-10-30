@@ -28,7 +28,7 @@ export function LibraryFolderTree({ tree, sort, ascending, collapsed, wrap, onCh
       const children = pickArray(folder, ['children']).filter(isRecord);
       return <View key={id}>
         <View style={styles.row}>
-          {children.length ? <Pressable accessibilityLabel={t('library.expandFolder', {defaultValue: 'Expand or collapse {{name}}', name: pickString(folder, ['name'])})} onPress={() => setExpanded(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])}><Text style={{color: colors.text}}>{expanded.includes(id) ? '▼' : '▶'}</Text></Pressable> : null}
+          {children.length ? <Pressable style={styles.expand} accessibilityRole="button" accessibilityState={{ expanded: expanded.includes(id) }} accessibilityLabel={t('library.expandFolder', {defaultValue: 'Expand or collapse {{name}}', name: pickString(folder, ['name'])})} onPress={() => setExpanded(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])}><Text style={{color: colors.text}}>{expanded.includes(id) ? '▼' : '▶'}</Text></Pressable> : null}
           <Pressable style={styles.flex} onPress={() => onChoose(id)}><Text numberOfLines={wrap ? undefined : 1} style={[styles.name, {color: colors.text}]}>{pickString(folder, ['name'])}</Text></Pressable>
         </View>
         {expanded.includes(id) && children.length ? <LibraryFolderTree tree={children} sort={sort} ascending={ascending} collapsed={collapsed} wrap={wrap} onChoose={onChoose} nested /> : null}
@@ -36,4 +36,4 @@ export function LibraryFolderTree({ tree, sort, ascending, collapsed, wrap, onCh
     })}
   </View>;
 }
-const styles = StyleSheet.create({ indent: {paddingLeft: spacing.lg}, row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm}, name: {paddingVertical: spacing.sm}, flex: {flex: 1} });
+const styles = StyleSheet.create({ indent: {paddingLeft: spacing.lg}, row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm}, name: {paddingVertical: spacing.sm}, flex: {flex: 1}, expand: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' } });

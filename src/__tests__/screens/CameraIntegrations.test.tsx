@@ -51,6 +51,7 @@ jest.mock('@/components/common/AppUI', () => {
   const { View: MockView, Text: MockText, TextInput: MockTextInput, Pressable: MockPressable } = require('react-native');
   return {
     SectionCard: ({ title, children }: { title?: string; children: React.ReactNode }) => <MockView><MockText>{title}</MockText>{children}</MockView>,
+    Chip: ({ label, selected, disabled, onPress }: { label: string; selected?: boolean; disabled?: boolean; onPress: () => void }) => <MockPressable disabled={disabled} accessibilityRole="button" accessibilityState={{ selected, disabled }} onPress={onPress}><MockText>{label}</MockText></MockPressable>,
     TextField: ({ label, ...props }: { label: string }) => <MockTextInput accessibilityLabel={label} {...props} />,
     PrimaryButton: ({ label, disabled, onPress }: { label: string; disabled?: boolean; onPress: () => void }) => <MockPressable disabled={disabled} accessibilityRole="button" onPress={onPress}><MockText>{label}</MockText></MockPressable>,
   };
@@ -58,13 +59,15 @@ jest.mock('@/components/common/AppUI', () => {
 
 jest.mock('react-native', () => {
   const actual = jest.requireActual('react-native');
-  const MockFlatList = ({ data, renderItem, onViewableItemsChanged }: {
+  const MockFlatList = ({ data, renderItem, onViewableItemsChanged, ListHeaderComponent, ListEmptyComponent }: {
       data: { id: number }[];
       renderItem: (args: { item: { id: number } }) => React.ReactNode;
       onViewableItemsChanged: typeof mockViewable;
+      ListHeaderComponent?: React.ReactNode;
+      ListEmptyComponent?: React.ReactNode;
     }) => {
       mockViewable = onViewableItemsChanged;
-      return <actual.View>{data.map(item => <actual.View key={item.id}>{renderItem({ item })}</actual.View>)}</actual.View>;
+      return <actual.View>{ListHeaderComponent}{data.length ? data.map(item => <actual.View key={item.id}>{renderItem({ item })}</actual.View>) : ListEmptyComponent}</actual.View>;
     };
   return new Proxy(actual, { get: (target, key) => key === 'FlatList' ? MockFlatList : target[key] });
 });
@@ -140,6 +143,11 @@ it('separates personal/admin review, shows owner/scope and confirms revoke', asy
 
 it('unmounts unused overlay preview when toggled off and in background', async () => {
   const result = await render(<CameraIntegrationsScreen />, { wrapper: Wrapper });
+  await waitFor(() => expect(result.getByRole('button', { name: 'Select printer', disabled: false })).toBeTruthy());
+  expect(result.queryByText('Preview overlay')).toBeNull();
+  await fireEvent.press(result.getByRole('button', { name: 'Select printer' }));
+  await fireEvent.press(result.getByRole('button', { name: 'Seven' }));
+  await waitFor(() => expect(result.getByText('Preview overlay')).toBeTruthy());
   await fireEvent.press(result.getByText('Preview overlay'));
   expect(result.getByText('Running overlay preview')).toBeTruthy();
   await fireEvent.press(result.getByText('Stop preview'));
@@ -147,6 +155,27 @@ it('unmounts unused overlay preview when toggled off and in background', async (
   await fireEvent.press(result.getByText('Preview overlay'));
   await act(async () => mockActiveHandler?.('background'));
   expect(result.queryByText('Running overlay preview')).toBeNull();
+});
+
+it('does not offer printer-specific overlay actions while printer discovery fails', async () => {
+  jest.mocked(printersApi.getPrinters).mockRejectedValue(new Error('Printer list unavailable'));
+  const result = await render(<CameraIntegrationsScreen />, { wrapper: Wrapper });
+  await waitFor(() => expect(result.getByText('Retry')).toBeTruthy());
+  expect(result.queryByText('Preview overlay')).toBeNull();
+  expect(result.queryByText('Open overlay URL')).toBeNull();
+  expect(result.queryByText('Create camera token')).toBeNull();
+});
+
+it('allows clearing and replacing the snapshot interval without clamping intermediate text', async () => {
+  const result = await render(<CameraWallScreen />, { wrapper: Wrapper });
+  await waitFor(() => expect(result.getByText('Seven')).toBeTruthy());
+  const label = 'Snapshot interval (2–60 seconds)';
+  await fireEvent.changeText(result.getByLabelText(label), '');
+  expect(result.getByLabelText(label).props.value).toBe('');
+  await fireEvent.changeText(result.getByLabelText(label), '1');
+  expect(result.getByLabelText(label).props.value).toBe('1');
+  await fireEvent.changeText(result.getByLabelText(label), '15');
+  expect(result.getByLabelText(label).props.value).toBe('15');
 });
 
 it('bounds live tiles to visible online printers, falls back to snapshots and pauses on background', async () => {

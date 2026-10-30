@@ -35,6 +35,10 @@ export default function CameraWallScreen() {
   const server = useServerStore(state => state.serverUrl);
   const key = `camera-wall:${server ?? ''}`;
   const [settings, setSettings] = useState(defaults);
+  const [capInput, setCapInput] = useState(String(defaults.maxLive));
+  const [intervalInput, setIntervalInput] = useState(String(defaults.interval));
+  useEffect(() => setCapInput(String(settings.maxLive)), [settings.maxLive]);
+  useEffect(() => setIntervalInput(String(settings.interval)), [settings.interval]);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [visible, setVisible] = useState<number[]>([]);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
@@ -81,17 +85,21 @@ export default function CameraWallScreen() {
   }).current;
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.controls}>
-        <TextField label={t('camera.liveCap', { defaultValue: 'Maximum live streams (0–16)' })} value={String(settings.maxLive)} keyboardType="number-pad" onChangeText={value => {
-          if (/^\d+$/.test(value)) change({ maxLive: Math.min(16, Math.max(0, Number(value))) });
+      <FlatList
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+        ListHeaderComponent={<View style={styles.controls}>
+        <TextField label={t('camera.liveCap', { defaultValue: 'Maximum live streams (0–16)' })} value={capInput} keyboardType="number-pad" onBlur={() => setCapInput(String(settings.maxLive))} onChangeText={value => {
+          setCapInput(value);
+          if (/^\d+$/.test(value) && Number(value) <= 16) change({ maxLive: Number(value) });
         }} />
-        <TextField label={t('camera.snapshotInterval', { defaultValue: 'Snapshot interval (2–60 seconds)' })} value={String(settings.interval)} keyboardType="number-pad" onChangeText={value => {
-          if (/^\d+$/.test(value)) change({ interval: Math.min(60, Math.max(2, Number(value))) });
+        <TextField label={t('camera.snapshotInterval', { defaultValue: 'Snapshot interval (2–60 seconds)' })} value={intervalInput} keyboardType="number-pad" onBlur={() => setIntervalInput(String(settings.interval))} onChangeText={value => {
+          setIntervalInput(value);
+          if (/^\d+$/.test(value) && Number(value) >= 2 && Number(value) <= 60) change({ interval: Number(value) });
         }} />
         <CameraChoices optionLabel={option => translateNative(String(option))} label={t('camera.statusOverlay', { defaultValue: 'Status overlay' })} options={['off', 'compact', 'full']} value={settings.overlay} onChange={overlay => change({ overlay })} />
         {printers.isError ? <PrimaryButton label={t('common.retry', { defaultValue: 'Retry' })} onPress={() => void printers.refetch()} /> : null}
-      </View>
-      <FlatList
+      </View>}
         data={printers.data ?? []}
         keyExtractor={printer => String(printer.id)}
         onViewableItemsChanged={viewability}
@@ -99,6 +107,7 @@ export default function CameraWallScreen() {
         extraData={[active, settings, visible, statuses.map(status => status.dataUpdatedAt).join(',')]}
         renderItem={({ item: printer }) => {
           const status = byId.get(printer.id);
+          const query = statuses[(printers.data ?? []).findIndex(item => item.id === printer.id)];
           const running = active && visibleSet.has(printer.id) && Boolean(status?.connected);
           return <Pressable accessibilityRole="button" accessibilityLabel={t('camera.openPrinter', { defaultValue: 'Open {{printer}} camera', printer: printer.name })} onPress={() => navigation.navigate('Camera', { id: printer.id })} style={[styles.tile, { borderColor: colors.border }]}>
             <Text style={[styles.name, { color: colors.text }]}>{printer.name}</Text>
@@ -106,13 +115,13 @@ export default function CameraWallScreen() {
               {running ? (live.has(printer.id)
                 ? <ScopedCameraStream key={`${printer.id}:${server}`} printerId={printer.id} rotation={printer.camera_rotation} />
                 : <CameraSnapshot printerId={printer.id} rotation={printer.camera_rotation} active={running} intervalSec={settings.interval} />)
-                : <CameraMessage>{status?.connected ? t('camera.paused', { defaultValue: 'Camera paused' }) : t('camera.offline', { defaultValue: 'Printer offline' })}</CameraMessage>}
+                : <CameraMessage>{query?.isLoading ? t('common.loading') : query?.isError ? t('common.error') : status?.connected ? t('camera.paused', { defaultValue: 'Camera paused' }) : t('camera.offline', { defaultValue: 'Printer offline' })}</CameraMessage>}
             </View>
             {settings.overlay !== 'off' ? <CameraMessage>{status?.state ?? '—'} · {Math.round(status?.progress ?? 0)}%</CameraMessage> : null}
             {settings.overlay === 'full' ? <CameraMessage>{status?.subtask_name ?? status?.gcode_file ?? '—'}{'\n'}{t('camera.wallDetails', { defaultValue: 'Layer {{layer}}/{{total}} · Remaining {{remaining}} min', layer: status?.layer_num ?? '—', total: status?.total_layers ?? '—', remaining: status?.remaining_time ?? '—' })}</CameraMessage> : null}
           </Pressable>;
         }}
-        ListEmptyComponent={<CameraMessage>{printers.isLoading ? t('camera.loadingPrinters', { defaultValue: 'Loading printers…' }) : t('camera.noPrinters', { defaultValue: 'No printers' })}</CameraMessage>}
+        ListEmptyComponent={<CameraMessage>{printers.isLoading ? t('camera.loadingPrinters', { defaultValue: 'Loading printers…' }) : printers.isError ? t('common.error') : t('camera.noPrinters')}</CameraMessage>}
       />
     </View>
   );

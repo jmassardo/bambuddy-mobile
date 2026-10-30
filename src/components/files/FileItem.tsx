@@ -193,6 +193,9 @@ export function FileItem({
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={220}
+      accessibilityRole={showSelection ? 'checkbox' : 'button'}
+      accessibilityLabel={name}
+      accessibilityState={showSelection ? { checked: selected } : undefined}
       style={({ pressed }) => [
         styles.card,
         isGrid ? styles.gridCard : styles.listCard,
@@ -206,6 +209,10 @@ export function FileItem({
       {showSelection ? (
         <Pressable
           onPress={onToggleSelect}
+          accessibilityRole="checkbox"
+          accessibilityLabel={name}
+          accessibilityState={{ checked: selected }}
+          hitSlop={8}
           style={[
             styles.selectBadge,
             {

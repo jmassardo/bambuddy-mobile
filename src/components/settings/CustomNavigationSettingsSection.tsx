@@ -1,6 +1,6 @@
 import { translateNative, useNativeLocale } from '@/i18n';
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 import { EmptyState } from '@/components/common/StateScreens';
 import { PrimaryButton, SectionCard, StatusBadge } from '@/components/common/AppUI';
 import { settingsStyles } from './shared';
@@ -25,22 +25,18 @@ export function CustomNavigationSettingsSection({
   }, [syncItems]);
 
   const customItems = useCustomNavStore(state => state.items);
-  const addItem = useCustomNavStore(state => state.addItem);
   const removeItem = useCustomNavStore(state => state.removeItem);
   const moveItem = useCustomNavStore(state => state.moveItem);
 
   const handleAdd = () => {
-    addItem({
-      name: '',
-      url: '',
-      icon: 'link',
-      open_in_new_tab: true,
-      sort_order: 0,
-    });
+    controller.actions.openCustomNavModal();
   };
 
   const handleDelete = (id: string) => {
-    removeItem(id);
+    Alert.alert(translateNative('common.delete'), customItems.find(item => item.id === id)?.name, [
+      { text: translateNative('common.cancel'), style: 'cancel' },
+      { text: translateNative('common.delete'), style: 'destructive', onPress: () => removeItem(id) },
+    ]);
   };
 
   return (

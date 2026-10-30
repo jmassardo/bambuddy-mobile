@@ -1,11 +1,11 @@
 import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
-import { SectionCard, TextField } from '@/components/common/AppUI';
+import { SectionCard } from '@/components/common/AppUI';
 import { SwitchRow, stringifyNumberField } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
 import { PrintDefaultsSettings } from './PrintDefaultsSettings';
 import { QueueWorkflowSettings } from './QueueWorkflowSettings';
-import { WorkflowNumberField } from './WorkflowFields';
+import { NumericSettingsField, WorkflowNumberField } from './WorkflowFields';
 
 import { SlicerSetupSection, type SlicerSetupValues } from '@/components/slicing/SlicerSetupSection';
 
@@ -31,6 +31,7 @@ export function QueueSettingsSection({
       >
         <SwitchRow
           label={translateNative('native.0aaee7b37ab2af58')}
+          disabled={!controller.permissions.canUpdateSettings}
           value={Boolean(draft.queue_shortest_first)}
           onValueChange={value =>
             setDraft(current => ({ ...current, queue_shortest_first: value }))
@@ -38,6 +39,7 @@ export function QueueSettingsSection({
         />
         <SwitchRow
           label={translateNative('native.8cf7ed110a50476d')}
+          disabled={!controller.permissions.canUpdateSettings}
           value={Boolean(draft.require_plate_clear)}
           onValueChange={value =>
             setDraft(current => ({ ...current, require_plate_clear: value }))
@@ -45,6 +47,7 @@ export function QueueSettingsSection({
         />
         <SwitchRow
           label={translateNative('native.7aebf6dd7c56a9c9')}
+          disabled={!controller.permissions.canUpdateSettings}
           value={Boolean(draft.preheat_enabled)}
           onValueChange={value =>
             setDraft(current => ({ ...current, preheat_enabled: value }))
@@ -57,6 +60,7 @@ export function QueueSettingsSection({
           value={Number(draft.queue_max_concurrent_uploads ?? 4)}
           min={1}
           max={16}
+          disabled={!controller.permissions.canUpdateSettings}
           onChange={value =>
             setDraft(current => ({
               ...current,
@@ -64,24 +68,26 @@ export function QueueSettingsSection({
             }))
           }
         />
-        <TextField
+        <NumericSettingsField
           label={translateNative('native.48f543a445d7ea56')}
+          editable={controller.permissions.canUpdateSettings}
           value={stringifyNumberField(draft.stagger_group_size, '1')}
-          onChangeText={value =>
+          onChangeNumber={value =>
             setDraft(current => ({
               ...current,
-              stagger_group_size: Number(value) || 1,
+              stagger_group_size: value,
             }))
           }
           keyboardType="number-pad"
         />
-        <TextField
+        <NumericSettingsField
           label={translateNative('native.5b26a21eb6e7ede3')}
+          editable={controller.permissions.canUpdateSettings}
           value={stringifyNumberField(draft.stagger_interval_minutes, '0')}
-          onChangeText={value =>
+          onChangeNumber={value =>
             setDraft(current => ({
               ...current,
-              stagger_interval_minutes: Number(value) || 0,
+              stagger_interval_minutes: value,
             }))
           }
           keyboardType="number-pad"
@@ -93,6 +99,7 @@ export function QueueSettingsSection({
           value={Number(draft.preheat_max_wait_seconds ?? 900)}
           min={60}
           max={3600}
+          disabled={!controller.permissions.canUpdateSettings}
           onChange={value =>
             setDraft(current => ({
               ...current,
@@ -107,17 +114,19 @@ export function QueueSettingsSection({
           value={Number(draft.preheat_soak_seconds ?? 300)}
           min={0}
           max={1800}
+          disabled={!controller.permissions.canUpdateSettings}
           onChange={value =>
             setDraft(current => ({ ...current, preheat_soak_seconds: value }))
           }
         />
-        <TextField
+        <NumericSettingsField
           label={translateNative('native.659bf3415dc60537')}
+          editable={controller.permissions.canUpdateSettings}
           value={stringifyNumberField(draft.pipeline_max_copies, '1')}
-          onChangeText={value =>
+          onChangeNumber={value =>
             setDraft(current => ({
               ...current,
-              pipeline_max_copies: Number(value) || 1,
+              pipeline_max_copies: value,
             }))
           }
           keyboardType="number-pad"

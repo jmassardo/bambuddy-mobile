@@ -3,11 +3,13 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Ellipsis } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,7 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 
 import { useTheme } from '@/theme';
-import { spacing } from '@/theme/tokens';
+import { borderRadius, spacing } from '@/theme/tokens';
 import {
   Chip,
   KeyValueRow,
@@ -149,6 +151,7 @@ export default function PrintLogScreen() {
   const [fields, setFields] = useState<Field[]>([...FIELD_KEYS]);
   const [draftFields, setDraftFields] = useState<Field[]>([...FIELD_KEYS]);
   const [fieldDialog, setFieldDialog] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [editing, setEditing] = useState<PrintLogEntry | null>(null);
   const [editStatus, setEditStatus] = useState('completed');
   const [editReason, setEditReason] = useState('');
@@ -320,12 +323,25 @@ export default function PrintLogScreen() {
   const canDelete = (entry: PrintLogEntry) =>
     hasPermission('archives:delete_all') ||
     (entry.created_by_id === user?.id && hasPermission('archives:delete_own'));
+  const hasActiveFilters = printerId !== undefined || Boolean(username || status || from || to) ||
+    sortBy !== 'date' || sortDir !== 'desc' || pageSize !== 50;
+  const filterSummary = [
+    printerId === undefined
+      ? t('archives.allPrinters', { defaultValue: 'All printers' })
+      : printers.data?.find(printer => printer.id === printerId)?.name ?? `#${printerId}`,
+    username ? `${FIELD_LABELS.user}: ${username}` : null,
+    status ? `${FIELD_LABELS.status}: ${status}` : null,
+    from || to ? `${from || '—'} – ${to || '—'}` : null,
+    `${t('archives.sortBy', { defaultValue: 'Sort by' })}: ${FIELD_LABELS[sortBy]} ${sortDir === 'asc' ? '↑' : '↓'}`,
+    t('archives.runsPerPage', { count: pageSize }),
+  ].filter(Boolean).join(' · ');
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
         data={query.data?.items ?? []}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         refreshing={query.isRefetching}
         onRefresh={() => void query.refetch()}
         ListHeaderComponent={
@@ -333,13 +349,15 @@ export default function PrintLogScreen() {
             <SectionCard
               title={
                 archiveId == null
-                  ? t('archives.printLog', { defaultValue: 'Print log' })
+                  ? undefined
                   : t('archives.archivePrintLog', {
                       defaultValue: 'Runs for archive #{{id}}',
                       id: archiveId,
                     })
               }
             >
+              <View style={styles.toolbar}>
+              <View style={styles.toolbarSearch}>
               <SearchBar
                 value={search}
                 onChangeText={setSearch}
@@ -347,6 +365,23 @@ export default function PrintLogScreen() {
                   defaultValue: 'Search print names',
                 })}
               />
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('common.filters')}
+                accessibilityState={{ expanded: showFilters, selected: hasActiveFilters }}
+                onPress={() => setShowFilters(true)}
+                style={[styles.toolsButton, { backgroundColor: hasActiveFilters ? colors.accentBg : colors.surfaceElevated, borderColor: colors.border }]}
+              >
+                <Ellipsis size={20} color={colors.text} />
+              </Pressable>
+              </View>
+              <Text style={{ color: colors.textSecondary }}>{filterSummary}</Text>
+              <ArchiveDialog
+                visible={showFilters}
+                title={t('common.filters')}
+                onClose={() => setShowFilters(false)}
+              >
               <ScrollView horizontal>
                 <View style={styles.row}>
                   <Chip
@@ -420,13 +455,6 @@ export default function PrintLogScreen() {
                 value={to}
                 onChangeText={setTo}
               />
-              {!dateValid ? (
-                <Text style={{ color: colors.error }}>
-                  {t('archives.invalidDates', {
-                    defaultValue: 'Enter valid dates, with From not after To.',
-                  })}
-                </Text>
-              ) : null}
               <Text style={{ color: colors.text }}>
                 {t('archives.sortBy', { defaultValue: 'Sort by' })}
               </Text>
@@ -459,19 +487,11 @@ export default function PrintLogScreen() {
                 })}
                 variant="secondary"
                 onPress={() => {
+                  setShowFilters(false);
                   setDraftFields([...fields]);
                   setFieldDialog(true);
                 }}
               />
-              <Text style={{ color: colors.textSecondary }}>
-                {t('archives.pageTotals', {
-                  defaultValue:
-                    '{{count}} matching runs · page {{page}} / {{pages}}. Exports include this page only.',
-                  count: total,
-                  page: page + 1,
-                  pages: maxPage + 1,
-                })}
-              </Text>
               <View style={styles.row}>
                 {[25, 50, 100, 250, 500].map(size => (
                   <Chip
@@ -483,28 +503,6 @@ export default function PrintLogScreen() {
                 ))}
               </View>
               <View style={styles.row}>
-                <PrimaryButton
-                  label={t('common.first', { defaultValue: 'First' })}
-                  disabled={page === 0}
-                  onPress={() => setPage(0)}
-                />
-                <PrimaryButton
-                  label={t('common.previous', { defaultValue: 'Previous' })}
-                  disabled={page === 0}
-                  onPress={() => setPage(page - 1)}
-                />
-                <PrimaryButton
-                  label={t('common.next', { defaultValue: 'Next' })}
-                  disabled={page >= maxPage}
-                  onPress={() => setPage(page + 1)}
-                />
-                <PrimaryButton
-                  label={t('common.last', { defaultValue: 'Last' })}
-                  disabled={page >= maxPage}
-                  onPress={() => setPage(maxPage)}
-                />
-              </View>
-              <View style={styles.row}>
                 {(['csv', 'json'] as const).map(format => (
                   <PrimaryButton
                     key={format}
@@ -513,7 +511,7 @@ export default function PrintLogScreen() {
                       format: format.toUpperCase(),
                     })}
                     loading={exportPage.isPending}
-                    onPress={() => exportPage.mutate(format)}
+                    onPress={() => { setShowFilters(false); exportPage.mutate(format); }}
                   />
                 ))}
               </View>
@@ -524,7 +522,8 @@ export default function PrintLogScreen() {
                   })}
                   variant="danger"
                   disabled={mutate.isPending}
-                  onPress={() =>
+                  onPress={() => {
+                    setShowFilters(false);
                     Alert.alert(
                       t('archives.clearLog', {
                         defaultValue: 'Clear entire print log?',
@@ -542,9 +541,46 @@ export default function PrintLogScreen() {
                         },
                       ],
                     )
-                  }
+                  }}
                 />
               ) : null}
+              </ArchiveDialog>
+              {!dateValid ? (
+                <Text accessibilityRole="alert" style={{ color: colors.error }}>
+                  {t('archives.invalidDates', {
+                    defaultValue: 'Enter valid dates, with From not after To.',
+                  })}
+                </Text>
+              ) : null}
+              <Text style={{ color: colors.textSecondary }}>
+                {t('archives.pageTotals', {
+                  defaultValue:
+                    '{{count}} matching runs · page {{page}} / {{pages}}. Exports include this page only.',
+                  count: total,
+                  page: page + 1,
+                  pages: maxPage + 1,
+                })}
+              </Text>
+              <View style={styles.row}>
+                {[
+                  { label: t('common.first', { defaultValue: 'First' }), icon: ChevronsLeft, target: 0, disabled: page === 0 },
+                  { label: t('common.previous', { defaultValue: 'Previous' }), icon: ChevronLeft, target: page - 1, disabled: page === 0 },
+                  { label: t('common.next', { defaultValue: 'Next' }), icon: ChevronRight, target: page + 1, disabled: page >= maxPage },
+                  { label: t('common.last', { defaultValue: 'Last' }), icon: ChevronsRight, target: maxPage, disabled: page >= maxPage },
+                ].map(action => (
+                  <Pressable
+                    key={action.label}
+                    accessibilityRole="button"
+                    accessibilityLabel={action.label}
+                    accessibilityState={{ disabled: action.disabled }}
+                    disabled={action.disabled}
+                    onPress={() => setPage(action.target)}
+                    style={[styles.toolsButton, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }, action.disabled && styles.disabled]}
+                  >
+                    <action.icon size={20} color={colors.text} />
+                  </Pressable>
+                ))}
+              </View>
             </SectionCard>
             {query.error ? (
               <ErrorState
@@ -558,7 +594,7 @@ export default function PrintLogScreen() {
           </View>
         }
         ListEmptyComponent={
-          !query.isLoading && !query.error ? (
+          dateValid && !query.isLoading && !query.error ? (
             <EmptyState
               icon="🧾"
               title={t('archives.noRuns', {
@@ -789,6 +825,17 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: spacing.md, gap: spacing.md },
   stack: { gap: spacing.md },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  toolbarSearch: { flex: 1 },
+  toolsButton: {
+    width: 48,
+    height: 48,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabled: { opacity: 0.5 },
   row: {
     flexDirection: 'row',
     flexWrap: 'wrap',

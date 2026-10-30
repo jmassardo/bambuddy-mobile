@@ -23,7 +23,7 @@ export function VirtualPrinterSettingsSection({ controller }: { controller: Sett
     <VirtualPrinterGlobalSetup canEdit={controller.permissions.canUpdateSettings} />
     <SectionCard title={translateNative('native.f2e4cf8146418886')} subtitle={translateNative('native.885f556aac1c583b')}>
       <PrimaryButton label={tr('Advanced virtual printer setup')} variant="secondary" onPress={() => navigation.navigate('VirtualPrinters')} />
-      <PrimaryButton label={translateNative('native.72f5a60c986eaf7f')} variant="secondary" onPress={() => controller.actions.openVirtualPrinterModal()} />
+      <PrimaryButton label={translateNative('native.72f5a60c986eaf7f')} disabled={!controller.permissions.canUpdateSettings} variant="secondary" onPress={() => controller.actions.openVirtualPrinterModal()} />
       {printers.length > 0 ? (
         printers.map(printer => {
           const running = pickBoolean(printer, ['status.running', 'running', 'enabled']);
@@ -41,10 +41,10 @@ export function VirtualPrinterSettingsSection({ controller }: { controller: Sett
               <VirtualPrinterAddress disabled={pickBoolean(printer, ['tailscale_disabled'])} />
               <VirtualPrinterDiagnostics id={id} />
               <View style={settingsStyles.actions}>
-                <PrimaryButton label={translateNative('common.start')} variant="secondary" onPress={() => void controller.mutations.virtualPrinterControl.mutateAsync({ id, action: 'start' })} />
-                <PrimaryButton label={translateNative('common.stop')} variant="secondary" onPress={() => void controller.mutations.virtualPrinterControl.mutateAsync({ id, action: 'stop' })} />
-                <PrimaryButton label={translateNative('common.edit')} variant="secondary" onPress={() => controller.actions.openVirtualPrinterModal(printer)} />
-                <PrimaryButton label={translateNative('common.delete')} variant="danger" onPress={() => controller.actions.setPendingDeleteVirtualPrinter(printer)} />
+                <PrimaryButton disabled={!controller.permissions.canUpdateSettings || controller.mutations.virtualPrinterControl.isPending || running} label={translateNative('common.start')} variant="secondary" onPress={() => void controller.mutations.virtualPrinterControl.mutateAsync({ id, action: 'start' })} />
+                <PrimaryButton disabled={!controller.permissions.canUpdateSettings || controller.mutations.virtualPrinterControl.isPending || !running} label={translateNative('common.stop')} variant="secondary" onPress={() => void controller.mutations.virtualPrinterControl.mutateAsync({ id, action: 'stop' })} />
+                <PrimaryButton disabled={!controller.permissions.canUpdateSettings || controller.mutations.virtualPrinterControl.isPending} label={translateNative('common.edit')} variant="secondary" onPress={() => controller.actions.openVirtualPrinterModal(printer)} />
+                <PrimaryButton disabled={!controller.permissions.canUpdateSettings || controller.mutations.virtualPrinterControl.isPending} label={translateNative('common.delete')} variant="danger" onPress={() => controller.actions.setPendingDeleteVirtualPrinter(printer)} />
               </View>
             </View>
           );
