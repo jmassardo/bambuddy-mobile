@@ -193,3 +193,25 @@ for (const language of Object.keys(authMethodRows) as Language[]) {
   const values = authMethodRows[language].split('|');
   Object.assign(nativeCatalogs[language], Object.fromEntries(authMethodKeys.map((key, index) => [key, values[index]])));
 }
+const reprintKeys = ['printing.changePrinter', 'printing.changePlates', 'printing.advancedOptions', 'printing.filamentMapping', 'printing.anyCompatiblePrinter'] as const;
+const reprintRows: Record<Language, string> = {
+  en: 'Change printer|Change plates|Advanced options|Filament mapping|Any compatible printer',
+  de: 'Drucker wechseln|Druckplatten ändern|Erweiterte Optionen|Filamentzuordnung|Beliebiger kompatibler Drucker',
+  es: 'Cambiar impresora|Cambiar placas|Opciones avanzadas|Asignación de filamento|Cualquier impresora compatible',
+  fr: 'Changer d’imprimante|Changer les plateaux|Options avancées|Affectation des filaments|N’importe quelle imprimante compatible',
+  ja: 'プリンターを変更|プレートを変更|詳細設定|フィラメント割り当て|互換性のある任意のプリンター',
+  it: 'Cambia stampante|Cambia piatti|Opzioni avanzate|Assegnazione filamenti|Qualsiasi stampante compatibile',
+  ko: '프린터 변경|플레이트 변경|고급 옵션|필라멘트 매핑|호환되는 모든 프린터',
+  nl: 'Printer wijzigen|Platen wijzigen|Geavanceerde opties|Filamenttoewijzing|Elke compatibele printer',
+  'pt-BR': 'Alterar impressora|Alterar placas|Opções avançadas|Mapeamento de filamento|Qualquer impressora compatível',
+  'zh-CN': '更换打印机|更换打印板|高级选项|耗材映射|任意兼容打印机',
+  'zh-TW': '更換印表機|更換列印板|進階選項|耗材對應|任意相容印表機',
+  sv: 'Byt skrivare|Byt plattor|Avancerade alternativ|Filamentmappning|Valfri kompatibel skrivare',
+  tr: 'Yazıcıyı değiştir|Plakaları değiştir|Gelişmiş seçenekler|Filament eşlemesi|Uyumlu herhangi bir yazıcı',
+  ru: 'Сменить принтер|Выбрать пластины|Дополнительные параметры|Сопоставление филаментов|Любой совместимый принтер',
+  uk: 'Змінити принтер|Вибрати пластини|Додаткові параметри|Зіставлення філаментів|Будь-який сумісний принтер',
+};
+for (const language of Object.keys(reprintRows) as Language[]) {
+  const values = reprintRows[language].split('|');
+  Object.assign(nativeCatalogs[language], Object.fromEntries(reprintKeys.map((key, index) => [key, values[index]])));
+}

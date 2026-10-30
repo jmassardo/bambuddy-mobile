@@ -1743,7 +1743,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "951be1637dfdb71ce951a765364a7fe2339946647a026824dd58d9485c3df830",
       "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d"
+      "fileDigest": "b54e5b5056c88eb0d8ad7f0e4f28acf07ac21aa0fd7a0dd0c764d19d096182f4"
     },
     {
       "file": "src/components/printers/PrintModal.tsx",
@@ -1759,7 +1759,7 @@
       "reason": "No existing English value; explicitly resolve before completeness can pass.",
       "id": "80d45153f4a5bf2a400be58952b0d7c446143c989051ca9c5304dab3894b1e81",
       "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d"
+      "fileDigest": "b54e5b5056c88eb0d8ad7f0e4f28acf07ac21aa0fd7a0dd0c764d19d096182f4"
     },
     {
       "file": "src/components/printers/PrintModal.tsx",
@@ -1775,7 +1775,7 @@
       "reason": "No existing English value; explicitly resolve before completeness can pass.",
       "id": "5cc302721a5c78cb4a757100bd7ceac4c75508eb78c73a89e496053a2b1a100a",
       "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d"
+      "fileDigest": "b54e5b5056c88eb0d8ad7f0e4f28acf07ac21aa0fd7a0dd0c764d19d096182f4"
     },
     {
       "file": "src/components/printers/PrintModal.tsx",
@@ -1790,7 +1790,7 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "0779022402f6a8c2cb7cbd336cffa8a633861a391e35069804501dd3598cb75c",
       "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d"
+      "fileDigest": "b54e5b5056c88eb0d8ad7f0e4f28acf07ac21aa0fd7a0dd0c764d19d096182f4"
     },
     {
       "file": "src/components/printers/PrintModal.tsx",
@@ -1805,22 +1805,22 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "e588101918faa84ec89f3e6d60244fe29d0fd7a772ccca7f6a3dd529b8bd97bf",
       "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d"
+      "fileDigest": "b54e5b5056c88eb0d8ad7f0e4f28acf07ac21aa0fd7a0dd0c764d19d096182f4"
     },
     {
       "file": "src/components/printers/PrintModal.tsx",
-      "line": 1813,
+      "line": 1993,
       "column": 20,
-      "start": 70662,
-      "end": 70914,
+      "start": 78081,
+      "end": 78446,
       "kind": "dynamic-facade-input",
       "owner": "PrintModal",
       "reserved": false,
-      "source": "tr(\n              editing\n                ? translateNative('common.save')\n                : submitted.current.size\n                ? translateNative('native.94c225f57e180a33')\n                : translateNative('native.afb963488111cb76'),\n           ",
+      "source": "tr(\n              editing\n                ? translateNative('common.save')\n                : submitted.current.size\n                ? translateNative('native.94c225f57e180a33')\n                : archiveReprint && mode === 'asap'\n                ? tra",
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
-      "id": "455cf07ee33ff66659b075dd888c64d275bc30cdc79ac129e24295884a7dc2b3",
-      "disposition": "Private source-authored caption factory in PrintModal: concrete literal/native-key callsites are inventoried; conditional authored errors use reactive descriptors. No generic prop, user-name, input-value or backend-error translation.",
-      "fileDigest": "85c41cbecb0335ea5efb9eb4b88a377d4abf4fa02e1afa9dcbdb9f949ddc985d"
+      "id": "0dac45bab5175ad43d88ccc960b82c736e90533eeb9dc26be8ad69cb4187113f",
+      "disposition": "Closed save/retry/reprint/submit captions use explicit native keys. Reprint is shown only for direct archive ASAP launches; no source names or server errors enter this caption factory.",
+      "fileDigest": "b54e5b5056c88eb0d8ad7f0e4f28acf07ac21aa0fd7a0dd0c764d19d096182f4"
     },
     {
       "file": "src/components/queue/GanttTimeline.tsx",
