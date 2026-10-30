@@ -5,11 +5,14 @@ import { localizedStatus } from '@/utils/statusLabel';
 import React, { useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
+import { useMediaToken } from '@/hooks/useStreamToken';
 import {
   Image,
   Alert,
   Linking,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,6 +20,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { projectsApi } from '@/api/projects';
@@ -49,6 +53,7 @@ function isProjectModelFile(file: ApiRecord) {
 }
 
 export default function ProjectDetailScreen() {
+  useMediaToken();
   const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'ProjectDetail'>>();
@@ -542,7 +547,7 @@ export default function ProjectDetailScreen() {
                   style={[styles.archiveCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
                 >
                   {pickString(archive, ['thumbnail_path']) ? (
-                    <Image source={{ uri: api.getArchiveThumbnail(pickNumber(archive, ['id'])) }} style={styles.archiveImage} />
+                    <Image source={{ uri: api.getArchiveThumbnail(pickNumber(archive, ['id']), typeof archive.plate_id === 'number' ? archive.plate_id : null) }} style={styles.archiveImage} />
                   ) : (
                     <View style={[styles.archiveImage, { backgroundColor: colors.surfaceHover }]} />
                   )}
@@ -557,10 +562,12 @@ export default function ProjectDetailScreen() {
         </SectionCard>
       ) : null}
 
-      <Modal visible={showBomModal} animationType="slide" transparent>
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
+      <Modal visible={showBomModal} animationType="slide" transparent onRequestClose={() => { setShowBomModal(false); setEditingBom(null); setBomForm(DEFAULT_BOM); }}>
+        <SafeAreaProvider style={styles.container}>
+        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
-            <ScrollView contentContainerStyle={styles.modalContent}>
+            <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
               <Text style={[styles.modalTitle, { color: colors.text }]}>{editingBom ? translateNative('native.9f02e72776c8ac97') : translateNative('native.b2aab92f25d15a0a')}</Text>
               <TextField label={translateNative('common.name')} value={bomForm.name} onChangeText={value => setBomForm(current => ({ ...current, name: value }))} />
               <TextField label={translateNative('native.21b371aa984e4c97')} value={bomForm.quantity} onChangeText={value => setBomForm(current => ({ ...current, quantity: value }))} keyboardType="number-pad" />
@@ -578,7 +585,9 @@ export default function ProjectDetailScreen() {
               </View>
             </ScrollView>
           </View>
-        </View>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaProvider>
       </Modal>
       <ProjectBatchPrintModal
         visible={showBatchModal}

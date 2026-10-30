@@ -223,6 +223,28 @@ function setupFirmware(canProceed = true) {
     .mockResolvedValue({ started: true, message: 'Started' });
 }
 
+it('does not claim firmware is current while info is loading, failed, or forbidden', async () => {
+  setupFirmware();
+  jest.mocked(printerFleetApi.firmware).mockImplementation(() => new Promise(() => {}));
+  const pending = await mount(<FirmwareModal printerId={7} onClose={jest.fn()} />);
+  expect(pending.queryByText('No newer firmware available')).toBeNull();
+  await pending.unmount();
+  pending.client.clear();
+
+  jest.mocked(printerFleetApi.firmware).mockRejectedValue(new Error('Firmware unavailable'));
+  const failed = await mount(<FirmwareModal printerId={7} onClose={jest.fn()} />);
+  await failed.findByText('Firmware unavailable');
+  expect(failed.queryByText('No newer firmware available')).toBeNull();
+  await failed.unmount();
+  failed.client.clear();
+
+  mockPermissions.delete('firmware:read');
+  const denied = await mount(<FirmwareModal printerId={7} onClose={jest.fn()} />);
+  expect(denied.queryByText('No newer firmware available')).toBeNull();
+  await denied.unmount();
+  denied.client.clear();
+});
+
 it('selects older firmware, checks SD prerequisites and confirms a real upload request', async () => {
   setupFirmware();
   const screen = await mount(

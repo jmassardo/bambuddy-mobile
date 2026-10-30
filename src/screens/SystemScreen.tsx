@@ -133,6 +133,8 @@ export default function SystemScreen() {
   };
   return (
     <ScrollView
+      automaticallyAdjustKeyboardInsets
+      keyboardShouldPersistTaps="handled"
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
       refreshControl={
@@ -294,6 +296,7 @@ export default function SystemScreen() {
           <SwitchRow
             label={t('system.support.debug', { defaultValue: 'Debug logging' })}
             value={debug.data?.enabled ?? false}
+            disabled={debug.isLoading || debug.isError || setDebug.isPending}
             onValueChange={enabled => setDebug.mutate(enabled)}
           />
         ) : null}

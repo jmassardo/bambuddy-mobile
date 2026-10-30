@@ -11,7 +11,10 @@ import {
   StyleSheet,
   ActivityIndicator,
   Switch,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   X,
   Search,
@@ -292,12 +295,14 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+      <SafeAreaProvider>
+      <KeyboardAvoidingView style={styles.viewport} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <View style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.borderSubtle }]}>
             <Text style={[styles.title, { color: colors.text }]}>{translateNative('native.112c324655102ccb')}</Text>
-            <Pressable onPress={onClose} style={styles.closeBtn}>
+            <Pressable onPress={onClose} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel={t('common.close')}>
               <X size={18} color={colors.textSecondary} />
             </Pressable>
           </View>
@@ -469,7 +474,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                 <ChevronRight size={16} color={colors.textTertiary} style={{ transform: [{ rotate: showModelPicker ? '90deg' : '0deg' }] }} />
               </Pressable>
               {showModelPicker && (
-                <View style={[styles.modelList, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={[styles.modelList, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
                   <Pressable onPress={() => { setModel(''); setShowModelPicker(false); }} style={styles.modelItem}>
                     <Text style={{ color: colors.textSecondary }}>{translateNative('common.none')}</Text>
                   </Pressable>
@@ -487,7 +492,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                       ))}
                     </View>
                   ))}
-                </View>
+                </ScrollView>
               )}
             </View>
 
@@ -507,6 +512,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
             <View style={styles.switchRow}>
               <Text style={[styles.switchLabel, { color: colors.text }]}>{translateNative('native.b19073c85f66bbda')}</Text>
               <Switch
+                accessibilityLabel={translateNative('native.b19073c85f66bbda')}
                 value={autoArchive}
                 onValueChange={setAutoArchive}
                 trackColor={{ false: colors.surfaceHover, true: colors.accent }}
@@ -621,12 +627,15 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
             )}
           </ScrollView>
         </View>
-      </View>
+      </SafeAreaView>
+      </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  viewport: { flex: 1 },
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -650,7 +659,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   closeBtn: {
-    padding: 4,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     padding: 16,

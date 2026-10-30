@@ -1,7 +1,7 @@
 import { useNativeLocale } from '@/i18n';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { PrimaryButton } from '@/components/common/AppUI';
+import { Chip } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 
@@ -26,7 +26,7 @@ export function CameraChoices<T extends string | number>({
     <View style={styles.group}>
       <CameraMessage>{label}</CameraMessage>
       <View style={styles.choices}>
-        {options.map(option => <PrimaryButton key={option} label={`${option === value ? '✓ ' : ''}${optionLabel(option)}`} variant="secondary" disabled={disabled} onPress={() => onChange(option)} />)}
+        {options.map(option => <Chip key={option} label={optionLabel(option)} selected={option === value} disabled={disabled} onPress={() => onChange(option)} />)}
       </View>
     </View>
   );

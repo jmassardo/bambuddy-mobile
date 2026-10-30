@@ -34,9 +34,11 @@ jest.mock('@tanstack/react-query', () => ({
 jest.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {},
   getAuthToken: () => null,
+  withStreamToken: (url: string) => `${url}?token=media-token`,
   api: { pausePrint: jest.fn(), resumePrint: jest.fn(), stopPrint: jest.fn(), deletePrinter: jest.fn(), connectPrinter: jest.fn(), refreshPrinterStatus: jest.fn() },
 }));
 jest.mock('@/api/printerFleet', () => ({ printerFleetApi: {} }));
+jest.mock('@/hooks/useStreamToken', () => ({ useMediaToken: () => ({ token: 'media-token' }) }));
 
 jest.mock('@/api/server', () => ({
   useServerStore: (selector: (state: { serverUrl: string }) => unknown) =>
@@ -133,6 +135,19 @@ describe('PrinterCard', () => {
     const { getByText } = await render(<PrinterCard printer={printer} status={status} />);
 
     expect(getByText('Printer Alpha')).toBeTruthy();
+  });
+
+  it.each([false, true])('updates the displayed readiness after clearing a FINISH printer (compact %s)', async compact => {
+    const finished = { ...status, state: 'FINISH', awaiting_plate_clear: true, stg_cur_name: 'Printing completed' };
+    const screen = await render(<PrinterCard printer={printer} status={finished} compact={compact} />);
+    expect(screen.getAllByText(compact ? 'Plate awaiting clearance' : 'Finished').length).toBeGreaterThan(0);
+    const cleared = { ...finished, awaiting_plate_clear: false };
+    await screen.rerender(<PrinterCard printer={printer} status={cleared} compact={compact} />);
+    expect(screen.getAllByText('Idle').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Finished')).toBeNull();
+    expect(screen.queryByText('Printing completed')).toBeNull();
+    await screen.rerender(<PrinterCard printer={printer} status={cleared} queueCount={1} compact={compact} />);
+    expect(screen.getAllByText('Queued').length).toBeGreaterThan(0);
   });
 
   it.each([false, true])('keeps source actions reachable while disconnected (compact %s)', async compact => {

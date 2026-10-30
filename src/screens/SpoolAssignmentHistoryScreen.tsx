@@ -6,7 +6,9 @@ import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,10 +16,12 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import {
+  FloatingActionButton,
   PrimaryButton,
   SearchBar,
   SectionCard,
@@ -250,6 +254,7 @@ export default function SpoolAssignmentHistoryScreen() {
         data={filteredHistory}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={
@@ -285,6 +290,8 @@ export default function SpoolAssignmentHistoryScreen() {
                 <Pressable
                   key={tab.key}
                   onPress={() => setFilterTab(tab.key)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: filterTab === tab.key }}
                   style={[
                     styles.tab,
                     {
@@ -316,6 +323,8 @@ export default function SpoolAssignmentHistoryScreen() {
                 ] as { key: SortMode; label: string }[]).map(mode => (
                   <Pressable
                     key={mode.key}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: sortMode === mode.key }}
                     onPress={() => setSortMode(mode.key)}
                     style={[
                       styles.sortChip,
@@ -328,7 +337,7 @@ export default function SpoolAssignmentHistoryScreen() {
                     <Text
                       style={[
                         styles.sortChipText,
-                        { color: sortMode === mode.key ? colors.accentLight : colors.textSecondary },
+                        { color: sortMode === mode.key ? colors.textInverse : colors.textSecondary },
                       ]}
                     >
                       {mode.label}
@@ -429,9 +438,11 @@ export default function SpoolAssignmentHistoryScreen() {
 
       {/* Assign Modal */}
       <Modal visible={showAssignModal} animationType="slide" transparent onRequestClose={() => setShowAssignModal(false)}>
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+        <SafeAreaProvider style={styles.container}>
+        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
-            <ScrollView contentContainerStyle={styles.modalContent}>
+            <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
               <Text style={[styles.modalTitle, { color: colors.text }]}>{translateNative('native.e05012ae768022fa')}</Text>
 
               <TextField
@@ -537,12 +548,15 @@ export default function SpoolAssignmentHistoryScreen() {
               </View>
             </ScrollView>
           </View>
-        </View>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaProvider>
       </Modal>
 
       {/* History Detail Modal */}
       <Modal visible={selectedHistory !== null} animationType="slide" transparent onRequestClose={() => setSelectedHistory(null)}>
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+        <SafeAreaProvider style={styles.container}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
             <ScrollView contentContainerStyle={styles.modalContent}>
               {selectedHistory ? (
@@ -603,12 +617,14 @@ export default function SpoolAssignmentHistoryScreen() {
               ) : null}
             </ScrollView>
           </View>
-        </View>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
 
       {/* Confirm Unassign Modal */}
       <Modal visible={pendingConfirm !== null} animationType="slide" transparent onRequestClose={() => setPendingConfirm(null)}>
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+        <SafeAreaProvider style={styles.container}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
             <ScrollView contentContainerStyle={styles.modalContent}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>{translateNative('native.e58d2ec23dc75890')}</Text>
@@ -637,7 +653,8 @@ export default function SpoolAssignmentHistoryScreen() {
               </View>
             </ScrollView>
           </View>
-        </View>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
     </View>
   );
@@ -708,16 +725,6 @@ function AssignmentHistoryCard({
           <PrimaryButton label={translateNative('native.19c4ccf07e5b405d')} variant="secondary" onPress={onUnassign} />
         ) : null}
       </View>
-    </Pressable>
-  );
-}
-
-function FloatingActionButton({ icon: _icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
-  useNativeLocale();
-  const { colors } = useTheme();
-  return (
-    <Pressable onPress={onPress} style={[styles.fab, { backgroundColor: colors.accent, shadowColor: colors.accent }]}>
-      <Text style={[styles.fabLabel, { color: colors.accentLight }]}>{label}</Text>
     </Pressable>
   );
 }

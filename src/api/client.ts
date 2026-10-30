@@ -10,6 +10,7 @@ import {
   clearAuthTokenForServer,
   DEFAULT_TIMEOUT_MS,
   getCameraStreamToken,
+  getMediaToken,
   getAuthToken,
   loadAuthToken,
   MEDIA_TOKEN_SCOPE,
@@ -48,6 +49,7 @@ export const api = {
   ...backupApi,
   ...systemApi,
   getCameraStreamToken,
+  getMediaToken,
 };
 
 export {
@@ -58,6 +60,7 @@ export {
   clearAuthTokenForServer,
   DEFAULT_TIMEOUT_MS,
   getCameraStreamToken,
+  getMediaToken,
   getAuthToken,
   loadAuthToken,
   MEDIA_TOKEN_SCOPE,

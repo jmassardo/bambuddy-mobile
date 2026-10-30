@@ -90,7 +90,7 @@ describe('ExternalCamerasSettingsSection per-printer configuration', () => {
     expect(result.getByText('Printer Seven')).toBeTruthy();
     expect(result.getByLabelText('Use external camera').props.value).toBe(true);
     expect(result.getByLabelText('Dedicated snapshot URL (optional)').props.value).toBe('');
-    for (const option of ['mjpeg', '✓ rtsp', 'snapshot', 'usb', '0', '✓ 90', '180', '270']) {
+    for (const option of ['mjpeg', 'rtsp', 'snapshot', 'usb', '0', '90', '180', '270']) {
       expect(result.getByRole('button', { name: option })).toBeTruthy();
     }
   });
@@ -140,7 +140,7 @@ describe('ExternalCamerasSettingsSection per-printer configuration', () => {
     const revisited = await renderSection();
     await waitFor(() => expect(revisited.getByLabelText('USB device path (e.g. /dev/video0)').props.value).toBe('/dev/video2'));
     expect(revisited.getByLabelText('Dedicated snapshot URL (optional)').props.value).toBe('https://camera/frame.jpg');
-    expect(revisited.getByRole('button', { name: '✓ 270' })).toBeTruthy();
+    expect(revisited.getByRole('button', { name: '270', selected: true })).toBeTruthy();
   });
 
   it('supports disabling a printer camera and clearing optional URLs with null, without deleting a camera record', async () => {
@@ -172,7 +172,7 @@ describe('ExternalCamerasSettingsSection per-printer configuration', () => {
     expect(result.getByLabelText('Use external camera').props.value).toBe(true);
     expect(result.getByLabelText('Stream URL').props.value).toBe('rtsp://old/live');
     expect(result.getByLabelText('Dedicated snapshot URL (optional)').props.value).toBe('');
-    expect(result.getByRole('button', { name: '✓ 90' })).toBeTruthy();
+    expect(result.getByRole('button', { name: '90', selected: true })).toBeTruthy();
     expect(mockRequest.mock.calls.some(([, options]) => options?.method === 'PATCH')).toBe(false);
   });
 

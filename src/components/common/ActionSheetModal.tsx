@@ -4,11 +4,13 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { X } from 'lucide-react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme';
 import { fontSize, borderRadius, spacing, fontWeight } from '@/theme/tokens';
 
@@ -39,9 +41,11 @@ export function ActionSheetModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View
+      <SafeAreaProvider style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} />
+        <SafeAreaView
+          edges={['bottom', 'left', 'right']}
+          accessibilityViewIsModal
           style={[
             styles.card,
             { backgroundColor: colors.modalBg, borderColor: colors.border },
@@ -49,7 +53,7 @@ export function ActionSheetModal({
         >
           <View style={styles.header}>
             <View style={styles.titleWrap}>
-              <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+              <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{title}</Text>
               {subtitle ? (
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                   {subtitle}
@@ -69,7 +73,7 @@ export function ActionSheetModal({
             </Pressable>
           </View>
 
-          <View style={styles.actions}>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.actions} keyboardShouldPersistTaps="handled">
             {actions.map(action => (
               <Pressable
                 key={action.label}
@@ -85,7 +89,7 @@ export function ActionSheetModal({
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
-                accessibilityState={{ disabled: action.disabled || action.loading }}
+                accessibilityState={{ disabled: action.disabled || action.loading, busy: action.loading }}
               >
                 {action.icon ? <View style={styles.rowIcon}>{action.icon}</View> : null}
                 <Text
@@ -104,9 +108,9 @@ export function ActionSheetModal({
                 ) : null}
               </Pressable>
             ))}
-          </View>
-        </View>
-      </View>
+          </ScrollView>
+        </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -117,6 +121,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   card: {
+    maxHeight: '90%',
     borderTopLeftRadius: borderRadius['2xl'],
     borderTopRightRadius: borderRadius['2xl'],
     borderWidth: 1,
@@ -142,8 +147,8 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
   },
   closeButton: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     alignItems: 'center',
@@ -152,6 +157,9 @@ const styles = StyleSheet.create({
   actions: {
     gap: spacing.sm,
     paddingBottom: spacing.sm,
+  },
+  scroll: {
+    flexShrink: 1,
   },
   row: {
     minHeight: 52,

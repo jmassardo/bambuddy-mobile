@@ -1,6 +1,6 @@
 import { nativeMessage, translateNative, useLocalizedMemo, useTranslation } from '@/i18n';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -167,6 +167,8 @@ export function useSettingsScreenController() {
   const canManageSpools = !authEnabled || hasPermission('inventory:create') || hasPermission('inventory:update');
 
   const settingsQuery = useQuery({ queryKey: useServerSettingsKey(), queryFn: api.getSettings });
+  const previousSettings = useRef<ApiRecord | undefined>(undefined);
+  const previousLdapForm = useRef<typeof ldapForm | null>(null);
   const smartPlugsQuery = useQuery({ queryKey: ['smartPlugs'], queryFn: api.getSmartPlugs });
   const providersQuery = useQuery({ queryKey: ['notificationProviders'], queryFn: api.getNotificationProviders });
   const apiKeysQuery = useQuery({ queryKey: ['apiKeys'], queryFn: api.getApiKeys, enabled: hasPermission('api_keys:read') });
@@ -261,11 +263,22 @@ export function useSettingsScreenController() {
 
   useEffect(() => {
     if (settingsQuery.data) {
-      setDraft(settingsQuery.data);
-      setNavigationOrderDraft(
-        getNavigationOrderDraft(settingsQuery.data.default_sidebar_order),
+      const previous = previousSettings.current;
+      const next = settingsQuery.data;
+      setDraft(current => {
+        if (!previous) return next;
+        const merged = { ...next };
+        Object.keys(current).forEach(key => {
+          if (current[key] !== previous[key]) merged[key] = current[key];
+        });
+        return merged;
+      });
+      setNavigationOrderDraft(current =>
+        !previous || JSON.stringify(current) === JSON.stringify(getNavigationOrderDraft(pickString(previous, ['default_sidebar_order'])))
+          ? getNavigationOrderDraft(next.default_sidebar_order)
+          : current,
       );
-      setLdapForm({
+      const nextLdapForm = {
         ldap_server_url: pickString(settingsQuery.data, ['ldap_server_url']),
         ldap_bind_dn: pickString(settingsQuery.data, ['ldap_bind_dn']),
         ldap_bind_password: '',
@@ -275,7 +288,14 @@ export function useSettingsScreenController() {
         ldap_group_mapping: pickString(settingsQuery.data, ['ldap_group_mapping']),
         ldap_auto_provision: pickBoolean(settingsQuery.data, ['ldap_auto_provision']),
         ldap_default_group: pickString(settingsQuery.data, ['ldap_default_group']),
+      };
+      const ldapBaseline = previousLdapForm.current;
+      setLdapForm(current => !ldapBaseline ? nextLdapForm : {
+        ...nextLdapForm,
+        ...Object.fromEntries(Object.entries(current).filter(([key, value]) => value !== ldapBaseline[key as keyof typeof ldapBaseline])),
       });
+      previousLdapForm.current = nextLdapForm;
+      previousSettings.current = next;
     }
   }, [settingsQuery.data]);
 
@@ -287,18 +307,21 @@ export function useSettingsScreenController() {
     }
   }, [smtpSettingsQuery.data]);
 
+  const mqttBroker = pickString(draft, ['mqtt_broker']);
+  const mqttPort = pickNumber(draft, ['mqtt_port'], 1883);
+  const mqttUsername = pickString(draft, ['mqtt_username']);
+  const mqttTopicPrefix = pickString(draft, ['mqtt_topic_prefix'], 'bambuddy');
+  const mqttUseTls = pickBoolean(draft, ['mqtt_use_tls']);
   useEffect(() => {
-    if (draft) {
-      setMqttFormState({
-        mqtt_broker: pickString(draft, ['mqtt_broker']),
-        mqtt_port: pickNumber(draft, ['mqtt_port'], 1883),
-        mqtt_username: pickString(draft, ['mqtt_username']),
-        mqtt_password: '',
-        mqtt_topic_prefix: pickString(draft, ['mqtt_topic_prefix'], 'bambuddy'),
-        mqtt_use_tls: pickBoolean(draft, ['mqtt_use_tls']),
-      });
-    }
-  }, [draft?.mqtt_broker, draft?.mqtt_port, draft?.mqtt_username, draft?.mqtt_topic_prefix, draft?.mqtt_use_tls]);
+    setMqttFormState(current => ({
+      ...current,
+      mqtt_broker: mqttBroker,
+      mqtt_port: mqttPort,
+      mqtt_username: mqttUsername,
+      mqtt_topic_prefix: mqttTopicPrefix,
+      mqtt_use_tls: mqttUseTls,
+    }));
+  }, [mqttBroker, mqttPort, mqttUsername, mqttTopicPrefix, mqttUseTls]);
 
   useEffect(() => {
     if (user?.email && !smtpTestEmail) {
@@ -989,7 +1012,25 @@ export function useSettingsScreenController() {
   });
 
   const saveCustomNavMutation = useMutation({
-    mutationFn: async () => undefined,
+    mutationFn: async () => {
+      const values = {
+        name: customNavForm.name.trim(),
+        url: customNavForm.url.trim(),
+        icon: customNavForm.icon,
+        open_in_new_tab: customNavForm.open_in_new_tab,
+        sort_order: Number(customNavForm.sort_order) || 0,
+      };
+      if (editingCustomNav) {
+        await useCustomNavStore.getState().updateItem(pickString(editingCustomNav, ['id']), values);
+      } else {
+        await useCustomNavStore.getState().addItem(values);
+      }
+    },
+    onSuccess: () => {
+      closeCustomNavModal();
+      showToast(editingCustomNav ? nativeMessage('native.4f151cac11ab950b') : nativeMessage('native.0563ba4276789195'), 'success');
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
   });
 
   const sectionSummaries = useLocalizedMemo(
@@ -1143,22 +1184,16 @@ export function useSettingsScreenController() {
       showToast(nativeMessage('native.7f83a218e693fb47'), 'error');
       return;
     }
-    if (!/^https?:\/\//i.test(customNavForm.url.trim())) {
+    let validUrl = false;
+    try {
+      const url = new URL(customNavForm.url.trim());
+      validUrl = ['http:', 'https:'].includes(url.protocol) && Boolean(url.hostname);
+    } catch {}
+    if (!validUrl) {
       showToast(nativeMessage('native.e7b44e941f0d51db'), 'error');
       return;
     }
-    useCustomNavStore.getState().updateItem(
-      pickString(editingCustomNav, ['id']),
-      {
-        name: customNavForm.name.trim(),
-        url: customNavForm.url.trim(),
-        icon: customNavForm.icon,
-        open_in_new_tab: customNavForm.open_in_new_tab,
-        sort_order: Number(customNavForm.sort_order) || 0,
-      },
-    );
-    closeCustomNavModal();
-    showToast(editingCustomNav ? nativeMessage('native.4f151cac11ab950b') : nativeMessage('native.0563ba4276789195'), 'success');
+    return saveCustomNavMutation.mutateAsync().catch(() => undefined);
   }
 
   function closeExternalCameraModal() {

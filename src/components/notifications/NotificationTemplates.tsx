@@ -1,7 +1,7 @@
 import { translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notificationsApi } from '@/api/notifications';
 import { settingsApi } from '@/api/settings';
@@ -113,7 +113,10 @@ export function NotificationTemplateEditor({ template }: { template: Notificatio
         <Button title={t('common.save')} disabled={update.isPending || reset.isPending} loading={update.isPending}
           onPress={() => { setError(validation); if (!validation) update.mutate(); }} />
         <Button title={t('common.reset', { defaultValue: 'Reset to default' })} variant="secondary"
-          disabled={update.isPending || reset.isPending} loading={reset.isPending} onPress={() => reset.mutate()} />
+          disabled={update.isPending || reset.isPending} loading={reset.isPending} onPress={() => Alert.alert(t('common.reset', { defaultValue: 'Reset to default' }), template.name, [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('common.reset', { defaultValue: 'Reset to default' }), style: 'destructive', onPress: () => reset.mutate() },
+          ])} />
       </View> : null}
     </View>
   );

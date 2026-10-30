@@ -14,7 +14,6 @@ import { useNavigationItems } from './useNavigationItems';
 import { BUILT_IN_NAV_ITEMS, canAccessNavigationItem } from './navigationConfig';
 
 import MainNavigator from './MainNavigator';
-import ServerSetupScreen from '@/screens/ServerSetupScreen';
 import LoginScreen from '@/screens/LoginScreen';
 import PrinterDetailScreen from '@/screens/PrinterDetailScreen';
 import ArchiveDetailScreen from '@/screens/ArchiveDetailScreen';
@@ -53,7 +52,7 @@ import { PipelineRunsScreen } from '@/screens/PipelineRunsScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator({ entryReady = true }: { entryReady?: boolean }) {
-  const { user, authEnabled, loading, requiresSetup, hasPermission } = useAuth();
+  const { user, authEnabled, loading, requiresSetup, serverConnected, hasPermission } = useAuth();
   const serverUrl = useServerStore((s) => s.serverUrl);
   const serverLoading = useServerStore((s) => s.loading);
   const theme = useTheme();
@@ -80,21 +79,8 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
   // Still hydrating server URL from storage
   if (serverLoading) return null;
 
-  // No server configured yet
-  if (!serverUrl) {
-    return (
-      <Stack.Navigator screenOptions={{ ...screenOptions, headerShown: false }}>
-        <Stack.Screen name="ServerSetup" component={ServerSetupScreen} />
-        <Stack.Screen name="Scanner" component={ScannerScreen} />
-      </Stack.Navigator>
-    );
-  }
-
-  // Loading auth state
-  if (loading) return null;
-
   // Server requires first-time setup
-  if (requiresSetup) {
+  if (serverUrl && !loading && requiresSetup) {
     return (
       <Stack.Navigator screenOptions={{ ...screenOptions, headerShown: false }}>
         <Stack.Screen name="Setup" component={SetupScreen} />
@@ -102,15 +88,18 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
     );
   }
 
-  // Auth enabled but not logged in
-  if (authEnabled && !user) {
+  // Keep the combined connection/sign-in form mounted while checking a server.
+  if (!serverUrl || (!user && (loading || authEnabled || !serverConnected))) {
     return (
       <Stack.Navigator screenOptions={{ ...screenOptions, headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="ServerSetup" component={LoginScreen} />
+        <Stack.Screen name="Scanner" component={ScannerScreen} />
       </Stack.Navigator>
     );
   }
 
+  if (loading) return null;
   if (!entryReady) return null;
 
   // Authenticated (or auth disabled) — show main app

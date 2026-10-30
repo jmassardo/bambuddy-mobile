@@ -52,8 +52,17 @@ export function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
 }
 
-export function getStatusLabel(status?: PrinterStatus) {
+export function getStatusLabel(status?: PrinterStatus, queueCount = 0) {
   if (!status?.connected) return translateNative('native.460c8b942025eaac');
+  if (status.state === 'FAILED') return translateNative('native.4951b5090ada997d');
+  if (status.state !== 'RUNNING' && status.state !== 'PAUSE') {
+    if (status.awaiting_plate_clear ?? (status.state === 'FINISH')) return translateNative('native.90a4f4400cd3eda4');
+    if (status.state === 'FINISH' || status.state === 'IDLE') {
+      return queueCount > 0
+        ? translateNative('native.e3f9fafdd8daaba0')
+        : translateNative('native.a3b81f922d798281');
+    }
+  }
   if (status.stg_cur_name) return status.stg_cur_name;
 
   switch (status.state) {
@@ -61,12 +70,6 @@ export function getStatusLabel(status?: PrinterStatus) {
       return translateNative('native.58b5ceab5adaa853');
     case 'PAUSE':
       return translateNative('native.2e8d3baadb9cc3fd');
-    case 'FINISH':
-      return translateNative('native.90a4f4400cd3eda4');
-    case 'FAILED':
-      return translateNative('native.4951b5090ada997d');
-    case 'IDLE':
-      return translateNative('native.a3b81f922d798281');
     default:
       return status.state
         ? status.state.charAt(0) + status.state.slice(1).toLowerCase()
@@ -85,10 +88,17 @@ export function getBadgeColor(
   status: PrinterStatus | undefined,
   colors: ThemeColors,
   hmsErrors: HMSError[],
+  queueCount = 0,
 ) {
   if (printer.is_active === false) return colors.warning;
   if (!status?.connected) return colors.statusOffline;
   if (hmsErrors.length) return getSeverityColor(hmsErrors, colors);
+  if (status.state !== 'RUNNING' && status.state !== 'PAUSE' && status.state !== 'FAILED') {
+    if (status.awaiting_plate_clear ?? (status.state === 'FINISH')) return colors.warning;
+    if (status.state === 'FINISH' || status.state === 'IDLE') {
+      return queueCount > 0 ? colors.info : colors.statusIdle;
+    }
+  }
   return statusColor(status.state ?? 'idle', colors);
 }
 

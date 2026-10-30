@@ -2,7 +2,7 @@ import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { camerasApi } from '@/api/cameras';
-import { useMediaToken } from '@/hooks/useStreamToken';
+import { useCameraToken } from '@/hooks/useStreamToken';
 import { useTheme } from '@/theme';
 
 import { PrimaryButton } from '@/components/common/AppUI';
@@ -14,7 +14,7 @@ export function CameraSnapshot({ printerId, active = true, refreshSeed = 0, inte
   useNativeLocale();
   const { t } = useTranslation();
   const { colors } = useTheme();
-  const { token, isReady } = useMediaToken();
+  const { token, isReady } = useCameraToken(active);
   const [seed, setSeed] = useState(Date.now);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -41,7 +41,7 @@ export function CameraSnapshot({ printerId, active = true, refreshSeed = 0, inte
       const { width, height } = event.nativeEvent.layout;
       setSize(current => current.width === width && current.height === height ? current : { width, height });
     }}>
-      {isReady ? <Image key={`${printerId}:${seed}:${token}`} accessibilityLabel={t('camera.snapshotImage', { defaultValue: 'Camera snapshot' })} style={[styles.image, swapAxes ? { width: size.height, height: size.width, left: (size.width - size.height) / 2, top: (size.height - size.width) / 2 } : null, { transform: [{ rotate: `${degrees}deg` }] }]} resizeMode={resizeMode} source={{ uri: camerasApi.snapshot(printerId, seed) }} onLoad={() => { setLoading(false); setFailed(false); }} onError={() => { setLoading(false); setFailed(true); }} /> : null}
+      {isReady ? <Image key={`${printerId}:${seed}:${token}`} accessibilityLabel={t('camera.snapshotImage', { defaultValue: 'Camera snapshot' })} style={[styles.image, swapAxes ? { width: size.height, height: size.width, left: (size.width - size.height) / 2, top: (size.height - size.width) / 2 } : null, { transform: [{ rotate: `${degrees}deg` }] }]} resizeMode={resizeMode} source={{ uri: camerasApi.snapshot(printerId, seed, token) }} onLoad={() => { setLoading(false); setFailed(false); }} onError={() => { setLoading(false); setFailed(true); }} /> : null}
       {(loading || !isReady) && !failed ? <ActivityIndicator accessibilityLabel={t('camera.loadingSnapshot', { defaultValue: 'Loading snapshot' })} style={styles.loading} color={colors.accent} /> : null}
       {failed ? <View style={styles.error}>
         <CameraMessage>{t('camera.snapshotFailed', { defaultValue: 'Snapshot unavailable. Retry without starting a live stream.' })}</CameraMessage>

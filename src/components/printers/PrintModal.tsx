@@ -5,12 +5,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   pick,
   types,
@@ -240,6 +243,10 @@ export function PrintModal(props: PrintModalProps) {
   const [search, setSearch] = useState('');
   const [folder, setFolder] = useState<number | undefined>();
   const [browse, setBrowse] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [platePickerOpen, setPlatePickerOpen] = useState(false);
+  const [printerPickerOpen, setPrinterPickerOpen] = useState(false);
+  const [mappingOpen, setMappingOpen] = useState(false);
   const [stagger, setStagger] = useState(false);
   const [groupSize, setGroupSize] = useState('1');
   const [interval, setInterval] = useState('5');
@@ -252,6 +259,11 @@ export function PrintModal(props: PrintModalProps) {
   const submitted = useRef(new Set<string>());
   const batchId = useRef<number | null>(null);
   const initialized = useRef(false);
+  const initializingSource = useRef(false);
+  const initializedPlateSource = useRef<string | null>(null);
+  const initializedArchivePrinter = useRef(false);
+  const archiveReprint = source?.kind === 'archive' && !queueItem;
+  const detailed = !archiveReprint || advancedOpen;
   const settings = useQuery({
     queryKey: useServerSettingsKey(),
     queryFn: api.getSettings,
@@ -291,7 +303,13 @@ export function PrintModal(props: PrintModalProps) {
         ...(queueItem?.plate_id === null ? [null] : []),
         ...plates.map(p => p.index),
       ]
-    : [queueItem?.plate_id ?? null];
+    : [
+        queueItem?.plate_id ??
+          (source?.kind === 'archive' &&
+          typeof metadata.data?.plate_id === 'number'
+            ? metadata.data.plate_id
+            : null),
+      ];
   const chosenPlates = plateIds.filter(id => (quantities[String(id)] ?? 0) > 0);
   const requirements = useQueries({
     queries: chosenPlates.map(id => ({
@@ -353,6 +371,15 @@ export function PrintModal(props: PrintModalProps) {
   const eligible = (printers.data ?? []).filter(
     p => p.is_active !== false && compatibleModels(slicedModel, p.model),
   );
+  const automaticModel =
+    targetMode === 'model' && model
+      ? model
+      : eligible.find(printer => printer.model === slicedModel)?.model ??
+        eligible.find(printer => printer.id === metadata.data?.printer_id)
+          ?.model ??
+        eligible[0]?.model ??
+        '';
+  const automaticPrinterLabel = `${t('printing.anyCompatiblePrinter')}${automaticModel ? ` (${automaticModel})` : ''}`;
   const canEdit = editing
     ? hasPermission('queue:update_all') ||
       (queueItem?.created_by_id === user?.id &&
@@ -368,6 +395,13 @@ export function PrintModal(props: PrintModalProps) {
     const archiveId = queueItem?.archive_id ?? props.initialArchiveId;
     const fileId = queueItem?.library_file_id ?? props.initialFileId;
     setBrowse(!archiveId && !fileId && !props.variantFiles?.length);
+    setAdvancedOpen(false);
+    setPlatePickerOpen(false);
+    setPrinterPickerOpen(false);
+    setMappingOpen(false);
+    initializedPlateSource.current = null;
+    initializedArchivePrinter.current = false;
+    initializingSource.current = true;
     setSource(
       archiveId
         ? { kind: 'archive', id: archiveId }
@@ -497,13 +531,61 @@ export function PrintModal(props: PrintModalProps) {
     }));
   }, [settings.data, visible, queueItem]);
   useEffect(() => {
-    if (!visible || !source || platesQuery.isPending) return;
+    // Wait for the opening reset to replace any previously cached source.
+    initializingSource.current = false;
+  }, [source]);
+  useEffect(() => {
+    if (initializingSource.current || !visible || !source || platesQuery.isPending || platesQuery.isError)
+      return;
+    if (source.kind === 'archive' && (metadata.isPending || metadata.isError))
+      return;
+    const sourceKey = `${source.kind}:${source.id}`;
+    if (initializedPlateSource.current === sourceKey) return;
+    initializedPlateSource.current = sourceKey;
+    const recordedPlate =
+      source.kind === 'archive' && typeof metadata.data?.plate_id === 'number'
+        ? metadata.data.plate_id
+        : plates[0]?.index ?? null;
     setQuantities(current =>
       Object.keys(current).length
         ? current
-        : { [String(plates[0]?.index ?? null)]: 1 },
+        : { [String(recordedPlate)]: 1 },
     );
-  }, [visible, source, platesQuery.isPending, plates]);
+    if (
+      recordedPlate != null &&
+      plates.length &&
+      !plates.some(plate => plate.index === recordedPlate)
+    ) {
+      setPlatePickerOpen(true);
+    }
+  }, [
+    visible,
+    source,
+    platesQuery.isPending,
+    platesQuery.isError,
+    plates,
+    metadata.data,
+    metadata.isPending,
+    metadata.isError,
+  ]);
+  useEffect(() => {
+    if (
+      initializingSource.current ||
+      !visible ||
+      !archiveReprint ||
+      !metadata.data ||
+      !printers.data ||
+      initializedArchivePrinter.current
+    ) return;
+    initializedArchivePrinter.current = true;
+    const printerId = metadata.data.printer_id;
+    if (
+      typeof printerId === 'number' &&
+      eligible.some(printer => printer.id === printerId)
+    ) {
+      setPrinterIds(current => (current.length ? current : [printerId]));
+    }
+  }, [visible, archiveReprint, metadata.data, printers.data, eligible]);
   useEffect(() => {
     if (costCenterId == null && allowedCenters.length)
       setCostCenterId(
@@ -1014,15 +1096,22 @@ export function PrintModal(props: PrintModalProps) {
         void close();
       }}
     >
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaProvider>
+      <SafeAreaView
+        edges={{ top: 'maximum', bottom: 'maximum' }}
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <LaunchText>
           {editing
             ? translateNative('native.5f93040bef66c750')
             : requeue
             ? translateNative('native.85ed8d3e341d9bea')
+            : archiveReprint
+            ? translateNative('native.d67377e1385602fe')
             : translateNative('native.18beb94dfed4ef1c')}
         </LaunchText>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={false}>
           {error ? <LaunchText>{error}</LaunchText> : null}
           {uploadProgress != null && (
             <LaunchText>{`${tr('Uploading')} ${Math.round(
@@ -1040,7 +1129,7 @@ export function PrintModal(props: PrintModalProps) {
                 disabled={busy || source != null}
               />
             )}
-          {!editing && !props.uploadForPrinter && (
+          {!editing && !props.uploadForPrinter && detailed && (
             <>
               <PrimaryButton
                 label={tr(
@@ -1176,7 +1265,7 @@ export function PrintModal(props: PrintModalProps) {
               `#${source.id}`,
             )} · ${slicedModel || tr('Unknown model')}`}</LaunchText>
           )}
-          {!editing && (
+          {!editing && detailed && (
             <Choice
               label={translateNative('native.79c7ad3745d012d3')}
               value={targetMode}
@@ -1195,6 +1284,60 @@ export function PrintModal(props: PrintModalProps) {
               }}
             />
           )}
+          {!detailed && targetMode !== 'variants' ? (
+            <>
+              <View style={styles.row}>
+                <LaunchText>
+                  {targetMode === 'model'
+                    ? automaticPrinterLabel
+                    : printerIds
+                        .map(id => printers.data?.find(printer => printer.id === id)?.name)
+                        .filter(Boolean)
+                        .join(', ') ||
+                      translateNative('native.ac3448f3d6c08f52')}
+                </LaunchText>
+                <PrimaryButton
+                  label={t('printing.changePrinter')}
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={() => setPrinterPickerOpen(current => !current)}
+                />
+              </View>
+              {(printerPickerOpen ||
+                (targetMode === 'printer' &&
+                  !printerIds.length &&
+                  !metadata.isPending &&
+                  !printers.isPending)) && (
+                <Choice<number | 'any'>
+                  label={translateNative('native.ac3448f3d6c08f52')}
+                  value={targetMode === 'model' ? 'any' : printerIds[0]}
+                  options={[
+                    {
+                      value: 'any',
+                      label: automaticPrinterLabel,
+                      disabled: !automaticModel,
+                    },
+                    ...eligible.map(printer => ({
+                      value: printer.id,
+                      label: printer.name,
+                    })),
+                  ]}
+                  onChange={id => {
+                    if (id === 'any') {
+                      setTargetMode('model');
+                      setModel(automaticModel);
+                      setPrinterIds([]);
+                    } else {
+                      setTargetMode('printer');
+                      setPrinterIds([id]);
+                    }
+                    setLocation('');
+                    setPrinterPickerOpen(false);
+                  }}
+                />
+              )}
+            </>
+          ) : null}
           {targetMode === 'variants' ? (
             <>
               <LaunchText>
@@ -1239,7 +1382,7 @@ export function PrintModal(props: PrintModalProps) {
             </>
           ) : targetMode === 'printer' ? (
             <>
-              {!editing && (
+              {!editing && detailed && (
                 <View style={styles.row}>
                   <PrimaryButton
                     variant="secondary"
@@ -1253,7 +1396,7 @@ export function PrintModal(props: PrintModalProps) {
                   />
                 </View>
               )}
-              {(printers.data ?? []).map(p => (
+              {detailed && (printers.data ?? []).map(p => (
                 <Choice
                   key={p.id}
                   label={`${p.name} · ${p.model ?? '?'} · ${p.location ?? ''}${
@@ -1297,7 +1440,7 @@ export function PrintModal(props: PrintModalProps) {
                 }`}</LaunchText>
               ))}
             </>
-          ) : (
+          ) : detailed ? (
             <Choice
               label={translateNative('native.4daf3b543d15b1ab')}
               value={model}
@@ -1308,8 +1451,8 @@ export function PrintModal(props: PrintModalProps) {
               ).map(m => ({ value: m, label: m }))}
               onChange={setModel}
             />
-          )}
-          {targetMode !== 'printer' && (
+          ) : null}
+          {targetMode !== 'printer' && detailed && (
             <Choice
               label={translateNative('native.04059e6fbb2d5dff')}
               value={location}
@@ -1328,7 +1471,15 @@ export function PrintModal(props: PrintModalProps) {
           )}
           {targetMode !== 'variants' && (
             <>
-              {!editing && plates.length > 1 && (
+              {archiveReprint && plates.length > 1 ? (
+                <PrimaryButton
+                  label={t('printing.changePlates')}
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={() => setPlatePickerOpen(current => !current)}
+                />
+              ) : null}
+              {!editing && plates.length > 1 && (detailed || platePickerOpen) && (
                 <View style={styles.row}>
                   <PrimaryButton
                     variant="secondary"
@@ -1351,30 +1502,34 @@ export function PrintModal(props: PrintModalProps) {
                   />
                 </View>
               )}
-              {plateIds.map(id => {
+              {plateIds.filter(id => detailed || platePickerOpen || chosenPlates.includes(id)).map(id => {
                 const plate = plates.find(p => p.index === id);
                 const selected = chosenPlates.includes(id);
                 return (
                   <SectionCard
                     key={String(id)}
-                    title={plate?.name ?? `${tr('Plate')} ${id ?? 1}`}
+                    title={
+                      archiveReprint
+                        ? `${tr('Plate')} ${id ?? 1}${plate?.name ? ` · ${plate.name}` : ''}`
+                        : plate?.name ?? `${tr('Plate')} ${id ?? 1}`
+                    }
                   >
                     {source && id != null && (
                       <Image
-                        style={styles.preview}
+                        style={[styles.preview, !detailed && styles.compactPreview]}
                         source={{
                           uri: printLaunchApi.plateThumbnail(source, id),
                         }}
                         accessibilityLabel={tr('Plate preview')}
                       />
                     )}
-                    <LaunchText>{`${(plate?.objects ?? []).join(', ')} · ${tr(
+                    {detailed ? <LaunchText>{`${(plate?.objects ?? []).join(', ')} · ${tr(
                       'Build plate',
                     )}: ${
                       plate?.bed_type ??
                       pickString(metadata.data, ['bed_type'], tr('Unknown'))
-                    }`}</LaunchText>
-                    <Choice
+                    }`}</LaunchText> : null}
+                    {(detailed || platePickerOpen) && <Choice
                       label={translateNative('native.4bd9a6bd0ccffb8a')}
                       value={selected}
                       options={[
@@ -1396,7 +1551,7 @@ export function PrintModal(props: PrintModalProps) {
                               },
                         );
                       }}
-                    />
+                    />}
                     {selected && !editing && (
                       <LaunchField
                         numeric
@@ -1426,7 +1581,7 @@ export function PrintModal(props: PrintModalProps) {
                         )
                         .join(' · ')}`}</LaunchText>
                     )}
-                    {selected &&
+                    {selected && detailed &&
                       reqsFor(id).map(r => (
                         <Choice
                           key={`exact-${r.slot_id}`}
@@ -1449,7 +1604,7 @@ export function PrintModal(props: PrintModalProps) {
                           }
                         />
                       ))}
-                    {selected &&
+                    {selected && detailed &&
                       targetMode === 'model' &&
                       reqsFor(id).map(r => (
                         <View key={r.slot_id}>
@@ -1495,7 +1650,34 @@ export function PrintModal(props: PrintModalProps) {
                           />
                         </View>
                       ))}
-                    {selected &&
+                    {selected && targetMode === 'printer' && !detailed ? (
+                      <>
+                        {options.use_ams &&
+                        printerIds.some((printerId, index) => {
+                          const mapping = mappingFor(printerId, id);
+                          const trays = loadedTrays(statuses[index]?.data);
+                          return reqsFor(id).some(requirement => {
+                            const tray = trays.find(
+                              item => item.id === mapping[requirement.slot_id - 1],
+                            );
+                            return (
+                              !tray ||
+                              tray.type.toUpperCase() !== requirement.type.toUpperCase() ||
+                              colorKey(tray.color) !== colorKey(requirement.color)
+                            );
+                          });
+                        }) ? (
+                          <LaunchText>{tr('Mismatch: review required')}</LaunchText>
+                        ) : null}
+                        <PrimaryButton
+                          label={t('printing.filamentMapping')}
+                          variant="secondary"
+                          disabled={busy}
+                          onPress={() => setMappingOpen(current => !current)}
+                        />
+                      </>
+                    ) : null}
+                    {selected && (detailed || mappingOpen) &&
                       targetMode === 'printer' &&
                       printerIds.map((printerId, pi) => {
                         const key = mappingKey(printerId, id),
@@ -1688,7 +1870,7 @@ export function PrintModal(props: PrintModalProps) {
                   </SectionCard>
                 );
               })}
-              <Choice
+              {detailed && <Choice
                 label={translateNative('native.8b0f806108afd0bb')}
                 value={exact}
                 options={[
@@ -1696,7 +1878,7 @@ export function PrintModal(props: PrintModalProps) {
                   { value: true, get label() { return translateNative('native.c7e4e8a8db2bbe79', { defaultValue: 'On' }); } },
                 ]}
                 onChange={setExact}
-              />
+              />}
             </>
           )}
           <Choice
@@ -1753,6 +1935,7 @@ export function PrintModal(props: PrintModalProps) {
             </>
           )}
           <PrintOptionsForm
+            compact={!detailed}
             value={options}
             onChange={setOptions}
             dualNozzle={
@@ -1767,6 +1950,14 @@ export function PrintModal(props: PrintModalProps) {
             canControl={hasPermission('printers:control')}
             showManualStart={mode === 'queue'}
           />
+          {archiveReprint ? (
+            <PrimaryButton
+              label={t('printing.advancedOptions')}
+              variant="secondary"
+              disabled={busy}
+              onPress={() => setAdvancedOpen(current => !current)}
+            />
+          ) : null}
           {billing && (
             <Choice<number | null>
               label={translateNative('native.13c071128eed740f')}
@@ -1815,6 +2006,8 @@ export function PrintModal(props: PrintModalProps) {
                 ? translateNative('common.save')
                 : submitted.current.size
                 ? translateNative('native.94c225f57e180a33')
+                : archiveReprint && mode === 'asap'
+                ? translateNative('native.d67377e1385602fe')
                 : translateNative('native.afb963488111cb76'),
             )}
             disabled={busy || !canEdit || budgetBlocked}
@@ -1824,7 +2017,8 @@ export function PrintModal(props: PrintModalProps) {
             }}
           />
         </View>
-      </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
       <ConfirmModal
         visible={!!warning}
         title={tr('Filament shortage review')}
@@ -1837,11 +2031,13 @@ export function PrintModal(props: PrintModalProps) {
           void submit(true);
         }}
       />
+      </SafeAreaProvider>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboard: { flex: 1 },
   container: { flex: 1, padding: spacing.md, paddingTop: spacing.xl },
   content: { gap: spacing.md, paddingBottom: spacing.xl },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
@@ -1852,5 +2048,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   preview: { width: '100%', height: 150, resizeMode: 'contain' },
+  compactPreview: { height: 96 },
 });
 import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

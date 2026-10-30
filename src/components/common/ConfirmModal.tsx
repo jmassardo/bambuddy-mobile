@@ -1,15 +1,13 @@
 import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   AccessibilityInfo,
   Modal,
   ScrollView,
   Text,
   View,
-  type LayoutChangeEvent,
   Pressable,
   StyleSheet,
-  type ViewStyle,
   ActivityIndicator,
 } from 'react-native';
 import { AlertTriangle, Info, AlertCircle } from 'lucide-react-native';
@@ -63,15 +61,9 @@ export function ConfirmModal({
   const isMountedRef = useRef(false);
   const isConfirmingRef = useRef(false);
 
-  const [cardHeight, setCardHeight] = useState(0);
-
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
-  }, []);
-
-  const handleCardLayout = useCallback((e: LayoutChangeEvent) => {
-    setCardHeight(e.nativeEvent.layout.height);
   }, []);
 
   // When modal opens, set modal semantics and move focus
@@ -94,6 +86,9 @@ export function ConfirmModal({
       clearTimeout(timer);
     };
   }, [visible, title, text, isMountedRef]);
+  useEffect(() => {
+    if (!loading) isConfirmingRef.current = false;
+  }, [loading]);
 
   const handleClose = useCallback(() => {
     if (loading) return;
@@ -121,13 +116,6 @@ export function ConfirmModal({
   const IconComponent = variantIcon(variant);
   const variantDesc = variantDescription(variant);
 
-  // Calculate max height based on available screen space
-  const maxHeight = Math.max(cardHeight + 80, 300);
-
-  const cardStyle: ViewStyle = {
-    maxHeight: maxHeight,
-  };
-
   const accentColor = variant === 'danger' ? colors.error : variant === 'warning' ? colors.warning : colors.accent;
 
   return (
@@ -144,8 +132,7 @@ export function ConfirmModal({
         accessibilityLabel={`${text(title)}. ${text(message)}. ${text(confirmLabel)} / ${text(cancelLabel)}`}
       >
         <View
-          style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }, cardStyle]}
-          onLayout={handleCardLayout}
+          style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}
           accessibilityLabel={text(title)}
           accessibilityState={{ busy: loading, disabled: false }}
         >
@@ -162,6 +149,7 @@ export function ConfirmModal({
             </Text>
           </View>
           <ScrollView
+            style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={true}
           >
@@ -184,10 +172,10 @@ export function ConfirmModal({
             <Pressable
               onPress={handleCancel}
               disabled={loading}
-              style={[styles.button, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              style={[styles.button, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, opacity: loading ? 0.5 : 1 }]}
               accessibilityRole="button"
               accessibilityLabel={text(cancelLabel)}
-              accessibilityState={{ disabled: loading, checked: false }}
+              accessibilityState={{ disabled: loading }}
               hitSlop={8}
             >
               <Text style={[styles.buttonText, { color: colors.text }]}>{text(cancelLabel)}</Text>
@@ -198,7 +186,7 @@ export function ConfirmModal({
               style={[styles.button, styles.confirmButton, { backgroundColor: accentColor }]}
               accessibilityRole="button"
               accessibilityLabel={text(confirmLabel)}
-              accessibilityState={{ disabled: loading, checked: false, busy: loading }}
+              accessibilityState={{ disabled: loading, busy: loading }}
               hitSlop={8}
             >
               {loading ? (
@@ -224,6 +212,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 340,
+    maxHeight: '90%',
     borderRadius: 16,
     borderWidth: 1,
     padding: 24,
@@ -263,6 +252,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
+  scroll: {
+    flexShrink: 1,
+  },
   buttons: {
     flexDirection: 'row',
     gap: 12,
@@ -276,7 +268,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'transparent',
-    minHeight: 44,
+    minHeight: 48,
   },
   confirmButton: {
     borderWidth: 0,
@@ -284,5 +276,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: fontSize.base,
     fontWeight: '600',
+    textAlign: 'center',
   },
 });

@@ -1,4 +1,4 @@
-import { buildMediaUrl, request } from './http';
+import { buildCameraUrl, request } from './http';
 import type {
   CalibrationResult,
   CameraIntegrationToken,
@@ -23,10 +23,10 @@ export const camerasApi = {
     request(`${platePath(id)}/references/${index}?label=${encodeURIComponent(label)}`, { method: 'PUT' }),
   deleteReference: (id: number, index: number) =>
     request(`${platePath(id)}/references/${index}`, { method: 'DELETE' }),
-  referenceImage: (id: number, index: number) =>
-    buildMediaUrl(`${platePath(id)}/references/${index}/thumbnail`),
-  snapshot: (id: number, seed: number) =>
-    buildMediaUrl(`/printers/${id}/camera/snapshot`, new URLSearchParams({ t: String(seed) })),
+  referenceImage: (id: number, index: number, token: string | null = null) =>
+    buildCameraUrl(`${platePath(id)}/references/${index}/thumbnail`, token),
+  snapshot: (id: number, seed: number, token: string | null = null) =>
+    buildCameraUrl(`/printers/${id}/camera/snapshot`, token, new URLSearchParams({ t: String(seed) })),
   testExternal: (id: number, url: string, type: string) =>
     request<ExternalCameraConnectionResult>(
       `/printers/${id}/camera/external/test?url=${encodeURIComponent(url)}&camera_type=${encodeURIComponent(type)}`,

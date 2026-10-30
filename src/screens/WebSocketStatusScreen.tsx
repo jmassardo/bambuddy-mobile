@@ -28,7 +28,7 @@ export default function WebSocketStatusScreen() {
   const navigation = useNavigation<RootNavigationProp<'WebSocketStatus'>>();
   const { colors } = useTheme();
 
-  const { isConnected, isReconnecting, errors, clearErrors } = useWebSocket();
+  const { isConnected, isReconnecting, errors, clearErrors, reconnect } = useWebSocket();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [autoRefreshEnabled, _setAutoRefreshEnabled] = useState(false);
 
@@ -68,22 +68,15 @@ export default function WebSocketStatusScreen() {
             get text() { return translateNative('native.6192c91424256298'); },
             style: 'destructive',
             onPress: () => {
-              // Force a reconnection by unmounting/remounting the hook via navigation.
-              navigation.goBack();
-              setTimeout(() => {
-                navigation.navigate('WebSocketStatus' as never);
-              }, 100);
+              void reconnect();
             },
           },
         ],
       );
     } else {
-      navigation.goBack();
-      setTimeout(() => {
-        navigation.navigate('WebSocketStatus' as never);
-      }, 100);
+      void reconnect();
     }
-  }, [connectionState, navigation]);
+  }, [connectionState, reconnect]);
 
   const handleClearErrors = useCallback(() => {
     Alert.alert(
@@ -104,13 +97,8 @@ export default function WebSocketStatusScreen() {
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    navigation.goBack();
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 200);
-    });
-    void navigation.navigate('WebSocketStatus' as never);
-    setIsRefreshing(false);
-  }, [navigation]);
+    try { await reconnect(); } finally { setIsRefreshing(false); }
+  }, [reconnect]);
 
   // Auto-refresh every 5 seconds when disconnected
   useEffect(() => {
@@ -147,7 +135,7 @@ export default function WebSocketStatusScreen() {
           {translateNative('native.29559e3b4de82def')}</Text>
       </View>
 
-      <View style={styles.statusCard}>
+      <View style={[styles.statusCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.statusRow}>
           <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>
             {translateNative('native.7fe604a336d7051b')}</Text>
@@ -172,7 +160,7 @@ export default function WebSocketStatusScreen() {
       </View>
 
       {recentErrors.length > 0 && (
-        <View style={styles.errorsCard}>
+        <View style={[styles.errorsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.errorsHeader}>
             <Text style={[styles.cardTitle, { color: colors.text }]}><NativeTranslation id="native.cfe8deb362907dd6" values={{ value0: (recentErrors.length) }} /></Text>
             <PrimaryButton
@@ -210,6 +198,8 @@ export default function WebSocketStatusScreen() {
         <PrimaryButton
           label={connectionState === 'connected' ? translateNative('native.03cdc606fb4f2bc3') : translateNative('native.6192c91424256298')}
           variant={connectionState === 'connected' ? 'secondary' : 'primary'}
+          disabled={isReconnecting || isRefreshing}
+          loading={isReconnecting || isRefreshing}
           onPress={handleReconnect}
         />
       </View>

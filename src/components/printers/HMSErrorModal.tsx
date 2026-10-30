@@ -298,7 +298,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
   },
   closeButton: {
-    padding: spacing.xs,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     padding: spacing.lg,

@@ -63,6 +63,8 @@ beforeEach(() => {
 
 test('trash displays envelope items and requires confirmation before permanent deletion', async () => {
   const result = await render(<FilesScreen />, {wrapper: TestProviders});
+  await result.findByText('widget.stl');
+  await fireEvent.press(result.getByRole('button', {name: 'More'}));
   await result.findByText('Open trash');
   await fireEvent.press(result.getByText('Open trash'));
   await result.findByText('deleted.stl');
@@ -87,6 +89,8 @@ test('real library file entries open the shared pipeline launcher with their sou
 
 test('selected trash subset can be restored without emptying all trash', async () => {
   const result = await render(<FilesScreen />, {wrapper: TestProviders});
+  await result.findByText('widget.stl');
+  await fireEvent.press(result.getByRole('button', {name: 'More'}));
   await result.findByText('Open trash');
   await fireEvent.press(result.getByText('Open trash'));
   await result.findByText('deleted.stl');
@@ -95,6 +99,34 @@ test('selected trash subset can be restored without emptying all trash', async (
   await waitFor(() => expect(api.restoreLibraryItem).toHaveBeenCalledWith(8));
   expect(api.restoreLibraryItem).not.toHaveBeenCalledWith(9);
   expect(api.emptyLibraryTrash).not.toHaveBeenCalled();
+});
+
+test('shows files before secondary controls and keeps uploader filtering when collapsed', async () => {
+  const result = await render(<FilesScreen />, {wrapper: TestProviders});
+  await result.findByText('widget.stl');
+  expect(result.queryByText('Open trash')).toBeNull();
+  expect(result.queryByPlaceholderText('Any uploader')).toBeNull();
+  await fireEvent.press(result.getByRole('button', {name: 'Filters'}));
+  await fireEvent.changeText(result.getByPlaceholderText('Any uploader'), 'Alex');
+  await fireEvent.press(result.getByRole('button', {name: 'Filters'}));
+  expect(result.queryByPlaceholderText('Any uploader')).toBeNull();
+  expect(result.getByText('widget.stl')).toBeTruthy();
+  expect(result.queryByText('another.stl')).toBeNull();
+  await fireEvent.press(result.getByRole('button', {name: 'More'}));
+  expect(result.getByText('Open trash')).toBeTruthy();
+});
+test('new folder has a named close action and preserves its draft and validation when reopened', async () => {
+  const result = await render(<FilesScreen />, {wrapper: TestProviders});
+  await result.findByText('widget.stl');
+  await fireEvent.press(result.getByRole('button', {name: 'More'}));
+  await fireEvent.press(result.getByRole('button', {name: 'New folder'}));
+  expect(result.getByRole('button', {name: 'Create'})).toBeDisabled();
+  await fireEvent.changeText(result.getByLabelText('Folder name'), 'Inbox');
+  expect(result.getByRole('button', {name: 'Create'})).not.toBeDisabled();
+  await fireEvent.press(result.getByRole('button', {name: 'Close'}));
+  expect(result.queryByLabelText('Folder name')).toBeNull();
+  await fireEvent.press(result.getByRole('button', {name: 'New folder'}));
+  expect(result.getByLabelText('Folder name').props.value).toBe('Inbox');
 });
 
 test('folder rename calls its folder endpoint rather than file rename', async () => {

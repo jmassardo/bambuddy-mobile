@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-shadow -- React Native test mocks import local host components. */
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NotificationProviders } from '@/components/notifications/NotificationProviders';
 import { NotificationLog } from '@/components/notifications/NotificationLog';
@@ -45,9 +46,10 @@ jest.mock('@/components/common/AppUI', () => {
   const { Pressable, Text, TextInput, View } = require('react-native');
   return {
     Card: ({ children }: { children: React.ReactNode }) => React.createElement(View, null, children),
+    Chip: ({ label, selected, onPress }: { label: string; selected?: boolean; onPress: () => void }) => React.createElement(Pressable, { accessibilityRole: 'button', accessibilityState: { selected }, onPress }, React.createElement(Text, null, label)),
     Input: ({ label, ...props }: { label: string }) => React.createElement(TextInput, { accessibilityLabel: label, ...props }),
-    Button: ({ title, onPress, disabled }: { title: string; onPress: () => void; disabled?: boolean }) =>
-      React.createElement(Pressable, { accessibilityRole: 'button', accessibilityState: { disabled }, disabled, onPress }, React.createElement(Text, null, title)),
+    Button: ({ title, onPress, disabled, expanded }: { title: string; onPress: () => void; disabled?: boolean; expanded?: boolean }) =>
+      React.createElement(Pressable, { accessibilityRole: 'button', accessibilityState: { disabled, expanded }, disabled, onPress }, React.createElement(Text, null, title)),
     SectionHeader: ({ title, action }: { title: string; action?: { label: string; onPress: () => void } }) =>
       React.createElement(View, null, React.createElement(Text, null, title), action
         ? React.createElement(Pressable, { onPress: action.onPress }, React.createElement(Text, null, action.label)) : null),
@@ -110,6 +112,26 @@ beforeEach(() => {
       { provider_id: 2, provider_name: 'Broken', success: false, message: 'Unauthorized' },
     ],
   });
+});
+
+it('keeps independent notification tools available when personal preferences fail', async () => {
+  personal.getUserEmailPreferences.mockRejectedValue(new Error('Personal settings unavailable'));
+  const ui = await renderWithClient(<NotificationsScreen />);
+  expect(await ui.findByText('Notification delivery log')).toBeTruthy();
+  expect(ui.getByText('Notification templates')).toBeTruthy();
+  expect(ui.getByText('Push notifications')).toBeTruthy();
+  expect(await ui.findByText('Error')).toBeTruthy();
+});
+
+it('confirms resetting a saved notification template', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  settings.resetNotificationTemplate.mockResolvedValue(template as never);
+  const ui = await renderWithClient(<NotificationTemplates />);
+  await fireEvent.press(await ui.findByText('Reset'));
+  expect(settings.resetNotificationTemplate).not.toHaveBeenCalled();
+  await act(async () => alert.mock.calls[0][2]?.find(button => button.style === 'destructive')?.onPress?.());
+  await waitFor(() => expect(settings.resetNotificationTemplate).toHaveBeenCalled());
+  alert.mockRestore();
 });
 
 it('tests a new provider draft without saving and reports test-all outcomes per provider', async () => {
@@ -265,7 +287,8 @@ it('requests server-side history filters, expands full delivery details, and cle
   await waitFor(() => expect(settings.getNotificationLog).toHaveBeenLastCalledWith({
     days: 90, success: false, limit: 100, offset: 0,
   }));
-  await fireEvent.press(await ui.findByText('Inspect delivery'));
+  await fireEvent.press(await ui.findByRole('button', { name: 'Inspect delivery', expanded: false }));
+  expect(ui.getByRole('button', { name: 'Collapse', expanded: true })).toBeTruthy();
   expect(ui.getByText('Full delivery body')).toBeTruthy();
   expect(ui.getByText('SMTP refused')).toBeTruthy();
   expect(ui.getByText(/Provider #3.*Printer X/)).toBeTruthy();

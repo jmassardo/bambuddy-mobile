@@ -1,11 +1,40 @@
 import { useNativeLocale, useTranslation } from '@/i18n';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { TextField } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 
 import { settingsStyles } from './shared';
 import { SettingsSearchAnchor } from './SettingsSearchFocus';
+
+export function NumericSettingsField({
+  value,
+  onChangeNumber,
+  ...props
+}: Omit<React.ComponentProps<typeof TextField>, 'value' | 'onChangeText'> & {
+  value: string;
+  onChangeNumber: (value: number) => void;
+}) {
+  const [text, setText] = useState(value);
+  const emitted = useRef<string | null>(null);
+  useEffect(() => {
+    if (emitted.current !== value) setText(value);
+    emitted.current = null;
+  }, [value]);
+  return <TextField {...props} value={text}
+    onChangeText={next => {
+      setText(next);
+      if (props.editable === false) return;
+      if (next.trim() && Number.isFinite(Number(next))) {
+        emitted.current = String(Number(next));
+        onChangeNumber(Number(next));
+      }
+    }}
+    onBlur={event => {
+      setText(value);
+      props.onBlur?.(event);
+    }} />;
+}
 
 export function WorkflowNumberField({
   label,

@@ -1,7 +1,8 @@
 import { translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
 
 import React, { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton } from '@/components/common/AppUI';
 import {
   Choice,
@@ -62,8 +63,10 @@ export function QueueBulkEditModal({
   }, [setError, visible]);
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ScrollView contentContainerStyle={styles.content}>
+      <SafeAreaProvider>
+      <SafeAreaView edges={{ top: 'maximum', bottom: 'maximum', left: 'maximum', right: 'maximum' }} style={[styles.container, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView style={styles.viewport} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <LaunchText>
             {t('printing.bulkCount', {
               defaultValue: 'Bulk edit {{count}} selected pending jobs',
@@ -159,11 +162,14 @@ export function QueueBulkEditModal({
             }}
           />
         </View>
-      </View>
+        </KeyboardAvoidingView>
+        </SafeAreaView>
+        </SafeAreaProvider>
     </Modal>
   );
 }
 const styles = StyleSheet.create({
+  viewport: { flex: 1 },
   container: { flex: 1, padding: spacing.md, paddingTop: spacing.xl },
   content: { paddingBottom: spacing.xl },
   row: {

@@ -1,7 +1,7 @@
 import { nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
 
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PrimaryButton, SectionCard } from '@/components/common/AppUI';
@@ -30,8 +30,16 @@ export function GeneralWorkflowSettings({
   });
   const [retentionDraft, setRetentionDraft] =
     useState<ArchiveRetentionSettings | null>(null);
+  const previousRetention = useRef<ArchiveRetentionSettings | null>(null);
   useEffect(() => {
-    if (retention.data) setRetentionDraft(retention.data);
+    if (!retention.data) return;
+    const next = retention.data;
+    const previous = previousRetention.current;
+    setRetentionDraft(current => !current || !previous ? next : {
+      ...next,
+      ...Object.fromEntries(Object.entries(current).filter(([key, value]) => value !== previous[key as keyof ArchiveRetentionSettings])),
+    });
+    previousRetention.current = next;
   }, [retention.data]);
   const save = useMutation({
     mutationFn: workflowSettingsApi.saveArchiveRetention,
@@ -63,6 +71,7 @@ export function GeneralWorkflowSettings({
                 'Move the plate back after positioning it for the photo.',
             })}
             value={draft.finish_photo_restore_plate !== false}
+            disabled={!controller.permissions.canUpdateSettings}
             onValueChange={value => set('finish_photo_restore_plate', value)}
           />
         </SectionCard>
@@ -75,6 +84,7 @@ export function GeneralWorkflowSettings({
             defaultValue: 'Create archive when printing from library',
           })}
           value={String(draft.library_archive_mode ?? 'ask')}
+          disabled={!controller.permissions.canUpdateSettings}
           options={['always', 'never', 'ask'].map(key => ({
             key,
             get label() { return translateNative(`workflow.${key}`, { defaultValue: key }); },
@@ -86,6 +96,7 @@ export function GeneralWorkflowSettings({
             defaultValue: 'Low disk warning (GB)',
           })}
           value={Number(draft.library_disk_warning_gb ?? 5)}
+          disabled={!controller.permissions.canUpdateSettings}
           min={0.5}
           max={100}
           integer={false}

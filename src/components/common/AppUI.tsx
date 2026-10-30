@@ -1,4 +1,4 @@
-import { useNativeLocale, useTranslation } from '@/i18n';
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -39,6 +39,9 @@ import {
   Shield,
   Users,
   Wrench,
+  Wallet,
+  Workflow,
+  X,
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
@@ -79,6 +82,8 @@ const APP_UI_ICONS: Record<
   'qr-code': QrCode,
   'alert-circle': AlertCircle,
   'clipboard-list': ClipboardList,
+  wallet: Wallet,
+  workflow: Workflow,
 };
 
 export function SearchBar({
@@ -111,7 +116,19 @@ export function SearchBar({
           allowFontScaling={false}
           accessibilityLabel={placeholder}
           accessibilityRole="search"
+          returnKeyType="search"
         />
+        {value.length > 0 ? (
+          <Pressable
+            onPress={() => onChangeText('')}
+            style={styles.clearSearchButton}
+            hitSlop={2}
+            accessibilityLabel={translateNative('native.a6ccc01fea9133be')}
+            accessibilityRole="button"
+          >
+            <X size={16} color={colors.textTertiary} strokeWidth={2} />
+          </Pressable>
+        ) : null}
       </View>
       {onFilterPress ? (
         <Pressable
@@ -217,10 +234,12 @@ export const Chip = React.memo(function ChipComponent({
   label,
   selected,
   onPress,
+  disabled = false,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   useNativeLocale();
   const { colors } = useTheme();
@@ -228,16 +247,18 @@ export const Chip = React.memo(function ChipComponent({
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       style={[
         styles.chip,
         {
           backgroundColor: selected ? colors.accentBg : colors.surfaceElevated,
           borderColor: selected ? colors.accent : colors.border,
+          opacity: disabled ? 0.5 : 1,
         },
       ]}
       accessibilityLabel={label}
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled }}
     >
       <Text style={[styles.chipText, { color: selected ? colors.accentLight : colors.textSecondary }]} allowFontScaling={false}>{label}</Text>
     </Pressable>
@@ -327,12 +348,14 @@ export function PrimaryButton({
   variant = 'primary',
   loading = false,
   disabled = false,
+  expanded,
 }: {
   label: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'danger';
   loading?: boolean;
   disabled?: boolean;
+  expanded?: boolean;
 }) {
   useNativeLocale();
   const { colors } = useTheme();
@@ -340,8 +363,9 @@ export function PrimaryButton({
   const palette = {
     primary: { background: colors.accent, border: colors.accent, text: colors.textInverse },
     secondary: { background: colors.surfaceElevated, border: colors.border, text: colors.text },
-    danger: { background: colors.error, border: colors.error, text: colors.text },
+    danger: { background: colors.error, border: colors.error, text: colors.textInverse },
   }[variant];
+  const textColor = disabled ? colors.textSecondary : palette.text;
 
   return (
     <Pressable
@@ -357,9 +381,9 @@ export function PrimaryButton({
       ]}
       accessibilityLabel={label}
       accessibilityRole="button"
-      accessibilityState={{ disabled: disabled || loading, busy: loading }}
+      accessibilityState={{ disabled: disabled || loading, busy: loading, expanded }}
     >
-      {loading ? <ActivityIndicator size="small" color={palette.text} /> : <Text style={[styles.buttonText, { color: palette.text }]} allowFontScaling={false}>{label}</Text>}
+      {loading ? <ActivityIndicator size="small" color={textColor} /> : <Text style={[styles.buttonText, { color: textColor }]} allowFontScaling={false}>{label}</Text>}
     </Pressable>
   );
 }
@@ -452,13 +476,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    minHeight: 44,
     gap: spacing.xs,
   },
   searchInput: {
     flex: 1,
     fontSize: fontSize.sm,
     paddingVertical: 2,
+  },
+  clearSearchButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterButton: {
     width: 44,
@@ -509,6 +539,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   inlineTab: {
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: borderRadius.full,
     borderWidth: 1,
     paddingHorizontal: spacing.lg,
@@ -519,6 +551,8 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
   },
   chip: {
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: borderRadius.full,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
@@ -590,10 +624,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
   buttonText: {
     fontSize: fontSize.base,
     fontWeight: fontWeight.semibold,
+    textAlign: 'center',
   },
   fieldGroup: {
     gap: spacing.sm,
@@ -684,6 +720,7 @@ interface ButtonProps {
   variant?: ButtonVariant;
   disabled?: boolean;
   loading?: boolean;
+  expanded?: boolean;
   icon?: string;
   style?: ViewStyle;
   size?: 'sm' | 'md' | 'lg';
@@ -695,6 +732,7 @@ export function Button({
   variant = 'primary',
   disabled = false,
   loading = false,
+  expanded,
   icon,
   style,
   size = 'md',
@@ -744,7 +782,7 @@ export function Button({
       ]}
       accessibilityLabel={title}
       accessibilityRole="button"
-      accessibilityState={{ disabled: disabled || loading, busy: loading }}
+      accessibilityState={{ disabled: disabled || loading, busy: loading, expanded }}
     >
       {loading ? (
         <ActivityIndicator size="small" color={textColors[variant]} />
@@ -889,11 +927,13 @@ interface MenuItemProps {
   onPress: () => void;
   badge?: string;
   destructive?: boolean;
+  disabled?: boolean;
+  loading?: boolean;
   /** Legacy compatibility flag; authored captions are now translated by callers. */
   translateText?: boolean;
 }
 
-export const MenuItem = React.memo(function MenuItemComponent({ icon, label, subtitle, onPress, badge, destructive }: MenuItemProps) {
+export const MenuItem = React.memo(function MenuItemComponent({ icon, label, subtitle, onPress, badge, destructive, disabled = false, loading = false }: MenuItemProps) {
   useNativeLocale();
   const { colors } = useTheme();
   useTranslation();
@@ -902,12 +942,14 @@ export const MenuItem = React.memo(function MenuItemComponent({ icon, label, sub
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled || loading}
       style={({ pressed }) => [
         consolidatedStyles.menuItem,
-        { backgroundColor: pressed ? colors.surfaceHover : 'transparent' },
+        { backgroundColor: pressed ? colors.surfaceHover : 'transparent', opacity: disabled || loading ? 0.5 : 1 },
       ]}
       accessibilityLabel={subtitle ? `${label}, ${subtitle}` : label}
       accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
     >
       <View style={[consolidatedStyles.menuIconContainer, { backgroundColor: colors.accentBg }]}>
         <IconComponent size={18} color={colors.accentLight} strokeWidth={2} />
@@ -921,7 +963,7 @@ export const MenuItem = React.memo(function MenuItemComponent({ icon, label, sub
         )}
       </View>
       {badge && <Badge label={badge} />}
-      <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} />
+      {loading ? <ActivityIndicator size="small" color={colors.textSecondary} /> : <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} />}
     </Pressable>
   );
 });
@@ -936,9 +978,12 @@ const consolidatedStyles = StyleSheet.create({
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
   },
   buttonText: {
     fontWeight: fontWeight.semibold,
+    textAlign: 'center',
+    flexShrink: 1,
   },
   inputContainer: {
     marginBottom: spacing.lg,

@@ -184,7 +184,7 @@ jest.mock('@/api/server', () => ({
 }));
 
 jest.mock('@/hooks/useStreamToken', () => ({
-  useMediaToken: () => ({
+  useCameraToken: () => ({
     token: 'media-token',
     isReady: true,
   }),

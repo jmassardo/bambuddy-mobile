@@ -16,6 +16,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react-native';
 import { api } from '@/api/client';
@@ -30,6 +31,7 @@ import {
 } from '@/components/common/AppUI';
 import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type {
@@ -169,12 +171,13 @@ function ModalShell({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}> 
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <SafeAreaProvider style={styles.container}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalKeyboardArea}
+          style={styles.container}
         >
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} />
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderText}>
@@ -185,6 +188,8 @@ function ModalShell({
               </View>
               <Pressable
                 onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel={translateNative('common.close')}
                 style={[styles.closeButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
               >
                 <X size={18} color={colors.text} strokeWidth={2} />
@@ -192,8 +197,9 @@ function ModalShell({
             </View>
             {children}
           </View>
+        </SafeAreaView>
         </KeyboardAvoidingView>
-      </View>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -427,6 +433,7 @@ export default function MaintenanceScreen() {
 
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<MaintenanceTab>('overview');
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -600,7 +607,6 @@ export default function MaintenanceScreen() {
         }
       >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>{translateNative('nav.maintenance')}</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{translateNative('native.f6a61fafe516bf67')}</Text>
         </View>
 
@@ -652,6 +658,7 @@ export default function MaintenanceScreen() {
                       label={translateNative('native.3d29e8394fbaf781')}
                       variant="secondary"
                       onPress={() => setAssignPrinter(printer)}
+                      disabled={!hasPermission('maintenance:create')}
                     />
                   </View>
                   {printer.maintenance_items.length > 0 ? (
@@ -674,6 +681,8 @@ export default function MaintenanceScreen() {
                             </View>
                             <Switch
                               value={task.enabled}
+                              disabled={!hasPermission('maintenance:update') || isBusy}
+                              accessibilityLabel={task.maintenance_type_name}
                               onValueChange={enabled =>
                                 void toggleMutation.mutateAsync({ id: task.id, enabled })
                               }
@@ -691,14 +700,18 @@ export default function MaintenanceScreen() {
                           </View>
 
                           <View style={styles.actions}>
-                            <MaintenanceControls printer={printer} item={task} />
-                            <PrimaryButton
-                              label={performMutation.isPending ? translateNative('native.32ea9ced32d1ed6a') : translateNative('native.73e85c617bd70e70')}
-                              onPress={() => void performMutation.mutateAsync(task.id)}
-                              disabled={!task.enabled || isBusy}
-                              variant={task.is_due ? 'primary' : 'secondary'}
-                              loading={performMutation.isPending}
-                            />
+                            <View style={styles.actionGroup}>
+                              <MaintenanceControls printer={printer} item={task} />
+                            </View>
+                            <View style={styles.performAction}>
+                              <PrimaryButton
+                                label={performMutation.isPending ? translateNative('native.32ea9ced32d1ed6a') : translateNative('native.73e85c617bd70e70')}
+                                onPress={() => void performMutation.mutateAsync(task.id)}
+                                disabled={!task.enabled || isBusy || !hasPermission('maintenance:update')}
+                                variant={task.is_due ? 'primary' : 'secondary'}
+                                loading={performMutation.isPending}
+                              />
+                            </View>
                           </View>
                         </View>
                       );
@@ -752,7 +765,7 @@ export default function MaintenanceScreen() {
           <SectionCard
             title={translateNative('native.3f52406d78fe2db5')}
             subtitle={translateNative('native.96c0ab8ab55f3aeb')}
-            right={<PrimaryButton label={translateNative('native.c519ba28020cef84')} onPress={() => { setEditingType(null); setShowTypeModal(true); }} />}
+            right={<PrimaryButton label={translateNative('native.c519ba28020cef84')} disabled={!hasPermission('maintenance:create')} onPress={() => { setEditingType(null); setShowTypeModal(true); }} />}
           >
             {maintenanceTypes.length === 0 ? (
               <EmptyState
@@ -790,6 +803,7 @@ export default function MaintenanceScreen() {
                       <PrimaryButton
                         label={translateNative('common.edit')}
                         variant="secondary"
+                        disabled={!hasPermission('maintenance:update')}
                         onPress={() => {
                           setEditingType(type);
                           setShowTypeModal(true);
@@ -798,6 +812,7 @@ export default function MaintenanceScreen() {
                       <PrimaryButton
                         label={translateNative('common.delete')}
                         variant="danger"
+                        disabled={!hasPermission('maintenance:delete')}
                         onPress={() => setPendingDeleteType(type)}
                       />
                     </View>
@@ -910,9 +925,12 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: spacing.sm,
     flexWrap: 'wrap',
   },
+  actionGroup: { flexGrow: 1, flexBasis: 180, minWidth: 180 },
+  performAction: { flexGrow: 1, flexBasis: 140, minWidth: 140 },
   emptyText: {
     fontSize: fontSize.sm,
   },
@@ -986,8 +1004,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   closeButton: {
-    width: 38,
-    height: 38,
+    width: 48,
+    height: 48,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     alignItems: 'center',

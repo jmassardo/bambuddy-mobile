@@ -139,6 +139,26 @@ describe('useWebSocket', () => {
     });
   });
 
+  it('reconnects in place without dropping diagnostics or creating stale token connections', async () => {
+      const renderer = await renderHookHarness();
+      const original = MockWebSocket.instances[0]!;
+      await act(async () => { original.open(); original.onmessage?.({ data: '{' }); });
+      const errors = getLatest()!.errors;
+      let resolveToken!: (value: { token: string }) => void;
+      mockGetWebSocketToken.mockImplementationOnce(() => new Promise(resolve => { resolveToken = resolve; }));
+      let pending!: Promise<void>;
+      await act(async () => { pending = getLatest()!.reconnect(); });
+      expect(original.close).toHaveBeenCalledTimes(1);
+      await act(async () => { await getLatest()!.reconnect(); });
+      expect(MockWebSocket.instances).toHaveLength(2);
+      await act(async () => { resolveToken({ token: 'stale-token' }); await pending; });
+      expect(MockWebSocket.instances).toHaveLength(2);
+      expect(getLatest()!.errors).toEqual(errors);
+      await act(async () => { MockWebSocket.instances[1]!.open(); });
+      expect(getLatest()!.isConnected).toBe(true);
+      await act(async () => { renderer.unmount(); });
+  });
+
   it('forwards physical SpoolBuddy events from the existing authenticated socket per device', async () => {
     const renderer = await renderHookHarness();
     await act(async () => {

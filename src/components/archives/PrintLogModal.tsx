@@ -110,7 +110,7 @@ export function PrintLogModal({
                 {archiveName || translateNative('native.a45e6613c067f36a')}
               </Text>
             </View>
-            <Pressable onPress={onClose} hitSlop={8}>
+            <Pressable onPress={onClose} style={styles.closeButton} accessibilityRole="button" accessibilityLabel={translateNative('common.close')}>
               <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
@@ -183,6 +183,12 @@ export function PrintLogModal({
 }
 
 const styles = StyleSheet.create({
+  closeButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   backdrop: {
     flex: 1,
     justifyContent: 'center',

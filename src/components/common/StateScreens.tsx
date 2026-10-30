@@ -25,18 +25,20 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { fontSize, spacing } from '../../theme/tokens';
+import { PrimaryButton } from './AppUI';
 
 interface LoadingScreenProps {
   message?: string;
+  inline?: boolean;
 }
 
-export function LoadingScreen({ message = translateNative('common.loading') }: LoadingScreenProps) {
+export function LoadingScreen({ message = translateNative('common.loading'), inline = false }: LoadingScreenProps) {
   useNativeLocale();
   const { colors } = useTheme();
   useTranslation();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[inline ? styles.inlineContainer : styles.container, !inline && { backgroundColor: colors.background }]}>
       <ActivityIndicator size="large" color={colors.accent} />
       <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
     </View>
@@ -143,12 +145,9 @@ export function OfflineState({ message = translateNative('native.c1644b8beb53389
       <Text style={[styles.emptyTitle, { color: colors.warning }]}>{t('common.offline', { defaultValue: 'No network' })}</Text>
       <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>
       {onRetry && (
-        <Text
-          style={[styles.retryButton, { color: colors.accent }]}
-          onPress={onRetry}
-        >
-          {t('common.retry')}
-        </Text>
+        <View style={styles.retryButton}>
+          <PrimaryButton label={t('common.retry')} variant="secondary" onPress={onRetry} />
+        </View>
       )}
     </View>
   );
@@ -172,18 +171,20 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
       <Text style={[styles.emptyTitle, { color: colors.error }]}>{t('common.error')}</Text>
       <Text style={[styles.emptyMessage, { color: colors.textSecondary }]} accessibilityRole="alert">{message}</Text>
       {onRetry && (
-        <Text
-          style={[styles.retryButton, { color: colors.accent }]}
-          onPress={onRetry}
-        >
-          {t('common.retry')}
-        </Text>
+        <View style={styles.retryButton}>
+          <PrimaryButton label={t('common.retry')} variant="secondary" onPress={onRetry} />
+        </View>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  inlineContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -220,7 +221,5 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: spacing.lg,
-    fontSize: fontSize.base,
-    fontWeight: '600',
   },
 });

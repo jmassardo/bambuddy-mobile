@@ -1,6 +1,6 @@
 import { translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Switch, Text } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { settingsApi } from '@/api/settings';
@@ -36,15 +36,17 @@ export function FinancePolicySection({
     queryFn: settingsApi.getSettings,
     enabled: read,
   });
+  const previousSettings = useRef<typeof settings.data>(undefined);
   useEffect(() => {
     if (!settings.data) return;
-    setBilling(settings.data.billing_enabled === true);
-    setKill(settings.data.printer_kill_switch_enabled === true);
-    setDay(String(settings.data.finance_budget_reset_day ?? 1));
-    setTimezone(String(settings.data.finance_budget_reset_timezone ?? 'UTC'));
-    setTracking(
-      settings.data.energy_tracking_mode === 'print' ? 'print' : 'total',
-    );
+    const next = settings.data;
+    const previous = previousSettings.current;
+    setBilling(current => !previous || current === (previous.billing_enabled === true) ? next.billing_enabled === true : current);
+    setKill(current => !previous || current === (previous.printer_kill_switch_enabled === true) ? next.printer_kill_switch_enabled === true : current);
+    setDay(current => !previous || current === String(previous.finance_budget_reset_day ?? 1) ? String(next.finance_budget_reset_day ?? 1) : current);
+    setTimezone(current => !previous || current === String(previous.finance_budget_reset_timezone ?? 'UTC') ? String(next.finance_budget_reset_timezone ?? 'UTC') : current);
+    setTracking(current => !previous || current === (previous.energy_tracking_mode === 'print' ? 'print' : 'total') ? next.energy_tracking_mode === 'print' ? 'print' : 'total' : current);
+    previousSettings.current = next;
   }, [settings.data]);
   const mutation = useMutation({
     mutationFn: async (rebuild: boolean) => {

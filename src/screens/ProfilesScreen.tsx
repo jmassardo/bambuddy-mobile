@@ -421,6 +421,7 @@ export default function ProfilesScreen() {
           `${tab}-${pickString(item, ['setting_id', 'id', 'name'], String(index))}`
         }
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         ItemSeparatorComponent={ProfilesItemSeparator}
         refreshControl={
           <RefreshControl
@@ -519,7 +520,16 @@ export default function ProfilesScreen() {
                           : translateNative('native.5aff88e68a7bc9d9')
                       }
                       variant="secondary"
-                      onPress={() => void cloudLogoutMutation.mutateAsync()}
+                      disabled={cloudLogoutMutation.isPending}
+                      loading={cloudLogoutMutation.isPending}
+                      onPress={() => Alert.alert(
+                        translateNative('native.b2564be4f6e51616'),
+                        translateNative('native.cd8736531ffbe74a'),
+                        [
+                          { text: translateNative('common.cancel'), style: 'cancel' },
+                          { text: translateNative('native.5aff88e68a7bc9d9'), style: 'destructive', onPress: () => cloudLogoutMutation.mutate() },
+                        ],
+                      )}
                     />
                   </View>
                 ) : (
@@ -660,7 +670,16 @@ export default function ProfilesScreen() {
                   <PrimaryButton
                     label={orcaLogoutMutation.isPending ? translateNative('native.642cd71842fea4f9') : translateNative('native.5aff88e68a7bc9d9')}
                     variant="secondary"
-                    onPress={() => void orcaLogoutMutation.mutateAsync()}
+                    disabled={orcaLogoutMutation.isPending}
+                    loading={orcaLogoutMutation.isPending}
+                    onPress={() => Alert.alert(
+                      translateNative('native.dfc3dade868b6a0d'),
+                      translateNative('native.e814ceacc09d5fe5'),
+                      [
+                        { text: translateNative('common.cancel'), style: 'cancel' },
+                        { text: translateNative('native.5aff88e68a7bc9d9'), style: 'destructive', onPress: () => orcaLogoutMutation.mutate() },
+                      ],
+                    )}
                   />
                 ) : <OrcaDeviceAuthorization />}
               </SectionCard>
@@ -743,7 +762,7 @@ export default function ProfilesScreen() {
         }}
         ListEmptyComponent={
           tab === 'kprofiles' ? null : activeQuery.isLoading ? (
-            <LoadingScreen message={translateNative('native.a729fe3fdb50f09e')} />
+            <LoadingScreen inline message={translateNative('native.a729fe3fdb50f09e')} />
           ) : activeQuery.isError ? (
             <ErrorState
               message={translateNative('native.690b0af931257a24')}
@@ -870,6 +889,7 @@ const styles = StyleSheet.create({
   cardActions: {
     marginTop: spacing.xs,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
 });

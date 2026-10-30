@@ -190,6 +190,7 @@ export default function ScannerScreen() {
           label={translateNative('native.21fa199932c61d99')}
           onPress={() => void requestPermission()}
         />
+        <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={() => navigation.goBack()} />
       </SafeAreaView>
     );
   }
@@ -203,6 +204,7 @@ export default function ScannerScreen() {
           {translateNative('native.dd79b585121476fc')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           {translateNative('native.2be9febb83a2863b')}</Text>
+        <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={() => navigation.goBack()} />
       </SafeAreaView>
     );
   }
@@ -217,7 +219,7 @@ export default function ScannerScreen() {
         isActive={!handled}
         codeScanner={handled ? undefined : codeScanner}
       />
-      <View style={[styles.overlayCard, { backgroundColor: colors.overlay }]}>
+      <View style={[styles.overlayCard, { backgroundColor: colors.surface }]}>
         <Text style={[styles.title, { color: colors.text }]}>
           {translateNative('native.55fccab1a84fc8e0')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -235,8 +237,10 @@ export default function ScannerScreen() {
         ) : null}
       </View>
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={translateNative('common.close')}
         onPress={() => navigation.goBack()}
-        style={[styles.closeButton, { backgroundColor: colors.overlay }]}
+        style={[styles.closeButton, { backgroundColor: colors.surface }]}
       >
         <Text style={[styles.closeText, { color: colors.text }]}>{translateNative('common.close')}</Text>
       </Pressable>
@@ -283,6 +287,8 @@ const styles = StyleSheet.create({
   title: { fontSize: fontSize.xl, fontWeight: fontWeight.bold },
   subtitle: { fontSize: fontSize.base, lineHeight: 22 },
   closeButton: {
+    minHeight: 44,
+    justifyContent: 'center',
     position: 'absolute',
     top: spacing.xl,
     right: spacing.lg,

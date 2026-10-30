@@ -464,6 +464,8 @@ export default function CloudProfilesScreen() {
                           : translateNative('native.5aff88e68a7bc9d9')
                       }
                       variant="secondary"
+                      disabled={cloudLogoutMutation.isPending}
+                      loading={cloudLogoutMutation.isPending}
                       onPress={() => {
                         Alert.alert(
                           translateNative('native.b2564be4f6e51616'),
@@ -511,6 +513,8 @@ export default function CloudProfilesScreen() {
                           : translateNative('native.5aff88e68a7bc9d9')
                       }
                       variant="secondary"
+                      disabled={orcaLogoutMutation.isPending}
+                      loading={orcaLogoutMutation.isPending}
                       onPress={() => {
                         Alert.alert(
                           translateNative('native.dfc3dade868b6a0d'),
@@ -593,6 +597,9 @@ export default function CloudProfilesScreen() {
               <View style={styles.cardHeader}>
                 <Pressable
                   onPress={() => handleToggleExpand(settingId)}
+                  accessibilityRole="button"
+                  accessibilityLabel={profileName}
+                  accessibilityState={{ expanded: isExpanded }}
                   style={styles.cardHeaderLeft}
                 >
                   <View style={styles.cardText}>
@@ -631,6 +638,9 @@ export default function CloudProfilesScreen() {
                   <Pressable
                     onPress={() => toggleProfileSync(settingId, !item.enabled)}
                     disabled={toggleProfileSyncMutation.isPending}
+                    accessibilityRole="switch"
+                    accessibilityLabel={`${profileName} · ${translateNative('native.006811695c6af86e')}`}
+                    accessibilityState={{ checked: item.enabled, disabled: toggleProfileSyncMutation.isPending, busy: toggleProfileSyncMutation.isPending }}
                     style={[
                       styles.toggleButton,
                       {
@@ -651,13 +661,17 @@ export default function CloudProfilesScreen() {
                 </View>
                 <View style={styles.actionButtons}>
                   {profileError ? (
-                    <View style={styles.errorRow}>
+                    <View style={[styles.errorRow, { backgroundColor: `${colors.error}26`, borderColor: `${colors.error}4d` }]}>
                       <TriangleAlert size={14} color={colors.error} />
                       <Text style={[styles.errorText, { color: colors.error }]} numberOfLines={2}>
                         {profileError}
                       </Text>
                       <Pressable
                         onPress={() => handleClearError(settingId)}
+                        accessibilityRole="button"
+                        accessibilityLabel={translateNative('native.a5ed31a85005df6b')}
+                        accessibilityState={{ disabled: clearProfileErrorMutation.isPending, busy: clearProfileErrorMutation.isPending }}
+                        hitSlop={13}
                         style={styles.clearErrorButton}
                         disabled={clearProfileErrorMutation.isPending}
                       >
@@ -699,7 +713,7 @@ export default function CloudProfilesScreen() {
         }}
         ListEmptyComponent={
           cloudProfilesQuery.isLoading || orcaProfilesQuery.isLoading ? (
-            <LoadingScreen message={translateNative('native.a729fe3fdb50f09e')} />
+            <LoadingScreen inline message={translateNative('native.a729fe3fdb50f09e')} />
           ) : cloudProfilesQuery.isError || orcaProfilesQuery.isError ? (
             <ErrorState
               message={translateNative('native.4f4a0fecdb433230')}
@@ -877,10 +891,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.xs,
     borderRadius: borderRadius.lg,
-    backgroundColor: '#ff000026',
     padding: spacing.sm,
     borderWidth: 1,
-    borderColor: '#ff00004d',
   },
   errorText: {
     flex: 1,
@@ -895,6 +907,7 @@ const styles = StyleSheet.create({
   },
   profileActionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
 });

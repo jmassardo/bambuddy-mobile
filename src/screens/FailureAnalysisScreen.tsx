@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   AlertCircle,
   ArrowUpRight,
@@ -174,7 +175,8 @@ function FailureDetailModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View
+      <SafeAreaProvider style={styles.container}>
+      <SafeAreaView edges={['bottom', 'left', 'right']}
         style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}
       >
         <View
@@ -193,7 +195,7 @@ function FailureDetailModal({
                 {failure.reason}
               </Text>
             </View>
-            <Pressable onPress={onClose} hitSlop={8}>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={translateNative('common.close')} style={styles.modalClose}>
               <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
@@ -260,7 +262,8 @@ function FailureDetailModal({
             <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
           </View>
         </View>
-      </View>
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -834,6 +837,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingTop: spacing['4xl'],
   },
+  modalClose: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   modalContent: {
     borderWidth: 1,
     borderTopLeftRadius: borderRadius['2xl'],

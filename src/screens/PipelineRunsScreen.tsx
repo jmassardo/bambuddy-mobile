@@ -1,14 +1,17 @@
 import { nativeMessage, translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import { localizedStatus } from '@/utils/statusLabel';
 import React, { useState } from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { slicingApi } from '@/api/slicing';
 import { printersApi } from '@/api/printers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { PrimaryButton } from '@/components/common/AppUI';
-import { Box, Choice, Copy, styles } from '@/components/slicing/Controls';
+import { Box, Choice, Copy } from '@/components/slicing/Controls';
+import { useTheme } from '@/theme';
+import { spacing } from '@/theme/tokens';
+import { formatPreferredDateTime } from '@/utils/preferences';
 import type { PipelineRun } from '@/types/api';
 
 export const terminalRun = (status: PipelineRun['status']) =>
@@ -20,6 +23,7 @@ export const retryableRun = (run: PipelineRun) =>
   !!(run.source_library_file_id || run.source_archive_id);
 const pageSize = 20;
 export function PipelineRunsScreen() {
+  const { colors } = useTheme();
   useNativeLocale();
   const { t } = useTranslation();
   const text = (s: string) => t(`pipelineRuns.${s}`, { defaultValue: s });
@@ -109,7 +113,7 @@ export function PipelineRunsScreen() {
   if (!hasPermission('pipelines:read'))
     return <Copy>{text('Permission denied')}</Copy>;
   return (
-    <ScrollView contentContainerStyle={styles.box}>
+    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={screenStyles.content}>
       <Choice
         label={text('Pipeline')}
         value={pipeline}
@@ -174,7 +178,7 @@ export function PipelineRunsScreen() {
       {hasPermission('pipelines:write') && (
         <PrimaryButton
           label={text('Clear terminal run logs')}
-          variant="secondary"
+          variant="danger"
           disabled={clear.isPending}
           onPress={() =>
             Alert.alert(
@@ -197,15 +201,17 @@ export function PipelineRunsScreen() {
       {[runs, pipelines, printers].map(
         (q, i) => q.isError && <Copy key={i}>{q.error.message}</Copy>,
       )}
-      <Copy>{`${runs.data?.total ?? 0} ${text('runs')} · ${text('Page')} ${
+      {runs.isLoading ? <Copy>{t('common.loading')}</Copy> : !runs.isError ? <Copy>{`${runs.data?.total ?? 0} ${text('runs')} · ${text('Page')} ${
         Math.floor(offset / pageSize) + 1
-      }`}</Copy>
+      }`}</Copy> : null}
+      {runs.isSuccess && !runs.data?.runs.length ? <Copy>{translateNative('native.e09a7c1298e1a8c8')}</Copy> : null}
       {runs.data?.runs.map(run => (
         <Box key={run.id}>
           <PrimaryButton
             label={`#${run.id} ${
               run.pipeline_name ?? text('Deleted pipeline')
             } · ${localizedStatus(run.status)}`}
+            expanded={expanded.has(run.id)}
             variant="secondary"
             onPress={() =>
               setExpanded(previous => {
@@ -227,6 +233,7 @@ export function PipelineRunsScreen() {
           {hasPermission('pipelines:run') && !terminalRun(run.status) && (
             <PrimaryButton
               label={text('Cancel run')}
+              variant="danger"
               disabled={action.isPending}
               onPress={() =>
                 Alert.alert(
@@ -263,10 +270,10 @@ export function PipelineRunsScreen() {
               <Copy>{`${text('Target')}: ${run.target_kind ?? '—'} · ${
                 run.target_model_class ?? run.target_printer_id ?? '—'
               } · ${run.fanout_strategy ?? '—'}`}</Copy>
-              <Copy>{`${text('Created')}: ${run.created_at} · ${text(
+              <Copy>{`${text('Created')}: ${formatPreferredDateTime(run.created_at)} · ${text(
                 'Started',
-              )}: ${run.started_at ?? '—'} · ${text('Finished')}: ${
-                run.completed_at ?? '—'
+              )}: ${run.started_at ? formatPreferredDateTime(run.started_at) : '—'} · ${text('Finished')}: ${
+                run.completed_at ? formatPreferredDateTime(run.completed_at) : '—'
               }`}</Copy>
               {run.parent_run_id && (
                 <Copy>{`${text('Retry of run')} #${run.parent_run_id}`}</Copy>
@@ -289,8 +296,8 @@ export function PipelineRunsScreen() {
                   <Copy>{`${text('Queue entry')}: ${
                     job.queue_entry_id ?? '—'
                   } · ${text('Dispatched')}: ${
-                    job.dispatched_at ?? '—'
-                  } · ${text('Finished')}: ${job.completed_at ?? '—'}`}</Copy>
+                    job.dispatched_at ? formatPreferredDateTime(job.dispatched_at) : '—'
+                  } · ${text('Finished')}: ${job.completed_at ? formatPreferredDateTime(job.completed_at) : '—'}`}</Copy>
                   {!!job.error_message && <Copy>{job.error_message}</Copy>}
                 </Box>
               ))}
@@ -313,3 +320,4 @@ export function PipelineRunsScreen() {
     </ScrollView>
   );
 }
+const screenStyles = StyleSheet.create({ content: { padding: spacing.lg, gap: spacing.md } });

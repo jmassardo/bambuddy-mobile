@@ -1,5 +1,40 @@
-import type { PrinterStatus } from '@/types/api';
+import type { Printer, PrinterStatus } from '@/types/api';
 import { filterKnownHMSErrors } from '@/components/printers/hmsErrorCatalog';
+
+export type PrinterFleetState =
+  | 'printing'
+  | 'paused'
+  | 'finished'
+  | 'queued'
+  | 'idle'
+  | 'offline'
+  | 'issues';
+
+interface FleetPrinter {
+  printer?: Pick<Printer, 'is_active'>;
+  status?: PrinterStatus;
+  maintenance?: { dueCount: number };
+  queueCount?: number;
+}
+
+export function getPrinterFleetState({
+  printer,
+  status,
+  maintenance,
+  queueCount = 0,
+}: FleetPrinter): PrinterFleetState {
+  if (printer?.is_active === false) return 'issues';
+  if (!status?.connected) return 'offline';
+  if (
+    filterKnownHMSErrors(status.hms_errors ?? []).length > 0 ||
+    (maintenance?.dueCount ?? 0) > 0 ||
+    status.state === 'FAILED'
+  ) return 'issues';
+  if (status.state === 'RUNNING') return 'printing';
+  if (status.state === 'PAUSE') return 'paused';
+  if (status.awaiting_plate_clear ?? (status.state === 'FINISH')) return 'finished';
+  return queueCount > 0 ? 'queued' : 'idle';
+}
 
 export type FleetBulkAction =
   | 'pause'
@@ -30,35 +65,23 @@ export function isBulkApplicable(
   return true;
 }
 
-export function countFleetStates(statuses: (PrinterStatus | undefined)[]) {
+export function countFleetStates(printers: FleetPrinter[]) {
   const counts = {
     printing: 0,
     paused: 0,
     finished: 0,
+    queued: 0,
     idle: 0,
     offline: 0,
     issues: 0,
     loading: 0,
   };
-  for (const status of statuses) {
-    if (!status) {
+  for (const printer of printers) {
+    if (!printer.status) {
       counts.loading++;
       continue;
     }
-    if (!status.connected) {
-      counts.offline++;
-      continue;
-    }
-    const hasHms = filterKnownHMSErrors(status.hms_errors ?? []).length > 0;
-    if (hasHms) counts.issues++;
-    if (status.state === 'RUNNING') counts.printing++;
-    else if (status.state === 'PAUSE') counts.paused++;
-    else if (
-      status.state === 'FINISH' ||
-      (status.state === 'FAILED' && !hasHms)
-    )
-      counts.finished++;
-    else if (status.state !== 'FAILED') counts.idle++;
+    counts[getPrinterFleetState(printer)]++;
   }
   return counts;
 }

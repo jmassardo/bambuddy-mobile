@@ -8,7 +8,9 @@ import type { RootNavigationProp } from '@/navigation/types';
 import {
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,6 +18,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   errorCodes,
   isErrorWithCode,
@@ -33,10 +36,13 @@ import { ProjectTransferActions } from '@/components/projects/ProjectTransferAct
 import { projectTree } from '@/utils/projectHierarchy';
 
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDate, formatCurrency, pickNumber, pickString, statusColor, type ApiRecord } from '@/utils/data';
 import { proxyThumbnailUrl } from '@/utils/media';
+import { useMediaToken } from '@/hooks/useStreamToken';
+import { Ellipsis } from 'lucide-react-native';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'archived';
 
@@ -84,6 +90,7 @@ function projectCoverUrl(project: ApiRecord): string | null {
 }
 
 export default function ProjectsScreen() {
+  const { token: mediaToken } = useMediaToken();
   const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Projects'>>();
@@ -93,6 +100,7 @@ export default function ProjectsScreen() {
 
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<StatusFilter>('all');
@@ -275,9 +283,11 @@ export default function ProjectsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}> 
       <FlatList
+        extraData={mediaToken}
         data={projectTree(projects, expanded, new Set(filteredProjects.map(project => pickNumber(project, ['id']))), !!search.trim() || filter !== 'all')}
         keyExtractor={item => pickString(item.project, ['id'])}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         ItemSeparatorComponent={ProjectsItemSeparator}
         refreshControl={
           <RefreshControl
@@ -334,9 +344,9 @@ export default function ProjectsScreen() {
               budget={pickString(item, ['budget'])}
               cover={cover}
               onOpen={() => navigation.navigate('ProjectDetail', { id: pickNumber(item, ['id']) })}
-              onBatchPrint={() => setBatchProject(item)}
-              onEdit={() => openEdit(item)}
-              onDelete={() => setPendingDeleteProject(item)}
+              onBatchPrint={hasPermission('queue:create') ? () => setBatchProject(item) : undefined}
+              onEdit={hasPermission('projects:update') ? () => openEdit(item) : undefined}
+              onDelete={hasPermission('projects:delete') ? () => setPendingDeleteProject(item) : undefined}
             />
             </View>
           );
@@ -377,12 +387,14 @@ export default function ProjectsScreen() {
         ]}
       />
 
-      <FloatingActionButton icon="plus" label={translateNative('screen.project')} onPress={openCreate} />
+      {hasPermission('projects:create') ? <FloatingActionButton icon="plus" label={translateNative('screen.project')} onPress={openCreate} /> : null}
 
-      <Modal visible={showModal} animationType="slide" transparent>
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
+      <Modal visible={showModal} animationType="slide" transparent onRequestClose={resetModal}>
+        <SafeAreaProvider style={styles.container}>
+        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
-            <ScrollView contentContainerStyle={styles.modalContent}>
+            <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
               <Text style={[styles.modalTitle, { color: colors.text }]}>{editingProject ? translateNative('native.7ca475c44190e23e') : translateNative('native.af2769610bfa6d04')}</Text>
               <TextField label={translateNative('common.name')} value={form.name} onChangeText={value => setForm(current => ({ ...current, name: value }))} />
               <TextField label={translateNative('native.a7115fb87dd30c12')} value={form.description} onChangeText={value => setForm(current => ({ ...current, description: value }))} multiline />
@@ -458,7 +470,9 @@ export default function ProjectsScreen() {
               </View>
             </ScrollView>
           </View>
-        </View>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaProvider>
       </Modal>
       <ProjectBatchPrintModal
         visible={batchProject != null}
@@ -514,11 +528,12 @@ function PressableProjectCard({
   budget: string;
   cover: string | null;
   onOpen: () => void;
-  onBatchPrint: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onBatchPrint?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   useNativeLocale();
+  const [showActions, setShowActions] = useState(false);
   return (
     <View style={[styles.projectCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}> 
       {cover ? <Image source={{ uri: cover }} style={styles.projectCover} /> : null}
@@ -543,11 +558,31 @@ function PressableProjectCard({
         <Text style={[styles.progressText, { color: colors.textSecondary }]}><NativeTranslation id="native.46c37bf4cc4fd4a3" values={{ value0: (Math.round(progress)) }} /></Text>
 
         <View style={styles.cardActions}>
-          <PrimaryButton label={translateNative('native.1d02121ce21f4721')} variant="secondary" onPress={onOpen} />
-          <PrimaryButton label={translateNative('native.202e9b4ca38974dc')} variant="secondary" onPress={onBatchPrint} />
-          <PrimaryButton label={translateNative('common.edit')} variant="secondary" onPress={onEdit} />
-          <PrimaryButton label={translateNative('common.delete')} variant="danger" onPress={onDelete} />
+          <View style={styles.openAction}>
+            <PrimaryButton label={translateNative('native.1d02121ce21f4721')} variant="secondary" onPress={onOpen} />
+          </View>
+          {onBatchPrint || onEdit || onDelete ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${translateNative('nav.more')} · ${title}`}
+              accessibilityState={{ expanded: showActions }}
+              onPress={() => setShowActions(true)}
+              style={[styles.moreAction, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+            >
+              <Ellipsis size={20} color={colors.text} />
+            </Pressable>
+          ) : null}
         </View>
+        <ActionSheetModal
+          visible={showActions}
+          title={title}
+          onClose={() => setShowActions(false)}
+          actions={[
+            ...(onBatchPrint ? [{ label: translateNative('native.202e9b4ca38974dc'), onPress: () => { setShowActions(false); onBatchPrint(); } }] : []),
+            ...(onEdit ? [{ label: translateNative('common.edit'), onPress: () => { setShowActions(false); onEdit(); } }] : []),
+            ...(onDelete ? [{ label: translateNative('common.delete'), destructive: true, onPress: () => { setShowActions(false); onDelete(); } }] : []),
+          ]}
+        />
       </View>
     </View>
   );
@@ -613,8 +648,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
   },
   cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
+  openAction: { flex: 1 },
+  moreAction: { width: 48, height: 48, borderWidth: 1, borderRadius: borderRadius.lg, alignItems: 'center', justifyContent: 'center' },
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -680,6 +719,7 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
 });

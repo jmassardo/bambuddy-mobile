@@ -82,6 +82,7 @@ import {
   type InventoryFilters,
 } from '@/utils/inventory';
 import { shareBlob } from '@/utils/share';
+import { Ellipsis } from 'lucide-react-native';
 
 const INVENTORY_FILTER_LABELS: Record<string, string> = {
   get material() { return translateNative('native.d9621937608f6468'); }, get brand() { return translateNative('native.c6e3d939851b066b'); }, get category() { return translateNative('native.1d391aa0521102b6'); },
@@ -112,6 +113,8 @@ export default function InventoryScreen() {
   const [editor, setEditor] = useState<InventoryRecord | null | undefined>();
   const [detail, setDetail] = useState<InventoryRecord | null>(null);
   const [tool, setTool] = useState('');
+  const [showTools, setShowTools] = useState(false);
+  const hasActiveFilters = Boolean(search.trim() || archive !== 'active' || Object.values(filters).some(Boolean));
   const [labelIds, setLabelIds] = useState<number[]>([]);
   const [scan, setScan] = useState(false);
   const [confirmation, setConfirmation] = useState<{
@@ -396,6 +399,7 @@ export default function InventoryScreen() {
         data={view === 'cards' ? groups : []}
         keyExtractor={group => group.key}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={spools.isRefetching}
@@ -422,6 +426,8 @@ export default function InventoryScreen() {
                 )
                 .toFixed(0)}{' '}
               {translateNative('native.e9862d079a16d262')}</InventoryText>
+            <View style={styles.toolbar}>
+            <View style={styles.toolbarSearch}>
             <SearchBar
               value={search}
               onChangeText={setSearch}
@@ -430,6 +436,17 @@ export default function InventoryScreen() {
                   'Search #ID, brand, preset, color, purchasing metadata…',
               })}
             />
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={translateNative('native.af0c0def77bf1df9')}
+              accessibilityState={{ expanded: showTools, selected: hasActiveFilters }}
+              onPress={() => setShowTools(value => !value)}
+              style={[styles.toolsButton, { backgroundColor: showTools || hasActiveFilters ? colors.accentBg : colors.surfaceElevated, borderColor: colors.border }]}
+            >
+              <Ellipsis size={20} color={colors.text} />
+            </Pressable>
+            </View>
             <InlineTabBar
               value={archive}
               tabs={[
@@ -464,6 +481,17 @@ export default function InventoryScreen() {
               ]}
               onChange={setView}
             />
+            {hasActiveFilters ? <PrimaryButton
+              label={t('inventory.clearFilters', { defaultValue: 'Clear all filters' })}
+              variant="secondary"
+              onPress={() => { setFilters({}); setSearch(''); setArchive('active'); }}
+            /> : null}
+            {canWrite ? <PrimaryButton
+              label={t('inventory.add', { defaultValue: 'Add spool / quick stock' })}
+              onPress={() => setEditor(null)}
+            /> : null}
+            {showTools ? <InventoryModal title={translateNative('native.af0c0def77bf1df9')} onClose={() => setShowTools(false)}>
+            <View style={styles.stack}>
             <ChoiceField
               label={translateNative('native.af0c0def77bf1df9')}
               value={tool}
@@ -495,31 +523,14 @@ export default function InventoryScreen() {
                     ]
                   : []),
               ]}
-              onChange={setTool}
-            />
-            <PrimaryButton
-              label={t('inventory.clearFilters', {
-                defaultValue: 'Clear all filters',
-              })}
-              variant="secondary"
-              onPress={() => {
-                setFilters({});
-                setSearch('');
-                setArchive('active');
-              }}
+              onChange={value => { setShowTools(false); setTool(value); }}
             />
             {canWrite && (
               <>
                 <PrimaryButton
-                  label={t('inventory.add', {
-                    defaultValue: 'Add spool / quick stock',
-                  })}
-                  onPress={() => setEditor(null)}
-                />
-                <PrimaryButton
                   label={translateNative('native.0184b3e475a8c900')}
                   variant="secondary"
-                  onPress={() => setScan(true)}
+                  onPress={() => { setShowTools(false); setScan(true); }}
                 />
                 {!spoolman && (
                   <>
@@ -528,6 +539,7 @@ export default function InventoryScreen() {
                       variant="secondary"
                       loading={action.isPending}
                       onPress={() => {
+                        setShowTools(false);
                         void pickCsv();
                       }}
                     />
@@ -535,28 +547,30 @@ export default function InventoryScreen() {
                       label={translateNative('native.0b34e87efafc8013')}
                       variant="secondary"
                       loading={action.isPending}
-                      onPress={() =>
+                      onPress={() => {
+                        setShowTools(false);
                         action.mutate({ operation: 'export', ids: [] })
-                      }
+                      }}
                     />
                   </>
                 )}
                 <PrimaryButton
                   label={translateNative('native.e167006e1fceeb5a')}
                   variant="secondary"
-                  onPress={() =>
+                  onPress={() => {
+                    setShowTools(false);
                     setConfirmation({
                       operation: 'reset-consumed-counter-bulk',
                       ids: rows.map(row => number(row, 'id')),
                     })
-                  }
+                  }}
                 />
               </>
             )}
             <PrimaryButton
               label={translateNative('native.16bad5912d6c178c')}
               variant="secondary"
-              onPress={() => navigation.navigate('SpoolAssignmentHistory')}
+              onPress={() => { setShowTools(false); navigation.navigate('SpoolAssignmentHistory'); }}
             />
             <Toggle
               label={translateNative('native.37b27bb6c1f8cc18', { value0: String(filtered.length) })}
@@ -571,6 +585,8 @@ export default function InventoryScreen() {
                 )
               }
             />
+            </View>
+            </InventoryModal> : null}
             {!!selected.length && (
               <SectionCard title={translateNative('native.df8179da1ed8585c', { value0: String(selected.length) })}>
                 <View style={styles.stack}>
@@ -1027,5 +1043,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing['3xl'],
   },
   stack: { gap: spacing.sm },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  toolbarSearch: { flex: 1 },
+  toolsButton: { width: 48, height: 48, borderWidth: 1, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
 });
 import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

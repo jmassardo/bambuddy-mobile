@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/theme';
 
 import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
+import { ActionSheetModal } from '@/components/common/ActionSheetModal';
 import { CameraChoices, CameraMessage } from '@/components/printers/CameraControls';
 import { OverlayPreview } from '@/components/printers/OverlayPreview';
 import { cameraIntegrationUrl, overlayFields, overlayUrl, type OverlayOptions } from '@/utils/cameraIntegrations';
@@ -87,6 +88,8 @@ export function CameraTokenManager({ printerId }: { printerId: number }) {
       <PrimaryButton label={all ? t('camera.myTokens', { defaultValue: 'Show my tokens' }) : t('camera.allTokens', { defaultValue: 'Show all users’ tokens (admin)' })} disabled={!isAdmin && !all} onPress={() => setAll(current => !current)} />
       <CameraMessage>{all && isAdmin ? t('camera.adminReview', { defaultValue: 'Administrator review — all owners' }) : t('camera.personalReview', { defaultValue: 'Personal tokens' })}</CameraMessage>
       {tokens.isError ? <PrimaryButton label={t('common.retry', { defaultValue: 'Retry' })} onPress={() => void tokens.refetch()} /> : null}
+      {tokens.isLoading ? <CameraMessage>{t('common.loading')}</CameraMessage> : null}
+      {tokens.isSuccess && !tokens.data.length ? <CameraMessage>{t('common.none')}</CameraMessage> : null}
       {tokens.data?.map(token => <SectionCard key={token.id} title={token.name}>
         <CameraMessage>{t('camera.tokenMetadata', { defaultValue: 'Owner #{{owner}} · Scope {{scope}} · Prefix {{prefix}}', owner: token.user_id, scope: token.scope, prefix: token.lookup_prefix })}</CameraMessage>
         <CameraMessage>{t('camera.tokenDates', { defaultValue: 'Created {{created}} · Expires {{expires}} · Last used {{used}}', created: formatPreferredDateTime(token.created_at), expires: formatPreferredDateTime(token.expires_at), used: formatPreferredDateTime(token.last_used_at) })}</CameraMessage>
@@ -124,9 +127,10 @@ export default function CameraIntegrationsScreen() {
   const server = useServerStore(state => state.serverUrl);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const [preview, setPreview] = useState(false);
+  const [choosingPrinter, setChoosingPrinter] = useState(false);
   const [openError, setOpenError] = useNativeMessageState<string | null>(null);
   const [options, setOptions] = useState<OverlayOptions>({
-    printerId: 1, fields: ['progress', 'layers', 'eta', 'filename', 'status'],
+    printerId: 0, fields: ['progress', 'layers', 'eta', 'filename', 'status'],
     size: 'medium', artwork: '1', fps: 15, camera: true, token: '',
   });
   const [fpsInput, setFpsInput] = useState('15');
@@ -138,19 +142,25 @@ export default function CameraIntegrationsScreen() {
   }, []);
   useEffect(() => {
     setPreview(false);
-    setOptions(current => ({ ...current, token: '' }));
+    setOptions(current => ({ ...current, printerId: 0, token: '' }));
+    setChoosingPrinter(false);
   }, [server, user?.id]);
-  useEffect(() => {
-    if (printers.data?.length && !printers.data.some(printer => printer.id === options.printerId)) {
-      setOptions(current => ({ ...current, printerId: printers.data[0].id }));
-    }
-  }, [options.printerId, printers.data]);
   let url = '';
-  try { url = server ? overlayUrl(server, options) : ''; } catch { /* Invalid server URLs never enter the preview or external browser. */ }
-  return <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
+  const selectedPrinter = printers.data?.find(printer => printer.id === options.printerId);
+  try { url = server && selectedPrinter ? overlayUrl(server, options) : ''; } catch { /* Invalid server URLs never enter the preview or external browser. */ }
+  return <ScrollView automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled" style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
     <SectionCard title={t('camera.overlayBuilder', { defaultValue: 'OBS streaming-overlay URL builder' })}>
-      <CameraMessage>{t('camera.selectPrinter', { defaultValue: 'Select printer' })}</CameraMessage>
-      {printers.data?.map(printer => <PrimaryButton key={printer.id} label={`${options.printerId === printer.id ? '✓ ' : ''}${printer.name}`} variant="secondary" onPress={() => setOptions(current => ({ ...current, printerId: printer.id }))} />)}
+      {printers.isLoading ? <CameraMessage>{t('common.loading')}</CameraMessage> : null}
+      {printers.isError ? <PrimaryButton label={t('common.retry')} variant="secondary" onPress={() => void printers.refetch()} /> : null}
+      {printers.isSuccess && !printers.data.length ? <CameraMessage>{t('camera.noPrinters')}</CameraMessage> : null}
+      <PrimaryButton label={selectedPrinter?.name ?? t('camera.selectPrinter', { defaultValue: 'Select printer' })} variant="secondary"
+        disabled={printers.isLoading || printers.isError || !printers.data?.length}
+        onPress={() => setChoosingPrinter(true)} />
+      <ActionSheetModal visible={choosingPrinter} title={t('camera.selectPrinter', { defaultValue: 'Select printer' })} onClose={() => setChoosingPrinter(false)}
+        actions={(printers.data ?? []).map(printer => ({
+          label: printer.name,
+          onPress: () => { setOptions(current => ({ ...current, printerId: printer.id })); setChoosingPrinter(false); },
+        }))} />
       <CameraChoices optionLabel={option => translateNative(String(option))} label={t('camera.textSize', { defaultValue: 'Text size' })} options={['small', 'medium', 'large']} value={options.size} onChange={size => setOptions(current => ({ ...current, size }))} />
       <CameraChoices optionLabel={option => translateNative(String(option))} label={t('camera.artwork', { defaultValue: 'Artwork (1 = classic, 2 = version 2)' })} options={['1', '2']} value={options.artwork} onChange={artwork => setOptions(current => ({ ...current, artwork }))} />
       <TextField label={t('camera.fps', { defaultValue: 'Frames per second (1–30)' })} value={fpsInput} keyboardType="number-pad" onChangeText={value => {
@@ -178,7 +188,7 @@ export default function CameraIntegrationsScreen() {
         {preview && focused && appActive && (!authEnabled || Boolean(user)) && hasPermission('camera:view') ? <OverlayPreview key={`${url}:${getAuthToken()}`} url={url} /> : null}
       </> : null}
     </SectionCard>
-    <CameraTokenManager key={`${server}:${user?.id}`} printerId={options.printerId} />
+    {selectedPrinter ? <CameraTokenManager key={`${server}:${user?.id}`} printerId={options.printerId} /> : null}
   </ScrollView>;
 }
 

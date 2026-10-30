@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import QueueScreen from '@/screens/QueueScreen';
 import { ApiError } from '@/api/http';
 import { Choice } from '@/components/printers/PrintOptionsForm';
+import { SectionCard } from '@/components/common/AppUI';
 import { QueueBulkEditModal } from '@/components/queue/QueueBulkEditModal';
 import type { PrintQueueItem } from '@/types/api';
 
@@ -408,6 +409,47 @@ describe('queue management workflows', () => {
     await settle();
     await settle();
   }
+  it('keeps filters and bulk tools collapsed while retaining filtered jobs when closed', async () => {
+    mockQueueItems = [{ ...mockItems[0] }, { ...mockItems[1], printer_id: 2 }, { ...mockItems[2] }];
+    await renderScreen();
+    expect(renderer.root.findAllByType(Choice)).toHaveLength(0);
+    expect(renderer.root.findAllByType(Pressable).some(n => n.props.accessibilityLabel === 'Select visible pending')).toBe(false);
+    expect(button(renderer.root, 'start-2')).toBeTruthy();
+    expect(renderer.root.findAllByType(SectionCard)).toHaveLength(0);
+    const titles = renderer.root.findAllByType(Text)
+      .filter(node => node.props.accessibilityRole === 'header')
+      .map(node => node.props.children.toLowerCase());
+    expect(titles.indexOf('queued items')).toBeGreaterThanOrEqual(0);
+    expect(titles.indexOf('queued items')).toBeLessThan(titles.indexOf('currently printing'));
+    await press(renderer, 'Filters');
+    await choose(renderer, 'Printer', 'Printer One');
+    await press(renderer, 'Filters');
+    expect(renderer.root.findAllByType(Choice)).toHaveLength(0);
+    expect(button(renderer.root, 'start-1')).toBeTruthy();
+    expect(renderer.root.findAllByType(Pressable).some(n => n.props.accessibilityLabel === 'start-2')).toBe(false);
+    await press(renderer, 'More');
+    expect(button(renderer.root, 'Select visible pending')).toBeTruthy();
+  });
+  it('uses flat batch headings with collapsible jobs and contextual management actions', async () => {
+    mockQueueItems = [
+      { ...mockItems[0], batch_id: 8, batch_name: 'Production' },
+      { ...mockItems[1], batch_id: 8, batch_name: 'Production' },
+    ];
+    await renderScreen();
+    expect(renderer.root.findAllByType(SectionCard)).toHaveLength(0);
+    expect(button(renderer.root, 'start-1')).toBeTruthy();
+    expect(renderer.root.findAllByType(Pressable).some(n => n.props.accessibilityLabel === 'Ungroup')).toBe(false);
+    await press(renderer, 'Collapse batch');
+    expect(renderer.root.findAllByType(Pressable).some(n => n.props.accessibilityLabel === 'start-1')).toBe(false);
+    await press(renderer, 'Expand batch');
+    expect(button(renderer.root, 'start-1')).toBeTruthy();
+    await press(renderer, 'More · Production');
+    expect(button(renderer.root, 'Batch up')).toBeTruthy();
+    expect(button(renderer.root, 'Batch down')).toBeTruthy();
+    expect(button(renderer.root, 'Ungroup')).toBeTruthy();
+    await press(renderer, 'More · Production');
+    expect(renderer.root.findAllByType(Pressable).some(n => n.props.accessibilityLabel === 'Ungroup')).toBe(false);
+  });
   it.each([8, null])(
     'allows queue:update_own to start staged jobs owned by %s without printer-control permission',
     async owner => {
@@ -471,6 +513,7 @@ describe('queue management workflows', () => {
         },
       ];
       await renderScreen();
+      await press(renderer, 'More');
       await press(renderer, 'Select visible pending');
       await press(renderer, 'Bulk edit');
       const assignment = renderer.root
@@ -503,6 +546,7 @@ describe('queue management workflows', () => {
       mockItems[1],
     ];
     await renderScreen();
+    await press(renderer, 'More');
     await press(renderer, 'Select visible pending');
     await press(renderer, 'Bulk edit');
     await act(async () =>
@@ -523,6 +567,7 @@ describe('queue management workflows', () => {
   });
   it('revalidates a stale fixed-printer draft when a selected job becomes unresolved, and still allows unassignment', async () => {
     await renderScreen();
+    await press(renderer, 'More');
     await press(renderer, 'Select visible pending');
     await press(renderer, 'Bulk edit');
     await choose(renderer, 'Assign printer', 'Printer One · X1C');
@@ -603,6 +648,7 @@ describe('queue management workflows', () => {
   });
   it('sends only chosen bulk fields, preserving unchanged and auto semantics', async () => {
     await renderScreen();
+    await press(renderer, 'More');
     await press(renderer, 'Select visible pending');
     await press(renderer, 'Bulk edit');
     await choose(renderer, 'Bed levelling', 'Auto');
@@ -620,6 +666,7 @@ describe('queue management workflows', () => {
   });
   it('groups selected pending jobs with a user-entered name', async () => {
     await renderScreen();
+    await press(renderer, 'More');
     await press(renderer, 'Select visible pending');
     await press(renderer, 'Group selected as batch');
     const input = renderer.root
@@ -635,6 +682,7 @@ describe('queue management workflows', () => {
   it('clears only finished history records and reports server-retained order source runs', async () => {
     await renderScreen();
     await press(renderer, 'tab-history');
+    await press(renderer, 'More');
     await press(renderer, 'Clear history (3)');
     expect(writes()).toHaveLength(0);
     await press(renderer, 'Confirm');
@@ -672,6 +720,7 @@ describe('queue management workflows', () => {
         .some(n => n.props.accessibilityLabel === 'Resume after failure'),
     ).toBe(false);
     await press(renderer, 'tab-history');
+    await press(renderer, 'More');
     expect(
       renderer.root
         .findAllByType(Pressable)

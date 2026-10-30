@@ -322,6 +322,9 @@ export default function EnergyScreen() {
             <Pressable
               testID="filter-chip-all"
               onPress={() => setSelectedPrinterId(null)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selectedPrinterId === null }}
+              hitSlop={8}
               style={[
                 styles.filterChip,
                 { backgroundColor: selectedPrinterId === null ? colors.accent : colors.surfaceElevated },
@@ -335,6 +338,9 @@ export default function EnergyScreen() {
                 testID={`filter-chip-${row.printerId ?? row.printerName}`}
                 key={`filter-${row.printerId ?? row.printerName}`}
                 onPress={() => setSelectedPrinterId(row.printerId)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedPrinterId === row.printerId }}
+                hitSlop={8}
                 style={[
                   styles.filterChip,
                   { backgroundColor: selectedPrinterId === row.printerId ? colors.accent : colors.surfaceElevated },

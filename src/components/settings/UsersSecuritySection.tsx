@@ -3,7 +3,7 @@ import { NativeTranslation, nativeMessage, translateNative, useNativeLocale, use
 
 import Clipboard from '@react-native-clipboard/clipboard';
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import { InlineTabBar, PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
@@ -182,7 +182,10 @@ export function UsersSecuritySection({ controller }: { controller: SettingsScree
                       <Text style={[settingsStyles.itemTitle, { color: controller.colors.text }]}>{link.provider_name}</Text>
                       <Text style={[settingsStyles.itemMeta, { color: controller.colors.textSecondary }]}>{link.provider_email || translateNative('native.1ea6c7478b64fd1e')}</Text>
                     </View>
-                    <PrimaryButton label={translateNative('native.4b6b182ce709b1ec')} variant="danger" onPress={() => void unlinkOIDCLinkMutation.mutateAsync(link.provider_id)} loading={unlinkOIDCLinkMutation.isPending} disabled={unlinkOIDCLinkMutation.isPending} />
+                    <PrimaryButton label={translateNative('native.4b6b182ce709b1ec')} variant="danger"                     onPress={() => Alert.alert(translateNative('native.4b6b182ce709b1ec'), link.provider_name, [
+                      { text: translateNative('common.cancel'), style: 'cancel' },
+                      { text: translateNative('native.4b6b182ce709b1ec'), style: 'destructive', onPress: () => void unlinkOIDCLinkMutation.mutateAsync(link.provider_id) },
+                    ])} loading={unlinkOIDCLinkMutation.isPending} disabled={unlinkOIDCLinkMutation.isPending} />
                   </View>
                 </View>
               ))}

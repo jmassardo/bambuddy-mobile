@@ -63,6 +63,8 @@ export function CloudProfileDiffModal({
             </View>
             <Pressable
               onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={translateNative('common.close')}
               style={[
                 styles.closeButton,
                 {
@@ -171,8 +173,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   closeButton: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     alignItems: 'center',

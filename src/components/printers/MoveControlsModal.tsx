@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDown,
@@ -162,7 +163,8 @@ export function MoveControlsModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+      <SafeAreaProvider>
+      <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View
           style={[
@@ -180,6 +182,8 @@ export function MoveControlsModal({
             </View>
             <Pressable
               onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={translateNative('common.close')}
               style={[
                 styles.closeButton,
                 { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
@@ -335,7 +339,8 @@ export function MoveControlsModal({
 
           <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         </View>
-      </View>
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -372,8 +377,8 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
   },
   closeButton: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     alignItems: 'center',
