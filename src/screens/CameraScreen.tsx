@@ -63,7 +63,7 @@ import type {
 } from '@/types/api';
 import { withCacheBuster } from '@/utils/data';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useMediaToken } from '@/hooks/useStreamToken';
+import { useCameraToken } from '@/hooks/useStreamToken';
 import { useStreamRetry, type RetryState } from '@/hooks/useStreamRetry';
 import { useStreamHealth, type StreamHealthStatus } from '@/hooks/useStreamHealth';
 import { WebView } from 'react-native-webview';
@@ -678,7 +678,7 @@ export default function CameraScreen() {
   const serverUrl = useServerStore(state => state.serverUrl);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { token: mediaToken, isReady: mediaTokenReady } = useMediaToken();
+  const { token: mediaToken, isReady: mediaTokenReady } = useCameraToken();
   const [streamRetryCount, setStreamRetryCount] = useState(0);
   const [playbackMode, setPlaybackMode] = useState<'live' | 'snapshot'>('live');
   const streamRetry = useStreamRetry({
@@ -1208,7 +1208,7 @@ export default function CameraScreen() {
   const streamUrl = useLocalizedMemo(() => {
     if (Platform.OS !== 'android' || !validPrinterId || !mediaTokenReady) return null;
     return withCacheBuster(
-      api.getCameraStreamUrl(printerId),
+      api.getCameraStreamUrl(printerId, mediaToken),
       `${mediaToken ?? 'public'}-${streamSeed}`,
     );
   }, [

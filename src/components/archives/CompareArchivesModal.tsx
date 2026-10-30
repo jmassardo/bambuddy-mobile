@@ -53,7 +53,7 @@ export function CompareArchivesModal({
             {archives.map(archive => (
               <View key={archive.id} style={styles.cell}>
                 <Image
-                  source={{ uri: api.getArchiveThumbnail(archive.id) }}
+                  source={{ uri: api.getArchiveThumbnail(archive.id, archive.plate_id) }}
                   style={styles.thumbnail}
                   resizeMode="contain"
                 />

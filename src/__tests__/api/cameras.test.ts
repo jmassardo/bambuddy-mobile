@@ -67,8 +67,10 @@ it('separates personal/admin token review and sends actual revoke requests', asy
 });
 
 it('never sends login credentials in image URLs and drops scoped access after logout/server changes', async () => {
-  expect(camerasApi.referenceImage(7, 0)).toContain('token=scoped-media');
-  expect(camerasApi.snapshot(7, 42)).toBe('https://farm.example/api/v1/printers/7/camera/snapshot?t=42&token=scoped-media');
+  expect(camerasApi.referenceImage(7, 0, 'camera-only')).toContain('token=camera-only');
+  expect(camerasApi.snapshot(7, 42, 'camera-only')).toBe('https://farm.example/api/v1/printers/7/camera/snapshot?t=42&token=camera-only');
+  expect(camerasApi.snapshot(7, 42)).not.toContain('scoped-media');
+  expect(printersApi.getCameraStreamUrl(7, 'camera-only')).toContain('token=camera-only');
   useServerStore.setState({ serverUrl: 'https://other.example' });
   expect(camerasApi.snapshot(7, 43)).not.toContain('scoped-media');
   setStreamToken('other-media');

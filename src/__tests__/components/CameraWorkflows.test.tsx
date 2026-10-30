@@ -23,7 +23,7 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ hasPermission: () => mockPermission }),
 }));
 jest.mock('@/hooks/useStreamToken', () => ({
-  useMediaToken: () => ({ isReady: mockMediaReady, token: mockMediaToken }),
+  useCameraToken: () => ({ isReady: mockMediaReady, token: mockMediaToken }),
 }));
 jest.mock('@/api/cameras', () => ({
   camerasApi: {

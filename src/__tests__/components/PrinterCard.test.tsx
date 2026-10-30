@@ -34,9 +34,11 @@ jest.mock('@tanstack/react-query', () => ({
 jest.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {},
   getAuthToken: () => null,
+  withStreamToken: (url: string) => `${url}?token=media-token`,
   api: { pausePrint: jest.fn(), resumePrint: jest.fn(), stopPrint: jest.fn(), deletePrinter: jest.fn(), connectPrinter: jest.fn(), refreshPrinterStatus: jest.fn() },
 }));
 jest.mock('@/api/printerFleet', () => ({ printerFleetApi: {} }));
+jest.mock('@/hooks/useStreamToken', () => ({ useMediaToken: () => ({ token: 'media-token' }) }));
 
 jest.mock('@/api/server', () => ({
   useServerStore: (selector: (state: { serverUrl: string }) => unknown) =>

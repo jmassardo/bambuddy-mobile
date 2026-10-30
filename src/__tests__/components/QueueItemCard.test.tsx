@@ -9,13 +9,16 @@ const mockColors = {
   accent: '#00aa44', accentBg: '#113322', highlight: '#ffaa00',
   card: '#222222', cardBorder: '#444444',
 };
+let mockMediaToken: string | null = null;
+let mockServerUrl: string | null = null;
 jest.mock('@/theme', () => ({
   useTheme: () => ({ colors: new Proxy(mockColors, { get: (target, key) => target[key as keyof typeof target] ?? '#888888' }) }),
 }));
 jest.mock('@/api/server', () => ({
-  useServerStore: (select: (state: { serverUrl: null }) => unknown) => select({ serverUrl: null }),
+  useServerStore: (select: (state: { serverUrl: string | null }) => unknown) => select({ serverUrl: mockServerUrl }),
 }));
-jest.mock('@/api/client', () => ({ withStreamToken: (url: string) => url }));
+jest.mock('@/api/client', () => ({ withStreamToken: (url: string) => mockMediaToken ? `${url}?token=${mockMediaToken}` : url }));
+jest.mock('@/hooks/useStreamToken', () => ({ useMediaToken: () => ({ token: mockMediaToken }) }));
 jest.mock('react-native-haptic-feedback', () => ({ trigger: jest.fn() }));
 jest.mock('react-native-reanimated', () => {
   const { View } = require('react-native');
@@ -57,6 +60,11 @@ function cardFrames(renderer: ReactTestRenderer.ReactTestRenderer) {
   }
   return frames;
 }
+
+beforeEach(() => {
+  mockMediaToken = null;
+  mockServerUrl = null;
+});
 
 it('keeps one job frame while preserving selection, drag-target highlighting and presses', async () => {
   const item = { id: 1, status: 'pending', library_file_name: 'Gear' } as PrintQueueItem;
@@ -127,6 +135,25 @@ it('omits drag affordances when dragging is disabled', async () => {
     expect(renderer.root.findAllByType(GestureDetector)).toHaveLength(0);
     expect(renderer.root.findAllByProps({ testID: 'queue-drag-handle' })).toHaveLength(0);
     expect(renderer.root.findAllByType(Text).some(node => node.props.children === 'Drag to reorder')).toBe(false);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+  }
+});
+
+it('retries a failed thumbnail when the media token changes', async () => {
+  mockServerUrl = 'https://farm.example';
+  const item = { id: 1, status: 'pending', library_file_id: 7, library_file_name: 'Gear' } as PrintQueueItem;
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+  const images = () => renderer.root.findAll(node => node.props.source?.uri && node.props.onError);
+  try {
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<QueueItemCard item={item} />);
+    });
+    await act(async () => images()[0].props.onError());
+    expect(images()).toHaveLength(0);
+    mockMediaToken = 'fresh-media';
+    await act(async () => renderer.update(<QueueItemCard item={item} />));
+    expect(images()[0].props.source.uri).toBe('https://farm.example/api/v1/library/files/7/thumbnail?token=fresh-media');
   } finally {
     if (renderer) await act(async () => renderer.unmount());
   }

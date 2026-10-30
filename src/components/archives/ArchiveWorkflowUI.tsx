@@ -223,7 +223,7 @@ export function ConfirmOutcomeDialog({
           source={{
             uri: archive.photos?.[0]
               ? api.getArchivePhotoUrl(archiveId, archive.photos[0])
-              : api.getArchiveThumbnail(archiveId),
+              : api.getArchiveThumbnail(archiveId, archive.plate_id),
           }}
           style={styles.photo}
           resizeMode="contain"

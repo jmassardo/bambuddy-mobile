@@ -8,6 +8,7 @@ import {
   subscribeToMediaToken,
 } from '@/api/http';
 import { useServerStore } from '@/api/server';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function useMediaToken() {
   const serverUrl = useServerStore(state => state.serverUrl);
@@ -24,17 +25,16 @@ export function useMediaToken() {
 }
 
 /**
- * Fetches a camera stream token on mount and stores it globally.
- * The stream token is required for thumbnail and camera image URLs
- * (the backend guards those endpoints with RequireCameraStreamTokenIfAuthEnabled).
+ * Refreshes the non-camera media token used by thumbnails and cover images.
  *
  * Mount once near the app root so the token is available app-wide.
  */
 export function useStreamToken() {
   const serverUrl = useServerStore(state => state.serverUrl);
+  const { user } = useAuth();
   const { data } = useQuery({
-    queryKey: ['camera-stream-token', serverUrl],
-    queryFn: () => api.getCameraStreamToken(),
+    queryKey: ['media-token', serverUrl, user?.id],
+    queryFn: () => api.getMediaToken(),
     enabled: Boolean(serverUrl),
     staleTime: 50 * 60 * 1000, // refresh at 50 min (tokens expire at 60)
     refetchInterval: 50 * 60 * 1000,
@@ -48,4 +48,18 @@ export function useStreamToken() {
   }, [data, serverUrl]);
 
   useEffect(() => () => setStreamToken(null), []);
+}
+
+export function useCameraToken(enabled = true) {
+  const serverUrl = useServerStore(state => state.serverUrl);
+  const { user } = useAuth();
+  const query = useQuery({
+    queryKey: ['camera-stream-token', serverUrl, user?.id],
+    queryFn: () => api.getCameraStreamToken(),
+    enabled: Boolean(serverUrl) && enabled,
+    staleTime: 50 * 60 * 1000,
+    refetchInterval: 50 * 60 * 1000,
+    retry: 2,
+  });
+  return { token: query.data?.token ?? null, isReady: query.isSuccess };
 }

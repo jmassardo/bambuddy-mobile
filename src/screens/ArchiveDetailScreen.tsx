@@ -172,15 +172,17 @@ export default function ArchiveDetailScreen() {
   const thumbnailUrl = useLocalizedMemo(() => {
     if (!mediaTokenReady) return null;
     return withCacheBuster(
-      api.getArchiveThumbnail(archiveId),
+      api.getArchiveThumbnail(archiveId, archive?.plate_id),
       `${mediaToken ?? 'public'}-${thumbnailRetrySeed}`,
     );
   }, [
     archiveId,
+    archive?.plate_id,
     mediaToken,
     mediaTokenReady,
     thumbnailRetrySeed,
   ]);
+  React.useEffect(() => setThumbnailError(false), [thumbnailUrl]);
   React.useEffect(() => {
     setTimelapseError(false);
     setThumbnailError(false);

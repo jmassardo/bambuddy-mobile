@@ -156,7 +156,7 @@ export function ArchiveCard({
     >
       <View style={isGrid ? undefined : styles.listMediaWrap}>
         <Image
-          source={{ uri: api.getArchiveThumbnail(archive.id) }}
+          source={{ uri: api.getArchiveThumbnail(archive.id, archive.plate_id) }}
           style={[isGrid ? styles.gridThumbnail : styles.listThumbnail, { backgroundColor: colors.surface }]}
         />
         {selectionMode ? (

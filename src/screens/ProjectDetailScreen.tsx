@@ -5,6 +5,7 @@ import { localizedStatus } from '@/utils/statusLabel';
 import React, { useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
+import { useMediaToken } from '@/hooks/useStreamToken';
 import {
   Image,
   Alert,
@@ -49,6 +50,7 @@ function isProjectModelFile(file: ApiRecord) {
 }
 
 export default function ProjectDetailScreen() {
+  useMediaToken();
   const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'ProjectDetail'>>();
@@ -542,7 +544,7 @@ export default function ProjectDetailScreen() {
                   style={[styles.archiveCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
                 >
                   {pickString(archive, ['thumbnail_path']) ? (
-                    <Image source={{ uri: api.getArchiveThumbnail(pickNumber(archive, ['id'])) }} style={styles.archiveImage} />
+                    <Image source={{ uri: api.getArchiveThumbnail(pickNumber(archive, ['id']), typeof archive.plate_id === 'number' ? archive.plate_id : null) }} style={styles.archiveImage} />
                   ) : (
                     <View style={[styles.archiveImage, { backgroundColor: colors.surfaceHover }]} />
                   )}

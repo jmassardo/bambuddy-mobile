@@ -37,6 +37,7 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { formatDate, formatCurrency, pickNumber, pickString, statusColor, type ApiRecord } from '@/utils/data';
 import { proxyThumbnailUrl } from '@/utils/media';
+import { useMediaToken } from '@/hooks/useStreamToken';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'archived';
 
@@ -84,6 +85,7 @@ function projectCoverUrl(project: ApiRecord): string | null {
 }
 
 export default function ProjectsScreen() {
+  const { token: mediaToken } = useMediaToken();
   const titleLocale = useNativeLocale();
   const { t } = useTranslation();
   const navigation = useNavigation<RootNavigationProp<'Projects'>>();
@@ -275,6 +277,7 @@ export default function ProjectsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}> 
       <FlatList
+        extraData={mediaToken}
         data={projectTree(projects, expanded, new Set(filteredProjects.map(project => pickNumber(project, ['id']))), !!search.trim() || filter !== 'all')}
         keyExtractor={item => pickString(item.project, ['id'])}
         contentContainerStyle={styles.content}

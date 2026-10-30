@@ -21,6 +21,7 @@ import {
   Box,
 } from 'lucide-react-native';
 import { api } from '@/api/client';
+import { useMediaToken } from '@/hooks/useStreamToken';
 
 import { useTheme } from '@/theme';
 import {
@@ -156,7 +157,8 @@ export function FileItem({
   useNativeLocale();
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const [thumbError, setThumbError] = useState(false);
+  const { token: mediaToken } = useMediaToken();
+  const [failedThumbnail, setFailedThumbnail] = useState<string | null>(null);
   const id = Number(pickId(item));
   const name = pickString(item, ['print_name', 'filename', 'name'], 'Untitled');
   const rawFilename = pickString(item, ['filename', 'name'], name);
@@ -178,7 +180,7 @@ export function FileItem({
     const hasPreviewableExt = /\.(3mf|gcode\.3mf)$/i.test(rawFilename);
     if ((!hasThumb && !hasPreviewableExt) || !id || isFolder) return null;
     return thumbnailUrl(id);
-  }, [id, isFolder, item, rawFilename]);
+  }, [id, isFolder, item, rawFilename, mediaToken]);
   const iconName = fileIconName(rawFilename, isFolder) as FileItemIconName;
   const FileTypeIcon = FILE_ITEM_ICONS[iconName];
   const isGrid = viewMode === 'grid';
@@ -219,8 +221,8 @@ export function FileItem({
       ) : null}
 
       <View style={[styles.media, isGrid ? styles.gridMedia : styles.listMedia, { backgroundColor: colors.surfaceElevated }]}> 
-        {previewSource && !thumbError ? (
-          <Image source={{ uri: previewSource }} style={styles.thumbnail} resizeMode="cover" onError={() => setThumbError(true)} />
+        {previewSource && failedThumbnail !== previewSource ? (
+          <Image source={{ uri: previewSource }} style={styles.thumbnail} resizeMode="cover" onError={() => setFailedThumbnail(previewSource)} />
         ) : (
           <FileTypeIcon size={28} color={isFolder ? colors.accentLight : colors.textTertiary} strokeWidth={2} />
         )}

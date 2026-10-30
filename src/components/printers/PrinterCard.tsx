@@ -11,7 +11,8 @@ import { NextQueueJob } from './NextQueueJob';
 import { useNavigation } from '@react-navigation/native';
 import type { MainTabNavigationProp } from '@/navigation/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getAuthToken, api } from '@/api/client';
+import { getAuthToken, api, withStreamToken } from '@/api/client';
+import { useMediaToken } from '@/hooks/useStreamToken';
 import { useServerStore } from '@/api/server';
 import { filterKnownHMSErrors } from '@/components/printers/hmsErrorCatalog';
 import { PrinterCardCompact } from '@/components/printers/PrinterCardCompact';
@@ -84,6 +85,7 @@ export function PrinterCard({
   const queryClient = useQueryClient();
   const serverUrl = useServerStore(state => state.serverUrl);
   const authToken = getAuthToken();
+  const { token: mediaToken } = useMediaToken();
   const actionIcons = buildPrinterCardActionIcons(colors);
   const [moveModalVisible, setMoveModalVisible] = useState(false);
   const [calibrateSheetVisible, setCalibrateSheetVisible] = useState(false);
@@ -172,8 +174,7 @@ export function PrinterCard({
       directThumbnailUrl != null ? resolveServerAssetUrl(directThumbnailUrl) : null;
     if (resolvedDirectUrl) {
       return {
-        uri: withCacheBuster(resolvedDirectUrl, snapshotSeed),
-        headers: authHeaders,
+        uri: withCacheBuster(withStreamToken(resolvedDirectUrl), snapshotSeed),
       };
     }
 
@@ -194,6 +195,7 @@ export function PrinterCard({
     return printerImageSource;
   }, [
     authHeaders,
+    mediaToken,
     isPrinting,
     printerImageSource,
     serverUrl,

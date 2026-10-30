@@ -34,6 +34,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { withStreamToken } from '@/api/client';
 import { useServerStore } from '@/api/server';
+import { useMediaToken } from '@/hooks/useStreamToken';
 import { StatusBadge } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import {
@@ -242,6 +243,7 @@ export function QueueItemCardContent({
   useNativeLocale();
   const { colors } = useTheme();
   const serverUrl = useServerStore(s => s.serverUrl);
+  useMediaToken();
 
   const thumbnailUri = (() => {
     if (!serverUrl) return null;
@@ -258,7 +260,7 @@ export function QueueItemCardContent({
     return null;
   })();
 
-  const [thumbError, setThumbError] = useState(false);
+  const [failedThumbnail, setFailedThumbnail] = useState<string | null>(null);
 
   const status = statusPresentation(item, printerState, colors);
   const title =
@@ -348,11 +350,11 @@ export function QueueItemCardContent({
             { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
           ]}
         >
-          {thumbnailUri && !thumbError ? (
+          {thumbnailUri && failedThumbnail !== thumbnailUri ? (
             <Image
               source={{ uri: thumbnailUri }}
               style={styles.thumbnail}
-              onError={() => setThumbError(true)}
+              onError={() => setFailedThumbnail(thumbnailUri)}
             />
           ) : (
             <Layers size={20} color={colors.textTertiary} strokeWidth={2} />

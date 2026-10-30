@@ -35,6 +35,7 @@ import { EditPrinterModal } from '@/components/printers/EditPrinterModal';
 import { MQTTConsole } from '@/components/printers/MQTTConsole';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useCameraToken } from '@/hooks/useStreamToken';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import {
@@ -174,6 +175,7 @@ export default function PrinterDetailScreen() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { hasPermission } = useAuth();
+  const { token: cameraToken, isReady: cameraReady } = useCameraToken(hasPermission('camera:view'));
   const hasEditPermission = hasPermission('printers:update');
   const [showDebugModal, setShowDebugModal] = React.useState(false);
   const [showEditModal, setShowEditModal] = React.useState(false);
@@ -564,10 +566,10 @@ export default function PrinterDetailScreen() {
       <Pressable
         onPress={() => navigation.navigate('Camera', { id: String(printerId) })}
       >
-        <Image
-          source={{ uri: api.getCameraSnapshotUrl(printerId) }}
+        {cameraReady ? <Image
+          source={{ uri: api.getCameraSnapshotUrl(printerId, cameraToken) }}
           style={[styles.snapshot, { backgroundColor: colors.surface }]}
-        />
+        /> : null}
       </Pressable>
 
       <SectionCard
