@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "664e17ec5ef4dcfc94b0626105f54cb468c2a870",
+  "resourceDigest": "1a616c4bc3f27f0d6a475244f12c06bb6e13b1a43fa4c9309d3da5f336df6078",
+  "resourceCount": 959,
+  "chunks": [
+    "delta-0001",
+    "delta-0002",
+    "delta-0003",
+    "delta-0004",
+    "delta-0005",
+    "delta-0006",
+    "delta-0007",
+    "delta-0008",
+    "delta-0009",
+    "delta-0010",
+    "delta-0011",
+    "delta-0012",
+    "delta-0013",
+    "delta-0014"
+  ]
+}

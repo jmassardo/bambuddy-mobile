@@ -1,0 +1,21 @@
+{
+  "native.04fb589d9c46972b": "Retry the inventory link only?",
+  "native.078383ec46d40c2f": "Sign in with your directory account.",
+  "native.0c60c0c6856b6903": "Jobs with unresolved alternative slices cannot be assigned a fixed printer. Leave the printer unchanged or unassigned.",
+  "native.0c65b108307c5d36": "Retry inventory link",
+  "native.1a5932500ebd8c6f": "Update completed. Remote device reports version {{version}}.",
+  "native.4ca8f2ae45ddb60b": "Inventory link repaired. The physical NFC tag was not rewritten.",
+  "native.4d999eaa75bc989a": "Track slicing workflow progress",
+  "native.7356160c2a259d93": "Monitor printer cameras together",
+  "native.88d0c23d4edeb85b": "Connect external camera viewers",
+  "native.990a472990fbdf8d": "The physical NFC write succeeded. Link tag {{tag}} to spool #{{id}} without rewriting it.",
+  "native.c13edffd24345730": "Cost centers and billing",
+  "native.c7482a2684ec7ea6": "Slicer Pipelines",
+  "native.c76b0088d7977298": "Retry directory sign-in status",
+  "native.c8c49bef3c51e3ff": "Camera Integrations",
+  "native.e75b16b7c4dce790": "Pipeline Runs",
+  "native.ececbf64c1ab0472": "Camera Wall",
+  "native.ef6149f2bdee70f3": "Physical write succeeded; inventory link failed",
+  "native.f2aa245433a562b7": "Manage automated slicing workflows",
+  "native.f981ae40b78c0d40": "Unable to save report edits: {{error}}. Keep this screen open and retry the edit before restarting the app."
+}

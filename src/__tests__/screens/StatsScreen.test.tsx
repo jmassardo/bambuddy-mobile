@@ -1,22 +1,16 @@
-<<<<<<< HEAD
-import React from 'react';
-import { render } from '@testing-library/react-native';
-import StatsScreen, {
-  buildStatsExportFilenameBase,
-  buildStatsQueryParams,
-} from '@/screens/StatsScreen';
-=======
 /* eslint-disable @typescript-eslint/no-shadow -- Test file with React imports shadowing globals */
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, within } from '@testing-library/react-native';
 import StatsScreen from '@/screens/StatsScreen';
->>>>>>> origin/develop
 
 const mockSetOptions = jest.fn();
 const mockShowToast = jest.fn();
 let mockIsAdmin = true;
 let lastArchiveStatsParams: Record<string, unknown> | undefined;
 let lastArchivesParams: Record<string, unknown> | undefined;
+let mockArchives: Record<string, unknown>[] | undefined;
+let mockPrinters = [{ id: 11, name: 'Printer A' }];
+let mockPrinterNames: Record<string, string> = {};
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ setOptions: mockSetOptions }),
@@ -40,6 +34,7 @@ jest.mock('@tanstack/react-query', () => ({
           total_print_time_seconds: 3600,
           total_filament_grams: 10,
           total_cost: 1.5,
+          printer_names: mockPrinterNames,
         },
         isLoading: false,
         isError: false,
@@ -50,7 +45,7 @@ jest.mock('@tanstack/react-query', () => ({
     if (key === 'archives') {
       lastArchivesParams = (queryKey[2] as Record<string, unknown>) ?? {};
       return {
-        data: [
+        data: mockArchives ?? [
           {
             id: 1,
             print_name: 'Test print',
@@ -71,7 +66,7 @@ jest.mock('@tanstack/react-query', () => ({
     }
     if (key === 'printers') {
       return {
-        data: [{ id: 11, name: 'Printer A' }],
+        data: mockPrinters,
         isLoading: false,
         isError: false,
         isRefetching: false,
@@ -130,6 +125,7 @@ jest.mock('@/components/common/AppUI', () => {
   const React = require('react');
   const { Pressable, Text, View } = require('react-native');
   return {
+    Input: () => null,
     InlineTabBar: ({
       tabs,
       onChange,
@@ -198,6 +194,7 @@ jest.mock('@/components/common/StateScreens', () => {
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     isAdmin: mockIsAdmin,
+    hasPermission: () => mockIsAdmin,
   }),
 }));
 
@@ -233,6 +230,51 @@ describe('StatsScreen', () => {
     mockIsAdmin = true;
     lastArchiveStatsParams = undefined;
     lastArchivesParams = undefined;
+    mockArchives = undefined;
+    mockPrinters = [{ id: 11, name: 'Printer A' }];
+    mockPrinterNames = {};
+  });
+
+  it('keeps slim completed and failed events in their respective printer failure groups', async () => {
+    mockPrinters = [{ id: 11, name: 'Printer A' }, { id: 12, name: 'Printer B' }];
+    mockArchives = [
+      { printer_id: 11, status: 'completed', created_at: '2026-07-20T12:00:00Z' },
+      { printer_id: 12, status: 'failed', created_at: '2026-07-20T13:00:00Z' },
+    ];
+    const view = await render(<StatsScreen />);
+    const printers = within(view.getByText('By printer').parent!);
+    expect(within(printers.getByText('Printer A').parent!).getByText('0% • 0/1')).toBeTruthy();
+    expect(within(printers.getByText('Printer B').parent!).getByText('100% • 1/1')).toBeTruthy();
+    expect(printers.queryByText('50% • 1/2')).toBeNull();
+    expect(printers.queryByText('Unknown printer')).toBeNull();
+  });
+
+  it('resolves deleted printer history and prefers current names for live printers', async () => {
+    mockPrinters = [{ id: 11, name: 'Renamed printer' }];
+    mockPrinterNames = { '11': 'Old name', '22': 'Retired printer' };
+    mockArchives = [
+      { printer_id: 11, status: 'completed', created_at: '2026-07-20T12:00:00Z' },
+      { printer_id: 22, status: 'failed', created_at: '2026-07-20T13:00:00Z' },
+    ];
+    const view = await render(<StatsScreen />);
+    const printers = within(view.getByText('By printer').parent!);
+    expect(within(printers.getByText('Renamed printer').parent!).getByText('0% • 0/1')).toBeTruthy();
+    expect(within(printers.getByText('Retired printer').parent!).getByText('100% • 1/1')).toBeTruthy();
+    expect(printers.queryByText('Old name')).toBeNull();
+  });
+
+  it('does not merge distinct printer IDs when their display names are identical', async () => {
+    mockPrinters = [{ id: 11, name: 'Shared name' }, { id: 12, name: 'Shared name' }];
+    mockArchives = [
+      { printer_id: 11, status: 'completed', created_at: '2026-07-20T12:00:00Z' },
+      { printer_id: 12, status: 'failed', created_at: '2026-07-20T13:00:00Z' },
+    ];
+    const view = await render(<StatsScreen />);
+    const printers = within(view.getByText('By printer').parent!);
+    expect(printers.getAllByText('Shared name')).toHaveLength(2);
+    expect(printers.getByText('0% • 0/1')).toBeTruthy();
+    expect(printers.getByText('100% • 1/1')).toBeTruthy();
+    expect(printers.queryByText('50% • 1/2')).toBeNull();
   });
 
   it('hides user filtering for non-admin users', async () => {
@@ -253,55 +295,6 @@ describe('StatsScreen', () => {
     expect(lastArchivesParams?.createdById).toBeUndefined();
   });
 
-<<<<<<< HEAD
-  it('builds query params with selected user only for admins', () => {
-    expect(
-      buildStatsQueryParams({
-        baseParams: { dateFrom: '2026-07-01', dateTo: '2026-07-27' },
-        selectedPrinterId: 11,
-        selectedUserId: 7,
-        isAdmin: true,
-      }),
-    ).toEqual({
-      dateFrom: '2026-07-01',
-      dateTo: '2026-07-27',
-      printerId: 11,
-      createdById: 7,
-    });
-
-    expect(
-      buildStatsQueryParams({
-        baseParams: { dateFrom: '2026-07-01', dateTo: '2026-07-27' },
-        selectedPrinterId: 11,
-        selectedUserId: 7,
-        isAdmin: false,
-      }),
-    ).toEqual({
-      dateFrom: '2026-07-01',
-      dateTo: '2026-07-27',
-      printerId: 11,
-    });
-  });
-
-  it('includes selected user in export filename only for admins', () => {
-    expect(
-      buildStatsExportFilenameBase({
-        range: '30d',
-        selectedPrinterId: 11,
-        selectedUserId: 7,
-        isAdmin: true,
-      }),
-    ).toBe('bambuddy-stats-30d-printer-11-user-7');
-
-    expect(
-      buildStatsExportFilenameBase({
-        range: '30d',
-        selectedPrinterId: 11,
-        selectedUserId: 7,
-        isAdmin: false,
-      }),
-    ).toBe('bambuddy-stats-30d-printer-11');
-=======
   it('passes createdById in query params only for admin users', async () => {
     // Adapted: buildStatsQueryParams was extracted in PR #49 but inlined on current dev.
     // The component builds queryParams inline:
@@ -329,6 +322,5 @@ describe('StatsScreen', () => {
 
     mockIsAdmin = false;
     await render(<StatsScreen />);
->>>>>>> origin/develop
   });
 });

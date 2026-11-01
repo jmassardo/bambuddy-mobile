@@ -1,179 +1,136 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import type { RootNavigationProp } from '@/navigation/types';
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+
+import React from 'react';
 import {
-  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
-import { InlineTabBar, PrimaryButton, SectionCard, StatCard, TextField } from '@/components/common/AppUI';
-import { ErrorState, LoadingScreen } from '@/components/common/StateScreens';
-import { useToast } from '@/contexts/ToastContext';
+import type { RootNavigationProp } from '@/navigation/types';
+import { systemApi } from '@/api/system';
+import { PrimaryButton, SectionCard } from '@/components/common/AppUI';
+import { SwitchRow } from '@/components/settings/shared';
+import { ApplicationLogTools } from '@/components/system/ApplicationLogTools';
+import { BugReportTools } from '@/components/system/BugReportTools';
+import { ServerUpdateTools } from '@/components/system/ServerUpdateTools';
+import { SystemHealthPanel } from '@/components/system/SystemHealthPanel';
 import { useTheme } from '@/theme';
-import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
-import { pickArray, pickBoolean, pickNumber, pickString, type ApiRecord } from '@/utils/data';
+import { spacing } from '@/theme/tokens';
+import { useAuth } from '@/contexts/AuthContext';
+
 import { shareBlob } from '@/utils/share';
 
-type LogLevel = 'all' | 'info' | 'warn' | 'error';
-
-async function gracefully<T>(fn: () => Promise<T>) {
-  try {
-    return await fn();
-  } catch {
-    return {} as T;
+function DiagnosticDetails({
+  value,
+  prefix = '',
+}: {
+  value: unknown;
+  prefix?: string;
+}) {
+  useNativeLocale();
+  const { colors } = useTheme();
+  const { t } = useTranslation();
+  if (value === undefined || value === null)
+    return (
+      <Text style={{ color: colors.textSecondary }}>
+        {prefix}: {t('system.unavailable', { defaultValue: 'Unavailable' })}
+      </Text>
+    );
+  if (Array.isArray(value)) {
+    return (
+      <View style={styles.details}>
+        {value.length ? (
+          value.map((item, index) => (
+            <DiagnosticDetails
+              key={index}
+              value={item}
+              prefix={`${prefix} ${index + 1}`}
+            />
+          ))
+        ) : (
+          <Text style={{ color: colors.textSecondary }}>
+            {prefix}: {t('system.empty', { defaultValue: 'None' })}
+          </Text>
+        )}
+      </View>
+    );
   }
-}
-
-function formatLogEntry(entry: ApiRecord) {
-  return `${pickString(entry, ['timestamp', 'time'], '')} [${pickString(entry, ['level'], 'info')}] ${pickString(entry, ['message'], 'No message')}`;
-}
-
-function findCategory(data: ApiRecord, keys: string[]) {
-  const categories = pickArray(data, ['categories']) as ApiRecord[];
-  return categories.find(item => keys.some(key => pickString(item, ['key']).toLowerCase().includes(key)));
+  if (typeof value === 'object')
+    return (
+      <View style={styles.details}>
+        {Object.keys(value).length === 0 ? (
+          <Text style={{ color: colors.textSecondary }}>
+            {prefix}: {t('system.unavailable', { defaultValue: 'Unavailable' })}
+          </Text>
+        ) : null}
+        {Object.entries(value).map(([key, item]) => (
+          <DiagnosticDetails
+            key={key}
+            value={item}
+            prefix={`${prefix ? `${prefix} · ` : ''}${key.replace(/_/g, ' ')}`}
+          />
+        ))}
+      </View>
+    );
+  return (
+    <Text selectable style={{ color: colors.text }}>
+      {prefix}: {String(value)}
+    </Text>
+  );
 }
 
 export default function SystemScreen() {
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'System'>>();
-  React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'System' });
-  }, [navigation]);
-
   const { colors } = useTheme();
-  const { showToast } = useToast();
-  const queryClient = useQueryClient();
-  const [logLevel, setLogLevel] = useState<LogLevel>('all');
-  const [autoRefreshLogs, setAutoRefreshLogs] = useState(false);
-  const [bugReportDescription, setBugReportDescription] = useState('');
-  const [bugReportEmail, setBugReportEmail] = useState('');
-  const [includeSupportInfo, setIncludeSupportInfo] = useState(true);
-
-  const infoQuery = useQuery({
+  const { t } = useTranslation();
+  const { hasPermission } = useAuth();
+  const client = useQueryClient();
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      title: translateNative('system.title', { defaultValue: 'System' }),
+    });
+  }, [navigation, t, titleLocale]);
+  const info = useQuery({
     queryKey: ['systemInfo'],
-    queryFn: () => gracefully(() => api.getSystemInfo()),
+    queryFn: systemApi.getSystemInfo,
   });
-  const healthQuery = useQuery({
+  const health = useQuery({
     queryKey: ['systemHealth'],
-    queryFn: () => gracefully(() => api.getSystemHealth()),
+    queryFn: systemApi.getSystemHealth,
   });
-  const storageQuery = useQuery({
+  const storage = useQuery({
     queryKey: ['storageUsage'],
-    queryFn: () => gracefully(() => api.getStorageUsage()),
+    queryFn: () => systemApi.getStorageUsage({ refresh: true }),
   });
-  const libraryQuery = useQuery({
-    queryKey: ['libraryStats'],
-    queryFn: () => gracefully(() => api.getLibraryStats()),
-  });
-  const debugQuery = useQuery({
+  const debug = useQuery({
     queryKey: ['debugLoggingState'],
-    queryFn: () => gracefully(() => api.getDebugLoggingState()),
+    queryFn: systemApi.getDebugLoggingState,
   });
-  const logsQuery = useQuery({
-    queryKey: ['applicationLogs', logLevel],
-    queryFn: () => gracefully(() => api.getApplicationLogs({
-      lines: 100,
-      level: logLevel === 'all' ? undefined : logLevel,
-    })),
-    refetchInterval: autoRefreshLogs ? 15000 : false,
-  });
-
-  const refreshAll = async () => {
-    await Promise.all([
-      infoQuery.refetch(),
-      healthQuery.refetch(),
-      storageQuery.refetch(),
-      libraryQuery.refetch(),
-      debugQuery.refetch(),
-      logsQuery.refetch(),
-    ]);
-  };
-
-  const debugMutation = useMutation({
-    mutationFn: (enabled: boolean) => api.setDebugLogging(enabled),
+  const setDebug = useMutation({
+    mutationFn: systemApi.setDebugLogging,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['debugLoggingState'] });
-      showToast('Debug logging updated.', 'success');
+      await client.invalidateQueries({ queryKey: ['debugLoggingState'] });
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update debug logging.', 'error'),
   });
-
-  const supportBundleMutation = useMutation({
+  const bundle = useMutation({
     mutationFn: async () => {
-      const blob = await api.downloadSupportBundle();
-      await shareBlob(blob, 'bambuddy-support.zip');
+      await shareBlob(
+        await systemApi.downloadSupportBundle(),
+        'bambuddy-support.zip',
+      );
     },
-    onSuccess: () => showToast('Support bundle ready to share.', 'success'),
-    onError: (error: Error) => showToast(error.message || 'Unable to download the support bundle.', 'error'),
   });
-
-  const bugReportMutation = useMutation({
-    mutationFn: async () => {
-      const wasDebug = pickBoolean(debugQuery.data, ['enabled'], false);
-      try {
-        await api.startBugReportLogging().catch(() => ({}));
-        return await api.submitBugReport({
-          description: bugReportDescription.trim(),
-          email: bugReportEmail.trim() || undefined,
-          include_support_info: includeSupportInfo,
-          debug_logs: logEntries.slice(0, 25).join('\n'),
-        });
-      } finally {
-        await api.stopBugReportLogging(wasDebug).catch(() => ({}));
-      }
-    },
-    onSuccess: async result => {
-      setBugReportDescription('');
-      if (pickString(result, ['issue_url'])) {
-        await Linking.openURL(pickString(result, ['issue_url'])).catch(() => undefined);
-      }
-      showToast(pickString(result, ['message'], 'Bug report submitted.'), 'success');
-    },
-    onError: (error: Error) => showToast(error.message || 'Unable to submit bug report.', 'error'),
-  });
-
-  const logEntries = useMemo(() => {
-    const entries = pickArray(logsQuery.data, ['entries']);
-    if (entries.length > 0) {
-      return entries.map(entry => formatLogEntry(entry as ApiRecord));
-    }
-    const text = pickString(logsQuery.data, ['content', 'logs']);
-    return text ? text.split('\n').filter(Boolean) : [];
-  }, [logsQuery.data]);
-
-  if (infoQuery.isLoading && healthQuery.isLoading) {
-    return <LoadingScreen message="Loading system information…" />;
-  }
-
-  if (infoQuery.isError && healthQuery.isError) {
-    return (
-      <ErrorState
-        message="Unable to load system information."
-        onRetry={() => void refreshAll()}
-      />
-    );
-  }
-
-  const info = (infoQuery.data ?? {}) as ApiRecord;
-  const app = (info.app ?? {}) as ApiRecord;
-  const database = (info.database ?? {}) as ApiRecord;
-  const printers = (info.printers ?? {}) as ApiRecord;
-  const storage = (info.storage ?? {}) as ApiRecord;
-  const system = (info.system ?? {}) as ApiRecord;
-  const memory = (info.memory ?? {}) as ApiRecord;
-  const cpu = (info.cpu ?? {}) as ApiRecord;
-  const health = (healthQuery.data ?? {}) as ApiRecord;
-  const debugEnabled = pickBoolean(debugQuery.data, ['enabled'], false);
-  const archivesStorage = findCategory(storageQuery.data as ApiRecord, ['archive']);
-  const libraryStorage = findCategory(storageQuery.data as ApiRecord, ['library']);
-  const databaseStorage = findCategory(storageQuery.data as ApiRecord, ['database', 'db']);
-  const timelapseStorage = findCategory(storageQuery.data as ApiRecord, ['timelapse']);
-
+  const refresh = () => {
+    void info.refetch();
+    void health.refetch();
+    void storage.refetch();
+    void debug.refetch();
+  };
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -181,269 +138,192 @@ export default function SystemScreen() {
       refreshControl={
         <RefreshControl
           refreshing={
-            infoQuery.isRefetching ||
-            healthQuery.isRefetching ||
-            storageQuery.isRefetching ||
-            libraryQuery.isRefetching ||
-            debugQuery.isRefetching ||
-            logsQuery.isRefetching
+            info.isRefetching || health.isRefetching || storage.isRefetching
           }
-          onRefresh={() => void refreshAll()}
-          tintColor={colors.accent}
+          onRefresh={refresh}
         />
       }
     >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>System</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Resources, health, storage, logs, and support tools.</Text>
-      </View>
-
-      <View style={styles.grid}>
-        <StatCard label="CPU" value={`${pickNumber(cpu, ['percent'], 0)}%`} />
-        <StatCard label="Memory" value={`${pickNumber(memory, ['percent_used'], 0)}%`} />
-        <StatCard label="Disk" value={`${pickNumber(storage, ['disk_percent_used'], 0)}%`} />
-        <StatCard label="Printers" value={String(pickNumber(printers, ['connected', 'total'], 0))} />
-      </View>
-
-      <SectionCard title="System health" subtitle="CPU, memory, uptime, storage, and connected printers.">
-        <View style={styles.healthGrid}>
-          <InfoRow label="Version" value={pickString(app, ['version'], 'Unavailable')} colors={colors} />
-          <InfoRow label="Hostname" value={pickString(system, ['hostname'], 'Unavailable')} colors={colors} />
-          <InfoRow label="Uptime" value={pickString(system, ['uptime_formatted'], 'Unavailable')} colors={colors} />
-          <InfoRow label="Health summary" value={pickString(health, ['summary', 'status', 'overall_status'], 'Unavailable')} colors={colors} />
-          <InfoRow label="Connected printers" value={String(pickNumber(printers, ['connected', 'total'], 0))} colors={colors} />
-          <InfoRow label="Disk free" value={pickString(storage, ['disk_free_formatted'], 'Unavailable')} colors={colors} />
-        </View>
-      </SectionCard>
-
-      <SectionCard title="Storage usage" subtitle="Archives, library, database, timelapses, and total disk usage.">
-        <View style={styles.grid}>
-          <StatCard label="Archives" value={pickString(archivesStorage, ['formatted'], pickString(storage, ['archive_size_formatted'], 'Unavailable'))} />
-          <StatCard label="Library" value={pickString(libraryStorage, ['formatted'], pickString(libraryQuery.data, ['total_size_formatted'], 'Unavailable'))} />
-          <StatCard label="Database" value={pickString(databaseStorage, ['formatted'], pickString(storage, ['database_size_formatted'], 'Unavailable'))} />
-          <StatCard label="Timelapse" value={pickString(timelapseStorage, ['formatted'], 'Unavailable')} />
-        </View>
-        <View style={styles.metricList}>
-          <InfoRow label="Total disk" value={pickString(storage, ['disk_total_formatted'], pickString(storageQuery.data, ['total_formatted'], 'Unavailable'))} colors={colors} />
-          <InfoRow label="Used disk" value={pickString(storage, ['disk_used_formatted'], 'Unavailable')} colors={colors} />
-          <InfoRow label="Available disk" value={pickString(storage, ['disk_free_formatted'], 'Unavailable')} colors={colors} />
-          <InfoRow label="Library files" value={String(pickNumber(libraryQuery.data, ['total_files'], 0))} colors={colors} />
-          <InfoRow label="Archives" value={String(pickNumber(database, ['archives'], 0))} colors={colors} />
-        </View>
-      </SectionCard>
-
-      <SectionCard title="Database & library" subtitle="Counts, storage sizes, and library usage.">
-        <View style={styles.grid}>
-          <StatCard label="Archives" value={String(pickNumber(database, ['archives'], 0))} />
-          <StatCard label="Projects" value={String(pickNumber(database, ['projects'], 0))} />
-          <StatCard label="Filaments" value={String(pickNumber(database, ['filaments'], 0))} />
-          <StatCard label="DB size" value={pickString(storage, ['database_size_formatted'], 'Unavailable')} />
-        </View>
-        <View style={styles.metricList}>
-          <InfoRow label="Completed archives" value={String(pickNumber(database, ['archives_completed'], 0))} colors={colors} />
-          <InfoRow label="Failed archives" value={String(pickNumber(database, ['archives_failed'], 0))} colors={colors} />
-          <InfoRow label="Library folders" value={String(pickNumber(libraryQuery.data, ['total_folders'], 0))} colors={colors} />
-          <InfoRow label="Library storage" value={pickString(libraryQuery.data, ['total_size_formatted'], 'Unavailable')} colors={colors} />
-        </View>
-      </SectionCard>
-
-      <SectionCard title="Logging & support" subtitle="Debug logging, recent logs, and support bundles.">
-        <View style={styles.supportRow}>
-          <View style={styles.supportText}>
-            <Text style={[styles.supportTitle, { color: colors.text }]}>Debug logging</Text>
-            <Text style={[styles.supportDescription, { color: colors.textSecondary }]}>Capture extra server diagnostics before sharing a report.</Text>
-          </View>
-          <Switch
-            value={debugEnabled}
-            onValueChange={value => void debugMutation.mutateAsync(value)}
-            trackColor={{ false: colors.surfaceHover, true: colors.accent }}
-            thumbColor={colors.text}
-            disabled={debugMutation.isPending}
-          />
-        </View>
-
-        <InlineTabBar
-          value={logLevel}
-          tabs={[
-            { key: 'all', label: 'All' },
-            { key: 'info', label: 'Info' },
-            { key: 'warn', label: 'Warn' },
-            { key: 'error', label: 'Error' },
-          ]}
-          onChange={value => setLogLevel(value as LogLevel)}
-        />
-
-        <View style={styles.supportRow}>
-          <View style={styles.supportText}>
-            <Text style={[styles.supportTitle, { color: colors.text }]}>Auto-refresh logs</Text>
-            <Text style={[styles.supportDescription, { color: colors.textSecondary }]}>Refresh recent logs every 15 seconds.</Text>
-          </View>
-          <Switch
-            value={autoRefreshLogs}
-            onValueChange={setAutoRefreshLogs}
-            trackColor={{ false: colors.surfaceHover, true: colors.accent }}
-            thumbColor={colors.text}
-          />
-        </View>
-
-        <View style={styles.actions}>
-          <PrimaryButton
-            label="Refresh logs"
-            variant="secondary"
-            onPress={() => void logsQuery.refetch()}
-            disabled={logsQuery.isRefetching}
-            loading={logsQuery.isRefetching}
-          />
-          <PrimaryButton
-            label={supportBundleMutation.isPending ? 'Preparing bundle…' : 'Download support bundle'}
-            onPress={() => void supportBundleMutation.mutateAsync()}
-            disabled={supportBundleMutation.isPending}
-            loading={supportBundleMutation.isPending}
-          />
-        </View>
-
-        <ScrollView style={[styles.logBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} nestedScrollEnabled>
-          {logEntries.length > 0 ? (
-            logEntries.map((entry, index) => (
-              <Text key={`${index}-${entry}`} style={[styles.logLine, { color: colors.textSecondary }]}>
-                {entry}
-              </Text>
-            ))
-          ) : (
-            <Text style={[styles.logLine, { color: colors.textSecondary }]}>Recent logs are unavailable for this server.</Text>
-          )}
-        </ScrollView>
-      </SectionCard>
-
-      <SectionCard title="Submit bug report" subtitle="Send recent diagnostics and open the resulting report when available.">
-        <TextField
-          label="What happened?"
-          value={bugReportDescription}
-          onChangeText={setBugReportDescription}
-          placeholder="Describe the problem, what you expected, and how to reproduce it."
-          multiline
-        />
-        <TextField
-          label="Email (optional)"
-          value={bugReportEmail}
-          onChangeText={setBugReportEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        <View style={styles.supportRow}>
-          <View style={styles.supportText}>
-            <Text style={[styles.supportTitle, { color: colors.text }]}>Include support info</Text>
-            <Text style={[styles.supportDescription, { color: colors.textSecondary }]}>Attach system details and recent errors when available.</Text>
-          </View>
-          <Switch
-            value={includeSupportInfo}
-            onValueChange={setIncludeSupportInfo}
-            trackColor={{ false: colors.surfaceHover, true: colors.accent }}
-            thumbColor={colors.text}
-          />
-        </View>
+      <SectionCard
+        title={t('system.info.title', { defaultValue: 'System information' })}
+      >
+        {info.isLoading ? (
+          <Text style={{ color: colors.textSecondary }}>
+            {t('system.loading', {
+              defaultValue: 'Loading system information…',
+            })}
+          </Text>
+        ) : null}
+        {info.error ? (
+          <Text style={{ color: colors.error }}>{info.error.message}</Text>
+        ) : null}
         <PrimaryButton
-          label={bugReportMutation.isPending ? 'Submitting…' : 'Submit bug report'}
-          onPress={() => void bugReportMutation.mutateAsync()}
-          disabled={!bugReportDescription.trim() || bugReportMutation.isPending}
-          loading={bugReportMutation.isPending}
+          label={t('system.info.refresh', {
+            defaultValue: 'Refresh system information',
+          })}
+          variant="secondary"
+          onPress={() => {
+            void info.refetch();
+          }}
+        />
+        {info.data ? (
+          <>
+            <DiagnosticDetails
+              value={info.data.app}
+              prefix={t('system.info.application', {
+                defaultValue: 'Application',
+              })}
+            />
+            <DiagnosticDetails
+              value={info.data.database}
+              prefix={t('system.info.database', {
+                defaultValue: 'Database and aggregate print statistics',
+              })}
+            />
+            <DiagnosticDetails
+              value={info.data.printers}
+              prefix={t('system.info.printers', {
+                defaultValue: 'Connected printers',
+              })}
+            />
+            <DiagnosticDetails
+              value={info.data.system}
+              prefix={t('system.info.runtime', {
+                defaultValue: 'Runtime / OS',
+              })}
+            />
+            <DiagnosticDetails value={info.data.cpu} prefix={translateNative('native.c3fdf71ac112b4e0', { defaultValue: 'CPU' })} />
+            <DiagnosticDetails
+              value={info.data.memory}
+              prefix={t('system.info.memory', { defaultValue: 'Memory' })}
+            />
+            <DiagnosticDetails
+              value={info.data.storage}
+              prefix={t('system.info.disk', { defaultValue: 'Disk' })}
+            />
+          </>
+        ) : null}
+      </SectionCard>
+      <SectionCard
+        title={t('system.storage.title', { defaultValue: 'Storage scan' })}
+      >
+        <PrimaryButton
+          label={t('system.storage.refresh', {
+            defaultValue: 'Rescan storage',
+          })}
+          variant="secondary"
+          loading={storage.isFetching}
+          onPress={() => {
+            void storage.refetch();
+          }}
+        />
+        {storage.error ? (
+          <Text style={{ color: colors.error }}>{storage.error.message}</Text>
+        ) : null}
+        {storage.data ? (
+          <>
+            <Text style={{ color: colors.text }}>
+              {t('system.storage.total', {
+                defaultValue: 'Total: {{size}} · Scanned {{date}}',
+                size: storage.data.total_formatted,
+                date: storage.data.generated_at,
+              })}
+            </Text>
+            <Text
+              style={{
+                color: storage.data.scan_errors
+                  ? colors.error
+                  : colors.textSecondary,
+              }}
+            >
+              {t('system.storage.errors', {
+                defaultValue:
+                  '{{count}} scan errors. Inaccessible paths may make totals incomplete.',
+                count: storage.data.scan_errors,
+              })}
+            </Text>
+            <Text selectable style={{ color: colors.textSecondary }}>
+              {storage.data.roots.join('\n')}
+            </Text>
+            {storage.data.categories.map(category => (
+              <Text key={category.key} style={{ color: colors.text }}>
+                {category.label}: {category.formatted} ·{' '}
+                {category.percent_of_total}%
+              </Text>
+            ))}
+            {storage.data.other_breakdown.map(item => (
+              <Text
+                key={`${item.kind}:${item.bucket}`}
+                style={{ color: colors.textSecondary }}
+              >
+                {item.label}: {item.formatted} · {item.percent_of_total}% ·{' '}
+                {item.kind} ·{' '}
+                {item.deletable
+                  ? t('system.storage.data', { defaultValue: 'data directory' })
+                  : t('system.storage.protected', {
+                      defaultValue: 'protected system files',
+                    })}
+              </Text>
+            ))}
+          </>
+        ) : null}
+      </SectionCard>
+      <SectionCard
+        title={t('system.health.title', { defaultValue: 'System log health' })}
+      >
+        <PrimaryButton
+          label={t('system.health.rescan', {
+            defaultValue: 'Rescan log health',
+          })}
+          variant="secondary"
+          loading={health.isFetching}
+          onPress={() => {
+            void health.refetch();
+          }}
+        />
+        {health.error ? (
+          <Text style={{ color: colors.error }}>{health.error.message}</Text>
+        ) : null}
+        {health.data ? <SystemHealthPanel result={health.data} /> : null}
+      </SectionCard>
+      <ServerUpdateTools />
+      <SectionCard
+        title={t('system.support.title', { defaultValue: 'Support tools' })}
+      >
+        {hasPermission('settings:update') ? (
+          <SwitchRow
+            label={t('system.support.debug', { defaultValue: 'Debug logging' })}
+            value={debug.data?.enabled ?? false}
+            onValueChange={enabled => setDebug.mutate(enabled)}
+          />
+        ) : null}
+        {debug.error || setDebug.error || bundle.error ? (
+          <Text style={{ color: colors.error }}>
+            {debug.error?.message ??
+              setDebug.error?.message ??
+              bundle.error?.message}
+          </Text>
+        ) : null}
+        <PrimaryButton
+          label={t('system.support.bundle', {
+            defaultValue: 'Download / share support bundle',
+          })}
+          variant="secondary"
+          loading={bundle.isPending}
+          onPress={() => bundle.mutate()}
         />
       </SectionCard>
+      <ApplicationLogTools />
+      <BugReportTools />
     </ScrollView>
   );
 }
-
-function InfoRow({
-  label,
-  value,
-  colors,
-}: {
-  label: string;
-  value: string;
-  colors: ReturnType<typeof useTheme>['colors'];
-}) {
-  return (
-    <View style={styles.infoRow}>
-      <Text style={[styles.metricText, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     padding: spacing.lg,
     gap: spacing.lg,
-    paddingBottom: spacing['3xl'],
+    paddingBottom: spacing['2xl'],
   },
-  header: { gap: spacing.xs },
-  title: {
-    fontSize: fontSize['2xl'],
-    fontWeight: fontWeight.bold,
-  },
-  subtitle: {
-    fontSize: fontSize.base,
-    lineHeight: 22,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  healthGrid: {
-    gap: spacing.sm,
-  },
-  metricList: {
-    marginTop: spacing.md,
-    gap: spacing.xs,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  infoValue: {
-    flex: 1,
-    textAlign: 'right',
-    fontWeight: fontWeight.semibold,
-  },
-  metricText: {
-    fontSize: fontSize.sm,
-  },
-  supportRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    justifyContent: 'space-between',
-  },
-  supportText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  supportTitle: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-  },
-  supportDescription: {
-    fontSize: fontSize.sm,
-    lineHeight: 20,
-  },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  logBox: {
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
-    maxHeight: 320,
-    overflow: 'hidden',
-  },
-  logLine: {
-    fontSize: fontSize.xs,
-    lineHeight: 18,
-  },
+  details: { gap: spacing.sm },
 });

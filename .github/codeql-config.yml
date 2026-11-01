@@ -1,0 +1,8 @@
+name: CodeQL Configuration
+
+query-filters:
+  - exclude:
+      id: java/spring-disabled-csrf-protection
+
+paths-exclude:
+  - node_modules

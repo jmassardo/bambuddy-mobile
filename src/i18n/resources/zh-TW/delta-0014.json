@@ -1,0 +1,5 @@
+{
+  "native.a8354e59f5691fa8": "已清除 {{count}} 筆已結束的流水線執行記錄",
+  "native.bd707a01c933cc1e": "已匯入 {{archived}} 項，{{failed}} 項失敗",
+  "native.c7e528a90299efbd": "流水線執行記錄 #{{id}} 已更新"
+}

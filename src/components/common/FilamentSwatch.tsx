@@ -1,3 +1,4 @@
+import { useNativeLocale } from '@/i18n';
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from '@/theme';
 
@@ -12,6 +13,7 @@ export function FilamentSwatch({
   size = 24,
   borderColor,
 }: FilamentSwatchProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const resolvedBorder = borderColor ?? colors.border;
 

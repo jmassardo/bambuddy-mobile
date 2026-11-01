@@ -1,1182 +1,1115 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import type { MainTabNavigationProp } from '@/navigation/types';
+import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
+
+import { localizedStatus } from '@/utils/statusLabel';
+
+import React, { useState } from 'react';
 import {
   Modal,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
+import { ApiError } from '@/api/http';
+import { queueApi } from '@/api/queue';
 import {
-  Chip,
   InlineTabBar,
   PrimaryButton,
   SearchBar,
   SectionCard,
   StatCard,
 } from '@/components/common/AppUI';
+import {
+  EmptyState,
+  ErrorState,
+  LoadingScreen,
+} from '@/components/common/StateScreens';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { DraggableQueueItem } from '@/components/queue/DraggableQueueItem';
-import { GanttTimeline } from '@/components/queue/GanttTimeline';
 import { QueueItemCardContent } from '@/components/queue/QueueItemCard';
+import { QueueBulkEditModal } from '@/components/queue/QueueBulkEditModal';
+import { GanttTimeline } from '@/components/queue/GanttTimeline';
+import { PrintModal } from '@/components/printers/PrintModal';
+import {
+  Choice,
+  LaunchField,
+  LaunchText,
+} from '@/components/printers/PrintOptionsForm';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+
 import { useTheme } from '@/theme';
-import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
-import type { PrintBatch, PrintQueueItem, Printer } from '@/types/api';
-import { formatDateTime, formatDuration, formatWeight } from '@/utils/data';
+import { spacing } from '@/theme/tokens';
+import type {
+  PrintBatch,
+  PrintQueueItem,
+  PrintQueueItemUpdate,
+} from '@/types/api';
+import {
+  formatDateTime,
+  formatDuration,
+  formatWeight,
+  isRecord,
+} from '@/utils/data';
+import { moveQueueBlock, queueBlocks } from '@/utils/printLaunch';
 
-type QueueTab = 'queue' | 'history' | 'timeline' | 'batches';
-type QueueStatusFilter =
-  | 'all'
-  | 'pending'
-  | 'waiting'
-  | 'paused'
-  | 'printing'
-  | 'completed'
-  | 'failed'
-  | 'skipped'
-  | 'cancelled';
-type QueueSort = 'position' | 'name' | 'printer' | 'time';
-
-function toQueueItems(value: unknown): PrintQueueItem[] {
-  return Array.isArray(value) ? (value as PrintQueueItem[]) : [];
-}
-
-function toBatches(value: unknown): PrintBatch[] {
-  return Array.isArray(value) ? (value as PrintBatch[]) : [];
-}
-
-function queueItemTitle(item: PrintQueueItem) {
-  return item.archive_name || item.library_file_name || `Queue item #${item.id}`;
-}
-
-function queuePrinterLabel(item: PrintQueueItem) {
-  if (item.target_model && !item.printer_id) {
-    return `Any ${item.target_model}${item.target_location ? ` • ${item.target_location}` : ''}`;
-  }
-  if (item.printer_name) return item.printer_name;
-  if (item.printer_id) return `Printer #${item.printer_id}`;
-  return 'Unassigned';
-}
-
-function matchesQueueSearch(item: PrintQueueItem, term: string) {
-  if (!term) return true;
-  const haystack = [
-    item.archive_name,
-    item.library_file_name,
-    item.printer_name,
-    item.filament_type,
-    item.filament_color,
-    item.bed_type,
-    item.created_by_username,
-    item.batch_name,
-    item.error_message,
-    item.waiting_reason,
-    item.target_model,
-    item.target_location,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-  return haystack.includes(term);
-}
-
-function itemStatus(
-  item: PrintQueueItem,
-  printerState?: string | null,
-): QueueStatusFilter | PrintQueueItem['status'] {
-  if (item.status === 'pending' && item.waiting_reason) return 'waiting';
-  if (item.status === 'printing' && printerState === 'PAUSE') return 'paused';
-  return item.status;
-}
-
-function capitalize(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function batchItemCount(batch: PrintBatch) {
-  return (
-    batch.pending_count +
-    batch.printing_count +
-    batch.completed_count +
-    batch.failed_count +
-    batch.cancelled_count
-  );
-}
-
-function QueueBulkEditModal({
-  visible,
-  selectedCount,
-  printers,
-  value,
-  loading,
-  onClose,
-  onSave,
-}: {
-  visible: boolean;
-  selectedCount: number;
-  printers: Printer[];
-  value: number | null | undefined;
-  loading: boolean;
-  onClose: () => void;
-  onSave: (printerId: number | null) => void;
-}) {
-  const { colors } = useTheme();
-  const [selectedPrinterId, setSelectedPrinterId] = useState<number | null | 'unchanged'>('unchanged');
-
-  useEffect(() => {
-    if (!visible) return;
-    if (selectedCount === 1) {
-      setSelectedPrinterId(value ?? null);
-      return;
-    }
-    setSelectedPrinterId('unchanged');
-  }, [selectedCount, value, visible]);
-
-  const canSave = selectedPrinterId !== 'unchanged' && !loading;
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}> 
-        <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
-          <Text style={[styles.modalTitle, { color: colors.text }]}>Bulk edit queue</Text>
-          <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}> 
-            Assign {selectedCount} selected {selectedCount === 1 ? 'item' : 'items'} to a printer or clear the assignment.
-          </Text>
-          <ScrollView style={styles.modalOptions}>
-            {selectedCount > 1 ? (
-              <Pressable
-                onPress={() => setSelectedPrinterId('unchanged')}
-                style={[
-                  styles.modalOption,
-                  {
-                    backgroundColor: selectedPrinterId === 'unchanged' ? colors.accentBg : colors.surfaceElevated,
-                    borderColor: selectedPrinterId === 'unchanged' ? colors.accent : colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.modalOptionText,
-                    { color: selectedPrinterId === 'unchanged' ? colors.accentLight : colors.text },
-                  ]}
-                >
-                  No change
-                </Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              onPress={() => setSelectedPrinterId(null)}
-              style={[
-                styles.modalOption,
-                {
-                  backgroundColor: selectedPrinterId === null ? colors.accentBg : colors.surfaceElevated,
-                  borderColor: selectedPrinterId === null ? colors.accent : colors.border,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.modalOptionText,
-                  { color: selectedPrinterId === null ? colors.accentLight : colors.text },
-                ]}
-              >
-                Unassigned
-              </Text>
-            </Pressable>
-            {printers.map(printer => (
-              <Pressable
-                key={printer.id}
-                onPress={() => setSelectedPrinterId(printer.id)}
-                style={[
-                  styles.modalOption,
-                  {
-                    backgroundColor:
-                      selectedPrinterId === printer.id ? colors.accentBg : colors.surfaceElevated,
-                    borderColor: selectedPrinterId === printer.id ? colors.accent : colors.border,
-                  },
-                ]}
-              >
-                <View style={styles.modalOptionContent}>
-                  <Text style={[styles.modalOptionText, { color: colors.text }]}>{printer.name}</Text>
-                  <Text style={[styles.modalOptionMeta, { color: colors.textSecondary }]}> 
-                    {printer.model || 'Unknown model'}
-                    {printer.location ? ` • ${printer.location}` : ''}
-                  </Text>
-                </View>
-              </Pressable>
-            ))}
-          </ScrollView>
-          <View style={styles.modalActions}>
-            <PrimaryButton label="Cancel" variant="secondary" onPress={onClose} />
-            <PrimaryButton
-              label={loading ? 'Saving…' : 'Apply'}
-              onPress={() => {
-                if (selectedPrinterId === 'unchanged') return;
-                onSave(selectedPrinterId);
-              }}
-              disabled={!canSave}
-              loading={loading}
-            />
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function BatchCard({ batch, onPress }: { batch: PrintBatch; onPress: () => void }) {
-  const { colors } = useTheme();
-  const total = Math.max(batch.quantity, batchItemCount(batch));
-  const completed = batch.completed_count + batch.failed_count + batch.cancelled_count;
-  const progress = total > 0 ? Math.min(1, completed / total) : 0;
-  const badgeColor =
-    batch.status === 'completed'
-      ? colors.success
-      : batch.status === 'cancelled'
-        ? colors.warning
-        : colors.info;
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.batchCard,
-        {
-          backgroundColor: colors.card,
-          borderColor: colors.cardBorder,
-          opacity: pressed ? 0.96 : 1,
-        },
-      ]}
-    >
-      <View style={styles.batchHeader}>
-        <View style={styles.batchHeaderText}>
-          <Text style={[styles.batchTitle, { color: colors.text }]} numberOfLines={2}>
-            {batch.name}
-          </Text>
-          <Text style={[styles.batchMeta, { color: colors.textSecondary }]}>
-            {batch.created_by_username || 'System'} • {formatDateTime(batch.created_at)}
-          </Text>
-        </View>
-        <View style={[styles.batchStatusBadge, { backgroundColor: `${badgeColor}18`, borderColor: `${badgeColor}55` }]}> 
-          <Text style={[styles.batchStatusText, { color: badgeColor }]}>{capitalize(batch.status)}</Text>
-        </View>
-      </View>
-
-      <View style={styles.batchMetrics}>
-        <Text style={[styles.batchMetric, { color: colors.textSecondary }]}>Items {total}</Text>
-        <Text style={[styles.batchMetric, { color: colors.textSecondary }]}>Pending {batch.pending_count}</Text>
-        <Text style={[styles.batchMetric, { color: colors.textSecondary }]}>Printing {batch.printing_count}</Text>
-        <Text style={[styles.batchMetric, { color: colors.textSecondary }]}>Done {completed}</Text>
-      </View>
-
-      <View style={[styles.progressTrack, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
-        <View
-          style={[
-            styles.progressFill,
-            {
-              backgroundColor: badgeColor,
-              width: `${Math.round(progress * 100)}%`,
-            },
-          ]}
-        />
-      </View>
-      <Text style={[styles.batchMeta, { color: colors.textTertiary }]}>
-        Progress {completed}/{total}
-      </Text>
-    </Pressable>
-  );
-}
-
-function BatchItemsModal({
-  visible,
-  batch,
-  items,
-  ungrouping,
-  onClose,
-  onUngroup,
-}: {
-  visible: boolean;
-  batch: PrintBatch | null;
-  items: PrintQueueItem[];
-  ungrouping: boolean;
-  onClose: () => void;
-  onUngroup: () => void;
-}) {
-  const { colors } = useTheme();
-
-  if (!batch) return null;
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.sheetBackdrop, { backgroundColor: colors.overlay }]}> 
-        <View style={[styles.sheetCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
-          <View style={styles.sheetHeader}>
-            <View style={styles.sheetHeaderText}>
-              <Text style={[styles.sheetTitle, { color: colors.text }]} numberOfLines={2}>
-                {batch.name}
-              </Text>
-              <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
-                {batchItemCount(batch)} queued items in this batch
-              </Text>
-            </View>
-            <PrimaryButton label="Close" variant="secondary" onPress={onClose} />
-          </View>
-
-          <ScrollView contentContainerStyle={styles.sheetContent}>
-            <View style={styles.batchMetrics}>
-              <Text style={[styles.batchMetric, { color: colors.textSecondary }]}>Pending {batch.pending_count}</Text>
-              <Text style={[styles.batchMetric, { color: colors.textSecondary }]}>Printing {batch.printing_count}</Text>
-              <Text style={[styles.batchMetric, { color: colors.textSecondary }]}>Completed {batch.completed_count}</Text>
-              <Text style={[styles.batchMetric, { color: colors.textSecondary }]}>Failed {batch.failed_count}</Text>
-              <Text style={[styles.batchMetric, { color: colors.textSecondary }]}>Cancelled {batch.cancelled_count}</Text>
-            </View>
-
-            {items.length > 0 ? (
-              items.map(item => <QueueItemCardContent key={`batch-${batch.id}-${item.id}`} item={item} />)
-            ) : (
-              <EmptyState icon="📦" title="No batch items" message="This batch has no remaining queue members." />
-            )}
-          </ScrollView>
-
-          <View style={styles.sheetFooter}>
-            <PrimaryButton
-              label={ungrouping ? 'Ungrouping…' : 'Ungroup batch'}
-              variant="danger"
-              onPress={onUngroup}
-              disabled={ungrouping}
-              loading={ungrouping}
-            />
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
+type Tab = 'queue' | 'history' | 'timeline' | 'batches';
+const title = (item: PrintQueueItem) =>
+  item.archive_name || item.library_file_name || `#${item.id}`;
+const printerLabel = (item: PrintQueueItem) =>
+  item.printer_name ||
+  (item.target_model ? `Any ${item.target_model}` : 'Unassigned');
+const terminal = (item: PrintQueueItem) =>
+  ['completed', 'failed', 'skipped', 'cancelled'].includes(item.status);
+// Fixed-printer scheduling bypasses variant resolution and needs a concrete source.
+const unresolvedVariants = (item: PrintQueueItem) =>
+  !!item.variants?.length &&
+  item.archive_id == null &&
+  item.library_file_id == null;
+type Confirmation = {
+  title: string;
+  message: string;
+  run: () => Promise<unknown>;
+};
 
 export default function QueueScreen() {
-  const navigation = useNavigation<MainTabNavigationProp<'Queue'>>();
-  React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'Queue' });
-  }, [navigation]);
-
+  useNativeLocale();
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const tr = (label: string) =>
+    t(`queue.${label.replace(/\W/g, '')}`, { defaultValue: label });
+  const { hasPermission, user } = useAuth();
   const { showToast } = useToast();
-  const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<QueueTab>('queue');
+  const client = useQueryClient();
+  const [tab, setTab] = useState<Tab>('queue');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<QueueStatusFilter>('all');
-  const [printerFilter, setPrinterFilter] = useState<number | 'all' | 'unassigned'>('all');
-  const [queueSort, setQueueSort] = useState<QueueSort>('position');
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [bulkEditIds, setBulkEditIds] = useState<number[]>([]);
-  const [bulkEditCurrentValue, setBulkEditCurrentValue] = useState<number | null | undefined>(undefined);
-  const [deleteIds, setDeleteIds] = useState<number[]>([]);
-  const [selectedBatch, setSelectedBatch] = useState<PrintBatch | null>(null);
-  const [confirmUngroupBatch, setConfirmUngroupBatch] = useState<PrintBatch | null>(null);
-
-  const queueQuery = useQuery({
+  const [status, setStatus] = useState('all');
+  const [printer, setPrinter] = useState('all');
+  const [location, setLocation] = useState('');
+  const [layout, setLayout] = useState('position');
+  const [sort, setSort] = useState('position');
+  const [historySort, setHistorySort] = useState('date');
+  const [direction, setDirection] = useState<1 | -1>(1);
+  const [historyDirection, setHistoryDirection] = useState<1 | -1>(-1);
+  const [batchStatus, setBatchStatus] = useState('active');
+  const [selected, setSelected] = useState<number[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [batchName, setBatchName] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<number[]>([]);
+  const [batchDetailId, setBatchDetailId] = useState<number | null>(null);
+  const [launch, setLaunch] = useState<{
+    item: PrintQueueItem;
+    requeue: boolean;
+  } | null>(null);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [shortage, setShortage] = useState<{ id: number; text: string } | null>(
+    null,
+  );
+  const [busy, setBusy] = useState(false);
+  const queue = useQuery({
     queryKey: ['queue'],
-    queryFn: () => api.getQueue(),
+    queryFn: () => queueApi.getQueue(),
   });
-  const printersQuery = useQuery({
+  const printers = useQuery({
     queryKey: ['printers'],
-    queryFn: () => api.getPrinters(),
+    queryFn: api.getPrinters,
   });
-  const batchesQuery = useQuery({
+  const batches = useQuery({
     queryKey: ['queueBatches'],
-    queryFn: () => api.getQueueBatches(),
+    queryFn: () => queueApi.getQueueBatches(),
   });
-
-  const queueItems = useMemo(() => toQueueItems(queueQuery.data), [queueQuery.data]);
-  const printers = useMemo(
-    () => (Array.isArray(printersQuery.data) ? (printersQuery.data as unknown as Printer[]) : []),
-    [printersQuery.data],
+  const batchDetail = useQuery({
+    queryKey: ['queueBatches', batchDetailId],
+    queryFn: () => queueApi.getQueueBatch(batchDetailId!),
+    enabled: batchDetailId != null,
+  });
+  const items = useLocalizedMemo(() => queue.data ?? [], [queue.data]);
+  const active = items.filter(item => item.status === 'printing');
+  const pending = items.filter(item => item.status === 'pending');
+  const history = items.filter(terminal);
+  const activePrinterIds = [
+    ...new Set(
+      active.map(i => i.printer_id).filter((id): id is number => id != null),
+    ),
+  ];
+  const statusQueries = useQueries({
+    queries: activePrinterIds.map(id => ({
+      queryKey: ['printerStatus', id],
+      queryFn: () => api.getPrinterStatus(id),
+    })),
+  });
+  const statusById = new Map(
+    statusQueries.map((q, index) => [activePrinterIds[index], q.data]),
   );
-  const batches = useMemo(() => toBatches(batchesQuery.data), [batchesQuery.data]);
-
-  const refreshCurrentTab = async () => {
-    await Promise.all([
-      queueQuery.refetch(),
-      printersQuery.refetch(),
-      activeTab === 'batches' ? batchesQuery.refetch() : Promise.resolve(),
-    ]);
-  };
-
-  const invalidateQueue = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['queue'] }),
-      queryClient.invalidateQueries({ queryKey: ['queueBatches'] }),
-    ]);
-  };
-
-  const actionMutation = useMutation({
-    mutationFn: async (
-      action:
-        | { type: 'start'; ids: number[] }
-        | { type: 'retry'; ids: number[] }
-        | { type: 'delete'; ids: number[] }
-        | { type: 'cancel'; ids: number[] },
-    ) => {
-      if (action.type === 'start') {
-        for (const id of action.ids) await api.startQueueItem(id);
-      }
-      if (action.type === 'retry') {
-        for (const id of action.ids) await api.retryQueueItem(id);
-      }
-      if (action.type === 'delete') {
-        for (const id of action.ids) await api.deleteQueueItem(id);
-      }
-      if (action.type === 'cancel') {
-        for (const id of action.ids) await api.cancelQueueItem(id);
-      }
-    },
-    onSuccess: async (_data, variables) => {
-      await invalidateQueue();
-      setSelectedIds([]);
-      setDeleteIds([]);
-      if (variables.type === 'start') showToast('Queue item started.', 'success');
-      if (variables.type === 'retry') showToast('Queue item retried.', 'success');
-      if (variables.type === 'delete') showToast('Queue item deleted.', 'success');
-      if (variables.type === 'cancel') showToast('Queue item cancelled.', 'success');
-    },
-    onError: () => showToast('Unable to update the queue.', 'error'),
-  });
-
-  const bulkUpdateMutation = useMutation({
-    mutationFn: ({ ids, printerId }: { ids: number[]; printerId: number | null }) =>
-      api.bulkUpdateQueue({ item_ids: ids, printer_id: printerId }),
-    onSuccess: async () => {
-      await invalidateQueue();
-      setBulkEditIds([]);
-      setBulkEditCurrentValue(undefined);
-      setSelectedIds([]);
-      showToast('Queue items updated.', 'success');
-    },
-    onError: () => showToast('Unable to apply bulk changes.', 'error'),
-  });
-
-  const reorderMutation = useMutation({
-    mutationFn: (itemIds: number[]) => api.reorderQueue(itemIds),
-    onSuccess: async () => {
-      await invalidateQueue();
-      showToast('Queue reordered.', 'success');
-    },
-    onError: () => showToast('Unable to reorder the queue.', 'error'),
-  });
-
-  const ungroupBatchMutation = useMutation({
-    mutationFn: (id: number) => api.ungroupBatch(id),
-    onSuccess: async result => {
-      await invalidateQueue();
-      setConfirmUngroupBatch(null);
-      setSelectedBatch(null);
-      showToast(result.message || 'Batch ungrouped.', 'success');
-    },
-    onError: () => showToast('Unable to ungroup this batch.', 'error'),
-  });
-
-  useEffect(() => {
-    setSelectedIds(current =>
-      current.filter(id => queueItems.some(item => item.id === id && item.status === 'pending')),
-    );
-  }, [queueItems]);
-
-  const printerStateMap = useMemo(() => {
-    const map: Record<number, string | null> = {};
-    queueItems.forEach(item => {
-      if (item.printer_id && item.status === 'printing') {
-        map[item.printer_id] = 'RUNNING';
-      }
-    });
-    return map;
-  }, [queueItems]);
-
-  const pendingItems = useMemo(
-    () => queueItems.filter(item => item.status === 'pending'),
-    [queueItems],
-  );
-  const activeItems = useMemo(
-    () => queueItems.filter(item => item.status === 'printing'),
-    [queueItems],
-  );
-  const finishedItems = useMemo(
-    () =>
-      [...queueItems]
-        .filter(item => ['completed', 'failed', 'skipped', 'cancelled'].includes(item.status))
-        .sort(
-          (a, b) =>
-            new Date(b.completed_at ?? b.created_at).getTime() -
-            new Date(a.completed_at ?? a.created_at).getTime(),
-        ),
-    [queueItems],
-  );
-
-  const queueStats = useMemo(() => {
-    const totalTime = pendingItems.reduce((sum, item) => sum + (item.print_time_seconds ?? 0), 0);
-    const totalWeight = pendingItems.reduce((sum, item) => sum + (item.filament_used_grams ?? 0), 0);
-    return {
-      active: activeItems.length,
-      pending: pendingItems.length,
-      waiting: pendingItems.filter(item => !!item.waiting_reason).length,
-      history: finishedItems.length,
-      batches: batches.length,
-      totalTime,
-      totalWeight,
-    };
-  }, [activeItems.length, batches.length, finishedItems.length, pendingItems]);
-
-  const normalizedSearch = search.trim().toLowerCase();
-  const selectionMode = activeTab === 'queue' && selectedIds.length > 0;
-
-  const filteredActiveItems = useMemo(() => {
-    return activeItems.filter(item => {
-      if (!matchesQueueSearch(item, normalizedSearch)) return false;
-      if (printerFilter === 'unassigned') return item.printer_id == null;
-      if (typeof printerFilter === 'number' && item.printer_id !== printerFilter) return false;
-      const currentStatus = itemStatus(item, printerStateMap[item.printer_id ?? 0]);
-      if (statusFilter !== 'all' && currentStatus !== statusFilter) return false;
-      return true;
-    });
-  }, [activeItems, normalizedSearch, printerFilter, printerStateMap, statusFilter]);
-
-  const filteredPendingItems = useMemo(() => {
-    const list = pendingItems.filter(item => {
-      if (!matchesQueueSearch(item, normalizedSearch)) return false;
-      if (printerFilter === 'unassigned') {
-        if (item.printer_id != null || item.target_model) return false;
-      }
-      if (typeof printerFilter === 'number' && item.printer_id !== printerFilter) return false;
-      const currentStatus = itemStatus(item, printerStateMap[item.printer_id ?? 0]);
-      if (statusFilter !== 'all' && currentStatus !== statusFilter) return false;
-      return true;
-    });
-
-    if (queueSort === 'position') return list;
-
-    return [...list].sort((a, b) => {
-      switch (queueSort) {
-        case 'name':
-          return queueItemTitle(a).localeCompare(queueItemTitle(b));
-        case 'printer':
-          return queuePrinterLabel(a).localeCompare(queuePrinterLabel(b));
-        case 'time':
-          return (a.print_time_seconds ?? Number.MAX_SAFE_INTEGER) - (b.print_time_seconds ?? Number.MAX_SAFE_INTEGER);
-        default:
-          return 0;
-      }
-    });
-  }, [normalizedSearch, pendingItems, printerFilter, printerStateMap, queueSort, statusFilter]);
-
-  const filteredHistoryItems = useMemo(() => {
-    return finishedItems.filter(item => {
-      if (!matchesQueueSearch(item, normalizedSearch)) return false;
-      if (printerFilter === 'unassigned') return item.printer_id == null;
-      if (typeof printerFilter === 'number' && item.printer_id !== printerFilter) return false;
-      const currentStatus = itemStatus(item, printerStateMap[item.printer_id ?? 0]);
-      if (statusFilter !== 'all' && currentStatus !== statusFilter) return false;
-      return true;
-    });
-  }, [finishedItems, normalizedSearch, printerFilter, printerStateMap, statusFilter]);
-
-  const filteredBatches = useMemo(() => {
-    return batches.filter(batch => {
-      const haystack = [batch.name, batch.status, batch.created_by_username]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return !normalizedSearch || haystack.includes(normalizedSearch);
-    });
-  }, [batches, normalizedSearch]);
-
-  const selectedBatchItems = useMemo(() => {
-    if (!selectedBatch) return [];
-    return queueItems
-      .filter(item => item.batch_id === selectedBatch.id)
-      .sort((a, b) => a.position - b.position);
-  }, [queueItems, selectedBatch]);
-
-  const visiblePendingIds = filteredPendingItems.map(item => item.id);
-  const allVisibleSelected =
-    visiblePendingIds.length > 0 && visiblePendingIds.every(id => selectedIds.includes(id));
-
-  const toggleSelection = (id: number) => {
-    setSelectedIds(current =>
-      current.includes(id) ? current.filter(value => value !== id) : [...current, id],
+  const canUpdate = (item: PrintQueueItem) =>
+    hasPermission('queue:update_all') ||
+    (hasPermission('queue:update_own') && item.created_by_id === user?.id);
+  // Starting claims ownerless imports; ordinary editing remains owner-only.
+  const canStart = (item: PrintQueueItem) =>
+    item.status === 'pending' &&
+    (hasPermission('queue:update_all') ||
+      (hasPermission('queue:update_own') &&
+        (item.created_by_id == null || item.created_by_id === user?.id)));
+  const canDelete = (item: PrintQueueItem) =>
+    hasPermission('queue:delete_all') ||
+    (hasPermission('queue:delete_own') && item.created_by_id === user?.id);
+  const refresh = async () => {
+    await Promise.all(
+      ['queue', 'queueBatches', 'printers', 'printerStatus'].map(key =>
+        client.invalidateQueries({ queryKey: [key] }),
+      ),
     );
   };
-
-  const toggleSelectAll = () => {
-    if (allVisibleSelected) {
-      setSelectedIds(current => current.filter(id => !visiblePendingIds.includes(id)));
-      return;
+  const perform = async (
+    run: () => Promise<unknown>,
+    success = nativeMessage('native.c7ff3b59e9fc6cec'),
+  ) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await run();
+      await refresh();
+      showToast(success, 'success');
+      setConfirmation(null);
+    } catch (e) {
+      showToast(
+        e instanceof Error ? e.message : nativeMessage("native.b12da6ed094e6a17"),
+        'error',
+      );
+      await refresh();
+    } finally {
+      setBusy(false);
     }
-    setSelectedIds(current => [...new Set([...current, ...visiblePendingIds])]);
   };
-
-  const reorderItem = (id: number, direction: -1 | 1) => {
-    const ordered = [...pendingItems];
-    const index = ordered.findIndex(item => item.id === id);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= ordered.length) return;
-    const copy = [...ordered];
-    const [moving] = copy.splice(index, 1);
-    copy.splice(target, 0, moving);
-    reorderMutation.mutate(copy.map(item => item.id));
+  const confirm = (
+    label: string,
+    message: string,
+    run: () => Promise<unknown>,
+  ) => setConfirmation({ title: tr(label), message, run });
+  const start = async (id: number, bypass = false) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await queueApi.startQueueItem(id, { skipFilamentCheck: bypass });
+      setShortage(null);
+      await refresh();
+      showToast(nativeMessage("native.0b53124e898b6945"), 'success');
+    } catch (e) {
+      if (
+        e instanceof ApiError &&
+        e.status === 409 &&
+        e.detail?.code === 'insufficient_filament' &&
+        Array.isArray(e.detail.deficit)
+      ) {
+        setShortage({
+          id,
+          text: e.detail.deficit
+            .filter(isRecord)
+            .map(
+              d =>
+                `${tr('Slot')} ${String(d.slot_id)} · ${String(
+                  d.filament_type,
+                )} · ${String(d.required_grams)}g ${tr('required')} / ${
+                  d.remaining_grams == null
+                    ? tr('Unknown')
+                    : `${String(d.remaining_grams)}g`
+                } ${tr('remaining')}`,
+            )
+            .join('\n'),
+        });
+      } else
+        showToast(
+          e instanceof Error ? e.message : nativeMessage("native.c67d3259e78e9d8c"),
+          'error',
+        );
+    } finally {
+      setBusy(false);
+    }
   };
+  const stop = (item: PrintQueueItem) =>
+    confirm(
+      translateNative('native.6333c03e1b776cfd'),
+      `${title(item)} · ${printerLabel(item)}\n${tr(
+        'This stops the printer and marks this queue run cancelled.',
+      )}`,
+      () => queueApi.stopQueueItem(item.id),
+    );
+  const configure = (item: PrintQueueItem) =>
+    setLaunch({ item, requeue: terminal(item) });
+  const reorder = (item: PrintQueueItem, delta: -1 | 1, whole = false) => {
+    void perform(() =>
+      queueApi.reorderQueue(moveQueueBlock(pending, item.id, delta, whole)),
+    );
+  };
+  const selectedItems = pending.filter(i => selected.includes(i.id));
+  const allowFixedPrinterAssignment = !selectedItems
+    .filter(canUpdate)
+    .some(unresolvedVariants);
+  const gates = useLocalizedMemo(() => {
+    const result = new Map<number, { name: string; count: number }>();
+    items
+      .filter(
+        i =>
+          i.status === 'skipped' &&
+          i.error_message === 'Previous print failed or was aborted' &&
+          i.printer_id != null,
+      )
+      .forEach(i => {
+        const current = result.get(i.printer_id!) ?? {
+          name: printerLabel(i),
+          count: 0,
+        };
+        current.count++;
+        result.set(i.printer_id!, current);
+      });
+    return [...result];
+  }, [items]);
+  const filter = (item: PrintQueueItem) => {
+    const p = printers.data?.find(pr => pr.id === item.printer_id);
+    if (
+      printer === 'unassigned' &&
+      (item.printer_id != null || item.target_model)
+    )
+      return false;
+    if (
+      printer !== 'all' &&
+      printer !== 'unassigned' &&
+      item.printer_id !== Number(printer)
+    )
+      return false;
+    if (location && (p?.location ?? item.target_location) !== location)
+      return false;
+    const actualStatus =
+      item.status === 'pending' && item.waiting_reason
+        ? 'waiting'
+        : item.status === 'printing' &&
+          statusById.get(item.printer_id ?? -1)?.state === 'PAUSE'
+        ? 'paused'
+        : item.status;
+    if (status !== 'all' && actualStatus !== status) return false;
+    return (
+      !search.trim() ||
+      [
+        title(item),
+        printerLabel(item),
+        item.target_location,
+        item.batch_name,
+        item.filament_type,
+        item.created_by_username,
+        item.waiting_reason,
+        item.error_message,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(search.trim().toLowerCase())
+    );
+  };
+  const filteredPending = pending
+    .filter(filter)
+    .sort(
+      (a, b) =>
+        direction *
+        (sort === 'name'
+          ? title(a).localeCompare(title(b))
+          : sort === 'printer'
+          ? printerLabel(a).localeCompare(printerLabel(b))
+          : sort === 'duration'
+          ? (a.print_time_seconds ?? 0) - (b.print_time_seconds ?? 0)
+          : sort === 'scheduled'
+          ? new Date(a.scheduled_time ?? 0).getTime() -
+            new Date(b.scheduled_time ?? 0).getTime()
+          : a.position - b.position),
+    );
+  const filteredHistory = history
+    .filter(filter)
+    .sort(
+      (a, b) =>
+        historyDirection *
+        (historySort === 'name'
+          ? title(a).localeCompare(title(b))
+          : historySort === 'printer'
+          ? printerLabel(a).localeCompare(printerLabel(b))
+          : new Date(a.completed_at ?? a.started_at ?? a.created_at).getTime() -
+            new Date(b.completed_at ?? b.started_at ?? b.created_at).getTime()),
+    );
+  const toggle = (id: number) =>
+    setSelected(current =>
+      current.includes(id) ? current.filter(i => i !== id) : [...current, id],
+    );
 
-  if (queueQuery.isLoading && printersQuery.isLoading && batchesQuery.isLoading) {
-    return <LoadingScreen message="Loading queue…" />;
-  }
+  const card = (item: PrintQueueItem) =>
+    item.status === 'pending' ? (
+      <DraggableQueueItem
+        key={item.id}
+        item={item}
+        selected={selected.includes(item.id)}
+        selectionMode={selected.length > 0}
+        onPress={() => {
+          if (selected.length) toggle(item.id);
+          else if (canUpdate(item)) configure(item);
+        }}
+        onLongPress={() => {
+          if (canUpdate(item)) toggle(item.id);
+        }}
+        onToggleSelect={() => {
+          if (canUpdate(item)) toggle(item.id);
+        }}
+        onStart={
+          canStart(item)
+            ? () => {
+                void start(item.id);
+              }
+            : undefined
+        }
+        onCancel={
+          canDelete(item)
+            ? () =>
+                confirm(translateNative('native.b6bbd7dd3279865e'), title(item), () =>
+                  queueApi.cancelQueueItem(item.id),
+                )
+            : undefined
+        }
+        onDelete={
+          canDelete(item)
+            ? () =>
+                confirm(translateNative('native.5fd9e0becdb0d431'), title(item), () =>
+                  queueApi.deleteQueueItem(item.id),
+                )
+            : undefined
+        }
+        onReassign={canUpdate(item) ? () => configure(item) : undefined}
+        onReorder={
+          hasPermission('queue:reorder') &&
+          sort === 'position' &&
+          direction === 1
+            ? d => reorder(item, d === 'up' ? -1 : 1)
+            : undefined
+        }
+      />
+    ) : (
+      <QueueItemCardContent
+        key={item.id}
+        item={item}
+        printerState={statusById.get(item.printer_id ?? -1)?.state}
+        onRetry={
+          terminal(item) &&
+          hasPermission('queue:create') &&
+          !item.archive_deleted
+            ? () => configure(item)
+            : undefined
+        }
+        onDelete={
+          terminal(item) && canDelete(item)
+            ? () =>
+                confirm(translateNative('native.082514ed30cb9447'), title(item), () =>
+                  queueApi.deleteQueueItem(item.id),
+                )
+            : undefined
+        }
+        onStop={
+          item.status === 'printing' && hasPermission('printers:control')
+            ? () => stop(item)
+            : undefined
+        }
+        onPause={
+          item.status === 'printing' &&
+          item.printer_id != null &&
+          hasPermission('printers:control')
+            ? () => {
+                void perform(() =>
+                  statusById.get(item.printer_id!)?.state === 'PAUSE'
+                    ? api.resumePrint(item.printer_id!)
+                    : api.pausePrint(item.printer_id!),
+                );
+              }
+            : undefined
+        }
+      />
+    );
 
-  if (queueQuery.isError && printersQuery.isError && batchesQuery.isError) {
+  const renderPending = (list: PrintQueueItem[]) => {
+    const blocks = queueBlocks(list);
+    // Keep visual sort while retaining contiguous batches. Reordering always uses the complete queue.
+    const ordered =
+      sort === 'position' && direction === 1
+        ? blocks
+        : [...blocks].sort((a, b) => list.indexOf(a[0]) - list.indexOf(b[0]));
+    return ordered.map(block => {
+      const first = block[0],
+        batch = first.batch_id;
+      if (!batch) return card(first);
+      return (
+        <SectionCard
+          key={`batch-${batch}`}
+          title={`${first.batch_name ?? `#${batch}`} · ${block.length} ${tr(
+            'pending',
+          )}`}
+        >
+          <View style={styles.row}>
+            <PrimaryButton
+              label={tr(
+                collapsed.includes(batch) ? translateNative('native.b30e4ae6f07f6a30') : translateNative('native.74a215e67407dd5d'),
+              )}
+              variant="secondary"
+              onPress={() =>
+                setCollapsed(current =>
+                  current.includes(batch)
+                    ? current.filter(id => id !== batch)
+                    : [...current, batch],
+                )
+              }
+            />
+            {hasPermission('queue:reorder') && sort === 'position' && (
+              <>
+                <PrimaryButton
+                  label={tr('Batch up')}
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={() => reorder(first, -1, true)}
+                />
+                <PrimaryButton
+                  label={tr('Batch down')}
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={() => reorder(first, 1, true)}
+                />
+              </>
+            )}
+            {hasPermission('queue:update_all') && (
+              <PrimaryButton
+                label={tr('Ungroup')}
+                variant="secondary"
+                onPress={() =>
+                  confirm(
+                    translateNative('native.00325e7b88ffbc28'),
+                    tr('Jobs remain queued but are no longer grouped.'),
+                    () => queueApi.ungroupBatch(batch),
+                  )
+                }
+              />
+            )}
+          </View>
+          {!collapsed.includes(batch) && block.map(card)}
+        </SectionCard>
+      );
+    });
+  };
+  const renderBatch = (batch: PrintBatch) => (
+    <SectionCard
+      key={batch.id}
+      title={batch.name}
+      subtitle={`${localizedStatus(batch.status)} · ${formatDateTime(batch.created_at)}`}
+    >
+      <LaunchText>
+        {batch.has_targets
+          ? `${tr('Successful target progress')}: ${batch.completed_count}/${
+              batch.target_count ?? 0
+            } · ${tr('Still owed')}: ${batch.remaining_count ?? 0}`
+          : `${tr('Successful runs')}: ${batch.completed_count}/${
+              batch.quantity
+            }`}
+      </LaunchText>
+      <LaunchText>{`${tr('Pending')}: ${batch.pending_count} · ${tr(
+        'Printing',
+      )}: ${batch.printing_count} · ${tr('Failed')}: ${
+        batch.failed_count
+      } · ${tr('Cancelled')}: ${batch.cancelled_count}`}</LaunchText>
+      <LaunchText>{`${tr('Actual cost')}: ${
+        batch.actual_cost ?? tr('Unknown')
+      } · ${tr('Estimated remaining cost')}: ${
+        batch.estimated_remaining_cost ?? tr('Unknown')
+      }`}</LaunchText>
+      {batch.has_targets &&
+        (batch.remaining_count ?? 0) > (batch.dispatchable_count ?? 0) && (
+          <LaunchText>
+            {translateNative('native.83687692be32ba67')}</LaunchText>
+        )}
+      {(batch.plates ?? []).map(plate => (
+        <View key={String(plate.plate_id)}>
+          <LaunchText>{`${
+            plate.plate_name ?? `${tr('Plate')} ${plate.plate_id ?? 1}`
+          } · ${plate.completed_count}/${plate.quantity_target} ${tr(
+            'successful',
+          )} · ${plate.remaining} ${tr('remaining')} · ${tr('Cost')}: ${
+            plate.actual_cost ?? tr('Unknown')
+          } / ${plate.estimated_remaining_cost ?? tr('Unknown')}`}</LaunchText>
+          {plate.remaining > 0 && !plate.can_dispatch && (
+            <LaunchText>{translateNative('native.2590d053a301e025')}</LaunchText>
+          )}
+          {plate.can_dispatch &&
+            plate.remaining > 0 &&
+            batch.status === 'active' &&
+            hasPermission('queue:create') && (
+              <PrimaryButton
+                label={tr('Dispatch remaining plate')}
+                variant="secondary"
+                disabled={busy}
+                onPress={() => {
+                  void perform(() =>
+                    queueApi.dispatchBatch(batch.id, {
+                      only_plate: true,
+                      plate_id: plate.plate_id,
+                    }),
+                  );
+                }}
+              />
+            )}
+        </View>
+      ))}
+      <View style={styles.row}>
+        <PrimaryButton
+          label={tr('View batch items')}
+          variant="secondary"
+          onPress={() => setBatchDetailId(batch.id)}
+        />
+        {batch.status === 'active' &&
+          (batch.dispatchable_count ?? 0) > 0 &&
+          hasPermission('queue:create') && (
+            <PrimaryButton
+              label={tr('Dispatch remaining order')}
+              disabled={busy}
+              onPress={() => {
+                void perform(() => queueApi.dispatchBatch(batch.id));
+              }}
+            />
+          )}
+        {batch.status === 'active' && hasPermission('queue:update_all') && (
+          <PrimaryButton
+            label={tr('Cancel order')}
+            variant="danger"
+            onPress={() =>
+              confirm(
+                translateNative('native.7fa43f04f9396ef3'),
+                tr(
+                  'Cancel this order and its pending production? Active prints are not stopped.',
+                ),
+                () => queueApi.cancelBatch(batch.id),
+              )
+            }
+          />
+        )}
+        {hasPermission('queue:update_all') && (
+          <PrimaryButton
+            label={tr('Ungroup batch')}
+            variant="secondary"
+            onPress={() =>
+              confirm(
+                translateNative('native.00325e7b88ffbc28'),
+                tr('Jobs remain queued but are no longer grouped.'),
+                () => queueApi.ungroupBatch(batch.id),
+              )
+            }
+          />
+        )}
+      </View>
+    </SectionCard>
+  );
+
+  if (queue.isPending) return <LoadingScreen />;
+  if (queue.isError)
     return (
       <ErrorState
-        message="Unable to load queue information."
+        message={tr('Unable to load queue')}
         onRetry={() => {
-          void refreshCurrentTab();
+          void queue.refetch();
         }}
       />
     );
-  }
-
-  const statusCounts: Record<QueueStatusFilter, number> = {
-    all: queueItems.length,
-    pending: pendingItems.length,
-    waiting: pendingItems.filter(item => !!item.waiting_reason).length,
-    paused: activeItems.filter(item => itemStatus(item, printerStateMap[item.printer_id ?? 0]) === 'paused').length,
-    printing: activeItems.length,
-    completed: finishedItems.filter(item => item.status === 'completed').length,
-    failed: finishedItems.filter(item => item.status === 'failed').length,
-    skipped: finishedItems.filter(item => item.status === 'skipped').length,
-    cancelled: finishedItems.filter(item => item.status === 'cancelled').length,
-  };
-
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}> 
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
-            refreshing={
-              queueQuery.isRefetching || printersQuery.isRefetching || batchesQuery.isRefetching
-            }
+            refreshing={queue.isRefetching}
             onRefresh={() => {
-              void refreshCurrentTab();
+              void refresh();
             }}
-            tintColor={colors.accent}
           />
         }
       >
         <InlineTabBar
-          value={activeTab}
+          value={tab}
           tabs={[
-            { key: 'queue', label: `Queue (${queueStats.pending + queueStats.active})` },
-            { key: 'history', label: `History (${queueStats.history})` },
-            { key: 'timeline', label: `Timeline (${queueItems.length})` },
-            { key: 'batches', label: `Batches (${queueStats.batches})` },
+            {
+              key: 'queue',
+              label: `${tr('Queue')} (${pending.length + active.length})`,
+            },
+            { key: 'history', label: `${tr('History')} (${history.length})` },
+            { key: 'timeline', label: tr('Timeline') },
+            { key: 'batches', label: tr('Batch orders') },
           ]}
           onChange={value => {
-            setActiveTab(value);
-            setSelectedIds([]);
+            setTab(value);
+            setSelected([]);
           }}
         />
-
-        {activeTab !== 'batches' ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
-            <StatCard label="Printing" value={String(queueStats.active)} helper="Live jobs" />
-            <StatCard label="Queued" value={String(queueStats.pending)} helper="Pending items" />
-            <StatCard label="Waiting" value={String(queueStats.waiting)} helper="Needs attention" />
-            <StatCard label="Est. time" value={formatDuration(queueStats.totalTime)} helper="Pending total" />
-            <StatCard label="Filament" value={formatWeight(queueStats.totalWeight)} helper="Pending total" />
-            <StatCard label="History" value={String(queueStats.history)} helper="Finished jobs" />
-          </ScrollView>
-        ) : null}
-
-        <SectionCard
-          title="Queue controls"
-          subtitle={
-            activeTab === 'batches'
-              ? 'Search batches, inspect grouped queue items, and ungroup when needed.'
-              : activeTab === 'timeline'
-                ? 'Search recent queue events across created, started, and completed jobs.'
-                : 'Search, filter, sort, and act on queue items. Long press a queued item to multi-select.'
-          }
-        >
-          <SearchBar
-            value={search}
-            onChangeText={setSearch}
-            placeholder={
-              activeTab === 'batches'
-                ? 'Search batches by name or status'
-                : 'Search queue, printers, filament, or notes'
-            }
+        <View style={styles.row}>
+          <StatCard label={tr('Printing')} value={String(active.length)} />
+          <StatCard label={tr('Pending')} value={String(pending.length)} />
+          <StatCard
+            label={tr('Estimated time')}
+            value={formatDuration(
+              pending.reduce((sum, i) => sum + (i.print_time_seconds ?? 0), 0),
+            )}
           />
-
-          {(activeTab === 'queue' || activeTab === 'history') ? (
-            <>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersRow}>
-                {(
-                  ['all', 'pending', 'waiting', 'paused', 'printing', 'completed', 'failed', 'skipped', 'cancelled'] as QueueStatusFilter[]
-                ).map(status => (
-                  <Chip
-                    key={status}
-                    label={`${capitalize(status)}${statusCounts[status] ? ` (${statusCounts[status]})` : ''}`}
-                    selected={statusFilter === status}
-                    onPress={() => setStatusFilter(status)}
+          <StatCard
+            label={tr('Filament')}
+            value={formatWeight(
+              pending.reduce((sum, i) => sum + (i.filament_used_grams ?? 0), 0),
+            )}
+          />
+        </View>
+        {gates.map(([id, gate]) => (
+          <SectionCard
+            key={id}
+            title={`${gate.name} · ${tr('Queue blocked after failure')}`}
+          >
+            <LaunchText>{`${gate.count} ${tr(
+              'skipped jobs: previous print failed or was aborted. Resolve the cause before resuming.',
+            )}`}</LaunchText>
+            {hasPermission('queue:update_all') && (
+              <PrimaryButton
+                label={tr('Resume after failure')}
+                disabled={busy}
+                onPress={() =>
+                  confirm(
+                    translateNative('native.2f61a40545f6cd56'),
+                    `${gate.name}\n${tr(
+                      'Acknowledge the failed predecessor and restore skipped jobs to pending?',
+                    )}`,
+                    async () => {
+                      const result = await queueApi.resumeQueueAfterFailure(id);
+                      showToast(
+                        nativeMessage('queue.resumeCounts', () => ({
+                          defaultValue:
+                            '{{acknowledged}} failures acknowledged; {{restored}} jobs restored.',
+                          ...result,
+                        })),
+                        'success',
+                      );
+                    },
+                  )
+                }
+              />
+            )}
+          </SectionCard>
+        ))}
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder={tr('Search queue, history, batches')}
+        />
+        {tab !== 'batches' && (
+          <SectionCard title={tr('Filters')}>
+            <Choice
+              label={translateNative('screen.printer')}
+              value={printer}
+              options={[
+                { value: 'all', get label() { return translateNative('native.b8ed6cb4c204100e'); } },
+                { value: 'unassigned', get label() { return translateNative('native.424849cf8f869437'); } },
+                ...(printers.data ?? []).map(p => ({
+                  value: String(p.id),
+                  label: p.name,
+                })),
+              ]}
+              onChange={setPrinter}
+            />
+            <Choice
+              label={translateNative('native.4fa01b8a6af1174b')}
+              value={location}
+              options={[
+                { value: '', get label() { return translateNative('native.5966c029380eaf77'); } },
+                ...Array.from(
+                  new Set(
+                    [
+                      ...(printers.data ?? []).map(p => p.location),
+                      ...items.map(i => i.target_location),
+                    ].filter((s): s is string => !!s),
+                  ),
+                ).map(l => ({ value: l, label: l })),
+              ]}
+              onChange={setLocation}
+            />
+            <Choice
+              label={translateNative('common.status')}
+              value={status}
+              options={[
+                'all',
+                'pending',
+                'waiting',
+                'paused',
+                'printing',
+                'completed',
+                'failed',
+                'skipped',
+                'cancelled',
+              ].map(s => ({ value: s, label: s }))}
+              onChange={setStatus}
+            />
+          </SectionCard>
+        )}
+        {tab === 'queue' && (
+          <>
+            <Choice
+              label={translateNative('native.c2ecc32fe0e20327')}
+              value={layout}
+              options={[
+                { value: 'position', get label() { return translateNative('native.6e63257bb80e603c'); } },
+                { value: 'printer', get label() { return translateNative('native.1431e6d7a579da92'); } },
+              ]}
+              onChange={setLayout}
+            />
+            <Choice
+              label={translateNative('native.6d692ca1e6d9060a')}
+              value={sort}
+              options={[
+                'position',
+                'name',
+                'printer',
+                'duration',
+                'scheduled',
+              ].map(s => ({
+                value: s,
+                label: s === 'scheduled' ? translateNative('native.edcd0a3cf3a2c4e0') : s,
+              }))}
+              onChange={setSort}
+            />
+            <Choice
+              label={translateNative('native.205a3c184ba1efdc')}
+              value={direction}
+              options={[
+                { value: 1, get label() { return translateNative('native.9147375e0bcc4243'); } },
+                { value: -1, get label() { return translateNative('native.302bf67d25000cd5'); } },
+              ]}
+              onChange={setDirection}
+            />
+            <View style={styles.row}>
+              <PrimaryButton
+                label={tr('Select visible pending')}
+                variant="secondary"
+                onPress={() =>
+                  setSelected(filteredPending.filter(canUpdate).map(i => i.id))
+                }
+              />
+              {selected.length > 0 && (
+                <>
+                  <PrimaryButton
+                    label={tr('Bulk edit')}
+                    disabled={busy}
+                    onPress={() => setBulkOpen(true)}
                   />
-                ))}
-              </ScrollView>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersRow}>
-                <Chip
-                  label="All printers"
-                  selected={printerFilter === 'all'}
-                  onPress={() => setPrinterFilter('all')}
-                />
-                <Chip
-                  label="Unassigned"
-                  selected={printerFilter === 'unassigned'}
-                  onPress={() => setPrinterFilter('unassigned')}
-                />
-                {printers.map(printer => (
-                  <Chip
-                    key={printer.id}
-                    label={printer.name}
-                    selected={printerFilter === printer.id}
-                    onPress={() => setPrinterFilter(printer.id)}
+                  <PrimaryButton
+                    label={tr('Group selected as batch')}
+                    variant="secondary"
+                    disabled={
+                      busy ||
+                      selectedItems.length < 2 ||
+                      !hasPermission('queue:create')
+                    }
+                    onPress={() => setBatchName('')}
                   />
-                ))}
-              </ScrollView>
-            </>
-          ) : null}
-
-          {activeTab === 'queue' ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersRow}>
-              {(['position', 'name', 'printer', 'time'] as QueueSort[]).map(sort => (
-                <Chip
-                  key={sort}
-                  label={`Sort: ${sort}`}
-                  selected={queueSort === sort}
-                  onPress={() => setQueueSort(sort)}
-                />
-              ))}
-            </ScrollView>
-          ) : null}
-
-          {selectionMode ? (
-            <View style={[styles.bulkBar, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
-              <Text style={[styles.bulkTitle, { color: colors.text }]}>
-                {selectedIds.length} selected
-              </Text>
-              <View style={styles.bulkActions}>
-                <PrimaryButton
-                  label={allVisibleSelected ? 'Clear visible' : 'Select visible'}
-                  variant="secondary"
-                  onPress={toggleSelectAll}
-                />
-                <PrimaryButton
-                  label="Assign printer"
-                  onPress={() => {
-                    setBulkEditIds(selectedIds);
-                    setBulkEditCurrentValue(undefined);
-                  }}
-                  disabled={selectedIds.length === 0}
-                />
-                <PrimaryButton
-                  label="Cancel"
-                  variant="secondary"
-                  onPress={() => {
-                    actionMutation.mutate({ type: 'cancel', ids: selectedIds });
-                  }}
-                  disabled={selectedIds.length === 0 || actionMutation.isPending}
-                />
-                <PrimaryButton
-                  label="Delete"
-                  variant="danger"
-                  onPress={() => setDeleteIds(selectedIds)}
-                  disabled={selectedIds.length === 0 || actionMutation.isPending}
-                />
-                <PrimaryButton
-                  label="Done"
-                  variant="secondary"
-                  onPress={() => setSelectedIds([])}
-                />
-              </View>
+                  <PrimaryButton
+                    label={tr('Cancel selected')}
+                    variant="secondary"
+                    disabled={busy || !selectedItems.every(canDelete)}
+                    onPress={() =>
+                      confirm(
+                        translateNative('native.ebfa49b026fe2593'),
+                        String(selectedItems.length),
+                        async () => {
+                          for (const item of selectedItems)
+                            await queueApi.cancelQueueItem(item.id);
+                          setSelected([]);
+                        },
+                      )
+                    }
+                  />
+                  <PrimaryButton
+                    label={tr('Delete selected')}
+                    variant="danger"
+                    disabled={busy || !selectedItems.every(canDelete)}
+                    onPress={() =>
+                      confirm(
+                        translateNative('native.e51a13765e8b96ed'),
+                        String(selectedItems.length),
+                        async () => {
+                          for (const item of selectedItems)
+                            await queueApi.deleteQueueItem(item.id);
+                          setSelected([]);
+                        },
+                      )
+                    }
+                  />
+                  <PrimaryButton
+                    label={tr('Clear selection')}
+                    variant="secondary"
+                    onPress={() => setSelected([])}
+                  />
+                </>
+              )}
             </View>
-          ) : null}
-        </SectionCard>
-
-        {activeTab === 'queue' ? (
-          <View style={styles.sectionStack}>
-            <SectionCard
-              title="Currently printing"
-              subtitle="Live jobs, printer assignments, status, and stop controls."
-            >
-              {filteredActiveItems.length > 0 ? (
-                filteredActiveItems.map(item => (
-                  <QueueItemCardContent
-                    key={`active-${item.id}`}
-                    item={item}
-                    printerState={printerStateMap[item.printer_id ?? 0]}
-                    onPause={() => showToast('Pause control is not exposed by the mobile API yet.', 'warning')}
-                    onStop={() => {
-                      actionMutation.mutate({ type: 'cancel', ids: [item.id] });
-                    }}
-                  />
-                ))
-              ) : (
-                <EmptyState icon="🖨️" title="No active prints" message="When a queue item starts printing it will appear here with its live status and options." />
+            <SectionCard title={tr('Currently printing')}>
+              {active.filter(filter).map(card)}
+            </SectionCard>
+            <SectionCard title={tr('Queued items')}>
+              {layout === 'position'
+                ? renderPending(filteredPending)
+                : Array.from(new Set(filteredPending.map(printerLabel))).map(
+                    label => (
+                      <SectionCard key={label} title={label}>
+                        {renderPending(
+                          filteredPending.filter(
+                            i => printerLabel(i) === label,
+                          ),
+                        )}
+                      </SectionCard>
+                    ),
+                  )}
+              {!filteredPending.length && (
+                <EmptyState
+                  title={tr('No queued items')}
+                  message={tr('Add a configured print from Files or Archives.')}
+                />
               )}
             </SectionCard>
-
-            <SectionCard
-              title="Queued items"
-              subtitle="Drag items to reorder the queue. Long press any item to enter multi-select mode."
-            >
-              {filteredPendingItems.length > 0 ? (
-                filteredPendingItems.map(item => (
-                  <DraggableQueueItem
-                    key={`pending-${item.id}`}
-                    item={item}
-                    selected={selectedIds.includes(item.id)}
-                    selectionMode={selectionMode}
-                    onPress={selectionMode ? () => toggleSelection(item.id) : undefined}
-                    onLongPress={() => {
-                      if (selectionMode) {
-                        toggleSelection(item.id);
-                        return;
+          </>
+        )}
+        {tab === 'history' && (
+          <>
+            <Choice
+              label={translateNative('native.fcb8a4c1768e7fc6')}
+              value={historySort}
+              options={['date', 'name', 'printer'].map(s => ({
+                value: s,
+                label: s,
+              }))}
+              onChange={setHistorySort}
+            />
+            <Choice
+              label={translateNative('native.c0e0f342028c3feb')}
+              value={historyDirection}
+              options={[
+                { value: 1, get label() { return translateNative('native.9147375e0bcc4243'); } },
+                { value: -1, get label() { return translateNative('native.302bf67d25000cd5'); } },
+              ]}
+              onChange={setHistoryDirection}
+            />
+            {hasPermission('queue:delete_all') && (
+              <PrimaryButton
+                label={`${tr('Clear history')} (${history.length})`}
+                variant="danger"
+                disabled={busy || !history.length}
+                onPress={() =>
+                  confirm(
+                    translateNative('native.a1f0be0e0785e518'),
+                    t('queue.clearCount', {
+                      defaultValue:
+                        'Remove {{count}} finished records? Pending and active jobs are preserved. Order source runs may be retained by the server.',
+                      count: history.length,
+                    }),
+                    async () => {
+                      let deleted = 0,
+                        kept = 0;
+                      for (const item of history) {
+                        const result = await queueApi.deleteQueueItem(item.id);
+                        if (result.deleted === false) kept++;
+                        else deleted++;
                       }
-                      setSelectedIds([item.id]);
-                    }}
-                    onToggleSelect={() => toggleSelection(item.id)}
-                    onStart={() => {
-                      actionMutation.mutate({ type: 'start', ids: [item.id] });
-                    }}
-                    onCancel={() => {
-                      actionMutation.mutate({ type: 'cancel', ids: [item.id] });
-                    }}
-                    onDelete={() => setDeleteIds([item.id])}
-                    onReassign={() => {
-                      setBulkEditIds([item.id]);
-                      setBulkEditCurrentValue(item.printer_id ?? null);
-                    }}
-                    onReorder={(direction) => reorderItem(item.id, direction === 'up' ? -1 : 1)}
-                  />
-                ))
-              ) : (
-                <EmptyState icon="📋" title="No queued items" message="The filtered queue is empty. Try clearing filters or add a print from Archives or Files." />
-              )}
-            </SectionCard>
-          </View>
-        ) : null}
-
-        {activeTab === 'history' ? (
-          <SectionCard title="Queue history" subtitle="Completed, failed, skipped, and cancelled jobs with retry and delete controls.">
-            {filteredHistoryItems.length > 0 ? (
-              filteredHistoryItems.map(item => (
-                <QueueItemCardContent
-                  key={`history-${item.id}`}
-                  item={item}
-                  onRetry={() => {
-                    actionMutation.mutate({ type: 'retry', ids: [item.id] });
-                  }}
-                  onDelete={() => setDeleteIds([item.id])}
-                />
-              ))
-            ) : (
-              <EmptyState icon="🕘" title="No history items" message="Finished queue items will show up here with their printer, duration, material, and print options." />
+                      showToast(
+                        nativeMessage('queue.clearedCounts', () => ({
+                          defaultValue:
+                            '{{deleted}} records deleted; {{kept}} retained for orders.',
+                          deleted,
+                          kept,
+                        })),
+                        'success',
+                      );
+                    },
+                  )
+                }
+              />
             )}
-          </SectionCard>
-        ) : null}
-
-        {activeTab === 'timeline' ? (
-          <SectionCard title="Timeline" subtitle="Gantt-style view of current prints with progress and queued items with estimated times.">
-            <GanttTimeline items={queueItems} />
-          </SectionCard>
-        ) : null}
-
-        {activeTab === 'batches' ? (
-          <SectionCard title="Batches" subtitle="Grouped queue runs with progress, item counts, and ungroup controls.">
-            {filteredBatches.length > 0 ? (
-              filteredBatches.map(batch => (
-                <BatchCard
-                  key={batch.id}
-                  batch={batch}
-                  onPress={() => setSelectedBatch(batch)}
-                />
-              ))
-            ) : (
-              <EmptyState icon="📦" title="No batches" message="Grouped queue runs will appear here once multiple copies or grouped jobs are created." />
+            {filteredHistory.map(card)}
+          </>
+        )}
+        {tab === 'timeline' && (
+          <GanttTimeline
+            items={items.filter(filter)}
+            printers={printers.data ?? []}
+            onItemPress={item => {
+              if (item.status === 'printing') {
+                if (hasPermission('printers:control')) stop(item);
+              } else if (
+                terminal(item) ? hasPermission('queue:create') : canUpdate(item)
+              )
+                configure(item);
+            }}
+          />
+        )}
+        {tab === 'batches' && (
+          <>
+            <Choice
+              label={translateNative('native.8cb0b2fae44798e8')}
+              value={batchStatus}
+              options={['active', 'completed', 'cancelled', 'all'].map(s => ({
+                value: s,
+                label: s,
+              }))}
+              onChange={setBatchStatus}
+            />
+            {batches.isError && (
+              <ErrorState
+                message={tr('Unable to load batch orders')}
+                onRetry={() => {
+                  void batches.refetch();
+                }}
+              />
             )}
-          </SectionCard>
-        ) : null}
+            {(batches.data ?? [])
+              .filter(
+                b =>
+                  (batchStatus === 'all' || b.status === batchStatus) &&
+                  (!search ||
+                    b.name.toLowerCase().includes(search.toLowerCase())),
+              )
+              .map(renderBatch)}
+          </>
+        )}
       </ScrollView>
-
       <QueueBulkEditModal
-        visible={bulkEditIds.length > 0}
-        selectedCount={bulkEditIds.length}
-        printers={printers}
-        value={bulkEditCurrentValue}
-        loading={bulkUpdateMutation.isPending}
-        onClose={() => {
-          setBulkEditIds([]);
-          setBulkEditCurrentValue(undefined);
-        }}
-        onSave={printerId => {
-          bulkUpdateMutation.mutate({ ids: bulkEditIds, printerId });
-        }}
-      />
-
-      <BatchItemsModal
-        visible={selectedBatch !== null}
-        batch={selectedBatch}
-        items={selectedBatchItems}
-        ungrouping={ungroupBatchMutation.isPending}
-        onClose={() => setSelectedBatch(null)}
-        onUngroup={() => {
-          if (selectedBatch) setConfirmUngroupBatch(selectedBatch);
-        }}
-      />
-
-      <ConfirmModal
-        visible={deleteIds.length > 0}
-        onClose={() => setDeleteIds([])}
-        onConfirm={() => {
-          actionMutation.mutate({ type: 'delete', ids: deleteIds });
-        }}
-        title={deleteIds.length > 1 ? 'Delete queue items?' : 'Delete queue item?'}
-        message={
-          deleteIds.length > 1
-            ? 'This will permanently remove the selected queue items.'
-            : 'This will permanently remove the selected queue item.'
-        }
-        confirmLabel="Delete"
-        variant="danger"
-        loading={actionMutation.isPending}
-      />
-
-      <ConfirmModal
-        visible={confirmUngroupBatch !== null}
-        onClose={() => setConfirmUngroupBatch(null)}
-        onConfirm={() => {
-          if (confirmUngroupBatch) {
-            ungroupBatchMutation.mutate(confirmUngroupBatch.id);
+        visible={bulkOpen}
+        count={selectedItems.length}
+        printers={printers.data ?? []}
+        loading={busy}
+        allowFixedPrinterAssignment={allowFixedPrinterAssignment}
+        onClose={() => setBulkOpen(false)}
+        onSave={(update: PrintQueueItemUpdate) => {
+          if (update.printer_id != null && !allowFixedPrinterAssignment) {
+            showToast(
+              nativeMessage('printing.unresolvedVariantAssignment', () => ({
+                defaultValue:
+                  'Jobs with unresolved alternative slices cannot be assigned a fixed printer. Leave the printer unchanged or unassigned.',
+              })),
+              'error',
+            );
+            return;
           }
+          void perform(async () => {
+            const result = await queueApi.bulkUpdateQueue({
+              item_ids: selectedItems.filter(canUpdate).map(i => i.id),
+              ...update,
+            });
+            showToast(result.message, 'success');
+            setBulkOpen(false);
+            setSelected([]);
+          });
         }}
-        title="Ungroup this batch?"
-        message="The items will stay in the queue, but they will no longer be grouped together."
-        confirmLabel="Ungroup"
+      />
+      <Modal
+        visible={batchName != null}
+        animationType="slide"
+        onRequestClose={() => setBatchName(null)}
+      >
+        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+          <LaunchField
+            label={translateNative('native.3fbfdb405f0fd055')}
+            value={batchName ?? ''}
+            onChange={setBatchName}
+          />
+          <PrimaryButton
+            label={tr('Create named batch')}
+            disabled={busy || !batchName?.trim()}
+            onPress={() => {
+              void perform(async () => {
+                await queueApi.createBatch({
+                  name: batchName!.trim(),
+                  item_ids: selectedItems.filter(canUpdate).map(i => i.id),
+                });
+                setBatchName(null);
+                setSelected([]);
+              });
+            }}
+          />
+          <PrimaryButton
+            label={tr('Cancel')}
+            variant="secondary"
+            onPress={() => setBatchName(null)}
+          />
+        </View>
+      </Modal>
+      <Modal
+        visible={batchDetailId != null}
+        animationType="slide"
+        onRequestClose={() => setBatchDetailId(null)}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.modal,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          {batchDetail.data && renderBatch(batchDetail.data)}
+          {items.filter(i => i.batch_id === batchDetailId).map(card)}
+          <PrimaryButton
+            label={tr('Close')}
+            variant="secondary"
+            onPress={() => setBatchDetailId(null)}
+          />
+        </ScrollView>
+      </Modal>
+      {launch && (
+        <PrintModal
+          visible
+          initialFileId={launch.item.library_file_id}
+          initialArchiveId={launch.item.archive_id}
+          queueItem={launch.item}
+          requeue={launch.requeue}
+          initialMode="queue"
+          onClose={() => setLaunch(null)}
+        />
+      )}
+      <ConfirmModal
+        visible={!!confirmation}
+        title={confirmation?.title ?? ''}
+        message={confirmation?.message ?? ''}
+        loading={busy}
+        onClose={() => {
+          if (!busy) setConfirmation(null);
+        }}
+        onConfirm={() => {
+          if (confirmation) void perform(confirmation.run);
+        }}
+        confirmLabel={tr('Confirm')}
+        cancelLabel={tr('Cancel')}
+      />
+      <ConfirmModal
+        visible={!!shortage}
+        title={tr('Review filament shortage')}
+        message={shortage?.text ?? ''}
         variant="warning"
-        loading={ungroupBatchMutation.isPending}
+        loading={busy}
+        onClose={() => setShortage(null)}
+        confirmLabel={tr('Print anyway')}
+        cancelLabel={tr('Cancel')}
+        onConfirm={() => {
+          if (shortage) void start(shortage.id, true);
+        }}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
+  container: { flex: 1 },
+  content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  modal: {
+    flexGrow: 1,
     padding: spacing.lg,
-    paddingBottom: spacing['4xl'],
-    gap: spacing.lg,
-  },
-  statsRow: {
+    paddingTop: spacing.xl,
     gap: spacing.md,
-  },
-  filtersRow: {
-    gap: spacing.sm,
-  },
-  bulkBar: {
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  bulkTitle: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-  },
-  bulkActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  sectionStack: {
-    gap: spacing.lg,
-  },
-  sectionHelper: {
-    fontSize: fontSize.xs,
-    maxWidth: 150,
-    textAlign: 'right',
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
-  modalCard: {
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    gap: spacing.md,
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.semibold,
-  },
-  modalSubtitle: {
-    fontSize: fontSize.sm,
-  },
-  modalOptions: {
-    maxHeight: 320,
-  },
-  modalOption: {
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  modalOptionContent: {
-    gap: spacing.xs,
-  },
-  modalOptionText: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-  },
-  modalOptionMeta: {
-    fontSize: fontSize.sm,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-  },
-  timelineCard: {
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    gap: spacing.xs,
-  },
-  timelineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  timelineTitle: {
-    flex: 1,
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-  },
-  timelineBadge: {
-    borderWidth: 1,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-  },
-  timelineBadgeText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-  },
-  timelineMeta: {
-    fontSize: fontSize.sm,
-  },
-  batchCard: {
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  batchHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  batchHeaderText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  batchTitle: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-  },
-  batchMeta: {
-    fontSize: fontSize.sm,
-  },
-  batchStatusBadge: {
-    borderWidth: 1,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-  },
-  batchStatusText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-  },
-  batchMetrics: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  batchMetric: {
-    fontSize: fontSize.sm,
-  },
-  progressTrack: {
-    height: 10,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: borderRadius.full,
-  },
-  sheetBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  sheetCard: {
-    borderTopLeftRadius: borderRadius['2xl'],
-    borderTopRightRadius: borderRadius['2xl'],
-    borderWidth: 1,
-    padding: spacing.lg,
-    gap: spacing.md,
-    maxHeight: '85%',
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    alignItems: 'flex-start',
-  },
-  sheetHeaderText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  sheetTitle: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.semibold,
-  },
-  sheetSubtitle: {
-    fontSize: fontSize.sm,
-  },
-  sheetContent: {
-    gap: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  sheetFooter: {
-    paddingTop: spacing.xs,
   },
 });

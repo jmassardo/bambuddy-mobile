@@ -1,3 +1,5 @@
+import { translateNative, useNativeLocale } from '@/i18n';
+
 import React from 'react';
 import {
   Modal,
@@ -24,9 +26,10 @@ export function AlertModal({
   onClose,
   title,
   message,
-  dismissLabel = 'OK',
+  dismissLabel = translateNative('native.50c262723339f592', { defaultValue: 'OK' }),
   variant = 'info',
 }: AlertModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   const tone = {

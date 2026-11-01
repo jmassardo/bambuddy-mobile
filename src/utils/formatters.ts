@@ -1,4 +1,14 @@
+import { translateNative } from '@/i18n';
 // Utility functions for formatting values in the app
+import { formatPreferredCurrency, formatPreferredDate, formatPreferredDateTime, getFormattingPreferences } from './preferences';
+
+export function formatWeekday(day: number): string {
+  if (!Number.isInteger(day) || day < 0 || day > 6) return '—';
+  return new Intl.DateTimeFormat(getFormattingPreferences().locale, {
+    weekday: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(2023, 0, day + 1)));
+}
 
 /** Format seconds as "Xh Ym" or "Ym Zs" */
 export function formatDuration(seconds: number): string {
@@ -7,9 +17,9 @@ export function formatDuration(seconds: number): string {
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
 
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
+  if (h > 0) return translateNative('native.a4a25eac430cdce6', { value0: String(h), value1: String(m) });
+  if (m > 0) return translateNative('native.e073d118fbeefc64', { value0: String(m), value1: String(s) });
+  return translateNative('native.37a0e64429ed9063', { value0: String(s) });
 }
 
 /** Format remaining time as "~Xh Ym" */
@@ -18,21 +28,22 @@ export function formatETA(remainingMinutes: number): string {
   const h = Math.floor(remainingMinutes / 60);
   const m = Math.round(remainingMinutes % 60);
 
-  if (h > 0) return `~${h}h ${m}m`;
-  return `~${m}m`;
+  if (h > 0) return translateNative('native.eb19f1833be5676c', { value0: String(h), value1: String(m) });
+  return translateNative('native.1b755c30b7a794af', { value0: String(m) });
 }
 
 /** Format grams to a readable string */
 export function formatWeight(grams: number): string {
   if (!grams && grams !== 0) return '—';
-  if (grams >= 1000) return `${(grams / 1000).toFixed(1)} kg`;
-  return `${Math.round(grams)} g`;
+  if (grams >= 1000) return translateNative('native.aaa320ab6ecaf04f', { value0: String((grams / 1000).toFixed(1)) });
+  return translateNative('native.9c765a3ca5313e91', { value0: String(Math.round(grams)) });
 }
 
 /** Format cost with currency symbol */
-export function formatCost(cost: number, currency: string = '$'): string {
-  if (!cost && cost !== 0) return '—';
-  return `${currency}${cost.toFixed(2)}`;
+export function formatCost(cost: number, currency?: string): string {
+  if (!Number.isFinite(cost)) return '—';
+  if (currency && !/^[a-z]{3}$/i.test(currency)) return `${currency}${cost.toFixed(2)}`;
+  return formatPreferredCurrency(cost, currency);
 }
 
 /** Format percentage */
@@ -42,38 +53,12 @@ export function formatPercent(value: number): string {
 
 /** Format a date string to a readable format */
 export function formatDate(dateStr: string): string {
-  try {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-    }
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  } catch {
-    return dateStr;
-  }
+  return formatPreferredDate(dateStr);
 }
 
 /** Format a date string with full date and time */
 export function formatDateTime(dateStr: string): string {
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return dateStr;
-  }
+  return formatPreferredDateTime(dateStr);
 }
 
 /** Format file size in bytes to human readable */

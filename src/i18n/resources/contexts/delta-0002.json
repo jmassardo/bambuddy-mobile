@@ -1,0 +1,487 @@
+{
+  "native.056b5cdabb0df53b": {
+    "english": "Stale",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 11,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Stale'"
+      }
+    ]
+  },
+  "native.1434f62c57a5f76c": {
+    "english": "Turn off {{name}}?",
+    "context": "shared",
+    "placeholders": [
+      "name"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/SmartPlugPowerControls.tsx",
+        "line": 52,
+        "kind": "translation-default",
+        "owner": "PlugPowerControl",
+        "existingKey": "integrations.confirm_off",
+        "source": "'Turn off {{name}}?'"
+      }
+    ]
+  },
+  "native.1930791de310ca1d": {
+    "english": "safe",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/aiDetection.ts",
+        "line": 4,
+        "kind": "translation-default",
+        "owner": "classificationLabels",
+        "existingKey": "workflow.ai.label.safe",
+        "source": "'safe'"
+      }
+    ]
+  },
+  "native.216cc75228bd4f66": {
+    "english": "Include archives",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/RemoteBackupSettings.tsx",
+        "line": 60,
+        "kind": "translation-default",
+        "owner": "backupCategoryLabels",
+        "existingKey": "backup.git.include.archives",
+        "source": "'Include archives'"
+      }
+    ]
+  },
+  "native.2b93044f2ee8dc1e": {
+    "english": "On hold",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 15,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'On hold'"
+      }
+    ]
+  },
+  "native.4faaebf1fa58e4d2": {
+    "english": "Loading",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 12,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Loading'"
+      }
+    ]
+  },
+  "native.50dfaa9aa7152ac6": {
+    "english": "Viewer",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 16,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Viewer'"
+      }
+    ]
+  },
+  "native.5c6e8ea463412d9d": {
+    "english": "Shutdown",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 17,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Shutdown'"
+      }
+    ]
+  },
+  "native.5c78de21b845246c": {
+    "english": "Administrator",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 16,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Administrator'"
+      }
+    ]
+  },
+  "native.5d47a2c4be142b9c": {
+    "english": "Turn on {{name}}?",
+    "context": "shared",
+    "placeholders": [
+      "name"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/SmartPlugPowerControls.tsx",
+        "line": 52,
+        "kind": "translation-default",
+        "owner": "PlugPowerControl",
+        "existingKey": "integrations.confirm_on",
+        "source": "'Turn on {{name}}?'"
+      }
+    ]
+  },
+  "native.62dcfab695163f1f": {
+    "english": "Not started",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 14,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Not started'"
+      }
+    ]
+  },
+  "native.7208cfbe567a4d19": {
+    "english": "Stopped",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 7,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Stopped'"
+      }
+    ]
+  },
+  "native.7380fa37c3222710": {
+    "english": "Degraded",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 11,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Degraded'"
+      }
+    ]
+  },
+  "native.75e974609246846e": {
+    "english": "AI {{status}}",
+    "context": "shared",
+    "placeholders": [
+      "status"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrinterAiDetectionBadge.tsx",
+        "line": 50,
+        "kind": "translation-default",
+        "owner": "label",
+        "existingKey": "workflow.ai.badge",
+        "source": "'AI {{status}}'"
+      }
+    ]
+  },
+  "native.7e02e894053e9e31": {
+    "english": "Include K-profiles",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/RemoteBackupSettings.tsx",
+        "line": 56,
+        "kind": "translation-default",
+        "owner": "backupCategoryLabels",
+        "existingKey": "backup.git.include.kprofiles",
+        "source": "'Include K-profiles'"
+      }
+    ]
+  },
+  "native.9361a06089b9cf80": {
+    "english": "failure",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/aiDetection.ts",
+        "line": 6,
+        "kind": "translation-default",
+        "owner": "classificationLabels",
+        "existingKey": "workflow.ai.label.failure",
+        "source": "'failure'"
+      }
+    ]
+  },
+  "native.93f1a05bc8352efb": {
+    "english": "Processing",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 6,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Processing'"
+      }
+    ]
+  },
+  "native.949e3af991920ca0": {
+    "english": "Include settings",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/RemoteBackupSettings.tsx",
+        "line": 58,
+        "kind": "translation-default",
+        "owner": "backupCategoryLabels",
+        "existingKey": "backup.git.include.settings",
+        "source": "'Include settings'"
+      }
+    ]
+  },
+  "native.956bb2d74f8c0cf9": {
+    "english": "Healthy",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 17,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Healthy'"
+      }
+    ]
+  },
+  "native.9a55b81076127e59": {
+    "english": "Admin",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 16,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Admin'"
+      }
+    ]
+  },
+  "native.9e3ed4e482436488": {
+    "english": "Include cloud profiles",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/RemoteBackupSettings.tsx",
+        "line": 57,
+        "kind": "translation-default",
+        "owner": "backupCategoryLabels",
+        "existingKey": "backup.git.include.cloud_profiles",
+        "source": "'Include cloud profiles'"
+      }
+    ]
+  },
+  "native.a4c86aabb5b97e4a": {
+    "english": "Unhealthy",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 17,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Unhealthy'"
+      }
+    ]
+  },
+  "native.b8640547d8faf2de": {
+    "english": "Deleted",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 10,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Deleted'"
+      }
+    ]
+  },
+  "native.b8ebd218524c9cd5": {
+    "english": "Connecting",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 12,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Connecting'"
+      }
+    ]
+  },
+  "native.bdb049e6cec2945e": {
+    "english": "Success",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 10,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Success'"
+      }
+    ]
+  },
+  "native.c46a38b19f8535a2": {
+    "english": "Include spools",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/RemoteBackupSettings.tsx",
+        "line": 59,
+        "kind": "translation-default",
+        "owner": "backupCategoryLabels",
+        "existingKey": "backup.git.include.spools",
+        "source": "'Include spools'"
+      }
+    ]
+  },
+  "native.c69eb4c13de3019b": {
+    "english": "To do",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 14,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'To do'"
+      }
+    ]
+  },
+  "native.cdc3ff5be2c37e14": {
+    "english": "High",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 13,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'High'"
+      }
+    ]
+  },
+  "native.cf7da6773149c2af": {
+    "english": "Published",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 15,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Published'"
+      }
+    ]
+  },
+  "native.e545c17398a12c4c": {
+    "english": "Blocked",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 14,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Blocked'"
+      }
+    ]
+  },
+  "native.e971662d6928639f": {
+    "english": "Error",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 7,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Error'"
+      },
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 7,
+        "kind": "ui-object-label",
+        "owner": "STATUS_LABELS",
+        "source": "'Error'"
+      }
+    ]
+  },
+  "native.f77ac839075e90bb": {
+    "english": "Urgent",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 13,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Urgent'"
+      }
+    ]
+  },
+  "native.f918c9f78c2062d6": {
+    "english": "Draft",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 15,
+        "kind": "ui-label-dictionary",
+        "owner": "STATUS_LABELS",
+        "source": "'Draft'"
+      }
+    ]
+  }
+}

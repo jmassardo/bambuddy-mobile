@@ -1,0 +1,21 @@
+{
+  "native.04fb589d9c46972b": "Riprovare solo il collegamento all'inventario?",
+  "native.078383ec46d40c2f": "Accedi con il tuo account di directory.",
+  "native.0c60c0c6856b6903": "I lavori con slicing alternativi non risolti non possono avere una stampante fissa. Lascia la stampante invariata o non assegnata.",
+  "native.0c65b108307c5d36": "Riprova collegamento inventario",
+  "native.1a5932500ebd8c6f": "Aggiornamento completato. Il dispositivo remoto comunica la versione {{version}}.",
+  "native.4ca8f2ae45ddb60b": "Collegamento inventario ripristinato. Il tag NFC fisico non è stato riscritto.",
+  "native.4d999eaa75bc989a": "Segui l'avanzamento dei flussi di slicing",
+  "native.7356160c2a259d93": "Monitora insieme le camere delle stampanti",
+  "native.88d0c23d4edeb85b": "Collega visualizzatori camera esterni",
+  "native.990a472990fbdf8d": "Scrittura NFC fisica riuscita. Collega il tag {{tag}} alla bobina #{{id}} senza riscriverlo.",
+  "native.c13edffd24345730": "Centri di costo e fatturazione",
+  "native.c7482a2684ec7ea6": "Pipeline di slicing",
+  "native.c76b0088d7977298": "Riprova stato accesso directory",
+  "native.c8c49bef3c51e3ff": "Integrazioni camera",
+  "native.e75b16b7c4dce790": "Esecuzioni pipeline",
+  "native.ececbf64c1ab0472": "Mosaico camere",
+  "native.ef6149f2bdee70f3": "Scrittura fisica riuscita; collegamento inventario non riuscito",
+  "native.f2aa245433a562b7": "Gestisci flussi di slicing automatizzati",
+  "native.f981ae40b78c0d40": "Impossibile salvare le modifiche alla segnalazione: {{error}}. Tieni aperta questa schermata e riprova la modifica prima di riavviare l'app."
+}

@@ -1,4 +1,4 @@
-/** React Native 0.72+ exposes the Web Crypto getRandomValues API globally. */
+/** Installed at startup by react-native-get-random-values; declarations alone do not provide a runtime. */
 declare const crypto: {
   getRandomValues<T extends ArrayBufferView>(array: T): T;
 };

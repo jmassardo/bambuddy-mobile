@@ -3,6 +3,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import ArchiveDetailScreen from '@/screens/ArchiveDetailScreen';
 import { useServerStore } from '@/api/server';
 
+const mockPrintModal = jest.fn();
 const archive = {
   id: 7,
   filename: 'widget.3mf',
@@ -69,6 +70,24 @@ jest.mock('@/contexts/ToastContext', () => ({
     showToast: jest.fn(),
   }),
 }));
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: null, hasPermission: () => true }),
+}));
+jest.mock('@/components/archives/ArchiveDetailTools', () => ({
+  ArchiveDetailTools: () => null,
+  EmbeddedArchiveProjectPage: () => null,
+}));
+jest.mock('@react-native-documents/picker', () => ({
+  pick: jest.fn(), types: { allFiles: '*/*' }, isErrorWithCode: () => false, errorCodes: {},
+}));
+jest.mock('@/components/printers/PrintModal', () => ({
+  PrintModal: (props: unknown) => {
+    mockPrintModal(props);
+    return null;
+  },
+}));
+jest.mock('@/components/files/AssetPreviewModal', () => ({ AssetPreviewModal: () => null }));
+jest.mock('@/components/files/SliceModal', () => ({ SliceModal: () => null }));
 
 jest.mock('@/theme', () => ({
   useTheme: () => ({
@@ -143,11 +162,26 @@ jest.mock('react-native-webview', () => {
 
 describe('ArchiveDetailScreen media failures', () => {
   beforeEach(() => {
+    mockPrintModal.mockClear();
     archive.photos = ['finished.jpg'];
     useServerStore.setState({
       serverUrl: 'https://bambuddy.test',
       loading: false,
     });
+  });
+
+  it.each([
+    ['Reprint', 'asap'],
+    ['Add to Queue', 'queue'],
+  ])('opens configured launch for %s before submitting a print', async (label, mode) => {
+    const result = await render(<ArchiveDetailScreen />);
+    expect(mockPrintModal).not.toHaveBeenCalled();
+    await fireEvent.press(result.getByText(label));
+    expect(mockPrintModal).toHaveBeenLastCalledWith(expect.objectContaining({
+      visible: true,
+      initialArchiveId: 7,
+      initialMode: mode,
+    }));
   });
 
   it('replaces a timelapse HTTP failure with an error and retry action', async () => {

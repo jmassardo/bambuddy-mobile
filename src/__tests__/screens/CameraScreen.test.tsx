@@ -62,6 +62,22 @@ let mockChamberLightOn: boolean;
 let mockMutationPending: boolean;
 let mockHasControlPermission: boolean;
 
+jest.mock('@/api/cameras', () => ({
+  camerasApi: { plateStatus: jest.fn(), calibrate: jest.fn() },
+}));
+jest.mock('@/components/printers/PlateManagement', () => ({
+  PlateManagement: () => null,
+}));
+jest.mock('@/components/printers/SkipObjectsModal', () => ({
+  SkipObjectsModal: () => null,
+}));
+jest.mock('@/components/printers/CameraSnapshot', () => ({
+  CameraSnapshot: ({ active }: { active: boolean }) => {
+    const { Text: MockText } = require('react-native');
+    return active ? <MockText>Native camera snapshot</MockText> : null;
+  },
+}));
+
 jest
   .spyOn(ReactNative.AccessibilityInfo, 'isReduceMotionEnabled')
   .mockImplementation(() => Promise.resolve(mockReduceMotion));
@@ -1184,6 +1200,55 @@ describe('CameraScreen iOS credential lifecycle', () => {
 describe('CameraScreen Android renderer', () => {
   beforeEach(() => {
     setPlatform('android');
+  });
+
+  describe('CameraScreen explicit snapshot mode', () => {
+    it('reseeds a failed live image after backoff without a render-driven retry loop', async () => {
+      setPlatform('android');
+      jest.useFakeTimers();
+      const result = await render(<CameraScreen />);
+      const initial = result.getByTestId('camera-stream-image').props.source.uri;
+      await fireEvent(result.getByTestId('camera-stream-image'), 'error');
+      expect(result.getByText('Unable to load stream')).toBeTruthy();
+      await act(async () => { jest.advanceTimersByTime(1000); });
+      expect(result.getByTestId('camera-stream-image').props.source.uri).not.toBe(initial);
+      expect(result.queryByText('Unable to load stream')).toBeNull();
+      await result.unmount();
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
+    it('cancels scheduled live retries when switching to snapshot playback', async () => {
+      setPlatform('android');
+      jest.useFakeTimers();
+      const result = await render(<CameraScreen />);
+      await fireEvent(result.getByTestId('camera-stream-image'), 'error');
+      expect(result.getByText('Unable to load stream')).toBeTruthy();
+      await pressAndFlush(result.getByLabelText('More camera actions'));
+      await pressAndFlush(result.getByText('Switch to snapshot mode'));
+      await act(async () => { jest.advanceTimersByTime(CAMERA_STREAM_TIMEOUT_MS * 2); });
+      expect(result.getByText('Native camera snapshot')).toBeTruthy();
+      expect(result.queryByTestId('camera-stream-image')).toBeNull();
+      await result.unmount();
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
+    it.each(['ios', 'android'] as const)('switches %s to a native snapshot and preserves the mode across refresh', async platform => {
+      setPlatform(platform);
+      const result = await render(<CameraScreen />);
+      await pressAndFlush(result.getByLabelText('More camera actions'));
+      await pressAndFlush(result.getByText('Switch to snapshot mode'));
+      expect(result.getByText('Native camera snapshot')).toBeTruthy();
+      expect(result.queryByTestId('camera-webview')).toBeNull();
+      expect(result.queryByTestId('camera-stream-image')).toBeNull();
+      await pressAndFlush(result.getByLabelText('Refresh camera'));
+      expect(result.getByText('Native camera snapshot')).toBeTruthy();
+      await pressAndFlush(result.getByLabelText('More camera actions'));
+      expect(result.getByText('Switch to live stream')).toBeTruthy();
+      expect(result.getByText('Refresh snapshot')).toBeTruthy();
+      await result.unmount();
+    });
   });
 
   it('retains the Image renderer, controls, plate overlay, and no WebView', async () => {

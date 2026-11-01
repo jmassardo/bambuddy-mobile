@@ -1,9 +1,11 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 
 export function DemoBadge({ size = 'md' }: { size?: 'sm' | 'md' }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const isSm = size === 'sm';
 
@@ -28,8 +30,7 @@ export function DemoBadge({ size = 'md' }: { size?: 'sm' | 'md' }) {
           },
         ]}
       >
-        DEMO
-      </Text>
+        {translateNative('native.4b39ca62520fb89a')}</Text>
     </View>
   );
 }

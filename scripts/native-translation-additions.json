@@ -1,0 +1,27 @@
+[
+  {
+    "file": "src/components/printers/PrinterSourceActions.tsx",
+    "key": "printerSources.uploadPrint",
+    "english": "Upload & Print"
+  },
+  {
+    "file": "src/components/printers/PrinterSourceActions.tsx",
+    "key": "printerSources.pendingOutcome",
+    "english": "Confirm outcome: {{name}}"
+  },
+  {
+    "file": "src/components/printers/PrinterSourceActions.tsx",
+    "key": "printerSources.good",
+    "english": "Good"
+  },
+  {
+    "file": "src/components/printers/PrinterSourceActions.tsx",
+    "key": "printerSources.reject",
+    "english": "Reject"
+  },
+  {
+    "file": "src/components/files/LibraryPipelineAction.tsx",
+    "key": "library.runWithPipeline",
+    "english": "Run with pipeline"
+  }
+]

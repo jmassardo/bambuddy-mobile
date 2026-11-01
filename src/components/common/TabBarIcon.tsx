@@ -1,3 +1,4 @@
+import { useNativeLocale } from '@/i18n';
 import React from 'react';
 import type { ColorValue } from 'react-native';
 import * as LucideIcons from 'lucide-react-native';
@@ -84,6 +85,7 @@ interface TabBarIconProps {
 }
 
 export function TabBarIcon({ name, color, size }: TabBarIconProps) {
+  useNativeLocale();
   const IconComponent = getIconComponent(name);
   return <IconComponent size={size} color={String(color)} strokeWidth={2} />;
 }
@@ -95,6 +97,7 @@ interface IconProps {
 }
 
 export function Icon({ name, size = 20, color }: IconProps) {
+  useNativeLocale();
   const IconComponent = getIconComponent(name);
   return <IconComponent size={size} color={color ? String(color) : undefined} strokeWidth={2} />;
 }

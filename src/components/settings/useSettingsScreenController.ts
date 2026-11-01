@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { nativeMessage, translateNative, useLocalizedMemo, useTranslation } from '@/i18n';
+
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+
+import { validateSlicerSetup, type SlicerSetupValues } from '@/components/slicing/SlicerSetupSection';
 import {
   BUILT_IN_NAV_ITEMS,
   getNavigationLayout,
@@ -14,11 +18,8 @@ import type {
   AdvancedAuthStatus,
   BackupCodesResponse,
   ExternalCameraCreate,
-<<<<<<< HEAD
-=======
   ExternalCameraUpdate,
   KProfile,
->>>>>>> origin/develop
   LDAPStatus,
   MQTTStatus,
   OIDCLink,
@@ -39,10 +40,7 @@ import {
   DEFAULT_MQTT_FORM,
   DEFAULT_SMTP_SETTINGS,
   EMPTY_CAMERA_TOKEN_FORM,
-<<<<<<< HEAD
-=======
   EMPTY_CUSTOM_NAV_ITEM_FORM,
->>>>>>> origin/develop
   EMPTY_EXTERNAL_CAMERA_FORM,
   EMPTY_EXTERNAL_LINK_FORM,
   EMPTY_GITHUB_BACKUP_FORM,
@@ -56,10 +54,7 @@ import {
 } from './constants';
 import type {
   CameraTokenFormState,
-<<<<<<< HEAD
-=======
   CustomNavItemFormState,
->>>>>>> origin/develop
   ExternalCameraFormState,
   ExternalLinkFormState,
   GitHubBackupFormState,
@@ -100,6 +95,7 @@ export function useSettingsScreenController() {
   const { colors, mode, setMode } = useTheme();
   const { isAdmin, authEnabled, user, hasPermission } = useAuth();
   const { showToast } = useToast();
+  const { text } = useTranslation();
   const queryClient = useQueryClient();
 
   const [section, setSection] = useState<SectionKey | null>(null);
@@ -117,12 +113,9 @@ export function useSettingsScreenController() {
   const [externalLinkModalVisible, setExternalLinkModalVisible] = useState(false);
   const [externalLinkForm, setExternalLinkForm] = useState<ExternalLinkFormState>(EMPTY_EXTERNAL_LINK_FORM);
   const [pendingDeleteExternalLink, setPendingDeleteExternalLink] = useState<ApiRecord | null>(null);
-<<<<<<< HEAD
-=======
   const [customNavModalVisible, setCustomNavModalVisible] = useState(false);
   const [editingCustomNav, setEditingCustomNav] = useState<ApiRecord | null>(null);
   const [customNavForm, setCustomNavForm] = useState<CustomNavItemFormState>(EMPTY_CUSTOM_NAV_ITEM_FORM);
->>>>>>> origin/develop
   const [editingExternalCamera, setEditingExternalCamera] = useState<ApiRecord | null>(null);
   const [externalCameraModalVisible, setExternalCameraModalVisible] = useState(false);
   const [externalCameraForm, setExternalCameraForm] = useState<ExternalCameraFormState>(EMPTY_EXTERNAL_CAMERA_FORM);
@@ -173,23 +166,22 @@ export function useSettingsScreenController() {
   const canManageSecurity = !authEnabled || isAdmin || hasPermission('settings:update');
   const canManageSpools = !authEnabled || hasPermission('inventory:create') || hasPermission('inventory:update');
 
-  const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: api.getSettings });
+  const settingsQuery = useQuery({ queryKey: useServerSettingsKey(), queryFn: api.getSettings });
   const smartPlugsQuery = useQuery({ queryKey: ['smartPlugs'], queryFn: api.getSmartPlugs });
   const providersQuery = useQuery({ queryKey: ['notificationProviders'], queryFn: api.getNotificationProviders });
-  const apiKeysQuery = useQuery({ queryKey: ['apiKeys'], queryFn: api.getApiKeys });
+  const apiKeysQuery = useQuery({ queryKey: ['apiKeys'], queryFn: api.getApiKeys, enabled: hasPermission('api_keys:read') });
   const cameraTokensQuery = useQuery({
     queryKey: ['cameraTokens'],
     queryFn: () => (isAdmin ? api.listAllLongLivedCameraTokens() : api.listMyLongLivedCameraTokens()),
+    enabled: false,
   });
   const externalLinksQuery = useQuery({ queryKey: ['externalLinks'], queryFn: api.getExternalLinks });
-<<<<<<< HEAD
-  const externalCamerasQuery = useQuery({ queryKey: ['externalCameras'], queryFn: api.getExternalCameras });
-=======
   const externalCamerasQuery = useQuery({
     queryKey: ['externalCameras'],
     queryFn: api.getExternalCameras,
+    // Current servers configure external cameras on printers, not camera records.
+    enabled: false,
   });
->>>>>>> origin/develop
   const printersQuery = useQuery({
     queryKey: ['printers', 'settings'],
     queryFn: api.getPrinters,
@@ -211,7 +203,7 @@ export function useSettingsScreenController() {
   const kprofilesQuery = useQuery({
     queryKey: ['kprofiles'],
     queryFn: () => api.getKProfiles(),
-    enabled: section === 'kprofiles',
+    enabled: false,
   });
   const storageLocationsQuery = useQuery({
     queryKey: ['storageLocations'],
@@ -343,10 +335,8 @@ export function useSettingsScreenController() {
       settingsQuery.refetch(),
       smartPlugsQuery.refetch(),
       providersQuery.refetch(),
-      apiKeysQuery.refetch(),
-      cameraTokensQuery.refetch(),
+      ...(hasPermission('api_keys:read') ? [apiKeysQuery.refetch()] : []),
       externalLinksQuery.refetch(),
-      externalCamerasQuery.refetch(),
       printersQuery.refetch(),
       virtualPrinterListQuery.refetch(),
       spoolbuddyQuery.refetch(),
@@ -370,13 +360,23 @@ export function useSettingsScreenController() {
   };
 
   const saveSettingsMutation = useMutation({
-    mutationFn: async () => api.updateSettings(draft),
+    mutationFn: async () => {
+      const error = validateSlicerSetup({
+        preferred_slicer: String(draft.preferred_slicer ?? 'bambu_studio') as SlicerSetupValues['preferred_slicer'],
+        use_slicer_api: Boolean(draft.use_slicer_api),
+        bambu_studio_api_url: String(draft.bambu_studio_api_url ?? ''),
+        orcaslicer_api_url: String(draft.orcaslicer_api_url ?? ''),
+        slicer_stall_timeout_minutes: Number(draft.slicer_stall_timeout_minutes ?? 15),
+      });
+      if (error) throw new Error(text(error));
+      return api.updateSettings(draft);
+    },
     onSuccess: async data => {
       setDraft(data);
       await queryClient.invalidateQueries({ queryKey: ['settings'] });
-      showToast('Settings saved.', 'success');
+      showToast(nativeMessage('native.a96fba96493a34e8'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to save settings.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.424e9407b3b7d9bd'), 'error'),
   });
 
   const saveNavigationOrderMutation = useMutation({
@@ -392,7 +392,7 @@ export function useSettingsScreenController() {
         getNavigationOrderDraft(data.default_sidebar_order),
       );
       await queryClient.invalidateQueries({ queryKey: ['settings'] });
-      showToast('Navigation saved.', 'success');
+      showToast(nativeMessage('native.ada23a4f6650daf7'), 'success');
     },
     onError: (error: Error) => {
       const persistedOrder = settingsQuery.data?.default_sidebar_order ?? '';
@@ -402,7 +402,7 @@ export function useSettingsScreenController() {
       }));
       setNavigationOrderDraft(getNavigationOrderDraft(persistedOrder));
       showToast(
-        error.message || 'Unable to save navigation.',
+        error.message || nativeMessage('native.c4cf55e343cacc7a'),
         'error',
       );
     },
@@ -414,16 +414,16 @@ export function useSettingsScreenController() {
       setCreatedApiKey(pickString(data, ['key'], ''));
       setNewApiKeyName('');
       await queryClient.invalidateQueries({ queryKey: ['apiKeys'] });
-      showToast('API key created.', 'success');
+      showToast(nativeMessage('native.6d6650ee1cd31ae8'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to create API key.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.61b9d1cdee4b1c0b'), 'error'),
   });
 
   const deleteApiKeyMutation = useMutation({
     mutationFn: async (id: number) => api.deleteApiKey(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['apiKeys'] });
-      showToast('API key deleted.', 'success');
+      showToast(nativeMessage('native.b157226b0fc21424'), 'success');
     },
   });
 
@@ -438,18 +438,18 @@ export function useSettingsScreenController() {
       setCameraTokenInfoVisible(true);
       setCameraTokenForm(EMPTY_CAMERA_TOKEN_FORM);
       await queryClient.invalidateQueries({ queryKey: ['cameraTokens'] });
-      showToast('Camera token created.', 'success');
+      showToast(nativeMessage('native.ac8d1586afec0ef2'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to create camera token.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.f47ece762fbe5dfb'), 'error'),
   });
 
   const revokeCameraTokenMutation = useMutation({
     mutationFn: async (id: number) => api.revokeLongLivedCameraToken(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['cameraTokens'] });
-      showToast('Camera token revoked.', 'success');
+      showToast(nativeMessage('native.4ae2b7a7f2fe0e95'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to revoke camera token.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.1eaac4918532cd60'), 'error'),
   });
 
   const createExternalLinkMutation = useMutation({
@@ -459,9 +459,18 @@ export function useSettingsScreenController() {
       setExternalLinkModalVisible(false);
       setEditingExternalLink(null);
       setExternalLinkForm(EMPTY_EXTERNAL_LINK_FORM);
-      showToast('External link saved.', 'success');
+      showToast(nativeMessage('native.1bce4c5563e5fe7c'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to save external link.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.f5f90b83064cd506'), 'error'),
+  });
+
+  const reorderExternalLinksMutation = useMutation({
+    mutationFn: async (ids: number[]) => api.reorderExternalLinks(ids),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['externalLinks'] });
+      showToast(nativeMessage('native.4d8102426f448bc9'), 'success');
+    },
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.e5ea64ae2565f10c'), 'error'),
   });
 
   const updateExternalLinkMutation = useMutation({
@@ -471,9 +480,9 @@ export function useSettingsScreenController() {
       setExternalLinkModalVisible(false);
       setEditingExternalLink(null);
       setExternalLinkForm(EMPTY_EXTERNAL_LINK_FORM);
-      showToast('External link updated.', 'success');
+      showToast(nativeMessage('native.ae0bb6f18b946206'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update external link.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.460749be4d5f8447'), 'error'),
   });
 
   const deleteExternalLinkMutation = useMutation({
@@ -481,84 +490,56 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalLinks'] });
       setPendingDeleteExternalLink(null);
-      showToast('External link removed.', 'success');
+      showToast(nativeMessage('native.338e5ae015ba56fd'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to delete external link.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.a5cdd1e075f4267b'), 'error'),
   });
 
   const createExternalCameraMutation = useMutation({
-<<<<<<< HEAD
-    mutationFn: async (payload: ExternalCameraCreate) => api.createExternalCamera(payload),
-=======
     mutationFn: api.createExternalCamera,
->>>>>>> origin/develop
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
       closeExternalCameraModal();
-      showToast('External camera saved.', 'success');
+      showToast(nativeMessage('native.26ec9877789dd244'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to save external camera.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.179ea52e17cff3e7'), 'error'),
   });
 
   const updateExternalCameraMutation = useMutation({
-<<<<<<< HEAD
-    mutationFn: async ({ id, payload }: { id: number; payload: Partial<ExternalCameraCreate> }) => api.updateExternalCamera(id, payload),
-=======
     mutationFn: ({ id, payload }: { id: number; payload: ExternalCameraUpdate }) =>
       api.updateExternalCamera(id, payload),
->>>>>>> origin/develop
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
       closeExternalCameraModal();
-      showToast('External camera updated.', 'success');
+      showToast(nativeMessage('native.441e9ab6ab4a1c35'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update external camera.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.cfacaccdf6e6191d'), 'error'),
   });
 
   const deleteExternalCameraMutation = useMutation({
-<<<<<<< HEAD
-    mutationFn: async (id: number) => api.deleteExternalCamera(id),
-=======
     mutationFn: api.deleteExternalCamera,
->>>>>>> origin/develop
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['externalCameras'] });
       setPendingDeleteExternalCamera(null);
-      showToast('External camera deleted.', 'success');
+      showToast(nativeMessage('native.6c9a3fee2ec66043'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to delete external camera.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.c5a4a89464ab3634'), 'error'),
   });
 
   const testExternalCameraMutation = useMutation({
-<<<<<<< HEAD
-    mutationFn: async (id: number) => api.testExternalCamera(id),
-=======
     mutationFn: api.testExternalCamera,
->>>>>>> origin/develop
-    onSuccess: result => showToast(result.message || 'Camera test completed.', result.success ? 'success' : 'error'),
-    onError: (error: Error) => showToast(error.message || 'Unable to test camera connection.', 'error'),
+    onSuccess: result => showToast(result.message || nativeMessage('native.4bbbf0d5a40e8366'), result.success ? 'success' : 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.7247ad75b4623ac0'), 'error'),
   });
 
-<<<<<<< HEAD
-  const reorderExternalLinksMutation = useMutation({
-    mutationFn: async (ids: number[]) => api.reorderExternalLinks(ids),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['externalLinks'] });
-      showToast('External links reordered.', 'success');
-    },
-    onError: (error: Error) => showToast(error.message || 'Unable to reorder external links.', 'error'),
-  });
-
-=======
->>>>>>> origin/develop
   const backupMutation = useMutation({
     mutationFn: async () => api.triggerLocalBackup(),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['localBackupStatus'] });
       await queryClient.invalidateQueries({ queryKey: ['localBackups'] });
-      showToast('Local backup started.', 'success');
+      showToast(nativeMessage('native.0b4a52beceb81ba2'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to start backup.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.54edc84b3d2415c0'), 'error'),
   });
 
   const exportBackupMutation = useMutation({
@@ -566,17 +547,17 @@ export function useSettingsScreenController() {
       const blob = await api.exportBackup();
       await shareBlob(blob, 'bambuddy-backup.zip');
     },
-    onSuccess: () => showToast('Backup ready to share.', 'success'),
-    onError: (error: Error) => showToast(error.message || 'Unable to export backup.', 'error'),
+    onSuccess: () => showToast(nativeMessage('native.83353293d7d7dda9'), 'success'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.2658122a3608c697'), 'error'),
   });
 
   const githubBackupMutation = useMutation({
     mutationFn: async () => api.triggerGitHubBackup(),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['githubBackupStatus'] });
-      showToast('GitHub backup triggered.', 'success');
+      showToast(nativeMessage('native.1c8ce130a003a27f'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to run GitHub backup.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.8e9c033fa0ad5377'), 'error'),
   });
 
   const saveGitHubBackupMutation = useMutation({
@@ -606,9 +587,9 @@ export function useSettingsScreenController() {
       setGithubBackupForm(current => ({ ...current, access_token: '' }));
       await queryClient.invalidateQueries({ queryKey: ['githubBackupConfig'] });
       await queryClient.invalidateQueries({ queryKey: ['githubBackupStatus'] });
-      showToast('GitHub backup settings saved.', 'success');
+      showToast(nativeMessage('native.8c39d87eb7c2e6b2'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to save GitHub backup settings.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.ec6dbe52cd249819'), 'error'),
   });
 
   const virtualPrinterControl = useMutation({
@@ -617,23 +598,18 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['virtualPrinterList'] });
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update virtual printer.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.14b5505c2f74cfed'), 'error'),
   });
 
   const saveVirtualPrinterMutation = useMutation({
     mutationFn: async () => {
-      const model = virtualPrinterForm.model_name.trim() || virtualPrinterForm.model.trim();
-      const accessCode = virtualPrinterForm.serial_number.trim() || virtualPrinterForm.serial.trim();
       const payload: Record<string, unknown> = {
         name: virtualPrinterForm.name.trim() || 'Bambuddy',
-        model: model || undefined,
+        model: virtualPrinterForm.model.trim() || undefined,
         enabled: virtualPrinterForm.enabled,
       };
-      if (virtualPrinterForm.description.trim()) {
-        payload.description = virtualPrinterForm.description.trim();
-      }
-      if (accessCode) {
-        payload.access_code = accessCode;
+      if (virtualPrinterForm.serial.trim()) {
+        payload.access_code = virtualPrinterForm.serial.trim();
       }
       return editingVirtualPrinter
         ? api.updateVirtualPrinter(pickNumber(editingVirtualPrinter, ['id']), payload)
@@ -644,9 +620,9 @@ export function useSettingsScreenController() {
       setVirtualPrinterModalVisible(false);
       setEditingVirtualPrinter(null);
       setVirtualPrinterForm(EMPTY_VIRTUAL_PRINTER_FORM);
-      showToast('Virtual printer saved.', 'success');
+      showToast(nativeMessage('native.b29426730dbc63f4'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to save virtual printer.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.812d6533fb84ee13'), 'error'),
   });
 
   const deleteVirtualPrinterMutation = useMutation({
@@ -654,18 +630,18 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['virtualPrinterList'] });
       setPendingDeleteVirtualPrinter(null);
-      showToast('Virtual printer deleted.', 'success');
+      showToast(nativeMessage('native.cec7ccc368b4396c'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to delete virtual printer.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.18fe6aa1022b78ba'), 'error'),
   });
 
   const calibrateSpoolbuddyMutation = useMutation({
     mutationFn: async (deviceId: string) => api.calibrateSpoolBuddy(deviceId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['spoolbuddyDevices'] });
-      showToast('Calibration command sent.', 'success');
+      showToast(nativeMessage('native.c84b2eb2e0483f66'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to calibrate device.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.c1344bc2bd9c1f92'), 'error'),
   });
 
   const saveSMTPMutation = useMutation({
@@ -673,15 +649,15 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['smtpSettings'] });
       await queryClient.invalidateQueries({ queryKey: ['advancedAuthStatus'] });
-      showToast('SMTP settings saved.', 'success');
+      showToast(nativeMessage('native.61843626dacca185'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to save SMTP settings.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.7f0dc0c806e30fbf'), 'error'),
   });
 
   const testSMTPMutation = useMutation({
     mutationFn: async (recipient: string) => api.testSMTP({ test_recipient: recipient }),
     onSuccess: data => showToast(data.message, data.success ? 'success' : 'error'),
-    onError: (error: Error) => showToast(error.message || 'SMTP test failed.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.2f428eaa1e5a1bc9'), 'error'),
   });
 
   const testMqttMutation = useMutation({
@@ -689,23 +665,21 @@ export function useSettingsScreenController() {
     onSuccess: data => {
       const ok = pickBoolean(data, ['ok', 'success']);
       showToast(
-        ok
-          ? pickString(data, ['message'], 'MQTT connection successful.')
-          : pickString(data, ['error', 'message'], 'MQTT connection failed.'),
+        ok ? pickString(data, ['message'], nativeMessage('native.cdf865bd855e6896')) : pickString(data, ['error', 'message'], nativeMessage('native.cc8ad0db2cba46cf')),
         ok ? 'success' : 'error',
       );
       void mqttStatusQuery.refetch();
     },
-    onError: (error: Error) => showToast(error.message || 'MQTT test failed.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.2c20f46f81c2255e'), 'error'),
   });
 
   const toggleAdvancedAuthMutation = useMutation({
     mutationFn: async (enabled: boolean) => (enabled ? api.enableAdvancedAuth() : api.disableAdvancedAuth()),
     onSuccess: async data => {
       await queryClient.invalidateQueries({ queryKey: ['advancedAuthStatus'] });
-      showToast(data.message || 'Authentication updated.', 'success');
+      showToast(data.message || nativeMessage('native.fe92f52a52a7824c'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update authentication.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.ffa2864432743c70'), 'error'),
   });
 
   const saveLDAPMutation = useMutation({
@@ -713,9 +687,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['settings'] });
       await queryClient.invalidateQueries({ queryKey: ['ldapStatus'] });
-      showToast('LDAP settings saved.', 'success');
+      showToast(nativeMessage('native.dea41a3bcb4489df'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to save LDAP settings.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.9fbf0b69aeb0ede3'), 'error'),
   });
 
   const toggleLDAPMutation = useMutation({
@@ -723,24 +697,24 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['settings'] });
       await queryClient.invalidateQueries({ queryKey: ['ldapStatus'] });
-      showToast('LDAP setting updated.', 'success');
+      showToast(nativeMessage('native.bb42644cf1995874'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update LDAP status.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.ad553314511dac0a'), 'error'),
   });
 
   const testLDAPMutation = useMutation({
     mutationFn: async () => api.testLDAP(),
     onSuccess: data => showToast(data.message, data.success ? 'success' : 'error'),
-    onError: (error: Error) => showToast(error.message || 'LDAP test failed.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.43df2e7612c2fcdc'), 'error'),
   });
 
   const testSpoolmanMutation = useMutation({
     mutationFn: async () => api.connectSpoolman(),
     onSuccess: async data => {
       await queryClient.invalidateQueries({ queryKey: ['spoolmanStatus'] });
-      showToast(pickString(data, ['message'], 'Spoolman connected.'), 'success');
+      showToast(pickString(data, ['message'], nativeMessage('native.2f217ec354df7f0c')), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to connect to Spoolman.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.4c9891efc51d03e7'), 'error'),
   });
 
   const saveSpoolmanAutoSyncMutation = useMutation({
@@ -761,9 +735,9 @@ export function useSettingsScreenController() {
         spoolman_enabled: pickBoolean(data, ['enabled'], Boolean(current.spoolman_enabled)),
         spoolman_url: pickString(data, ['url'], String(current.spoolman_url ?? '')),
       }));
-      showToast('Spoolman auto-sync updated.', 'success');
+      showToast(nativeMessage('native.1230bbeb20193065'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update Spoolman auto-sync.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.973324fb4b801bce'), 'error'),
   });
 
   const syncSpoolmanMutation = useMutation({
@@ -781,21 +755,21 @@ export function useSettingsScreenController() {
       const skippedCount = pickNumber(data, ['skipped_count'], 0);
       const errorCount = pickArray(data, ['errors']).length;
       showToast(
-        `Spoolman sync complete. Added ${addedCount}, updated ${updatedCount}, removed ${removedCount}, skipped ${skippedCount}, errors ${errorCount}.`,
+        nativeMessage('native.d2ae80a4b671dfa8', () => ({ value0: String(addedCount), value1: String(updatedCount), value2: String(removedCount), value3: String(skippedCount), value4: String(errorCount) })),
         pickBoolean(data, ['success'], errorCount === 0) ? 'success' : 'warning',
       );
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to sync Spoolman inventory.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.ec46ca1f1c10149f'), 'error'),
   });
 
   const createKProfileMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => api.createKProfile(data),
     onSuccess: async () => {
       closeKProfileModal();
-      showToast('K-profile created.', 'success');
+      showToast(nativeMessage('native.3c5b423b0738bc9b'), 'success');
       await queryClient.invalidateQueries({ queryKey: ['kprofiles'] });
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to create K-profile.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.5412a05cbd0e86a8'), 'error'),
   });
 
   const updateKProfileMutation = useMutation({
@@ -803,10 +777,10 @@ export function useSettingsScreenController() {
       api.updateKProfile(id, payload),
     onSuccess: async () => {
       closeKProfileModal();
-      showToast('K-profile updated.', 'success');
+      showToast(nativeMessage('native.7ab702401dbdc22e'), 'success');
       await queryClient.invalidateQueries({ queryKey: ['kprofiles'] });
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update K-profile.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.53096a3a093d58cf'), 'error'),
   });
 
   const deleteKProfileMutation = useMutation({
@@ -816,10 +790,10 @@ export function useSettingsScreenController() {
     },
     onSuccess: async () => {
       setPendingDeleteKProfile(null);
-      showToast('K-profile deleted.', 'success');
+      showToast(nativeMessage('native.08a5cfe47619ae8c'), 'success');
       await queryClient.invalidateQueries({ queryKey: ['kprofiles'] });
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to delete K-profile.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.8beb369bf81f975b'), 'error'),
   });
 
   const createLocationMutation = useMutation({
@@ -833,9 +807,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['storageLocations'] });
       closeLocationModal();
-      showToast('Storage location created.', 'success');
+      showToast(nativeMessage('native.f47cdf69d194d0ce'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to create storage location.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.dcc9da07cd444eef'), 'error'),
   });
 
   const updateLocationMutation = useMutation({
@@ -849,9 +823,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['storageLocations'] });
       closeLocationModal();
-      showToast('Storage location updated.', 'success');
+      showToast(nativeMessage('native.9bd2bfb48da09c09'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update storage location.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.55b7154967388a6e'), 'error'),
   });
 
   const deleteLocationMutation = useMutation({
@@ -859,9 +833,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['storageLocations'] });
       setPendingDeleteLocation(null);
-      showToast('Storage location deleted.', 'success');
+      showToast(nativeMessage('native.3a782562bcb4063a'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to delete storage location.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.58c8fbefc3e65695'), 'error'),
   });
 
   const testObicoMutation = useMutation({
@@ -869,13 +843,11 @@ export function useSettingsScreenController() {
     onSuccess: result => {
       const ok = pickBoolean(result, ['ok', 'success']);
       showToast(
-        ok
-          ? pickString(result, ['message'], 'Failure detection service is reachable.')
-          : pickString(result, ['error', 'message'], 'Failure detection test failed.'),
+        ok ? pickString(result, ['message'], nativeMessage('native.00b8f188e1e8984d')) : pickString(result, ['error', 'message'], nativeMessage('native.cca78f351d627cab')),
         ok ? 'success' : 'error',
       );
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to test failure detection.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.79b067811630792b'), 'error'),
   });
 
   const createOIDCProviderMutation = useMutation({
@@ -883,9 +855,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['oidcProvidersAll'] });
       closeProviderModal();
-      showToast('OIDC provider created.', 'success');
+      showToast(nativeMessage('native.d43afdeb16fd894e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to create OIDC provider.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.5ff958b8cbd755a9'), 'error'),
   });
 
   const updateOIDCProviderMutation = useMutation({
@@ -893,9 +865,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['oidcProvidersAll'] });
       closeProviderModal();
-      showToast('OIDC provider updated.', 'success');
+      showToast(nativeMessage('native.3dfe03058ebb31d5'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update OIDC provider.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.b851c6a9d544b9a1'), 'error'),
   });
 
   const deleteOIDCProviderMutation = useMutation({
@@ -903,9 +875,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['oidcProvidersAll'] });
       setProviderDeleteTarget(null);
-      showToast('OIDC provider deleted.', 'success');
+      showToast(nativeMessage('native.62d50fad184ff79a'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to delete OIDC provider.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.deb317a5ccdc5fe1'), 'error'),
   });
 
   const createSmartPlugMutation = useMutation({
@@ -913,9 +885,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['smartPlugs'] });
       closePlugModal();
-      showToast('Smart plug saved.', 'success');
+      showToast(nativeMessage('native.0cb3ea167d4a3614'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to save smart plug.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.5187d2f0d2b0e85a'), 'error'),
   });
 
   const updateSmartPlugMutation = useMutation({
@@ -923,9 +895,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['smartPlugs'] });
       closePlugModal();
-      showToast('Smart plug updated.', 'success');
+      showToast(nativeMessage('native.10d03ed59c49e74c'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to update smart plug.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.c5894066fd03d93e'), 'error'),
   });
 
   const deleteSmartPlugMutation = useMutation({
@@ -933,9 +905,9 @@ export function useSettingsScreenController() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['smartPlugs'] });
       setPlugDeleteTarget(null);
-      showToast('Smart plug deleted.', 'success');
+      showToast(nativeMessage('native.9d5b6c98dbf5839f'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to delete smart plug.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.9e1bd0cc1bc5bef8'), 'error'),
   });
 
   const enableTOTPMutation = useMutation({
@@ -946,9 +918,9 @@ export function useSettingsScreenController() {
       setShowTOTPSetup(false);
       queryClient.removeQueries({ queryKey: ['totp-setup'] });
       await queryClient.invalidateQueries({ queryKey: ['2fa-status'] });
-      showToast('Authenticator app enabled.', 'success');
+      showToast(nativeMessage('native.5b92e726cd528f42'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Invalid verification code.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.824433be39b3e835'), 'error'),
   });
 
   const disableTOTPMutation = useMutation({
@@ -958,9 +930,9 @@ export function useSettingsScreenController() {
       setTotpCode('');
       setTotpDisableCode('');
       await queryClient.invalidateQueries({ queryKey: ['2fa-status'] });
-      showToast(data.message || 'Authenticator app disabled.', 'success');
+      showToast(data.message || nativeMessage('native.05aaa12602581b95'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to disable TOTP.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.ffa795a26d485fd3'), 'error'),
   });
 
   const regenerateBackupCodesMutation = useMutation({
@@ -970,9 +942,9 @@ export function useSettingsScreenController() {
       setShowTOTPRegen(false);
       setTotpRegenCode('');
       await queryClient.invalidateQueries({ queryKey: ['2fa-status'] });
-      showToast(data.message || 'Backup codes regenerated.', 'success');
+      showToast(data.message || nativeMessage('native.431c0e7bdf5a8b10'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to regenerate backup codes.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.86c9505b4d084a44'), 'error'),
   });
 
   const enableEmailOTPRequestMutation = useMutation({
@@ -980,9 +952,9 @@ export function useSettingsScreenController() {
     onSuccess: data => {
       setEmailSetupToken(data.setup_token);
       setEmailSetupCode('');
-      showToast(data.message || 'Verification code sent.', 'success');
+      showToast(data.message || nativeMessage('native.a95023ecfddfa1a7'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to start email 2FA setup.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.d81acc3fde7c1f56'), 'error'),
   });
 
   const confirmEnableEmailOTPMutation = useMutation({
@@ -991,9 +963,9 @@ export function useSettingsScreenController() {
       setEmailSetupToken(null);
       setEmailSetupCode('');
       await queryClient.invalidateQueries({ queryKey: ['2fa-status'] });
-      showToast(data.message || 'Email 2FA enabled.', 'success');
+      showToast(data.message || nativeMessage('native.481f4416f7922a7e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to enable email 2FA.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.237d28c40dc2a047'), 'error'),
   });
 
   const disableEmailOTPMutation = useMutation({
@@ -1002,25 +974,25 @@ export function useSettingsScreenController() {
       setShowDisableEmail2FA(false);
       setEmailDisablePassword('');
       await queryClient.invalidateQueries({ queryKey: ['2fa-status'] });
-      showToast(data.message || 'Email 2FA disabled.', 'success');
+      showToast(data.message || nativeMessage('native.42a7787962b6d17e'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to disable email 2FA.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.a27c0f3252cb71f9'), 'error'),
   });
 
   const unlinkOIDCLinkMutation = useMutation({
     mutationFn: async (providerId: number) => api.deleteOIDCLink(providerId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['oidc-links'] });
-      showToast('Linked account removed.', 'success');
+      showToast(nativeMessage('native.407b74d1d9eb2dcc'), 'success');
     },
-    onError: (error: Error) => showToast(error.message || 'Unable to remove linked account.', 'error'),
+    onError: (error: Error) => showToast(error.message || nativeMessage('native.22366ca6f7306793'), 'error'),
   });
 
   const saveCustomNavMutation = useMutation({
     mutationFn: async () => undefined,
   });
 
-  const sectionSummaries = useMemo(
+  const sectionSummaries = useLocalizedMemo(
     () => ({
       settings: settingsQuery.data,
       smartPlugs: smartPlugsQuery.data,
@@ -1062,12 +1034,7 @@ export function useSettingsScreenController() {
     section === 'filament' ||
     section === 'kprofiles' ||
     section === 'network' ||
-<<<<<<< HEAD
-    section === 'navigation' ||
-    section === 'failure-detection' ||
-=======
     section === 'mqtt' ||
->>>>>>> origin/develop
     section === 'backup' ||
     section === 'custom-navigation' ||
     (section === 'users' && userPanel === 'auth');
@@ -1173,11 +1140,11 @@ export function useSettingsScreenController() {
 
   function handleSaveCustomNav() {
     if (!customNavForm.name.trim() || !customNavForm.url.trim()) {
-      showToast('Name and URL are required.', 'error');
+      showToast(nativeMessage('native.7f83a218e693fb47'), 'error');
       return;
     }
     if (!/^https?:\/\//i.test(customNavForm.url.trim())) {
-      showToast('URL must start with http:// or https://', 'error');
+      showToast(nativeMessage('native.e7b44e941f0d51db'), 'error');
       return;
     }
     useCustomNavStore.getState().updateItem(
@@ -1191,7 +1158,7 @@ export function useSettingsScreenController() {
       },
     );
     closeCustomNavModal();
-    showToast(editingCustomNav ? 'Custom link updated.' : 'Custom link added.', 'success');
+    showToast(editingCustomNav ? nativeMessage('native.4f151cac11ab950b') : nativeMessage('native.0563ba4276789195'), 'success');
   }
 
   function closeExternalCameraModal() {
@@ -1228,10 +1195,9 @@ export function useSettingsScreenController() {
       setVirtualPrinterForm({
         name: pickString(printer, ['name'], 'Bambuddy'),
         model: pickString(printer, ['model'], 'BL-P001'),
-        model_name: pickString(printer, ['model_name', 'model'], 'BL-P001'),
-        description: pickString(printer, ['description'], ''),
-        serial: pickString(printer, ['serial', 'serial_number'], ''),
-        serial_number: pickString(printer, ['serial_number', 'serial'], ''),
+        model_name: pickString(printer, ['model', 'model_name'], 'BL-P001'),
+        serial: pickString(printer, ['serial'], ''),
+        serial_number: pickString(printer, ['serial', 'serial_number'], ''),
         enabled: pickBoolean(printer, ['enabled', 'status.running']),
       });
     } else {
@@ -1241,28 +1207,6 @@ export function useSettingsScreenController() {
     setVirtualPrinterModalVisible(true);
   }
 
-<<<<<<< HEAD
-  function closeExternalCameraModal() {
-    setExternalCameraModalVisible(false);
-    setEditingExternalCamera(null);
-    setExternalCameraForm(EMPTY_EXTERNAL_CAMERA_FORM);
-  }
-
-  function openExternalCameraModal(camera?: ApiRecord) {
-    if (camera) {
-      setEditingExternalCamera(camera);
-      setExternalCameraForm({
-        name: pickString(camera, ['name']),
-        stream_url: pickString(camera, ['stream_url']),
-        camera_type: pickString(camera, ['camera_type'], 'mjpeg') as ExternalCameraFormState['camera_type'],
-        printer_id: pickString(camera, ['printer_id']),
-      });
-    } else {
-      setEditingExternalCamera(null);
-      setExternalCameraForm(EMPTY_EXTERNAL_CAMERA_FORM);
-    }
-    setExternalCameraModalVisible(true);
-=======
   function closeKProfileModal() {
     setKprofileModal({
       visible: false,
@@ -1323,7 +1267,7 @@ export function useSettingsScreenController() {
 
   function handleSaveLocation() {
     if (!locationForm.name.trim()) {
-      showToast('Location name is required.', 'error');
+      showToast(nativeMessage('native.66d8b73d097a9630'), 'error');
       return;
     }
 
@@ -1332,16 +1276,15 @@ export function useSettingsScreenController() {
       return;
     }
     createLocationMutation.mutate();
->>>>>>> origin/develop
   }
 
   const handleProviderSave = () => {
     if (!providerForm.name.trim() || !providerForm.issuer_url.trim() || !providerForm.client_id.trim()) {
-      showToast('Name, issuer URL, and client ID are required.', 'error');
+      showToast(nativeMessage('native.33f2e3f6dc9fa158'), 'error');
       return;
     }
     if (!editingProvider && !providerForm.client_secret.trim()) {
-      showToast('Client secret is required for new providers.', 'error');
+      showToast(nativeMessage('native.aa640b1d0878624a'), 'error');
       return;
     }
 
@@ -1349,7 +1292,7 @@ export function useSettingsScreenController() {
       name: providerForm.name.trim(),
       issuer_url: providerForm.issuer_url.trim(),
       client_id: providerForm.client_id.trim(),
-      scopes: providerForm.scopes.trim() || 'openid email profile',
+      scopes: providerForm.scopes.trim() || translateNative('native.a78c1991f70d3ab8'),
       is_enabled: providerForm.is_enabled,
     };
 
@@ -1366,23 +1309,23 @@ export function useSettingsScreenController() {
 
   const handlePlugSave = () => {
     if (!plugForm.name.trim()) {
-      showToast('Plug name is required.', 'error');
+      showToast(nativeMessage('native.cf0d0fdf444e5dfd'), 'error');
       return;
     }
     if (plugForm.plug_type === 'tasmota' && !plugForm.ip_address.trim()) {
-      showToast('IP address is required for Tasmota plugs.', 'error');
+      showToast(nativeMessage('native.2fb4c46c10cf759a'), 'error');
       return;
     }
     if (plugForm.plug_type === 'homeassistant' && !plugForm.ha_entity_id.trim()) {
-      showToast('Entity ID is required for Home Assistant plugs.', 'error');
+      showToast(nativeMessage('native.5cb4a3f50dbc2594'), 'error');
       return;
     }
     if (plugForm.plug_type === 'mqtt' && !plugForm.mqtt_power_topic.trim()) {
-      showToast('MQTT power topic is required for MQTT plugs.', 'error');
+      showToast(nativeMessage('native.4f72811988f81635'), 'error');
       return;
     }
     if (plugForm.plug_type === 'rest' && (!plugForm.rest_on_url.trim() || !plugForm.rest_off_url.trim())) {
-      showToast('REST plugs need both on and off URLs.', 'error');
+      showToast(nativeMessage('native.dfed918cbad9e3ac'), 'error');
       return;
     }
 
@@ -1412,11 +1355,11 @@ export function useSettingsScreenController() {
 
   const handleSaveSMTP = () => {
     if (!smtpForm.smtp_host.trim() || !smtpForm.smtp_from_email.trim()) {
-      showToast('SMTP host and from address are required.', 'error');
+      showToast(nativeMessage('native.8f7390e3c52dfdda'), 'error');
       return;
     }
     if (smtpForm.smtp_auth_enabled && !smtpForm.smtp_username?.trim()) {
-      showToast('SMTP username is required when authentication is enabled.', 'error');
+      showToast(nativeMessage('native.af2fd493f6c189bb'), 'error');
       return;
     }
     saveSMTPMutation.mutate({
@@ -1430,11 +1373,11 @@ export function useSettingsScreenController() {
 
   const handleSaveLDAP = () => {
     if (!ldapForm.ldap_server_url.trim()) {
-      showToast('LDAP server URL is required.', 'error');
+      showToast(nativeMessage('native.4994df2fd458b626'), 'error');
       return;
     }
     if (!ldapForm.ldap_search_base.trim()) {
-      showToast('LDAP base DN is required.', 'error');
+      showToast(nativeMessage('native.35197a9e06010855'), 'error');
       return;
     }
 
@@ -1455,44 +1398,29 @@ export function useSettingsScreenController() {
   };
 
   const handleSaveExternalLink = () => {
-    const normalizedName = externalLinkForm.name.trim();
-    const normalizedUrl = externalLinkForm.url.trim();
-    if (!normalizedName || !normalizedUrl) {
-      showToast('Name and URL are required.', 'error');
+    if (!externalLinkForm.name.trim() || !externalLinkForm.url.trim()) {
+      showToast(nativeMessage('native.7f83a218e693fb47'), 'error');
       return;
     }
-    if (!/^https?:\/\//i.test(normalizedUrl)) {
-      showToast('URL must start with http:// or https://', 'error');
-      return;
-    }
-
-    const payload: ExternalLinkFormState = {
-      name: normalizedName,
-      url: normalizedUrl,
-      icon: externalLinkForm.icon.trim() || 'link',
-      open_in_new_tab: externalLinkForm.open_in_new_tab,
-      sort_order: String(Math.max(0, Number(externalLinkForm.sort_order) || 0)),
-    };
-
     if (editingExternalLink) {
       updateExternalLinkMutation.mutate({
         id: pickNumber(editingExternalLink, ['id']),
-        payload,
+        payload: externalLinkForm,
       });
       return;
     }
-    createExternalLinkMutation.mutate(payload);
+    createExternalLinkMutation.mutate(externalLinkForm);
   };
 
   const handleSaveExternalCamera = () => {
     const normalizedName = externalCameraForm.name.trim();
     const normalizedStreamUrl = externalCameraForm.stream_url.trim();
     if (!normalizedName || !normalizedStreamUrl) {
-      showToast('Name and stream URL are required.', 'error');
+      showToast(nativeMessage('native.81d0dc306dfb1285'), 'error');
       return;
     }
     if (!/^(https?|rtsp):\/\//i.test(normalizedStreamUrl)) {
-      showToast('Stream URL must start with http://, https://, or rtsp://', 'error');
+      showToast(nativeMessage('native.cfd1c83280b4c011'), 'error');
       return;
     }
     const parsedPrinterId = Number(externalCameraForm.printer_id);
@@ -1515,52 +1443,23 @@ export function useSettingsScreenController() {
 
   const handleSaveVirtualPrinter = () => {
     if (!virtualPrinterForm.name.trim()) {
-      showToast('Virtual printer name is required.', 'error');
+      showToast(nativeMessage('native.4c132ed022f83d2c'), 'error');
       return;
     }
     saveVirtualPrinterMutation.mutate();
   };
 
-<<<<<<< HEAD
-  const handleSaveExternalCamera = () => {
-    const normalizedName = externalCameraForm.name.trim();
-    const normalizedStreamUrl = externalCameraForm.stream_url.trim();
-    if (!normalizedName || !normalizedStreamUrl) {
-      showToast('Name and stream URL are required.', 'error');
-      return;
-    }
-    if (!/^(https?|rtsp):\/\//i.test(normalizedStreamUrl)) {
-      showToast('Stream URL must start with http://, https://, or rtsp://', 'error');
-      return;
-    }
-    const parsedPrinterId = Number(externalCameraForm.printer_id);
-    const payload: ExternalCameraCreate = {
-      name: normalizedName,
-      stream_url: normalizedStreamUrl,
-      camera_type: externalCameraForm.camera_type,
-      printer_id: Number.isFinite(parsedPrinterId) && parsedPrinterId > 0 ? parsedPrinterId : null,
-    };
-
-    if (editingExternalCamera) {
-      updateExternalCameraMutation.mutate({
-        id: pickNumber(editingExternalCamera, ['id']),
-        payload,
-      });
-      return;
-    }
-    createExternalCameraMutation.mutate(payload);
-=======
   const handleSaveKProfile = () => {
     if (!kprofileModal.form.nozzle_id.trim()) {
-      showToast('Nozzle ID is required.', 'error');
+      showToast(nativeMessage('native.ab1868b4c46618a2'), 'error');
       return;
     }
     if (!kprofileModal.form.filament_id.trim()) {
-      showToast('Filament ID is required.', 'error');
+      showToast(nativeMessage('native.07b22d9518894db6'), 'error');
       return;
     }
     if (!kprofileModal.form.k_value.trim()) {
-      showToast('K value is required.', 'error');
+      showToast(nativeMessage('native.007eff4f0c241763'), 'error');
       return;
     }
 
@@ -1607,16 +1506,15 @@ export function useSettingsScreenController() {
     } else {
       createKProfileMutation.mutate(payload);
     }
->>>>>>> origin/develop
   };
 
   const handleSaveGitHubBackup = () => {
     if (!githubBackupForm.repository_url.trim()) {
-      showToast('Repository URL is required.', 'error');
+      showToast(nativeMessage('native.47ad9f736b60936c'), 'error');
       return;
     }
     if (!githubBackupConfigQuery.data && !githubBackupForm.access_token.trim()) {
-      showToast('Access token is required for the first save.', 'error');
+      showToast(nativeMessage('native.d105305868b3602e'), 'error');
       return;
     }
     saveGitHubBackupMutation.mutate();
@@ -1625,16 +1523,16 @@ export function useSettingsScreenController() {
   const advancedAuth = advancedAuthQuery.data;
   const ldapStatus = ldapStatusQuery.data;
   const twoFAStatus = twoFAStatusQuery.data;
-  const virtualPrinterItems = useMemo(
+  const virtualPrinterItems = useLocalizedMemo(
     () => (Array.isArray(virtualPrinterListQuery.data?.printers) ? (virtualPrinterListQuery.data.printers as ApiRecord[]) : []),
     [virtualPrinterListQuery.data],
   );
-  const virtualPrinterModels = useMemo(() => {
+  const virtualPrinterModels = useLocalizedMemo(() => {
     const source = (virtualPrinterListQuery.data?.models ?? {}) as Record<string, unknown>;
     return Object.entries(source).map(([key, value]) => ({ key, label: String(value) }));
   }, [virtualPrinterListQuery.data]);
-  const externalCameraItems = useMemo(() => (externalCamerasQuery.data ?? []) as ApiRecord[], [externalCamerasQuery.data]);
-  const printerOptions = useMemo(
+  const externalCameraItems = useLocalizedMemo(() => (externalCamerasQuery.data ?? []) as ApiRecord[], [externalCamerasQuery.data]);
+  const printerOptions = useLocalizedMemo(
     () =>
       ((printersQuery.data ?? []) as ApiRecord[]).map(printer => ({
         key: String(pickNumber(printer, ['id'])),
@@ -1642,7 +1540,7 @@ export function useSettingsScreenController() {
       })),
     [printersQuery.data],
   );
-  const printerLabelById = useMemo(
+  const printerLabelById = useLocalizedMemo(
     () =>
       printerOptions.reduce<Record<string, string>>((acc, option) => {
         acc[option.key] = option.label;
@@ -1650,35 +1548,35 @@ export function useSettingsScreenController() {
       }, {}),
     [printerOptions],
   );
-  const currentUserRow = useMemo(
+  const currentUserRow = useLocalizedMemo(
     () => ((usersQuery.data ?? []) as ApiRecord[]).find(row => pickNumber(row, ['id']) === user?.id) ?? null,
     [user?.id, usersQuery.data],
   );
-  const securityRows = useMemo(
+  const securityRows = useLocalizedMemo(
     () => [
       {
-        label: 'HTTPS enabled',
+        get label() { return translateNative('native.7e87c9e7beb40739'); },
         value: /^https:\/\//i.test(pickString(draft, ['external_url'])) ? 'Yes' : 'No',
       },
       {
-        label: '2FA enforcement',
+        get label() { return translateNative('native.3ad9608582faec41'); },
         value:
           pickBoolean(draft, ['two_fa_enforced', 'enforce_2fa'])
             ? 'Required'
             : twoFAStatus?.totp_enabled || twoFAStatus?.email_otp_enabled
-              ? 'Enabled for this account'
-              : 'Per-user only',
+              ? translateNative('native.e25fe5d629564918')
+              : translateNative('native.a990dbbd8ae036d7'),
       },
       {
-        label: 'Active sessions',
+        get label() { return translateNative('native.004aef2d155d918c'); },
         value: pickString(currentUserRow, ['active_sessions', 'session_count'], 'Unavailable'),
       },
       {
-        label: 'API keys',
+        get label() { return translateNative('native.9483ff500a59f7ad'); },
         value: String(((apiKeysQuery.data ?? []) as ApiRecord[]).length),
       },
       {
-        label: 'Last login',
+        get label() { return translateNative('native.3fd7a79263002a1f'); },
         value: formatDateTime(pickString(currentUserRow, ['last_login'], '')),
       },
     ],
@@ -1706,12 +1604,9 @@ export function useSettingsScreenController() {
       externalLinkModalVisible,
       externalLinkForm,
       pendingDeleteExternalLink,
-<<<<<<< HEAD
-=======
       customNavModalVisible,
       editingCustomNav,
       customNavForm,
->>>>>>> origin/develop
       editingExternalCamera,
       externalCameraModalVisible,
       externalCameraForm,
@@ -1798,12 +1693,9 @@ export function useSettingsScreenController() {
       createCameraTokenMutation,
       revokeCameraTokenMutation,
       createExternalLinkMutation,
+      reorderExternalLinksMutation,
       updateExternalLinkMutation,
       deleteExternalLinkMutation,
-<<<<<<< HEAD
-      reorderExternalLinksMutation,
-=======
->>>>>>> origin/develop
       createExternalCameraMutation,
       updateExternalCameraMutation,
       deleteExternalCameraMutation,
@@ -1880,22 +1772,16 @@ export function useSettingsScreenController() {
       setExternalLinkModalVisible,
       setExternalLinkForm,
       setPendingDeleteExternalLink,
-<<<<<<< HEAD
-=======
       setCustomNavModalVisible,
       setEditingCustomNav,
       setCustomNavForm,
->>>>>>> origin/develop
       setEditingExternalCamera,
       setExternalCameraModalVisible,
       setExternalCameraForm,
       setPendingDeleteExternalCamera,
-<<<<<<< HEAD
-=======
       closeExternalCameraModal,
       openExternalCameraModal,
       handleSaveExternalCamera,
->>>>>>> origin/develop
       setVirtualPrinterModalVisible,
       setEditingVirtualPrinter,
       setVirtualPrinterForm,
@@ -1930,14 +1816,9 @@ export function useSettingsScreenController() {
       openPlugModal,
       closeExternalLinkModal,
       openExternalLinkModal,
-<<<<<<< HEAD
-      closeExternalCameraModal,
-      openExternalCameraModal,
-=======
       closeCustomNavModal,
       openCustomNavModal,
       handleSaveCustomNav,
->>>>>>> origin/develop
       closeVirtualPrinterModal,
       openVirtualPrinterModal,
       handleProviderSave,
@@ -1945,7 +1826,6 @@ export function useSettingsScreenController() {
       handleSaveSMTP,
       handleSaveLDAP,
       handleSaveExternalLink,
-      handleSaveExternalCamera,
       handleSaveVirtualPrinter,
       handleSaveGitHubBackup,
       handleSaveKProfile,
@@ -1981,3 +1861,4 @@ export function useSettingsScreenController() {
 }
 
 export type SettingsScreenController = ReturnType<typeof useSettingsScreenController>;
+import { useServerSettingsKey } from '@/hooks/useServerSettingsKey';

@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 import Share from 'react-native-share';
 
 function mimeFromFilename(filename: string) {
@@ -13,13 +14,13 @@ function mimeFromFilename(filename: string) {
 export async function blobToDataUrl(blob: Blob): Promise<string> {
   return await new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Unable to read file data.'));
+    reader.onerror = () => reject(new Error(translateNative('native.ab9fb229419b1c4a')));
     reader.onloadend = () => {
       if (typeof reader.result === 'string') {
         resolve(reader.result);
         return;
       }
-      reject(new Error('Unable to read file data.'));
+      reject(new Error(translateNative('native.ab9fb229419b1c4a')));
     };
     reader.readAsDataURL(blob);
   });

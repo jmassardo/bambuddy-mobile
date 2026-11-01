@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -5,29 +6,19 @@ import { WebView } from 'react-native-webview';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 
 export default function ExternalLinkBrowserScreen() {
-<<<<<<< HEAD
-  const navigation = useNavigation<RootNavigationProp<'ExternalLinkBrowser'>>();
-  const route = useRoute<RootRouteProp<'ExternalLinkBrowser'>>();
-
-  React.useLayoutEffect(() => {
-    navigation.setOptions({ title: route.params.title?.trim() || 'External Link' });
-=======
+  const titleLocale = useNativeLocale();
   const navigation =
     useNavigation<RootNavigationProp<'ExternalLinkBrowser'>>();
   const route = useRoute<RootRouteProp<'ExternalLinkBrowser'>>();
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
-      title: route.params.title?.trim() || 'External Link',
+      title: route.params.title?.trim() || translateNative('screen.externalLink'),
     });
->>>>>>> origin/develop
-  }, [navigation, route.params.title]);
+  }, [navigation, route.params.title, titleLocale]);
 
   return (
     <View style={styles.container}>
-<<<<<<< HEAD
-      <WebView source={{ uri: route.params.url }} originWhitelist={['http://*', 'https://*']} />
-=======
       <WebView
         testID="external-link-webview"
         source={{ uri: route.params.url }}
@@ -36,7 +27,6 @@ export default function ExternalLinkBrowserScreen() {
         allowFileAccess={false}
         setSupportMultipleWindows={false}
       />
->>>>>>> origin/develop
     </View>
   );
 }

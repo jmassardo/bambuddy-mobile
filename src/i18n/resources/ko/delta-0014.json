@@ -1,0 +1,5 @@
+{
+  "native.a8354e59f5691fa8": "종료된 실행 {{count}}개 삭제됨",
+  "native.bd707a01c933cc1e": "{{archived}}개 가져옴, {{failed}}개 실패",
+  "native.c7e528a90299efbd": "실행 #{{id}} 업데이트됨"
+}

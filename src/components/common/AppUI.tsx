@@ -1,3 +1,4 @@
+import { useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -15,6 +16,7 @@ import {
   AlertCircle,
   BarChart3,
   Bell,
+  Camera,
   ChevronRight,
   Circle,
   ClipboardList,
@@ -26,8 +28,6 @@ import {
   KeyRound,
   Layers,
   ListOrdered,
-  Link2,
-  Menu,
   Package,
   Plus,
   Power,
@@ -35,7 +35,6 @@ import {
   QrCode,
   Radio,
   Search,
-  Server,
   Settings,
   Shield,
   Users,
@@ -43,6 +42,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
+import { SettingsSearchAnchor } from '@/components/settings/SettingsSearchFocus';
 
 const fontScale = PixelRatio.getFontScale();
 
@@ -60,6 +60,7 @@ const APP_UI_ICONS: Record<
   settings: Settings,
   power: Power,
   bell: Bell,
+  camera: Camera,
   'list-ordered': ListOrdered,
   package: Package,
   globe: Globe,
@@ -76,14 +77,8 @@ const APP_UI_ICONS: Record<
   'bar-chart': BarChart3,
   cpu: Cpu,
   'qr-code': QrCode,
-<<<<<<< HEAD
-  link: Link2,
-  menu: Menu,
-  server: Server,
-=======
   'alert-circle': AlertCircle,
   'clipboard-list': ClipboardList,
->>>>>>> origin/develop
 };
 
 export function SearchBar({
@@ -97,7 +92,9 @@ export function SearchBar({
   placeholder: string;
   onFilterPress?: () => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <View style={styles.searchRow}>
@@ -120,7 +117,7 @@ export function SearchBar({
         <Pressable
           onPress={onFilterPress}
           style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-          accessibilityLabel="Filters"
+          accessibilityLabel={t('common.filters')}
           accessibilityRole="button"
         >
           <Filter size={18} color={colors.text} strokeWidth={2} />
@@ -141,9 +138,12 @@ export const SectionCard = React.memo(function SectionCardComponent({
   right?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
+  useTranslation();
 
   return (
+    <SettingsSearchAnchor label={title ?? ''}>
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
       {(title || subtitle || right) && (
         <View style={styles.cardHeader}>
@@ -156,10 +156,12 @@ export const SectionCard = React.memo(function SectionCardComponent({
       )}
       {children}
     </View>
+    </SettingsSearchAnchor>
   );
 });
 
 export const StatusBadge = React.memo(function StatusBadgeComponent({ label, color }: { label: string; color: string }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -178,7 +180,9 @@ export function InlineTabBar<T extends string>({
   tabs: Array<{ key: T; label: string }>;
   onChange: (value: T) => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
+  useTranslation();
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inlineTabsContainer}>
@@ -218,6 +222,7 @@ export const Chip = React.memo(function ChipComponent({
   selected: boolean;
   onPress: () => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -254,9 +259,12 @@ export function SettingRow({
   onPress?: () => void;
   right?: React.ReactNode;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
+  useTranslation();
   const IconComponent = APP_UI_ICONS[icon] ?? Circle;
   const content = (
+    <SettingsSearchAnchor label={label}>
     <View style={styles.settingRow}>
       <View style={[styles.settingIcon, { backgroundColor: colors.accentBg }]}>
         <IconComponent size={18} color={colors.accentLight} strokeWidth={2} />
@@ -272,6 +280,7 @@ export function SettingRow({
         </View>
       )}
     </View>
+    </SettingsSearchAnchor>
   );
 
   if (onPress) {
@@ -296,6 +305,7 @@ export const StatCard = React.memo(function StatCardComponent({
   helper?: string;
   onPress?: () => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   const content = (
@@ -324,7 +334,9 @@ export function PrimaryButton({
   loading?: boolean;
   disabled?: boolean;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
+  useTranslation();
   const palette = {
     primary: { background: colors.accent, border: colors.accent, text: colors.textInverse },
     secondary: { background: colors.surfaceElevated, border: colors.border, text: colors.text },
@@ -357,15 +369,20 @@ export function TextField({
   error,
   multiline,
   style,
+  userName,
   ...props
-}: TextInputProps & { label: string; error?: string }) {
+}: TextInputProps & { label: string; error?: string; userName?: string }) {
+  useNativeLocale();
   const { colors } = useTheme();
+  useTranslation();
 
   return (
+    <SettingsSearchAnchor label={label}>
     <View style={styles.fieldGroup}>
       <Text style={[styles.fieldLabel, { color: colors.textSecondary }]} accessibilityRole="text">{label}</Text>
       <TextInput
         {...props}
+        placeholder={props.placeholder ? props.placeholder : undefined}
         multiline={multiline}
         placeholderTextColor={colors.inputPlaceholder}
         style={[
@@ -381,9 +398,11 @@ export function TextField({
         ]}
         accessibilityLabel={label}
         allowFontScaling={false}
+        {...(userName ? { userName } : {})}
       />
-      {error ? <Text style={[styles.fieldError, { color: colors.error }]}>{error}</Text> : null}
+      {error ? <Text style={[styles.fieldError, { color: colors.error }]} accessibilityRole="alert">{error}</Text> : null}
     </View>
+    </SettingsSearchAnchor>
   );
 }
 
@@ -396,6 +415,7 @@ export function FloatingActionButton({
   label: string;
   onPress: () => void;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   const IconComponent = APP_UI_ICONS[icon] ?? Circle;
 
@@ -408,6 +428,7 @@ export function FloatingActionButton({
 }
 
 export const KeyValueRow = React.memo(function KeyValueRowComponent({ label, value }: { label: string; value: string }) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -601,7 +622,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    shadowColor: '#000',
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
@@ -639,6 +660,7 @@ export function ProgressBar({
   trackColor?: string;
   height?: number;
 }) {
+  useNativeLocale();
   const { colors } = useTheme();
   return (
     <View style={{ height, backgroundColor: trackColor || colors.surfaceElevated, borderRadius: height / 2, overflow: 'hidden' }} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(progress) }}>
@@ -653,7 +675,6 @@ export function ProgressBar({
     </View>
   );
 }
-
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -678,7 +699,9 @@ export function Button({
   style,
   size = 'md',
 }: ButtonProps) {
+  useNativeLocale();
   const { colors } = useTheme();
+  useTranslation();
 
   const bgColors: Record<ButtonVariant, string> = {
     primary: colors.accent,
@@ -748,13 +771,16 @@ interface InputProps extends TextInputProps {
 }
 
 export function Input({ label, error, containerStyle, style, ...props }: InputProps) {
+  useNativeLocale();
   const { colors } = useTheme();
+  useTranslation();
 
   return (
     <View style={[consolidatedStyles.inputContainer, containerStyle]}>
       {label && <Text style={[consolidatedStyles.inputLabel, { color: colors.textSecondary }]} allowFontScaling={false}>{label}</Text>}
       <TextInput
         {...props}
+        placeholder={props.placeholder ? props.placeholder : undefined}
         placeholderTextColor={colors.inputPlaceholder}
         style={[
           consolidatedStyles.input,
@@ -767,10 +793,10 @@ export function Input({ label, error, containerStyle, style, ...props }: InputPr
         ]}
         autoCapitalize="none"
         autoCorrect={false}
-        accessibilityLabel={label}
+        accessibilityLabel={label ? label : props.accessibilityLabel}
         allowFontScaling={false}
       />
-      {error && <Text style={[consolidatedStyles.inputError, { color: colors.error }]} allowFontScaling={false}>{error}</Text>}
+      {error && <Text style={[consolidatedStyles.inputError, { color: colors.error }]} accessibilityRole="alert" allowFontScaling={false}>{error}</Text>}
     </View>
   );
 }
@@ -783,6 +809,7 @@ interface CardProps {
 }
 
 export function Card({ children, style, onPress, accessibilityLabel }: CardProps) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   const cardStyle = [
@@ -817,6 +844,7 @@ interface BadgeProps {
 }
 
 export function Badge({ label, color, backgroundColor }: BadgeProps) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   return (
@@ -832,7 +860,9 @@ interface SectionHeaderProps {
 }
 
 export function SectionHeader({ title, action }: SectionHeaderProps) {
+  useNativeLocale();
   const { colors } = useTheme();
+  useTranslation();
 
   return (
     <View style={consolidatedStyles.sectionHeader}>
@@ -847,6 +877,7 @@ export function SectionHeader({ title, action }: SectionHeaderProps) {
 }
 
 export function Divider() {
+  useNativeLocale();
   const { colors } = useTheme();
   return <View style={[consolidatedStyles.divider, { backgroundColor: colors.borderSubtle }]} />;
 }
@@ -858,10 +889,14 @@ interface MenuItemProps {
   onPress: () => void;
   badge?: string;
   destructive?: boolean;
+  /** Legacy compatibility flag; authored captions are now translated by callers. */
+  translateText?: boolean;
 }
 
 export const MenuItem = React.memo(function MenuItemComponent({ icon, label, subtitle, onPress, badge, destructive }: MenuItemProps) {
+  useNativeLocale();
   const { colors } = useTheme();
+  useTranslation();
   const IconComponent = APP_UI_ICONS[icon] ?? Circle;
 
   return (

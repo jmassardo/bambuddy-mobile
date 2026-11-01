@@ -1,0 +1,30 @@
+{
+  "native.25e521f0dbdd658f": {
+    "english": "filename",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraIntegrationsScreen.tsx",
+        "line": 108,
+        "kind": "ui-label-dictionary",
+        "owner": "OVERLAY_FIELD_LABELS",
+        "source": "'filename'"
+      }
+    ]
+  },
+  "native.878ef2fc08bb9043": {
+    "english": "layers",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraIntegrationsScreen.tsx",
+        "line": 111,
+        "kind": "ui-label-dictionary",
+        "owner": "OVERLAY_FIELD_LABELS",
+        "source": "'layers'"
+      }
+    ]
+  }
+}

@@ -5,14 +5,18 @@ import type {
   LibraryFolderTree,
   LibraryStats,
   LibraryTrashItem,
+  LibraryTrashResponse,
+  LibraryTrashSettings,
+  LibraryFolderReadme,
+  LibraryThumbnailBatch,
+  LibraryFileUploadResult,
 } from '@/types/api';
 import {
   ApiError,
   buildMediaUrl,
   request,
   requestBlob,
-  requestTextWithFallback,
-  requestWithFallback,
+  requestText,
   uploadFile,
   uploadFileWithProgress,
   type UploadableFile,
@@ -42,6 +46,7 @@ export const filesApi = {
     folderId?: number | null,
     includeRoot = true,
     projectId?: number,
+    filters?: { recursive?: boolean; tagIds?: number[] },
   ) => {
     const params = new URLSearchParams();
     if (folderId !== undefined && folderId !== null) {
@@ -53,6 +58,8 @@ export const filesApi = {
     if (projectId !== undefined) {
       params.set('project_id', String(projectId));
     }
+    if (filters?.recursive) params.set('recursive', 'true');
+    filters?.tagIds?.forEach(id => params.append('tag_ids', String(id)));
     const query = params.toString();
     return request<Array<ApiEntity<LibraryFileListItem>>>(
       `/library/files${query ? `?${query}` : ''}`,
@@ -60,10 +67,16 @@ export const filesApi = {
   },
 
   getLibraryFile: async (id: number) =>
-    requestWithFallback<ApiEntity<LibraryFile>>(
-      { endpoint: `/library/files/${id}` },
-      { endpoint: `/library/${id}` },
-    ),
+    request<ApiEntity<LibraryFile>>(`/library/files/${id}`),
+
+  getLibraryFolderReadme: async (id: number) => {
+    try {
+      return await request<LibraryFolderReadme>(`/library/folders/${id}/readme`);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+  },
 
   createFolder: async (data: { name: string; parent_id?: number }) =>
     request<Record<string, unknown>>('/library/folders', {
@@ -74,8 +87,49 @@ export const filesApi = {
   renameLibraryItem: async (id: number, name: string) =>
     request<Record<string, unknown>>(`/library/files/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ print_name: name }),
+      body: JSON.stringify({ filename: name }),
     }),
+
+  updateLibraryFolder: (id: number, data: {
+    name?: string; project_id?: number; archive_id?: number;
+  }) => request<Record<string, unknown>>(`/library/folders/${id}`, {
+    method: 'PUT', body: JSON.stringify(data),
+  }),
+
+  deleteLibraryFolder: (id: number) =>
+    request<void>(`/library/folders/${id}`, { method: 'DELETE' }),
+
+  updateLibraryFile: (id: number, data: { notes?: string; external_url?: string; project_id?: number }) =>
+    request<ApiEntity<LibraryFile>>(`/library/files/${id}`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+
+  generateLibraryThumbnails: (data: { file_ids?: number[]; folder_id?: number; all_missing?: boolean }) =>
+    request<LibraryThumbnailBatch>(
+      '/library/generate-stl-thumbnails', { method: 'POST', body: JSON.stringify(data) },
+    ),
+
+  combineLibraryFiles: (data: {
+    items: Array<{file_id: number; copies: number}>;
+    filename: string; folder_id: number | null;
+  }) => request<LibraryFileUploadResult>('/library/files/combine', {
+    method: 'POST', body: JSON.stringify(data),
+  }),
+
+  groupLibraryVersions: (ids: number[], name?: string) =>
+    request<Record<string, unknown>>('/library/variant-groups', {
+      method: 'POST',
+      body: JSON.stringify({ name, members: ids.map(library_file_id => ({ library_file_id })) }),
+    }),
+
+  uploadLibraryPhoto: (id: number, file: UploadableFile) =>
+    uploadFile(`/library/files/${id}/photos`, file),
+
+  deleteLibraryPhoto: (id: number, filename: string) =>
+    request<void>(`/library/files/${id}/photos/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
+
+  getLibraryPhoto: (id: number, filename: string) =>
+    requestBlob(`/library/files/${id}/photos/${encodeURIComponent(filename)}`),
 
   moveLibraryItem: async (id: number, folderId: number | null) =>
     request<Record<string, unknown>>('/library/files/move', {
@@ -87,45 +141,29 @@ export const filesApi = {
     file: UploadableFile,
     folderId?: number | null,
     onProgress?: (progress: number) => void,
+    options?: { preserveStructure?: boolean; createFolderFromZip?: boolean; generateThumbnails?: boolean },
   ) => {
     const params = new URLSearchParams();
     if (folderId != null) {
       params.set('folder_id', String(folderId));
     }
-    params.set('generate_stl_thumbnails', 'true');
-    const primaryEndpoint = `/library/files${params.toString() ? `?${params}` : ''}`;
-    const fallbackEndpoint =
-      folderId != null ? `/library/upload?folder_id=${folderId}` : '/library/upload';
-
-    try {
-      if (onProgress) {
-        return await uploadFileWithProgress<Record<string, unknown>>(
-          primaryEndpoint,
-          file,
-          onProgress,
-        );
-      }
-      return await uploadFile<Record<string, unknown>>(primaryEndpoint, file);
-    } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 404) {
-        throw error;
-      }
-      if (onProgress) {
-        return uploadFileWithProgress<Record<string, unknown>>(
-          fallbackEndpoint,
-          file,
-          onProgress,
-        );
-      }
-      return uploadFile<Record<string, unknown>>(fallbackEndpoint, file);
+    params.set('generate_stl_thumbnails', String(options?.generateThumbnails ?? true));
+    const isZip = /\.zip$/i.test(file.name);
+    if (isZip) {
+      params.set('preserve_structure', String(options?.preserveStructure ?? true));
+      params.set('create_folder_from_zip', String(options?.createFolderFromZip ?? false));
     }
+    const primaryEndpoint = `/library/files${isZip ? '/extract-zip' : ''}?${params}`;
+    if (onProgress) {
+      return uploadFileWithProgress<Record<string, unknown>>(
+        primaryEndpoint, file, onProgress,
+      );
+    }
+    return uploadFile<Record<string, unknown>>(primaryEndpoint, file);
   },
 
   getLibraryFilePlates: async (id: number) =>
-    requestWithFallback<Record<string, unknown>>(
-      { endpoint: `/library/files/${id}/plates` },
-      { endpoint: `/library/${id}/plates` },
-    ),
+    request<Record<string, unknown>>(`/library/files/${id}/plates`),
 
   getLibraryFileFilamentRequirements: async (id: number, plateId?: number) => {
     const params = new URLSearchParams();
@@ -134,18 +172,11 @@ export const filesApi = {
     }
     const query = params.toString();
 
-    return requestWithFallback<Record<string, unknown>>(
-      {
-        endpoint: `/library/files/${id}/filament-requirements${query ? `?${query}` : ''}`,
-      },
-      {
-        endpoint: `/library/${id}/filament-requirements${query ? `?${query}` : ''}`,
-      },
-    );
+    return request<Record<string, unknown>>(`/library/files/${id}/filament-requirements${query ? `?${query}` : ''}`);
   },
 
   getLibraryFilePlateThumbnail: (id: number, plateIndex: number): string =>
-    buildMediaUrl(`/library/${id}/plates/${plateIndex}/thumbnail`),
+    buildMediaUrl(`/library/files/${id}/plate-thumbnail/${plateIndex}`),
 
   getLibraryFileThumbnailUrl: (id: number): string =>
     buildMediaUrl(`/library/files/${id}/thumbnail`),
@@ -154,10 +185,7 @@ export const filesApi = {
     buildMediaUrl(`/library/files/${id}/download`),
 
   getLibraryFileText: async (id: number) =>
-    requestTextWithFallback(
-      { endpoint: `/library/files/${id}/download` },
-      { endpoint: `/library/${id}/download` },
-    ),
+    requestText(`/library/files/${id}/download`),
 
   getLibraryTags: async () =>
     request<{ name: string; count: number }[]>('/library/tags'),
@@ -188,17 +216,8 @@ export const filesApi = {
     }),
 
   getExternalFolders: async () => {
-    try {
-      return await request<Array<ApiEntity<LibraryFolderTree>>>(
-        '/library/external-folders',
-      );
-    } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 404) throw error;
-      const folders = await request<Array<ApiEntity<LibraryFolderTree>>>(
-        '/library/folders',
-      );
-      return flattenFolders(folders).filter(folder => Boolean(folder.is_external));
-    }
+    const folders = await request<Array<ApiEntity<LibraryFolderTree>>>('/library/folders');
+    return flattenFolders(folders).filter(folder => Boolean(folder.is_external));
   },
 
   createExternalFolder: async (data: {
@@ -208,28 +227,15 @@ export const filesApi = {
     show_hidden?: boolean;
     parent_id?: number | null;
   }) =>
-    requestWithFallback<Record<string, unknown>>(
-      {
-        endpoint: '/library/external-folders',
-        options: { method: 'POST', body: JSON.stringify(data) },
-      },
-      {
-        endpoint: '/library/folders/external',
-        options: { method: 'POST', body: JSON.stringify(data) },
-      },
-    ),
+    request<Record<string, unknown>>('/library/folders/external', {
+      method: 'POST', body: JSON.stringify(data),
+    }),
 
   deleteExternalFolder: async (id: number) =>
-    requestWithFallback<void>(
-      { endpoint: `/library/external-folders/${id}`, options: { method: 'DELETE' } },
-      { endpoint: `/library/folders/${id}`, options: { method: 'DELETE' } },
-    ),
+    request<void>(`/library/folders/${id}`, { method: 'DELETE' }),
 
   scanExternalFolder: async (id: number) =>
-    requestWithFallback<Record<string, unknown>>(
-      { endpoint: `/library/external-folders/${id}/scan`, options: { method: 'POST' } },
-      { endpoint: `/library/folders/${id}/scan`, options: { method: 'POST' } },
-    ),
+    request<Record<string, unknown>>(`/library/folders/${id}/scan`, { method: 'POST' }),
 
   previewLibraryPurge: async (olderThanDays: number, includeNeverPrinted = true) =>
     request<Record<string, unknown>>(
@@ -259,8 +265,23 @@ export const filesApi = {
       body: JSON.stringify({ file_ids: fileIds }),
     }),
 
-  getLibraryTrash: async () =>
-    request<Array<ApiEntity<LibraryTrashItem>>>('/library/trash'),
+  getLibraryTrash: async (): Promise<LibraryTrashResponse> => {
+    const first = await request<LibraryTrashResponse>('/library/trash?limit=500&offset=0');
+    const items: Array<ApiEntity<LibraryTrashItem>> = [...first.items];
+    while (items.length < first.total) {
+      const page = await request<LibraryTrashResponse>(`/library/trash?limit=500&offset=${items.length}`);
+      if (!page.items.length) break;
+      items.push(...page.items);
+    }
+    return { ...first, items };
+  },
+
+  getLibraryTrashSettings: () => request<LibraryTrashSettings>('/library/trash/settings'),
+
+  saveLibraryTrashSettings: (settings: LibraryTrashSettings) =>
+    request<LibraryTrashSettings>('/library/trash/settings', {
+      method: 'PUT', body: JSON.stringify(settings),
+    }),
 
   restoreLibraryItem: async (id: number) =>
     request<void>(`/library/trash/${id}/restore`, { method: 'POST' }),

@@ -1,9 +1,13 @@
-/* eslint-disable @typescript-eslint/no-shadow -- Test file with React/Text imports shadowing globals */
 import React from 'react';
-import { Text } from 'react-native';
-import ReactTestRenderer, { act, type ReactTestInstance } from 'react-test-renderer';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ExternalCamerasSettingsSection } from '@/components/settings/ExternalCamerasSettingsSection';
 import type { SettingsScreenController } from '@/components/settings/useSettingsScreenController';
+import { request } from '@/api/http';
+import type { ExternalCameraConnectionResult, Printer } from '@/types/api';
+
+let mockCanUpdate = true;
+let mockCanViewCamera = true;
 
 jest.mock('@/theme', () => ({
   useTheme: () => ({
@@ -11,220 +15,256 @@ jest.mock('@/theme', () => ({
     isDark: true,
   }),
 }));
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    hasPermission: (permission: string) =>
+      permission === 'printers:update' ? mockCanUpdate : mockCanViewCamera,
+  }),
+}));
+jest.mock('@/api/http', () => ({ request: jest.fn() }));
 
-jest.mock('@/components/common/AppUI', () => {
-  const React = require('react');
-  const { Text, View } = require('react-native');
-  return {
-    SectionCard: ({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) =>
-      React.createElement(View, null, React.createElement(Text, null, title), subtitle ? React.createElement(Text, null, subtitle) : null, children),
-    PrimaryButton: ({ label, onPress, loading, disabled }: { label: string; onPress?: () => void; loading?: boolean; disabled?: boolean }) =>
-      React.createElement(Text, { onPress, accessibilityState: { disabled: !!disabled }, testID: `btn-${label}` }, loading ? 'loading' : label),
-    StatusBadge: ({ label }: { label: string }) => React.createElement(Text, null, label),
-  };
+const mockRequest = request as jest.MockedFunction<
+  (endpoint: string, options?: RequestInit) => Promise<unknown>
+>;
+const printer = {
+  id: 7,
+  name: 'Printer Seven',
+  external_camera_enabled: true,
+  external_camera_url: 'rtsp://old/live',
+  external_camera_type: 'rtsp',
+  external_camera_snapshot_url: null,
+  camera_rotation: 90,
+  plate_detection_roi: { x: 0.1, y: 0.2, w: 0.7, h: 0.6 },
+} as Printer;
+let storedPrinters: Printer[];
+let connectionResult: ExternalCameraConnectionResult;
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  const [client] = React.useState(() => new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false, gcTime: Infinity },
+    },
+  }));
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
+function renderSection() {
+  return render(
+    <ExternalCamerasSettingsSection controller={{} as SettingsScreenController} />,
+    { wrapper: Wrapper },
+  );
+}
+
+async function loadedSection() {
+  const result = await renderSection();
+  await waitFor(() => expect(result.getByLabelText('Stream URL').props.value).toBe('rtsp://old/live'));
+  return result;
+}
+
+beforeEach(() => {
+  mockCanUpdate = true;
+  mockCanViewCamera = true;
+  storedPrinters = [{ ...printer }];
+  connectionResult = { success: true, resolution: '1920x1080' };
+  mockRequest.mockReset();
+  mockRequest.mockImplementation(async (endpoint, options) => {
+    if (endpoint === '/printers/') return storedPrinters;
+    if (options?.method === 'PATCH') {
+      const id = Number(endpoint.split('/').at(-1));
+      const update = JSON.parse(String(options.body)) as Partial<Printer>;
+      storedPrinters = storedPrinters.map(current => current.id === id ? { ...current, ...update } : current);
+      return {};
+    }
+    if (endpoint.startsWith('/printers/') && endpoint.includes('/camera/external/test?')) {
+      return connectionResult;
+    }
+    throw new Error(`Unexpected request: ${endpoint}`);
+  });
 });
 
-jest.mock('@/components/common/StateScreens', () => {
-  const React = require('react');
-  const { Text } = require('react-native');
-  return {
-    EmptyState: ({ title, message }: { title: string; message: string }) =>
-      React.createElement(React.Fragment, null, React.createElement(Text, null, title), React.createElement(Text, null, message)),
-  };
-});
-
-function textContent(node: ReactTestInstance): string {
-  return node.children
-    .map(child => (typeof child === 'string' ? child : textContent(child)))
-    .join('');
-}
-
-function findText(root: ReactTestRenderer.ReactTestRenderer, value: string) {
-  return root.root.findAllByType(Text).find(node => textContent(node) === value) ?? null;
-}
-
-function buildMockController(overrides?: {
-  cameras?: Array<Record<string, unknown>>;
-  printerLabelById?: Record<string, string>;
-  testIsPending?: boolean;
-  testVariables?: number;
-}): SettingsScreenController {
-  const cameras = overrides?.cameras ?? [];
-  const printerLabelById = overrides?.printerLabelById ?? {};
-
-  return {
-    colors: new Proxy({}, { get: () => '#888888' }) as SettingsScreenController['colors'],
-    derived: {
-      externalCameraItems: cameras,
-      printerLabelById,
-      sectionSummaries: {},
-      isDirtySection: false,
-      advancedAuth: undefined,
-      ldapStatus: undefined,
-      twoFAStatus: undefined,
-      virtualPrinterItems: [],
-      virtualPrinterModels: [],
-      currentUserRow: null,
-      securityRows: [],
-      smtpPortBySecurity: { starttls: 587, ssl: 465, none: 25 },
-      printerOptions: [],
-    } as unknown as SettingsScreenController['derived'],
-    mutations: {
-      testExternalCameraMutation: {
-        isPending: overrides?.testIsPending ?? false,
-        variables: overrides?.testVariables ?? undefined,
-        mutateAsync: jest.fn().mockResolvedValue({ success: true, message: 'OK' }),
-      },
-    } as unknown as SettingsScreenController['mutations'],
-    actions: {
-      openExternalCameraModal: jest.fn(),
-      setPendingDeleteExternalCamera: jest.fn(),
-    } as unknown as SettingsScreenController['actions'],
-  } as unknown as SettingsScreenController;
-}
-
-describe('ExternalCamerasSettingsSection', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+describe('ExternalCamerasSettingsSection per-printer configuration', () => {
+  it('loads the supported printer fields and all camera types and rotations through the mounted editor', async () => {
+    const result = await loadedSection();
+    expect(mockRequest).toHaveBeenCalledWith('/printers/');
+    expect(result.getByText('Printer Seven')).toBeTruthy();
+    expect(result.getByLabelText('Use external camera').props.value).toBe(true);
+    expect(result.getByLabelText('Dedicated snapshot URL (optional)').props.value).toBe('');
+    for (const option of ['mjpeg', '✓ rtsp', 'snapshot', 'usb', '0', '✓ 90', '180', '270']) {
+      expect(result.getByRole('button', { name: option })).toBeTruthy();
+    }
   });
 
-  function renderSection(controller: SettingsScreenController) {
-    let renderer!: ReactTestRenderer.ReactTestRenderer;
-    act(() => {
-      renderer = ReactTestRenderer.create(<ExternalCamerasSettingsSection controller={controller} />);
-    });
-    return renderer;
-  }
-
-  it('renders the section title and subtitle', () => {
-    const controller = buildMockController();
-    const renderer = renderSection(controller);
-
-    expect(findText(renderer, 'External cameras')).not.toBeNull();
-    expect(findText(renderer, 'Manage IP camera streams and map each camera to a printer.')).not.toBeNull();
+  it('does not invent a camera configuration when the printer list is empty', async () => {
+    storedPrinters = [];
+    const result = await renderSection();
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledWith('/printers/'));
+    expect(result.getByText(/External cameras are configured on each printer/)).toBeTruthy();
+    expect(result.queryByLabelText('Stream URL')).toBeNull();
+    expect(result.queryByRole('button', { name: 'Save printer camera' })).toBeNull();
+    expect(mockRequest.mock.calls).toEqual([['/printers/']]);
   });
 
-  it('renders empty state when there are no cameras', () => {
-    const controller = buildMockController({ cameras: [] });
-    const renderer = renderSection(controller);
-
-    expect(findText(renderer, 'No external cameras')).not.toBeNull();
-    expect(findText(renderer, 'Add external camera streams to monitor printers beyond the built-in feed.')).not.toBeNull();
+  it('keeps edits and connection tests scoped to the selected printer instead of a separate camera record', async () => {
+    storedPrinters.push({ ...printer, id: 8, name: 'Printer Eight' });
+    const result = await renderSection();
+    await waitFor(() => expect(result.getByText('Printer Eight')).toBeTruthy());
+    await fireEvent.changeText(result.getAllByLabelText('Stream URL')[1], 'rtsp://eight/new');
+    await fireEvent.press(result.getAllByRole('button', { name: 'Test current stream' })[1]);
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledWith(
+      '/printers/8/camera/external/test?url=rtsp%3A%2F%2Feight%2Fnew&camera_type=rtsp',
+      { method: 'POST' },
+    ));
+    expect(result.getAllByLabelText('Stream URL')[0].props.value).toBe('rtsp://old/live');
   });
 
-  it('renders the "Add external camera" button', () => {
-    const controller = buildMockController();
-    const renderer = renderSection(controller);
-
-    expect(findText(renderer, 'Add external camera')).not.toBeNull();
+  it('saves every integration field to the actual printer endpoint and restores those values on revisit', async () => {
+    const result = await loadedSection();
+    await fireEvent.press(result.getByRole('button', { name: 'usb' }));
+    await fireEvent.changeText(result.getByLabelText('USB device path (e.g. /dev/video0)'), '/dev/video2');
+    await fireEvent.changeText(result.getByLabelText('Dedicated snapshot URL (optional)'), 'https://camera/frame.jpg');
+    await fireEvent.press(result.getByRole('button', { name: '270' }));
+    await fireEvent.press(result.getByRole('button', { name: 'Save printer camera' }));
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledWith('/printers/7', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        external_camera_enabled: true,
+        external_camera_url: '/dev/video2',
+        external_camera_type: 'usb',
+        external_camera_snapshot_url: 'https://camera/frame.jpg',
+        camera_rotation: 270,
+      }),
+    }));
+    await waitFor(() => expect(result.getByText('Settings saved')).toBeTruthy());
+    await result.unmount();
+    const revisited = await renderSection();
+    await waitFor(() => expect(revisited.getByLabelText('USB device path (e.g. /dev/video0)').props.value).toBe('/dev/video2'));
+    expect(revisited.getByLabelText('Dedicated snapshot URL (optional)').props.value).toBe('https://camera/frame.jpg');
+    expect(revisited.getByRole('button', { name: '✓ 270' })).toBeTruthy();
   });
 
-  it('calls openExternalCameraModal when Add button is pressed', () => {
-    const controller = buildMockController();
-    const renderer = renderSection(controller);
-    const btn = findText(renderer, 'Add external camera');
-
-    act(() => {
-      btn!.props.onPress();
-    });
-
-    expect(controller.actions.openExternalCameraModal).toHaveBeenCalledTimes(1);
-    expect(controller.actions.openExternalCameraModal).toHaveBeenCalledWith();
+  it('supports disabling a printer camera and clearing optional URLs with null, without deleting a camera record', async () => {
+    const result = await loadedSection();
+    await fireEvent(result.getByLabelText('Use external camera'), 'valueChange', false);
+    await fireEvent.changeText(result.getByLabelText('Stream URL'), '');
+    await fireEvent.press(result.getByRole('button', { name: 'Save printer camera' }));
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledWith('/printers/7', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        external_camera_enabled: false,
+        external_camera_url: null,
+        external_camera_type: 'rtsp',
+        external_camera_snapshot_url: null,
+        camera_rotation: 90,
+      }),
+    }));
+    expect(mockRequest.mock.calls.some(([, options]) => options?.method === 'DELETE')).toBe(false);
   });
 
-  it('renders camera items with name, URL, and type badge', () => {
-    const cameras = [
-      { id: 1, name: 'Front Cam', stream_url: 'http://10.0.0.1/mjpeg', camera_type: 'mjpeg', printer_id: 0 },
-      { id: 2, name: 'Side Cam', stream_url: 'rtsp://10.0.0.2/stream', camera_type: 'rtsp', printer_id: 5 },
-    ];
-    const controller = buildMockController({ cameras, printerLabelById: { '5': 'Printer Five' } });
-    const renderer = renderSection(controller);
-
-    expect(findText(renderer, 'Front Cam')).not.toBeNull();
-    expect(findText(renderer, 'http://10.0.0.1/mjpeg')).not.toBeNull();
-    expect(findText(renderer, 'MJPEG')).not.toBeNull();
-    expect(findText(renderer, 'Printer: Unassigned')).not.toBeNull();
-
-    expect(findText(renderer, 'Side Cam')).not.toBeNull();
-    expect(findText(renderer, 'rtsp://10.0.0.2/stream')).not.toBeNull();
-    expect(findText(renderer, 'RTSP')).not.toBeNull();
-    expect(findText(renderer, 'Printer: Printer Five')).not.toBeNull();
+  it('cancels unsaved field, enable, type and rotation changes without persisting', async () => {
+    const result = await loadedSection();
+    await fireEvent(result.getByLabelText('Use external camera'), 'valueChange', false);
+    await fireEvent.press(result.getByRole('button', { name: 'usb' }));
+    await fireEvent.changeText(result.getByLabelText('USB device path (e.g. /dev/video0)'), '/dev/video4');
+    await fireEvent.changeText(result.getByLabelText('Dedicated snapshot URL (optional)'), 'https://new/frame.jpg');
+    await fireEvent.press(result.getByRole('button', { name: '180' }));
+    await fireEvent.press(result.getByRole('button', { name: 'Cancel' }));
+    expect(result.getByLabelText('Use external camera').props.value).toBe(true);
+    expect(result.getByLabelText('Stream URL').props.value).toBe('rtsp://old/live');
+    expect(result.getByLabelText('Dedicated snapshot URL (optional)').props.value).toBe('');
+    expect(result.getByRole('button', { name: '✓ 90' })).toBeTruthy();
+    expect(mockRequest.mock.calls.some(([, options]) => options?.method === 'PATCH')).toBe(false);
   });
 
-  it('shows "Unknown printer" when printer_id is positive but not found', () => {
-    const cameras = [
-      { id: 1, name: 'Cam', stream_url: 'http://x/y', camera_type: 'mjpeg', printer_id: 99 },
-    ];
-    const controller = buildMockController({ cameras, printerLabelById: {} });
-    const renderer = renderSection(controller);
-
-    expect(findText(renderer, 'Printer: Unknown printer')).not.toBeNull();
+  it('tests the current unsaved stream input and displays its returned resolution', async () => {
+    const result = await loadedSection();
+    await fireEvent.changeText(result.getByLabelText('Stream URL'), 'rtsp://camera/new?key=a&b=c');
+    await fireEvent.press(result.getByRole('button', { name: 'Test current stream' }));
+    await waitFor(() => expect(result.getByText('Resolution: 1920x1080')).toBeTruthy());
+    expect(mockRequest).toHaveBeenCalledWith(
+      '/printers/7/camera/external/test?url=rtsp%3A%2F%2Fcamera%2Fnew%3Fkey%3Da%26b%3Dc&camera_type=rtsp',
+      { method: 'POST' },
+    );
+    expect(result.getByText('Connection successful')).toBeTruthy();
+    expect(mockRequest.mock.calls.some(([, options]) => options?.method === 'PATCH')).toBe(false);
   });
 
-  it('calls openExternalCameraModal with camera when Edit is pressed', () => {
-    const cameras = [
-      { id: 1, name: 'Cam1', stream_url: 'http://a/b', camera_type: 'mjpeg', printer_id: 0 },
-    ];
-    const controller = buildMockController({ cameras });
-    const renderer = renderSection(controller);
-    const editBtn = findText(renderer, 'Edit');
-
-    act(() => {
-      editBtn!.props.onPress();
-    });
-
-    expect(controller.actions.openExternalCameraModal).toHaveBeenCalledWith(cameras[0]);
+  it('independently tests the dedicated snapshot URL and distinguishes shared capture from connection failure', async () => {
+    const result = await loadedSection();
+    connectionResult = { success: true, resolution: '640x480', coalesced: true };
+    await fireEvent.press(result.getByRole('button', { name: 'Test current stream' }));
+    await waitFor(() => expect(result.getByText(/Shared capture: this frame came from an existing capture/)).toBeTruthy());
+    connectionResult = { success: false, error: 'Snapshot denied' };
+    await fireEvent.changeText(result.getByLabelText('Dedicated snapshot URL (optional)'), 'https://camera/snapshot.jpg');
+    await fireEvent.press(result.getByRole('button', { name: 'Test current snapshot URL' }));
+    await waitFor(() => expect(result.getByText('Snapshot denied')).toBeTruthy());
+    expect(mockRequest).toHaveBeenCalledWith(
+      '/printers/7/camera/external/test?url=https%3A%2F%2Fcamera%2Fsnapshot.jpg&camera_type=snapshot',
+      { method: 'POST' },
+    );
+    expect(result.getByText('Resolution: 640x480')).toBeTruthy();
   });
 
-  it('calls setPendingDeleteExternalCamera when Delete is pressed', () => {
-    const cameras = [
-      { id: 1, name: 'Cam1', stream_url: 'http://a/b', camera_type: 'mjpeg', printer_id: 0 },
-    ];
-    const controller = buildMockController({ cameras });
-    const renderer = renderSection(controller);
-    const deleteBtn = findText(renderer, 'Delete');
-
-    act(() => {
-      deleteBtn!.props.onPress();
-    });
-
-    expect(controller.actions.setPendingDeleteExternalCamera).toHaveBeenCalledWith(cameras[0]);
+  it('disables a pending stream test without blocking the independent snapshot test', async () => {
+    const result = await loadedSection();
+    await fireEvent.changeText(result.getByLabelText('Dedicated snapshot URL (optional)'), 'https://camera/frame.jpg');
+    let resolveTest: ((value: ExternalCameraConnectionResult) => void) | undefined;
+    mockRequest.mockImplementationOnce(() => new Promise<ExternalCameraConnectionResult>(resolve => { resolveTest = resolve; }));
+    await fireEvent.press(result.getByRole('button', { name: 'Test current stream' }));
+    await waitFor(() => expect(result.getByRole('button', { name: 'Test current stream' }).props.accessibilityState).toMatchObject({ disabled: true, busy: true }));
+    expect(result.getByRole('button', { name: 'Test current snapshot URL' }).props.accessibilityState.disabled).toBe(false);
+    await fireEvent.press(result.getByRole('button', { name: 'Test current stream' }));
+    expect(mockRequest.mock.calls.filter(([endpoint]) => endpoint.includes('/external/test?'))).toHaveLength(1);
+    await act(async () => { resolveTest?.({ success: true, resolution: '800x600' }); });
+    await waitFor(() => expect(result.getByText('Resolution: 800x600')).toBeTruthy());
   });
 
-  it('calls testExternalCameraMutation.mutateAsync when Test connection is pressed', () => {
-    const cameras = [
-      { id: 7, name: 'TestCam', stream_url: 'http://a/b', camera_type: 'snapshot', printer_id: 0 },
-    ];
-    const controller = buildMockController({ cameras });
-    const renderer = renderSection(controller);
-    const testBtn = findText(renderer, 'Test connection');
-
-    act(() => {
-      testBtn!.props.onPress();
-    });
-
-    expect(controller.mutations.testExternalCameraMutation.mutateAsync).toHaveBeenCalledWith(7);
+  it('keeps printer settings read-only without printers:update while allowing authorized camera tests', async () => {
+    mockCanUpdate = false;
+    const result = await loadedSection();
+    expect(result.getByLabelText('Stream URL').props.editable).toBe(false);
+    expect(result.getByLabelText('Dedicated snapshot URL (optional)').props.editable).toBe(false);
+    expect(result.getByLabelText('Use external camera').props.disabled).toBe(true);
+    for (const name of ['usb', '180', 'Save printer camera']) {
+      expect(result.getByRole('button', { name }).props.accessibilityState.disabled).toBe(true);
+    }
+    await fireEvent.press(result.getByRole('button', { name: 'Save printer camera' }));
+    await fireEvent.press(result.getByRole('button', { name: 'Test current stream' }));
+    await waitFor(() => expect(result.getByText('Connection successful')).toBeTruthy());
+    expect(mockRequest.mock.calls.some(([, options]) => options?.method === 'PATCH')).toBe(false);
   });
 
-  it('shows loading state when test mutation is pending for the camera', () => {
-    const cameras = [
-      { id: 3, name: 'Cam', stream_url: 'http://x/y', camera_type: 'mjpeg', printer_id: 0 },
-    ];
-    const controller = buildMockController({ cameras, testIsPending: true, testVariables: 3 });
-    const renderer = renderSection(controller);
-
-    // The mock PrimaryButton shows 'loading' text when loading=true
-    expect(findText(renderer, 'loading')).not.toBeNull();
-    expect(findText(renderer, 'Test connection')).toBeNull();
+  it('requires camera:view for tests independently of printer-update permission', async () => {
+    mockCanViewCamera = false;
+    const result = await loadedSection();
+    await fireEvent.changeText(result.getByLabelText('Dedicated snapshot URL (optional)'), 'https://camera/frame.jpg');
+    for (const name of ['Test current stream', 'Test current snapshot URL']) {
+      expect(result.getByRole('button', { name }).props.accessibilityState.disabled).toBe(true);
+      await fireEvent.press(result.getByRole('button', { name }));
+    }
+    expect(result.getByRole('button', { name: 'Save printer camera' }).props.accessibilityState.disabled).toBe(false);
+    expect(mockRequest.mock.calls.some(([endpoint]) => endpoint.includes('/external/test?'))).toBe(false);
   });
 
-  it('does not render empty state when cameras exist', () => {
-    const cameras = [
-      { id: 1, name: 'Cam', stream_url: 'http://a/b', camera_type: 'mjpeg', printer_id: 0 },
-    ];
-    const controller = buildMockController({ cameras });
-    const renderer = renderSection(controller);
+  it('validates USB device paths and HTTP snapshot URLs before save or test', async () => {
+    const result = await loadedSection();
+    await fireEvent.press(result.getByRole('button', { name: 'usb' }));
+    await fireEvent.changeText(result.getByLabelText('USB device path (e.g. /dev/video0)'), '/dev/null');
+    await fireEvent.changeText(result.getByLabelText('Dedicated snapshot URL (optional)'), 'file:///camera.jpg');
+    expect(result.getByText(/Enter a valid stream URL/)).toBeTruthy();
+    expect(result.getByText('The dedicated snapshot URL must use HTTP or HTTPS.')).toBeTruthy();
+    for (const name of ['Test current stream', 'Test current snapshot URL', 'Save printer camera']) {
+      expect(result.getByRole('button', { name }).props.accessibilityState.disabled).toBe(true);
+    }
+    expect(mockRequest.mock.calls).toEqual([['/printers/']]);
+  });
 
-    expect(findText(renderer, 'No external cameras')).toBeNull();
+  it('exposes printer-list failures and retries against the actual printer endpoint', async () => {
+    mockRequest.mockRejectedValueOnce(new Error('Printer list unavailable'));
+    const result = await renderSection();
+    await waitFor(() => expect(result.getByRole('button', { name: 'Retry' })).toBeTruthy());
+    await fireEvent.press(result.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(result.getByText('Printer Seven')).toBeTruthy());
+    expect(mockRequest.mock.calls).toEqual([['/printers/'], ['/printers/']]);
   });
 });

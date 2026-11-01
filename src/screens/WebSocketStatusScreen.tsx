@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { NativeTranslation, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   RefreshControl,
@@ -18,10 +19,12 @@ import {
   borderRadius,
 } from '@/theme/tokens';
 import { PrimaryButton, StatusBadge } from '@/components/common/AppUI';
+import { formatPreferredTime } from '@/utils/preferences';
 
 type ConnectionState = 'connected' | 'reconnecting' | 'disconnected';
 
 export default function WebSocketStatusScreen() {
+  const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'WebSocketStatus'>>();
   const { colors } = useTheme();
 
@@ -30,39 +33,39 @@ export default function WebSocketStatusScreen() {
   const [autoRefreshEnabled, _setAutoRefreshEnabled] = useState(false);
 
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'WebSocket Status' });
-  }, [navigation]);
+    navigation.setOptions({ title: translateNative('screen.websocketStatus') });
+  }, [navigation, titleLocale]);
 
-  const connectionState: ConnectionState = useMemo(() => {
+  const connectionState: ConnectionState = useLocalizedMemo(() => {
     if (isConnected) return 'connected';
     if (isReconnecting) return 'reconnecting';
     return 'disconnected';
   }, [isConnected, isReconnecting]);
 
-  const connectionBadge = useMemo(() => {
+  const connectionBadge = useLocalizedMemo(() => {
     switch (connectionState) {
       case 'connected':
-        return { label: 'Connected', color: colors.success };
+        return { get label() { return translateNative('native.7a24d4ce1f2c4857'); }, color: colors.success };
       case 'reconnecting':
-        return { label: 'Reconnecting', color: colors.warning };
+        return { get label() { return translateNative('native.832310d1b8ab2796'); }, color: colors.warning };
       case 'disconnected':
-        return { label: 'Disconnected', color: colors.error };
+        return { get label() { return translateNative('native.22cd1cee4ce4b061'); }, color: colors.error };
     }
   }, [connectionState, colors]);
 
-  const recentErrors = useMemo(() => {
+  const recentErrors = useLocalizedMemo(() => {
     return errors.slice(-10).reverse();
   }, [errors]);
 
   const handleReconnect = useCallback(() => {
     if (connectionState === 'connected') {
       Alert.alert(
-        'WebSocket Status',
-        'You are currently connected. Are you sure you want to disconnect and reconnect?',
+        translateNative('screen.websocketStatus'),
+        translateNative('native.e1c01220a6768583'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { get text() { return translateNative('common.cancel'); }, style: 'cancel' },
           {
-            text: 'Reconnect',
+            get text() { return translateNative('native.6192c91424256298'); },
             style: 'destructive',
             onPress: () => {
               // Force a reconnection by unmounting/remounting the hook via navigation.
@@ -84,12 +87,12 @@ export default function WebSocketStatusScreen() {
 
   const handleClearErrors = useCallback(() => {
     Alert.alert(
-      'Clear Errors',
-      'Are you sure you want to clear all WebSocket errors?',
+      translateNative('native.a5ed31a85005df6b'),
+      translateNative('native.b25423a76431bf94'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { get text() { return translateNative('common.cancel'); }, style: 'cancel' },
         {
-          text: 'Clear',
+          get text() { return translateNative('native.1f62863691c7afa1'); },
           style: 'destructive',
           onPress: () => {
             clearErrors();
@@ -123,8 +126,7 @@ export default function WebSocketStatusScreen() {
   }, [autoRefreshEnabled, connectionState, handleRefresh]);
 
   const formatErrorTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString();
+    return formatPreferredTime(new Date(timestamp), undefined, true);
   };
 
   return (
@@ -140,17 +142,15 @@ export default function WebSocketStatusScreen() {
       }
     >
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>WebSocket Status</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{translateNative('screen.websocketStatus')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Monitor your WebSocket connection to the Bambu server.
-        </Text>
+          {translateNative('native.29559e3b4de82def')}</Text>
       </View>
 
       <View style={styles.statusCard}>
         <View style={styles.statusRow}>
           <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>
-            Connection State
-          </Text>
+            {translateNative('native.7fe604a336d7051b')}</Text>
           <StatusBadge label={connectionBadge.label} color={connectionBadge.color} />
         </View>
 
@@ -158,15 +158,14 @@ export default function WebSocketStatusScreen() {
           <View style={styles.reconnectingIndicator}>
             <View style={[styles.reconnectingDot, { backgroundColor: colors.warning }]} />
             <Text style={[styles.reconnectingText, { color: colors.warning }]}>
-              Attempting to reconnect…
-            </Text>
+              {translateNative('native.fbbf3c5a74c71561')}</Text>
           </View>
         )}
 
         {connectionState === 'disconnected' && (
           <View style={styles.disconnectedHint}>
             <Text style={[styles.disconnectedText, { color: colors.textSecondary }]}>
-              Auto-refresh is {autoRefreshEnabled ? 'enabled' : 'disabled'}.
+              {translateNative('native.8c9447bb1d2b8c55')}{autoRefreshEnabled ? translateNative('native.6786e575ee872370') : translateNative('native.08e76ba2b69926c4')}.
             </Text>
           </View>
         )}
@@ -175,11 +174,9 @@ export default function WebSocketStatusScreen() {
       {recentErrors.length > 0 && (
         <View style={styles.errorsCard}>
           <View style={styles.errorsHeader}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>
-              Recent Errors ({recentErrors.length})
-            </Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}><NativeTranslation id="native.cfe8deb362907dd6" values={{ value0: (recentErrors.length) }} /></Text>
             <PrimaryButton
-              label="Clear"
+              label={translateNative('native.1f62863691c7afa1')}
               variant="secondary"
               onPress={handleClearErrors}
             />
@@ -196,14 +193,10 @@ export default function WebSocketStatusScreen() {
                     {formatErrorTime(error.timestamp)}
                   </Text>
                   {error.attempt !== undefined && (
-                    <Text style={[styles.errorAttempt, { color: colors.textSecondary }]}>
-                      Attempt {error.attempt + 1}
-                    </Text>
+                    <Text style={[styles.errorAttempt, { color: colors.textSecondary }]}><NativeTranslation id="native.5cf45cb1c7f94d45" values={{ value0: (error.attempt + 1) }} /></Text>
                   )}
                   {error.code !== undefined && (
-                    <Text style={[styles.errorCode, { color: colors.textSecondary }]}>
-                      Code {error.code}
-                    </Text>
+                    <Text style={[styles.errorCode, { color: colors.textSecondary }]}><NativeTranslation id="native.962fe46b94c01fc5" values={{ value0: (error.code) }} /></Text>
                   )}
                 </View>
                 <Text style={[styles.errorMessage, { color: colors.text }]}>{error.message}</Text>
@@ -215,7 +208,7 @@ export default function WebSocketStatusScreen() {
 
       <View style={styles.actions}>
         <PrimaryButton
-          label={connectionState === 'connected' ? 'Disconnect & Reconnect' : 'Reconnect'}
+          label={connectionState === 'connected' ? translateNative('native.03cdc606fb4f2bc3') : translateNative('native.6192c91424256298')}
           variant={connectionState === 'connected' ? 'secondary' : 'primary'}
           onPress={handleReconnect}
         />

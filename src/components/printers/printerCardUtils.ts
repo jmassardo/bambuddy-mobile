@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 // Utility functions extracted from PrinterCard.tsx for readability
 
 import type { useTheme } from '@/theme';
@@ -11,24 +12,24 @@ export function clamp(value: number, min = 0, max = 100) {
 }
 
 export function getStatusLabel(status?: PrinterStatus) {
-  if (!status?.connected) return 'Offline';
+  if (!status?.connected) return translateNative('native.460c8b942025eaac');
   if (status.stg_cur_name) return status.stg_cur_name;
 
   switch (status.state) {
     case 'RUNNING':
-      return 'Printing';
+      return translateNative('native.58b5ceab5adaa853');
     case 'PAUSE':
-      return 'Paused';
+      return translateNative('native.2e8d3baadb9cc3fd');
     case 'FINISH':
-      return 'Finished';
+      return translateNative('native.90a4f4400cd3eda4');
     case 'FAILED':
-      return 'Failed';
+      return translateNative('native.4951b5090ada997d');
     case 'IDLE':
-      return 'Idle';
+      return translateNative('native.a3b81f922d798281');
     default:
       return status.state
         ? status.state.charAt(0) + status.state.slice(1).toLowerCase()
-        : 'Idle';
+        : translateNative('native.a3b81f922d798281');
   }
 }
 
@@ -109,7 +110,7 @@ export function formatDualNozzleTemperature(status: PrinterStatus) {
     status.temperatures?.nozzle_2,
     status.temperatures?.nozzle_2_target,
   );
-  return `L ${primary} • R ${secondary}`;
+  return translateNative('native.4a10b8ee05bb80bc', { value0: String(primary), value1: String(secondary) });
 }
 
 export function parseFilamentColor(value: string | null | undefined) {
@@ -139,18 +140,18 @@ export function getFillColor(percent: number | null | undefined, colors: ThemeCo
 }
 
 export function getAmsStatusLabel(ams: AMSUnit) {
-  if (ams.dry_time > 0) return `${Math.ceil(ams.dry_time / 60)}h drying`;
+  if (ams.dry_time > 0) return translateNative('native.a7c9f190f2e5940a', { value0: String(Math.ceil(ams.dry_time / 60)) });
   if (ams.is_ams_ht || ams.module_type === 'n3s') return 'AMS HT';
   if (ams.module_type === 'n3f') return 'AMS Pro';
   return 'AMS';
 }
 
 export function getAmsTitle(ams: AMSUnit) {
-  return `AMS ${String.fromCharCode(65 + ((ams.id >= 128 ? ams.id - 128 : ams.id) % 26))}`;
+  return translateNative('native.2308b198d1da955c', { value0: String(String.fromCharCode(65 + ((ams.id >= 128 ? ams.id - 128 : ams.id) % 26))) });
 }
 
 export function getTrayLabel(tray: AMSTray) {
-  return tray.tray_sub_brands || tray.tray_type || 'Empty';
+  return tray.tray_sub_brands || tray.tray_type || translateNative('native.ee4487d54025a3ca');
 }
 
 export function getEffectiveTrayFill(
@@ -180,8 +181,8 @@ export function getEffectiveTrayFill(
 
 export function getTrayStateLabel(tray: AMSTray) {
   if (tray.tray_type) return tray.tray_type;
-  if (tray.state === 9 || tray.state === 10) return 'Empty';
-  return 'Unset';
+  if (tray.state === 9 || tray.state === 10) return translateNative('native.ee4487d54025a3ca');
+  return translateNative('native.f9028cad41157ef1');
 }
 
 export function getTrayGlobalId(amsId: number, trayId: number) {
