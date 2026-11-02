@@ -173,6 +173,26 @@ it.each([
   expect(fs.existsSync(hostsPath)).toBe(false);
 });
 
+it.each(['missing-final-newline', 'crlf'])('materializes a usable OpenSSH key from a %s secret', format => {
+  const original = path.join(directory, 'original-key');
+  execFileSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', original]);
+  const publicKey = execFileSync('ssh-keygen', ['-y', '-f', original], { encoding: 'utf8' });
+  const key = fs.readFileSync(original, 'utf8');
+  const secret = format === 'crlf' ? key.replace(/\n/g, '\r\n') : key.trimEnd();
+  const result = spawnSync(process.execPath, ['-e', `
+    global.fetch = async () => ({ok:true,status:200,json:async()=>({ssh_keys:['ssh-ed25519 AAAATEST==']})});
+    require(${JSON.stringify(pipelinePath)}).main('credentials','match')
+      .catch(error=>{console.error(error.message);process.exitCode=1;});
+  `], {
+    encoding: 'utf8',
+    env: { ...process.env, RUNNER_TEMP: directory, GITHUB_ENV: path.join(directory, 'github-env'),
+      GITHUB_TOKEN: 'test-only-token', MATCH_GIT_PRIVATE_KEY_CONTENT: secret },
+  });
+  expect(result.status).toBe(0);
+  const restored = path.join(directory, 'bambuddy-match-deploy-key');
+  expect(execFileSync('ssh-keygen', ['-y', '-f', restored], { encoding: 'utf8' })).toBe(publicKey);
+});
+
 it.each([false, true])('synchronizes develop only when no newer work exists (newer: %s)', newer => {
   const resultPath = path.join(directory, 'sync-result.json');
   const head = newer ? 'f'.repeat(40) : context.sourceCommit;
