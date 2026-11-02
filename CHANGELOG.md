@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-02
+
 ### Added
 
 - Complete account security controls, optional authentication, email/backup-code login, native SSO, scoped API keys, and connected-app consent.
@@ -59,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Require HTTPS for public servers while preserving HTTP access to self-hosted servers on local networks (#83)
 
-[Unreleased]: https://github.com/jmassardo/bambuddy-mobile/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/jmassardo/bambuddy-mobile/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/jmassardo/bambuddy-mobile/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/jmassardo/bambuddy-mobile/releases/tag/v1.1.0
 [1.0.1]: https://github.com/jmassardo/bambuddy-mobile/releases/tag/v1.0.1
