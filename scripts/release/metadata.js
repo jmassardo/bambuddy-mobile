@@ -888,7 +888,7 @@ function secureFiles(rootDirectory, fileSystem = fs) {
   return { root, files };
 }
 
-function readReleaseMetadata(rootDirectory) {
+function readReleaseMetadata(rootDirectory, options = {}) {
   const secured = secureFiles(rootDirectory);
   return metadataFromBuffers(
     Object.fromEntries(
@@ -897,6 +897,7 @@ function readReleaseMetadata(rootDirectory) {
         secured.files[relativePath].buffer,
       ]),
     ),
+    options,
   );
 }
 

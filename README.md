@@ -257,7 +257,12 @@ npm run beta:android
 
 ### Release version checklist
 
-Keep the app version and build number synchronized before cutting a release:
+The [build-once release pipeline](docs/build-once-releases.md) automatically
+increments and synchronizes versions on a merge to `develop`, builds signed
+candidates, and promotes those exact builds after merging to `main`. Activation
+requires the credentials and repository configuration described in that runbook.
+
+For exceptional manual builds, keep the app version and build number synchronized:
 
 - Update `package.json` `version`.
 - Update both `versionName` and the incremented `versionCode` in `android/app/build.gradle`.

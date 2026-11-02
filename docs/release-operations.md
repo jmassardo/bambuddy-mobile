@@ -1,5 +1,8 @@
 # Release governance operations
 
+> Historical manual-approval policy, superseded by [build-once releases](build-once-releases.md).
+> The two-human gate, `dev`/tag callers, and legacy verifier below do not govern the current automatic pipeline.
+
 ## Purpose and activation status
 
 This is the authorized-operator runbook for applying and proving the release governance contract for `jmassardo/bambuddy-mobile`. It is an operating procedure, not proof of current GitHub state. The canonical desired state is [`release-configuration-checklist.md`](release-configuration-checklist.md) and `scripts/release/github-governance-contract.js`.
