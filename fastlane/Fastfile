@@ -214,10 +214,15 @@ def query_release_metadata
   path = File.expand_path(required_env("RELEASE_STORE_METADATA_PATH"))
   api_key(required: true)
   app = asc_app
-  versions = app.get_app_store_versions(filter: { platform: "IOS" }).map(&:version_string)
-  if versions.empty? || versions.any? { |version| !strict_store_version?(version) }
-    UI.user_error!("App Store Connect must contain strict three-part app-store versions")
+  versions = app.get_app_store_versions(filter: { platform: "IOS" }).map do |store|
+    version = store.version_string.to_s
+    unless /\A(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){0,2}\z/.match?(version)
+      UI.user_error!("App Store Connect must contain one-to-three-part numeric app-store versions")
+    end
+    parts = version.split(".")
+    (parts + ["0"] * (3 - parts.length)).join(".")
   end
+  UI.user_error!("App Store Connect must contain numeric app-store versions") if versions.empty?
   store_version = versions.max_by { |version| version.split(".").map(&:to_i) }
   builds = Spaceship::ConnectAPI::Build.all(app_id: app.id, platform: "IOS")
   numbers = builds.filter_map do |build|

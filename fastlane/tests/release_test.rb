@@ -340,12 +340,24 @@ class ReleaseLanesTest < Minitest::Test
     assert_only_actions :app_store_connect_api_key
   end
 
+  def test_query_normalizes_existing_apple_versions_without_relaxing_candidate_versions
+    @metadata_path = File.join(ROOT, "fastlane/tests/.release-metadata-#{Process.pid}.json")
+    ENV["RELEASE_STORE_METADATA_PATH"] = @metadata_path
+    { "1.0" => "1.0.0", "1.10" => "1.10.0", "2" => "2.0.0" }.each do |legacy, normalized|
+      @app.versions = [StoreVersion.new(legacy), StoreVersion.new("0.9.9")]
+      run_lane(nil, :release_metadata)
+      assert_equal normalized, JSON.parse(File.read(@metadata_path))["store_version"]
+    end
+    ENV["RELEASE_VERSION"] = "1.0"
+    assert_release_failure(:ios, :release_candidate, /strict three-part/)
+  end
+
   def test_query_fails_on_missing_app_versions_invalid_versions_or_exhausted_numbers
     @metadata_path = File.join(ROOT, "fastlane/tests/.release-metadata-#{Process.pid}.json")
     ENV["RELEASE_STORE_METADATA_PATH"] = @metadata_path
-    [[], [StoreVersion.new("1.2")], [StoreVersion.new("01.2.3")]].each do |versions|
+    [[], *%w[01.2.3 1.2.3-beta 1.2.3.4 1.2.].map { |version| [StoreVersion.new(version)] }].each do |versions|
       @app.versions = versions
-      assert_release_failure(nil, :release_metadata, /three-part/)
+      assert_release_failure(nil, :release_metadata, /numeric/)
       refute File.exist?(@metadata_path)
     end
     @app.versions = [StoreVersion.new("1.2.3")]
