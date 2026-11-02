@@ -10,7 +10,7 @@ const environments = {
   },
   'release-ios': {
     branch: 'develop',
-    secrets: ['ASC_KEY_ID', 'ASC_ISSUER_ID', 'ASC_KEY_CONTENT', 'MATCH_PASSWORD', 'MATCH_GIT_AUTHORIZATION'],
+    secrets: ['ASC_KEY_ID', 'ASC_ISSUER_ID', 'ASC_KEY_CONTENT', 'MATCH_PASSWORD', 'MATCH_GIT_PRIVATE_KEY'],
   },
   'release-android': {
     branch: 'develop',

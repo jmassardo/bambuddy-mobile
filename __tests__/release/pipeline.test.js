@@ -108,6 +108,42 @@ it('rejects rerunning preparation before it can reserve a new version under exis
   expect(result.stderr).toContain('Candidate preparation cannot be rerun');
 });
 
+it.each([
+  { status: 200, keys: ['ssh-ed25519 AAAATEST=='], error: null },
+  { status: 200, keys: ['ssh-rsa AAAATEST=='], error: 'GitHub did not provide an Ed25519 SSH host key' },
+  { status: 503, keys: [], error: 'Unable to verify GitHub SSH host keys (503)' },
+])('pins Match SSH access to verified host keys (HTTP $status, error: $error)', ({ status, keys, error }) => {
+  const env = {
+    ...process.env, RUNNER_TEMP: directory, GITHUB_ENV: path.join(directory, 'github-env'),
+    GITHUB_TOKEN: 'test-only-token',
+    MATCH_GIT_PRIVATE_KEY_CONTENT: '-----BEGIN OPENSSH PRIVATE KEY-----\ntest-only-key\n-----END OPENSSH PRIVATE KEY-----\n',
+  };
+  const result = spawnSync(process.execPath, ['-e', `
+    global.fetch = async () => ({ok:${status === 200},status:${status},json:async()=>({ssh_keys:${JSON.stringify(keys)}})});
+    require(${JSON.stringify(pipelinePath)}).main('credentials','match')
+      .catch(error=>{console.error(error.message);process.exitCode=1;});
+  `], { env, encoding: 'utf8' });
+  const privatePath = path.join(directory, 'bambuddy-match-deploy-key');
+  const hostsPath = path.join(directory, 'bambuddy-github-known-hosts');
+  expect(fs.statSync(privatePath).mode & 0o777).toBe(0o600);
+  if (error) {
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(error);
+    expect(fs.existsSync(path.join(directory, 'github-env'))).toBe(false);
+  } else {
+    expect(result.status).toBe(0);
+    expect(fs.readFileSync(hostsPath, 'utf8')).toBe('github.com ssh-ed25519 AAAATEST==\n');
+    const exported = fs.readFileSync(path.join(directory, 'github-env'), 'utf8');
+    expect(exported).toContain(`MATCH_GIT_PRIVATE_KEY=${privatePath}\n`);
+    expect(exported).toContain('StrictHostKeyChecking=yes');
+    expect(exported).toContain(`UserKnownHostsFile='${hostsPath}'`);
+    expect(exported).not.toContain('test-only-key');
+  }
+  execFileSync(process.execPath, [pipelinePath, 'cleanup-credentials'], { env });
+  expect(fs.existsSync(privatePath)).toBe(false);
+  expect(fs.existsSync(hostsPath)).toBe(false);
+});
+
 it.each([false, true])('synchronizes develop only when no newer work exists (newer: %s)', newer => {
   const resultPath = path.join(directory, 'sync-result.json');
   const head = newer ? 'f'.repeat(40) : context.sourceCommit;

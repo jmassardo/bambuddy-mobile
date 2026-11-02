@@ -36,7 +36,7 @@ names. Never commit credential values. Configure:
 | Environment | Allowed branch | Credentials |
 | --- | --- | --- |
 | `release-query` | `develop` | Apple API key trio, Google service-account JSON, automation App private key |
-| `release-ios` | `develop` | Apple API key trio, Match password and Git authorization |
+| `release-ios` | `develop` | Apple API key trio, Match password and read-only SSH deploy key |
 | `release-android` | `develop` | Google JSON, release keystore and its password/alias/key password |
 | `production-ios` | `main` | Apple API key trio only; no signing credentials |
 | `production-android` | `main` | Google JSON only; no signing credentials |
@@ -45,6 +45,10 @@ Repository variables: `APPLE_TEAM_ID`, `MATCH_GIT_URL`,
 `RELEASE_AUTOMATION_APP_ID`. Existing repository-scoped demo secrets remain
 available to candidate build jobs. The Match repository must already contain valid
 App Store certificates and profiles; CI uses read-only Match.
+`MATCH_GIT_URL` uses the SSH URL of that repository. Store the unencrypted
+OpenSSH deploy key in `release-ios/MATCH_GIT_PRIVATE_KEY` and install its public
+key on the signing repository with write access disabled. CI pins SSH host keys
+from GitHub's HTTPS metadata API and deletes temporary key files even on failure.
 
 Install the dedicated GitHub App only on this repository, with Contents and Pull
 requests write and Metadata read. Store its private key only in `release-query`.

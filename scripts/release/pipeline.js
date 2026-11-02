@@ -163,8 +163,26 @@ async function prepare() {
   output({ commit: git('rev-parse', 'HEAD'), version, build_number: buildNumber, branch: context.branch });
 }
 
-function credentials(platform) {
+async function credentials(platform) {
   const directory = required('RUNNER_TEMP');
+  if (platform === 'match') {
+    const key = required('MATCH_GIT_PRIVATE_KEY_CONTENT');
+    if (!key.startsWith('-----BEGIN OPENSSH PRIVATE KEY-----')) throw new Error('Invalid Match deploy key configuration');
+    const keyPath = path.join(directory, 'bambuddy-match-deploy-key');
+    fs.writeFileSync(keyPath, key, { mode: 0o600 });
+    const response = await fetch('https://api.github.com/meta', {
+      headers: { Authorization: `Bearer ${required('GITHUB_TOKEN')}`, Accept: 'application/vnd.github+json' },
+    });
+    if (!response.ok) throw new Error(`Unable to verify GitHub SSH host keys (${response.status})`);
+    const keys = (await response.json()).ssh_keys?.filter(value => /^ssh-ed25519 [A-Za-z0-9+/=]+$/.test(value));
+    if (!keys?.length) throw new Error('GitHub did not provide an Ed25519 SSH host key');
+    const hostsPath = path.join(directory, 'bambuddy-github-known-hosts');
+    fs.writeFileSync(hostsPath, `${keys.map(value => `github.com ${value}`).join('\n')}\n`, { mode: 0o600 });
+    const quote = value => `'${value.replace(/'/g, "'\\''")}'`;
+    const ssh = `ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${quote(hostsPath)} -i ${quote(keyPath)}`;
+    fs.appendFileSync(required('GITHUB_ENV'), `MATCH_GIT_PRIVATE_KEY=${keyPath}\nGIT_SSH_COMMAND=${ssh}\n`);
+    return;
+  }
   let google;
   try {
     google = JSON.parse(required('GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT'));
@@ -185,7 +203,7 @@ function credentials(platform) {
 }
 
 function cleanupCredentials() {
-  for (const filename of ['bambuddy-google-service-account.json', 'bambuddy-release.keystore']) {
+  for (const filename of ['bambuddy-google-service-account.json', 'bambuddy-release.keystore', 'bambuddy-match-deploy-key', 'bambuddy-github-known-hosts']) {
     fs.rmSync(path.join(required('RUNNER_TEMP'), filename), { force: true });
   }
 }

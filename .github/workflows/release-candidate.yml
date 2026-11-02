@@ -84,7 +84,6 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_AUTHORIZATION }}
       MATCH_GIT_URL: ${{ vars.MATCH_GIT_URL }}
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
       BAMBUDDY_DEMO_URL: ${{ secrets.BAMBUDDY_DEMO_URL }}
@@ -103,6 +102,11 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
       - run: npm ci
+      - name: Prepare read-only signing-repository access
+        run: node scripts/release/pipeline.js credentials match
+        env:
+          MATCH_GIT_PRIVATE_KEY_CONTENT: ${{ secrets.MATCH_GIT_PRIVATE_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
       - run: bundle exec ruby fastlane/tests/release_test.rb
       - run: bundle exec pod install --project-directory=ios
       - run: bundle exec fastlane ios release_candidate
@@ -115,6 +119,9 @@ jobs:
             ios/build/*.dSYM.zip
           if-no-files-found: error
           retention-days: 90
+      - name: Remove temporary signing-repository credentials
+        if: always()
+        run: node scripts/release/pipeline.js cleanup-credentials
 
   android:
     needs: [prepare, quality]

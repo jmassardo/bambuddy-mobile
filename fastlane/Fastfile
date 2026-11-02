@@ -199,10 +199,15 @@ def android_promotion_complete?(identity, credentials)
   true
 end
 
-def match_git_authorization
+def match_git_options
+  private_key = ENV["MATCH_GIT_PRIVATE_KEY"]
+  unless private_key.to_s.strip.empty?
+    UI.user_error!("MATCH_GIT_PRIVATE_KEY must point to a private-key file") unless File.file?(private_key)
+    return { git_private_key: private_key }
+  end
   value = ENV["MATCH_GIT_BASIC_AUTHORIZATION"] || ENV["MATCH_GIT_AUTHORIZATION"]
-  UI.user_error!("MATCH_GIT_BASIC_AUTHORIZATION is required") if value.nil? || value.strip.empty?
-  value
+  UI.user_error!("MATCH_GIT_PRIVATE_KEY or MATCH_GIT_BASIC_AUTHORIZATION is required") if value.nil? || value.strip.empty?
+  { git_basic_authorization: value }
 end
 
 def query_release_metadata
@@ -315,14 +320,14 @@ platform :ios do
     identity = release_identity
     validate_candidate_metadata(identity, :ios)
     required_env("MATCH_PASSWORD")
-    match_git_authorization
+    git_options = match_git_options
     key = api_key(required: true)
     setup_ci(force: true)
     match(
       type: "appstore",
       readonly: true,
       api_key: key,
-      git_basic_authorization: match_git_authorization
+      **git_options
     )
     build_ios_app(
       workspace: "ios/Bambuddy.xcworkspace",

@@ -121,7 +121,7 @@ test('main and main-bound PRs cannot rebuild app binaries', () => {
 });
 
 test('jobs that materialize credentials always remove them, including after a failure', () => {
-  for (const job of [candidate.jobs.prepare, candidate.jobs.android, promotion.jobs.android]) {
+  for (const job of [candidate.jobs.prepare, candidate.jobs.ios, candidate.jobs.android, promotion.jobs.android]) {
     expect(job.steps.at(-1)).toMatchObject({
       if: 'always()', run: 'node scripts/release/pipeline.js cleanup-credentials',
     });

@@ -10,7 +10,7 @@ class ReleaseLanesTest < Minitest::Test
   ENV_NAMES = %w[
     RELEASE_VERSION BUILD_NUMBER RELEASE_STORE_METADATA_PATH
     ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_CONTENT ASC_KEY_FILEPATH
-    MATCH_PASSWORD MATCH_GIT_AUTHORIZATION MATCH_GIT_BASIC_AUTHORIZATION
+    MATCH_PASSWORD MATCH_GIT_AUTHORIZATION MATCH_GIT_BASIC_AUTHORIZATION MATCH_GIT_PRIVATE_KEY
     GOOGLE_SERVICE_ACCOUNT_KEY_PATH
     BAMBUDDY_RELEASE_STORE_FILE BAMBUDDY_RELEASE_STORE_PASSWORD
     BAMBUDDY_RELEASE_KEY_ALIAS BAMBUDDY_RELEASE_KEY_PASSWORD
@@ -406,6 +406,22 @@ class ReleaseLanesTest < Minitest::Test
     ENV["MATCH_GIT_BASIC_AUTHORIZATION"] = "mapped-test-authorization"
     run_lane(:ios, :release_candidate)
     assert_equal "mapped-test-authorization", action_options(:match)[:git_basic_authorization]
+  end
+
+  def test_ios_candidate_uses_the_readonly_deploy_key_without_http_credentials
+    set_native_identity(:ios)
+    ENV.delete("MATCH_GIT_AUTHORIZATION")
+    ENV["MATCH_GIT_PRIVATE_KEY"] = FASTFILE
+    run_lane(:ios, :release_candidate)
+    assert_equal FASTFILE, action_options(:match)[:git_private_key]
+    refute action_options(:match).key?(:git_basic_authorization)
+    assert_equal true, action_options(:match)[:readonly]
+  end
+
+  def test_ios_candidate_rejects_a_missing_deploy_key_before_building
+    set_native_identity(:ios)
+    ENV["MATCH_GIT_PRIVATE_KEY"] = File.join(ROOT, "missing-deploy-key")
+    assert_release_failure(:ios, :release_candidate, /must point to a private-key file/)
   end
 
   def test_android_candidate_builds_and_uploads_once_and_requires_production_signing
