@@ -2619,7 +2619,7 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "09dfb9c626cb752f57661c0d88cda54b377e6e9b8359fa6e96b30d914a599cf3",
       "disposition": "System command captions/details are closed local getters. Dynamic command templates interpolate those captions. Write/update statuses use bounded mappings with raw unknown fallback. Backend messages/device names remain raw.",
-      "fileDigest": "91cf5b3387d4ff83740e2842ecbbd2e6f67cbee8860151b31916dc6aa628e457"
+      "fileDigest": "663d55a32436daf0920960c06026ebe1cb754ec65ca8914729708b6c1a4a9b0c"
     },
     {
       "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
@@ -2634,7 +2634,7 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "948d6aa1027efa7db53550b9fc6ac6ccc33a105c695451b1cd7665b525ded059",
       "disposition": "System command captions/details are closed local getters. Dynamic command templates interpolate those captions. Write/update statuses use bounded mappings with raw unknown fallback. Backend messages/device names remain raw.",
-      "fileDigest": "91cf5b3387d4ff83740e2842ecbbd2e6f67cbee8860151b31916dc6aa628e457"
+      "fileDigest": "663d55a32436daf0920960c06026ebe1cb754ec65ca8914729708b6c1a4a9b0c"
     },
     {
       "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
@@ -2649,7 +2649,7 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "b4ba1a5728720cca188ca5cad9884689a291a05a1b9d5d3328a1ee7f77e9500b",
       "disposition": "System command captions/details are closed local getters. Dynamic command templates interpolate those captions. Write/update statuses use bounded mappings with raw unknown fallback. Backend messages/device names remain raw.",
-      "fileDigest": "91cf5b3387d4ff83740e2842ecbbd2e6f67cbee8860151b31916dc6aa628e457"
+      "fileDigest": "663d55a32436daf0920960c06026ebe1cb754ec65ca8914729708b6c1a4a9b0c"
     },
     {
       "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
@@ -2664,7 +2664,7 @@
       "reason": "Confirm this private facade receives closed app-authored metadata/enums, never arbitrary user/server text.",
       "id": "edc47b59ab4ae54ef54eac5f5b2d0c5433c7b6b5be4c7ff53435b7ddbae6fdb5",
       "disposition": "System command captions/details are closed local getters. Dynamic command templates interpolate those captions. Write/update statuses use bounded mappings with raw unknown fallback. Backend messages/device names remain raw.",
-      "fileDigest": "91cf5b3387d4ff83740e2842ecbbd2e6f67cbee8860151b31916dc6aa628e457"
+      "fileDigest": "663d55a32436daf0920960c06026ebe1cb754ec65ca8914729708b6c1a4a9b0c"
     },
     {
       "file": "src/screens/DashboardScreen.tsx",
