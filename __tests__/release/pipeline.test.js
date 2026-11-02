@@ -108,6 +108,22 @@ it('rejects rerunning preparation before it can reserve a new version under exis
   expect(result.stderr).toContain('Candidate preparation cannot be rerun');
 });
 
+it('queries the canonical repository endpoint before allowing a candidate build', () => {
+  const result = spawnSync(process.execPath, ['-e', `
+    global.fetch = async url => url === 'https://api.github.com/repos/jmassardo/bambuddy-mobile'
+      ? {ok:true,status:200,json:async()=>({allow_auto_merge:false})}
+      : {ok:false,status:404};
+    require(${JSON.stringify(pipelinePath)}).main('prepare')
+      .catch(error=>{console.error(error.message);process.exitCode=1;});
+  `], {
+    cwd: directory, encoding: 'utf8',
+    env: { ...process.env, GITHUB_REF: 'refs/heads/develop', GITHUB_RUN_ATTEMPT: '1',
+      GITHUB_REPOSITORY: 'jmassardo/bambuddy-mobile', GITHUB_TOKEN: 'test-only-token' },
+  });
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('Enable repository auto-merge before building release candidates');
+});
+
 it.each([
   { status: 200, keys: ['ssh-ed25519 AAAATEST=='], error: null },
   { status: 200, keys: ['ssh-rsa AAAATEST=='], error: 'GitHub did not provide an Ed25519 SSH host key' },

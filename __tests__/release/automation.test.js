@@ -91,6 +91,11 @@ test('activation scopes credentials to their branches and preserves unrelated ru
     })),
   });
   expect(mutations.some(change => change.endpoint.endsWith('/rulesets/9'))).toBe(false);
+  expect(mutations).toContainEqual({
+    endpoint: 'repos/jmassardo/bambuddy-mobile',
+    method: 'PATCH',
+    body: { allow_auto_merge: true, allow_merge_commit: true },
+  });
 });
 
 test('both signed candidates require the same prepared commit and passing quality gate', () => {

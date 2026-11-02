@@ -33,7 +33,8 @@ function gh(args, body) {
 }
 
 function request(endpoint, method = 'GET', body) {
-  return gh(['api', `repos/${repository}/${endpoint}`, '--method', method, ...(body ? ['--input', '-'] : [])], body);
+  const root = `repos/${repository}`;
+  return gh(['api', endpoint ? `${root}/${endpoint}` : root, '--method', method, ...(body ? ['--input', '-'] : [])], body);
 }
 
 function activate(apply = false) {
