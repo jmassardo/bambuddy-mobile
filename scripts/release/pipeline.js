@@ -167,7 +167,7 @@ async function prepare() {
 async function credentials(platform) {
   const directory = required('RUNNER_TEMP');
   if (platform === 'match') {
-    const key = required('MATCH_GIT_PRIVATE_KEY_CONTENT');
+    const key = `${required('MATCH_GIT_PRIVATE_KEY_CONTENT').replace(/\r\n/g, '\n').trimEnd()}\n`;
     if (!key.startsWith('-----BEGIN OPENSSH PRIVATE KEY-----')) throw new Error('Invalid Match deploy key configuration');
     const keyPath = path.join(directory, 'bambuddy-match-deploy-key');
     fs.writeFileSync(keyPath, key, { mode: 0o600 });
