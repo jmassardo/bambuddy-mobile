@@ -5,6 +5,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 const { nextVersion, allocateRelease, validateContext, checkRun } = require('../../scripts/release/pipeline');
+const { readReleaseMetadata } = require('../../scripts/release/metadata');
+const { parseChangelog } = require('../../scripts/release/changelog');
 
 const root = path.resolve(__dirname, '../..');
 const pipelinePath = path.join(root, 'scripts/release/pipeline.js');
@@ -47,6 +49,15 @@ beforeEach(() => {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.copyFileSync(path.join(root, file), target);
   }
+  const baseline = readReleaseMetadata(directory, { allowEmptyUnreleased: true });
+  const version = nextVersion([baseline.version]);
+  const buildNumber = Math.max(baseline.iosBuild, baseline.androidVersionCode, 99) + 1;
+  const changelogPath = path.join(directory, 'CHANGELOG.md');
+  const changelog = fs.readFileSync(changelogPath, 'utf8');
+  if (!parseChangelog(changelog, { allowEmptyUnreleased: true }).unreleasedBody) {
+    fs.writeFileSync(changelogPath, changelog.replace(/^## \[Unreleased\]\r?$/m,
+      '## [Unreleased]\n\n### Changed\n\n- Release test fixture.'));
+  }
   git('init', '--quiet');
   git('config', 'user.name', 'Release test');
   git('config', 'user.email', 'release-test@example.invalid');
@@ -57,11 +68,13 @@ beforeEach(() => {
   git('add', '.');
   git('commit', '--quiet', '-m', 'develop change');
   context = {
-    sourceCommit: git('rev-parse', 'HEAD'), mainBase, version: '1.1.1',
-    buildNumber: 100, runId: '123', runAttempt: '1', branch: 'release/candidate/v1.1.1',
+    sourceCommit: git('rev-parse', 'HEAD'), mainBase, version,
+    buildNumber, runId: '123', runAttempt: '1', branch: `release/candidate/v${version}`,
   };
   execFileSync(process.execPath, ['-e',
-    `require(${JSON.stringify(metadataPath)}).applyReleaseMetadataUpdate('.', {version: '1.1.1',date:'2026-11-01',iosBuild:100,androidVersionCode:100});`,
+    `require(${JSON.stringify(metadataPath)}).applyReleaseMetadataUpdate('.', ${JSON.stringify({
+      version, date: '2026-11-01', iosBuild: buildNumber, androidVersionCode: buildNumber,
+    })});`,
   ], { cwd: directory });
   fs.mkdirSync(path.join(directory, '.release'));
   fs.writeFileSync(path.join(directory, '.release/candidate.json'), JSON.stringify(context));
