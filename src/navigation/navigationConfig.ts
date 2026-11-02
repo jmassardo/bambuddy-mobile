@@ -62,7 +62,7 @@ export const BUILT_IN_NAV_ITEMS: readonly BuiltInNavigationItem[] = [
   { id: 'energy', label: 'Energy', subtitle: 'Power consumption trends and per-printer usage', icon: 'power', location: 'more', stackRoute: 'Energy' },
   { id: 'system', label: 'System', subtitle: 'Health, resources, logs, support tools', icon: 'cpu', location: 'more', stackRoute: 'System' },
   { id: 'spoolbuddy', label: 'SpoolBuddy', subtitle: 'SpoolBuddy devices, status, and configuration', icon: 'nfc', location: 'more', stackRoute: 'SpoolBuddy', lockVisibility: true },
-  { id: 'scanner', label: 'Scanner', subtitle: 'Scan QR and NFC related data', icon: 'qr-code', location: 'more', stackRoute: 'Scanner' },
+  { id: 'scanner', label: 'Scanner', subtitle: 'Scan a server URL or a spool label QR code.', icon: 'qr-code', location: 'more', stackRoute: 'Scanner' },
   { id: 'failure-analysis', label: 'Failure Analysis', subtitle: 'Analyze print failures and identify patterns', icon: 'alert-circle', location: 'more', stackRoute: 'FailureAnalysis' },
   { id: 'print-log', label: 'Print Log', subtitle: 'Search, filter, and export print history', icon: 'clipboard-list', location: 'more', stackRoute: 'PrintLog' },
   { id: 'camera-wall', label: 'Camera Wall', subtitle: 'Monitor printer cameras together', icon: 'camera', location: 'more', stackRoute: 'CameraWall' },

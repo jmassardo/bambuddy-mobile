@@ -35,6 +35,9 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 jest.mock('@/api/http', () => ({ request: jest.fn(), requestBlob: jest.fn() }));
+jest.mock('react-native-nfc-manager', () => {
+  throw new Error('Inventory must not load the disabled phone NFC module');
+});
 jest.mock('@react-native-documents/picker', () => ({
   pick: jest.fn(),
   types: { csv: 'text/csv' },
@@ -206,6 +209,7 @@ it('keeps spool content reachable while disclosing secondary inventory tools and
     const tools = () => renderer.root.findAll(node => node.props.accessibilityLabel === 'Inventory tools')[0];
     await act(async () => tools().props.onPress());
     expect(button(renderer, 'Import CSV')).toBeTruthy();
+    expect(renderer.root.findAllByType(PrimaryButton).some(node => node.props.label === 'Scan spool NFC')).toBe(false);
     await press(renderer, 'Assignment history');
     expect(mockNavigation.navigate).toHaveBeenCalledWith('SpoolAssignmentHistory');
     expect(tools().props.accessibilityState.expanded).toBe(false);

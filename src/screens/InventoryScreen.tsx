@@ -57,7 +57,6 @@ import {
   SpoolmanPolicySettings,
 } from '@/components/inventory/InventoryPolicySettings';
 import { LocationsModal } from '@/components/inventory/LocationsModal';
-import { NfcInventoryScanModal } from '@/components/inventory/NfcInventoryScanModal';
 import { SpoolEditor } from '@/components/inventory/SpoolEditor';
 import { SpoolDetails, SpoolSwatch } from '@/components/inventory/SpoolDetails';
 import { useAuth } from '@/contexts/AuthContext';
@@ -116,7 +115,6 @@ export default function InventoryScreen() {
   const [showTools, setShowTools] = useState(false);
   const hasActiveFilters = Boolean(search.trim() || archive !== 'active' || Object.values(filters).some(Boolean));
   const [labelIds, setLabelIds] = useState<number[]>([]);
-  const [scan, setScan] = useState(false);
   const [confirmation, setConfirmation] = useState<{
     operation: string;
     ids: number[];
@@ -527,11 +525,6 @@ export default function InventoryScreen() {
             />
             {canWrite && (
               <>
-                <PrimaryButton
-                  label={translateNative('native.0184b3e475a8c900')}
-                  variant="secondary"
-                  onPress={() => { setShowTools(false); setScan(true); }}
-                />
                 {!spoolman && (
                   <>
                     <PrimaryButton
@@ -965,14 +958,6 @@ export default function InventoryScreen() {
           onClose={() => setLabelIds([])}
         />
       )}
-      <NfcInventoryScanModal
-        visible={scan}
-        spoolman={spoolman}
-        onClose={() => setScan(false)}
-        onAdd={uid => setEditor({ tag_uid: uid })}
-        onEdit={row => setEditor(row as unknown as InventoryRecord)}
-        onAssign={row => setDetail(row as unknown as InventoryRecord)}
-      />
       {csv && (
         <InventoryModal title={translateNative('native.d86c8d047127fb02')} onClose={() => setCsv(null)}>
           <InventoryText><NativeTranslation id="native.1cb9fdc341531e8b" values={{ value0: (number(csv.preview, 'total')), value1: (number(csv.preview, 'valid_count')), value2: (number(csv.preview, 'error_count')), value3: (number(csv.preview, 'skipped_count')) }} /></InventoryText>
