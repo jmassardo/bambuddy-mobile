@@ -1,3 +1,5 @@
+import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal,
@@ -21,13 +23,15 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '@/theme';
 import { api } from '@/api/client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import type { DiscoveredPrinter, PrinterDiagnosticResult, DiagnosticCheck } from '@/types/api';
 
 const PRINTER_MODELS = [
   { group: 'A1 Series', models: ['A1', 'A1 Mini'] },
   { group: 'A2 Series', models: ['A2L'] },
   { group: 'H2 Series', models: ['H2C', 'H2D', 'H2D Pro', 'H2S'] },
-  { group: 'P Series', models: ['P1P', 'P1S', 'P2S'] },
+  { get group() { return translateNative('native.2b6ee4ad967b8cc0'); }, models: ['P1P', 'P1S', 'P2S'] },
   { group: 'X1 Series', models: ['X1', 'X1 Carbon', 'X1E'] },
   { group: 'X2 Series', models: ['X2D'] },
 ];
@@ -60,7 +64,11 @@ interface Props {
 }
 
 export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Props) {
+  useNativeLocale();
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const [useCustomSubnet, setUseCustomSubnet] = useState(false);
+  const [customSubnet, setCustomSubnet] = useState('');
 
   // Form state
   const [name, setName] = useState('');
@@ -75,7 +83,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
   // Discovery state
   const [discovering, setDiscovering] = useState(false);
   const [discovered, setDiscovered] = useState<DiscoveredPrinter[]>([]);
-  const [discoveryError, setDiscoveryError] = useState('');
+  const [discoveryError, setDiscoveryError] = useNativeMessageState('');
   const [hasScanned, setHasScanned] = useState(false);
   const [subnet, setSubnet] = useState('');
   const [detectedSubnets, setDetectedSubnets] = useState<string[]>([]);
@@ -96,6 +104,8 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
   useEffect(() => {
     if (!visible) return;
     const loadDiscoveryInfo = async () => {
+      const last = await AsyncStorage.getItem('printer-custom-cidr').catch(() => null);
+      if (last) setCustomSubnet(last);
       try {
         const info = await api.getDiscoveryInfo();
         setIsDocker(info.is_docker);
@@ -112,6 +122,8 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
   // Reset form on close
   useEffect(() => {
     if (!visible) {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
       setName('');
       setSerialNumber('');
       setIpAddress('');
@@ -127,7 +139,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
       setShowDiagnostic(false);
       setDiagnosticResult(null);
     }
-  }, [visible]);
+  }, [setDiscoveryError, visible]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -149,9 +161,16 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
     setScanProgress({ scanned: 0, total: 0 });
 
     try {
-      if (isDocker && subnet) {
+      if (useCustomSubnet || (isDocker && subnet)) {
+        const scanSubnet = useCustomSubnet ? customSubnet.trim() : subnet;
+        if (!/^(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(scanSubnet) ||
+            Number(scanSubnet.split('/')[1]) > 32 ||
+            scanSubnet.split('/')[0].split('.').some(part => Number(part) > 255)) {
+          throw new Error(t('fleet.invalidCIDR', { defaultValue: 'Enter a valid IPv4 CIDR, e.g. 192.168.1.0/24.' }));
+        }
+        if (useCustomSubnet) await AsyncStorage.setItem('printer-custom-cidr', scanSubnet);
         // Subnet scan for Docker
-        await api.startSubnetScan?.(subnet);
+        await api.startSubnetScan?.(scanSubnet);
         pollRef.current = setInterval(async () => {
           try {
             const status = await api.getSubnetScanStatus?.();
@@ -163,7 +182,13 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
               setDiscovering(false);
               setHasScanned(true);
             }
-          } catch {}
+          } catch (error) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            setDiscoveryError(error instanceof Error ? error.message : nativeMessage('fleet.scanFailed', () => ({ defaultValue: 'Subnet scan failed.' })));
+            setDiscovering(false);
+            setHasScanned(true);
+            void api.stopSubnetScan().catch(() => {});
+          }
         }, 500);
       } else {
         // SSDP discovery
@@ -187,7 +212,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
         }, 10000);
       }
     } catch (e) {
-      setDiscoveryError(e instanceof Error ? e.message : 'Discovery failed');
+      setDiscoveryError(e instanceof Error ? e.message : nativeMessage('native.7ce438a79ab9d810'));
       setDiscovering(false);
       setHasScanned(true);
     }
@@ -271,7 +296,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
         <View style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.borderSubtle }]}>
-            <Text style={[styles.title, { color: colors.text }]}>Add Printer</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{translateNative('native.112c324655102ccb')}</Text>
             <Pressable onPress={onClose} style={styles.closeBtn}>
               <X size={18} color={colors.textSecondary} />
             </Pressable>
@@ -280,9 +305,15 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             {/* Discovery Section */}
             <View style={[styles.section, { borderBottomColor: colors.borderSubtle }]}>
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('fleet.customCIDR', { defaultValue: 'Scan custom CIDR (instead of SSDP)' })}</Text>
+                <Switch value={useCustomSubnet} onValueChange={setUseCustomSubnet} disabled={discovering} accessibilityLabel={t('fleet.customCIDR', { defaultValue: 'Scan custom CIDR (instead of SSDP)' })} />
+                {useCustomSubnet ? <TextInput value={customSubnet} onChangeText={setCustomSubnet} editable={!discovering} autoCapitalize="none" placeholder="192.168.1.0/24" style={[styles.input, { color: colors.text, borderColor: colors.border }]} /> : null}
+                {isDocker ? <Pressable disabled={discovering} onPress={() => { setIsDocker(false); setUseCustomSubnet(false); }}><Text style={{ color: colors.accent }}>{t('fleet.ssdp', { defaultValue: 'Use SSDP discovery instead' })}</Text></Pressable> : null}
+              </View>
               {detectedSubnets.length > 0 && (
                 <View style={styles.field}>
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>Subnet</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>{translateNative('native.d5a49d761833ee68')}</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subnetRow}>
                     {detectedSubnets.map(s => (
                       <Pressable
@@ -305,7 +336,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
 
               {detectedSubnets.length === 0 && (
                 <View style={styles.field}>
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>Subnet to scan</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>{translateNative('native.1866383ae724127f')}</Text>
                   <TextInput
                     style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
                     value={subnet}
@@ -327,15 +358,15 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                     <ActivityIndicator size="small" color={colors.accent} />
                     <Text style={[styles.discoveryBtnText, { color: colors.text }]}>
                       {scanProgress.total > 0
-                        ? `Scanning ${scanProgress.scanned}/${scanProgress.total}`
-                        : 'Scanning network…'}
+                        ? translateNative('native.4aa190f42a145545', { value0: String(scanProgress.scanned), value1: String(scanProgress.total) })
+                        : translateNative('native.70b1a1de8ad75810')}
                     </Text>
                   </>
                 ) : (
                   <>
                     <Search size={16} color={colors.accent} />
                     <Text style={[styles.discoveryBtnText, { color: colors.text }]}>
-                      {isDocker ? 'Scan subnet' : 'Discover on network'}
+                      {isDocker || useCustomSubnet ? t('fleet.scanSubnet', { defaultValue: 'Scan subnet' }) : translateNative('native.f9f56a993f325d68')}
                     </Text>
                   </>
                 )}
@@ -358,8 +389,8 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                           {p.name || p.serial}
                         </Text>
                         <Text style={[styles.discoveredDetail, { color: colors.textSecondary }]} numberOfLines={1}>
-                          {mapModelCode(p.model ?? '') || 'Unknown'} • {p.ip_address}
-                          {p.serial.startsWith('unknown-') ? ' • Serial required' : ''}
+                          {mapModelCode(p.model ?? '') || translateNative('native.ff12a040d13addb7')} • {p.ip_address}
+                          {p.serial.startsWith('unknown-') ? translateNative('native.f360982dfadefaf1') : ''}
                         </Text>
                       </View>
                       <ChevronRight size={16} color={colors.textTertiary} />
@@ -369,33 +400,33 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
               )}
 
               {hasScanned && !discovering && discovered.length === 0 && (
-                <Text style={[styles.hint, { color: colors.textSecondary }]}>No printers found on network</Text>
+                <Text style={[styles.hint, { color: colors.textSecondary }]}>{translateNative('native.8e0b19c75cf452b6')}</Text>
               )}
 
               {hasScanned && !discovering && discovered.length > 0 && newPrinters.length === 0 && (
-                <Text style={[styles.hint, { color: colors.textSecondary }]}>All discovered printers are already configured</Text>
+                <Text style={[styles.hint, { color: colors.textSecondary }]}>{translateNative('native.8e1b0a07b5aecf46')}</Text>
               )}
             </View>
 
             {/* Form fields */}
             <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Name *</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{translateNative('native.4770e36748f4c6d3')}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
                 value={name}
                 onChangeText={setName}
-                placeholder="My Printer"
+                placeholder={translateNative('native.0795d0073d5c0b05')}
                 placeholderTextColor={colors.inputPlaceholder}
               />
             </View>
 
             <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>IP Address *</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{translateNative('native.37c736a3b2b18c54')}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
                 value={ipAddress}
                 onChangeText={setIpAddress}
-                placeholder="192.168.1.100 or printer.local"
+                placeholder={translateNative('native.7b1e1b764343cc19')}
                 placeholderTextColor={colors.inputPlaceholder}
                 keyboardType="url"
                 autoCapitalize="none"
@@ -403,44 +434,44 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
             </View>
 
             <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Serial Number *</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{translateNative('native.8c67c1f88f421588')}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
                 value={serialNumber}
                 onChangeText={setSerialNumber}
-                placeholder="01P00A000000000"
+                placeholder={translateNative('native.0223088e116a0a30')}
                 placeholderTextColor={colors.inputPlaceholder}
                 autoCapitalize="characters"
               />
             </View>
 
             <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Access Code *</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{translateNative('native.d9087f78d120047a')}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
                 value={accessCode}
                 onChangeText={setAccessCode}
-                placeholder="From printer settings"
+                placeholder={translateNative('native.4eb1bbb87faa51b4')}
                 placeholderTextColor={colors.inputPlaceholder}
                 secureTextEntry
               />
             </View>
 
             <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Model (optional)</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{translateNative('native.8b1a1fcf5ba1cde5')}</Text>
               <Pressable
                 onPress={() => setShowModelPicker(!showModelPicker)}
                 style={[styles.input, styles.pickerBtn, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
               >
                 <Text style={{ color: model ? colors.inputText : colors.inputPlaceholder }}>
-                  {model || 'Select model'}
+                  {model || translateNative('native.4bf6eb2451dfd9a8')}
                 </Text>
                 <ChevronRight size={16} color={colors.textTertiary} style={{ transform: [{ rotate: showModelPicker ? '90deg' : '0deg' }] }} />
               </Pressable>
               {showModelPicker && (
                 <View style={[styles.modelList, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
                   <Pressable onPress={() => { setModel(''); setShowModelPicker(false); }} style={styles.modelItem}>
-                    <Text style={{ color: colors.textSecondary }}>None</Text>
+                    <Text style={{ color: colors.textSecondary }}>{translateNative('common.none')}</Text>
                   </Pressable>
                   {PRINTER_MODELS.map(group => (
                     <View key={group.group}>
@@ -461,21 +492,20 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
             </View>
 
             <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Location / Group (optional)</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{translateNative('native.d14cac8b69c6fd0d')}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.inputText }]}
                 value={location}
                 onChangeText={setLocation}
-                placeholder="e.g. Garage, Print Farm"
+                placeholder={translateNative('native.d7561e7cdb0780a6')}
                 placeholderTextColor={colors.inputPlaceholder}
               />
               <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                Printers with the same location are grouped together
-              </Text>
+                {translateNative('native.84f9bb1f5b062224')}</Text>
             </View>
 
             <View style={styles.switchRow}>
-              <Text style={[styles.switchLabel, { color: colors.text }]}>Auto-archive prints</Text>
+              <Text style={[styles.switchLabel, { color: colors.text }]}>{translateNative('native.b19073c85f66bbda')}</Text>
               <Switch
                 value={autoArchive}
                 onValueChange={setAutoArchive}
@@ -501,7 +531,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
               ) : (
                 <Stethoscope size={16} color={colors.textSecondary} />
               )}
-              <Text style={[styles.diagBtnText, { color: colors.textSecondary }]}>Run connection diagnostic</Text>
+              <Text style={[styles.diagBtnText, { color: colors.textSecondary }]}>{translateNative('native.c0f33ed0f24741b3')}</Text>
             </Pressable>
 
             {/* Diagnostic results */}
@@ -535,13 +565,12 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                 <View style={styles.warningHeader}>
                   <AlertTriangle size={16} color={colors.warning} />
                   <Text style={[styles.warningText, { color: colors.warning }]}>
-                    Connection issues detected. Save anyway?
-                  </Text>
+                    {translateNative('native.0397bdd5d3861caa')}</Text>
                 </View>
                 {saveWarning.checks?.map((c: DiagnosticCheck, i: number) => (
                   c.status === 'fail' && (
                     <Text key={i} style={[styles.warningDetail, { color: colors.textSecondary }]}>
-                      • {c.id.replace(/_/g, ' ')}: {Object.values(c.params).join(', ') || 'Failed'}
+                      • {c.id.replace(/_/g, ' ')}: {Object.values(c.params).join(', ') || translateNative('native.4951b5090ada997d')}
                     </Text>
                   )
                 ))}
@@ -550,13 +579,13 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                     onPress={() => setSaveWarning(null)}
                     style={[styles.btn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
                   >
-                    <Text style={[styles.btnText, { color: colors.text }]}>Go back</Text>
+                    <Text style={[styles.btnText, { color: colors.text }]}>{translateNative('native.e6dd858940c0efeb')}</Text>
                   </Pressable>
                   <Pressable
                     onPress={handleSaveAnyway}
                     style={[styles.btn, { backgroundColor: colors.accent }]}
                   >
-                    <Text style={[styles.btnText, { color: colors.textInverse }]}>Save anyway</Text>
+                    <Text style={[styles.btnText, { color: colors.textInverse }]}>{translateNative('native.59a79c34c9d40959')}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -569,7 +598,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                   onPress={onClose}
                   style={[styles.btn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
                 >
-                  <Text style={[styles.btnText, { color: colors.text }]}>Cancel</Text>
+                  <Text style={[styles.btnText, { color: colors.text }]}>{translateNative('common.cancel')}</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleSubmit}
@@ -585,7 +614,7 @@ export function AddPrinterModal({ visible, onClose, onAdd, existingSerials }: Pr
                   {checkingSave ? (
                     <ActivityIndicator size="small" color={colors.textInverse} />
                   ) : (
-                    <Text style={[styles.btnText, { color: isFormValid ? colors.textInverse : colors.textTertiary }]}>Add Printer</Text>
+                    <Text style={[styles.btnText, { color: isFormValid ? colors.textInverse : colors.textTertiary }]}>{translateNative('native.112c324655102ccb')}</Text>
                   )}
                 </Pressable>
               </View>

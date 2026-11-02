@@ -1,0 +1,12 @@
+{
+  "native.197a317960cf55b6": "Поріг низького запасу: {{threshold}}%",
+  "native.2c6f1553291f3699": "Постачальників: {{count}}",
+  "native.2d8f4b1110eef95b": "Віртуальних принтерів: {{count}}",
+  "native.8114475cf643fbbc": "Місць зберігання: {{count}}",
+  "native.8f615a72dd98661e": "Налаштовано камер: {{count}}",
+  "native.c4bfec3810af5347": "Ключів: {{keys}} • Токенів камер: {{tokens}}",
+  "native.cb19f6798e4c8df9": "Розумних розеток: {{count}}",
+  "native.d605514f8d9014a3": "Пристроїв: {{count}}",
+  "native.d9dd8c0c1c350e4c": "Профілів: {{count}}",
+  "native.f509a8cbfea53808": "Користувацьких посилань: {{count}}"
+}

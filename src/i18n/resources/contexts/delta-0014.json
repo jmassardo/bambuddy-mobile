@@ -1,0 +1,54 @@
+{
+  "native.a8354e59f5691fa8": {
+    "english": "{{count}} terminal runs cleared",
+    "context": "shared",
+    "placeholders": [
+      "count"
+    ],
+    "occurrences": [
+      {
+        "file": "src/screens/PipelineRunsScreen.tsx",
+        "line": 86,
+        "kind": "translation-default",
+        "owner": "clear",
+        "existingKey": "pipelineRuns.clearedToast",
+        "source": "'{{count}} terminal runs cleared'"
+      }
+    ]
+  },
+  "native.bd707a01c933cc1e": {
+    "english": "{{archived}} Imported, {{failed}} failed",
+    "context": "shared",
+    "placeholders": [
+      "archived",
+      "failed"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/archives/ArchiveWorkflowUI.tsx",
+        "line": 553,
+        "kind": "translation-default",
+        "owner": "bulk",
+        "existingKey": "archives.acceptedToast",
+        "source": "'{{archived}} Imported, {{failed}} failed'"
+      }
+    ]
+  },
+  "native.c7e528a90299efbd": {
+    "english": "Run updated #{{id}}",
+    "context": "shared",
+    "placeholders": [
+      "id"
+    ],
+    "occurrences": [
+      {
+        "file": "src/screens/PipelineRunsScreen.tsx",
+        "line": 76,
+        "kind": "translation-default",
+        "owner": "action",
+        "existingKey": "pipelineRuns.updatedToast",
+        "source": "'Run updated #{{id}}'"
+      }
+    ]
+  }
+}

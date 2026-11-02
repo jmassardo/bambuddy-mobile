@@ -1,9 +1,6 @@
-import type { ExternalLink } from '@/types/api';
+import type { ExternalLink, Permission } from '@/types/api';
 import type { MainTabParamList, RootStackParamList } from './types';
-<<<<<<< HEAD
-=======
 import type { CustomNavItem } from '@/store/navigationStore';
->>>>>>> origin/develop
 
 export type BuiltInNavId =
   | 'dashboard'
@@ -24,13 +21,14 @@ export type BuiltInNavId =
   | 'energy'
   | 'system'
   | 'spoolbuddy'
-<<<<<<< HEAD
-  | 'scanner';
-=======
   | 'scanner'
   | 'failure-analysis'
-  | 'print-log';
->>>>>>> origin/develop
+  | 'print-log'
+  | 'camera-wall'
+  | 'camera-integrations'
+  | 'slicer-pipelines'
+  | 'pipeline-runs'
+  | 'finance';
 
 type NavLocation = 'tab' | 'more';
 
@@ -65,12 +63,55 @@ export const BUILT_IN_NAV_ITEMS: readonly BuiltInNavigationItem[] = [
   { id: 'system', label: 'System', subtitle: 'Health, resources, logs, support tools', icon: 'cpu', location: 'more', stackRoute: 'System' },
   { id: 'spoolbuddy', label: 'SpoolBuddy', subtitle: 'SpoolBuddy devices, status, and configuration', icon: 'nfc', location: 'more', stackRoute: 'SpoolBuddy', lockVisibility: true },
   { id: 'scanner', label: 'Scanner', subtitle: 'Scan QR and NFC related data', icon: 'qr-code', location: 'more', stackRoute: 'Scanner' },
-<<<<<<< HEAD
-=======
   { id: 'failure-analysis', label: 'Failure Analysis', subtitle: 'Analyze print failures and identify patterns', icon: 'alert-circle', location: 'more', stackRoute: 'FailureAnalysis' },
   { id: 'print-log', label: 'Print Log', subtitle: 'Search, filter, and export print history', icon: 'clipboard-list', location: 'more', stackRoute: 'PrintLog' },
->>>>>>> origin/develop
+  { id: 'camera-wall', label: 'Camera Wall', subtitle: 'Monitor printer cameras together', icon: 'camera', location: 'more', stackRoute: 'CameraWall' },
+  { id: 'camera-integrations', label: 'Camera Integrations', subtitle: 'Connect external camera viewers', icon: 'camera', location: 'more', stackRoute: 'CameraIntegrations' },
+  { id: 'slicer-pipelines', label: 'Slicer Pipelines', subtitle: 'Manage automated slicing workflows', icon: 'workflow', location: 'more', stackRoute: 'SlicerPipelines' },
+  { id: 'pipeline-runs', label: 'Pipeline Runs', subtitle: 'Track slicing workflow progress', icon: 'list-ordered', location: 'more', stackRoute: 'PipelineRuns' },
+  { id: 'finance', label: 'Finance', subtitle: 'Cost centers and billing', icon: 'wallet', location: 'more', stackRoute: 'Finance' },
 ];
+
+const NAV_PERMISSIONS: Partial<Record<BuiltInNavId, readonly Permission[]>> = {
+  dashboard: ['printers:read'],
+  queue: ['queue:read', 'queue:read_own', 'queue:read_all'],
+  archives: ['archives:read', 'archives:read_own', 'archives:read_all'],
+  files: ['library:read', 'library:read_own', 'library:read_all'],
+  users: ['users:read'],
+  'virtual-printers': ['printers:read'],
+  notifications: ['notifications:read', 'notifications:user_email'],
+  inventory: ['inventory:read'],
+  spoolbuddy: ['inventory:read'],
+  maintenance: ['maintenance:read'],
+  projects: ['projects:read'],
+  profiles: ['kprofiles:read', 'cloud:auth', 'orca_cloud:auth'],
+  makerworld: ['makerworld:view'],
+  stats: ['stats:read'],
+  energy: ['smart_plugs:read'],
+  system: ['system:read'],
+  'failure-analysis': ['archives:read', 'archives:read_own', 'archives:read_all'],
+  'print-log': ['archives:read', 'archives:read_own', 'archives:read_all'],
+  'camera-wall': ['camera:view'],
+  'camera-integrations': ['camera:view'],
+  'slicer-pipelines': ['pipelines:read'],
+  'pipeline-runs': ['pipelines:read'],
+  finance: ['cost_centers:read_own', 'cost_centers:read_all', 'cost_centers:create', 'cost_centers:modify'],
+};
+
+export type NavigationAccess = {
+  hasPermission: (permission: Permission) => boolean;
+  authenticatedUser: boolean;
+  billingEnabled: boolean;
+};
+
+export function canAccessNavigationItem(
+  item: Pick<BuiltInNavigationItem, 'id'>,
+  access: NavigationAccess,
+): boolean {
+  if (item.id === 'finance' && (!access.authenticatedUser || !access.billingEnabled)) return false;
+  const permissions = NAV_PERMISSIONS[item.id];
+  return !permissions || permissions.some(access.hasPermission);
+}
 
 const BUILT_IN_BY_ID = new Map(BUILT_IN_NAV_ITEMS.map(item => [item.id, item]));
 const BUILT_IN_IDS = BUILT_IN_NAV_ITEMS.map(item => item.id);
@@ -81,10 +122,7 @@ export type NavigationLayout = {
   tabItems: BuiltInNavigationItem[];
   moreItems: BuiltInNavigationItem[];
   externalLinks: ExternalLink[];
-<<<<<<< HEAD
-=======
   customNavItems: CustomNavItem[];
->>>>>>> origin/develop
 };
 
 export function parseNavigationOrder(raw: string | null | undefined): string[] {
@@ -147,10 +185,7 @@ function sortExternalLinks(links: ExternalLink[]): ExternalLink[] {
 export function getNavigationLayout(input: {
   defaultSidebarOrder?: string | null;
   externalLinks?: ExternalLink[] | null;
-<<<<<<< HEAD
-=======
   customNavItems?: CustomNavItem[];
->>>>>>> origin/develop
   maxTabs?: number;
 }): NavigationLayout {
   const maxTabs = Math.max(1, input.maxTabs ?? 5);
@@ -197,9 +232,6 @@ export function getNavigationLayout(input: {
     tabItems,
     moreItems,
     externalLinks: sortExternalLinks(input.externalLinks ?? []),
-<<<<<<< HEAD
-=======
     customNavItems: input.customNavItems ?? [],
->>>>>>> origin/develop
   };
 }

@@ -1,35 +1,38 @@
-<<<<<<< HEAD
-import React from 'react';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import DeviceInfo from 'react-native-device-info';
-import { MenuItem, SectionCard, SectionHeader } from '@/components/common/AppUI';
-import type { MainTabNavigationProp } from '@/navigation/types';
-import { getNavigationLayout } from '@/navigation/navigationConfig';
-import { api } from '@/api/client';
-=======
 import React, { useMemo } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import type { MainTabNavigationProp, RootStackParamList } from '@/navigation/types';
+import type { RootStackParamList } from '@/navigation/types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { MenuItem, SectionHeader } from '@/components/common/AppUI';
->>>>>>> origin/develop
 import { useServerStore } from '@/api/server';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
-<<<<<<< HEAD
-import { fontSize, fontWeight, spacing } from '@/theme/tokens';
-import { pickString } from '@/utils/data';
-
-=======
 import { fontSize, fontWeight, spacing, borderRadius } from '@/theme/tokens';
 import { api } from '@/api/client';
-import { getNavigationLayout } from '@/navigation/navigationConfig';
+import { BUILT_IN_NAV_ITEMS, canAccessNavigationItem, getNavigationLayout } from '@/navigation/navigationConfig';
 import { useCustomNavStore } from '@/store/navigationStore';
+import { uiPreferencesApi } from '@/api/uiPreferences';
+import { AnnouncementsEntry } from '@/components/common/AnnouncementBanner';
+import { nativeMessage, useTranslation } from '@/i18n';
+
+type GlobalRoutes = {
+  Announcements: { id?: string } | undefined;
+  CameraWall: undefined;
+  CameraIntegrations: undefined;
+  SlicerPipelines: undefined;
+  PipelineRuns: undefined;
+  Finance: undefined;
+};
+const EXTRA_PAGES = [
+  { route: 'CameraWall', key: 'camera-wall', title: 'Camera wall', icon: 'camera' },
+  { route: 'CameraIntegrations', key: 'camera-integrations', title: 'Camera integrations', icon: 'camera' },
+  { route: 'SlicerPipelines', key: 'slicer-pipelines', title: 'Slicer pipelines', icon: 'layers' },
+  { route: 'PipelineRuns', key: 'pipeline-runs', title: 'Pipeline runs', icon: 'list-ordered' },
+  { route: 'Finance', key: 'finance', title: 'Finance', icon: 'bar-chart' },
+] as const;
 
 /**
  * Routes hidden from navigation until their full screen implementation lands.
@@ -37,65 +40,66 @@ import { useCustomNavStore } from '@/store/navigationStore';
  */
 const UNREGISTERED_ROUTES: Array<keyof RootStackParamList> = [];
 
->>>>>>> origin/develop
 const URL_PROTOCOL_REGEX = /^https?:\/\//i;
 
 export default function MoreScreen() {
-  const navigation = useNavigation<MainTabNavigationProp<'More'>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList & GlobalRoutes>>();
+  const { t } = useTranslation();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: 'More' });
-  }, [navigation]);
+    navigation.setOptions({ title: t('nav.more') });
+  }, [navigation, t]);
 
   const { colors } = useTheme();
   const { showToast } = useToast();
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const demoMode = useServerStore(state => state.demoMode);
+  const serverUrl = useServerStore(state => state.serverUrl);
+  const customItems = useCustomNavStore(state => state.items);
   const version = DeviceInfo.getVersion() || 'dev';
+  const canReadExternalLinks = hasPermission('external_links:read');
 
-  const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: api.getSettings });
-  const externalLinksQuery = useQuery({ queryKey: ['externalLinks'], queryFn: api.getExternalLinks });
+  const navigationQuery = useQuery({ queryKey: ['navigationOrder', serverUrl], queryFn: uiPreferencesApi.getNavigationOrder });
+  const flagsQuery = useQuery({ queryKey: ['uiFlags', serverUrl], queryFn: uiPreferencesApi.getFlags, enabled: Boolean(user) });
+  const externalLinksQuery = useQuery({ queryKey: ['externalLinks'], queryFn: api.getExternalLinks, enabled: canReadExternalLinks });
 
-<<<<<<< HEAD
-  const layout = React.useMemo(
-    () => getNavigationLayout({
-      defaultSidebarOrder: pickString(settingsQuery.data, ['default_sidebar_order']),
-      externalLinks: externalLinksQuery.data ?? [],
-    }),
-    [externalLinksQuery.data, settingsQuery.data],
-  );
-  const insightItemIds = React.useMemo(() => new Set(['stats', 'energy']), []);
-  const insightItems = React.useMemo(
-    () => layout.moreItems.filter(item => insightItemIds.has(item.id)),
-    [insightItemIds, layout.moreItems],
-  );
-  const pageItems = React.useMemo(
-    () => layout.moreItems.filter(item => !insightItemIds.has(item.id)),
-    [insightItemIds, layout.moreItems],
-  );
-=======
   const layout = useMemo(() => {
-    const settings = settingsQuery.data;
-    const defaultSidebarOrder = settings?.default_sidebar_order ?? null;
-    const customItems = useCustomNavStore.getState().items;
+    const defaultSidebarOrder = navigationQuery.data?.default_sidebar_order ?? null;
     return getNavigationLayout({
       defaultSidebarOrder,
-      externalLinks: externalLinksQuery.data ?? [],
+      externalLinks: canReadExternalLinks ? externalLinksQuery.data ?? [] : [],
       customNavItems: customItems,
     });
-  }, [settingsQuery.data, externalLinksQuery.data]);
+  }, [navigationQuery.data, externalLinksQuery.data, customItems, canReadExternalLinks]);
+
+  const canOpenRoute = React.useCallback((route: string) => {
+    const item = BUILT_IN_NAV_ITEMS.find(candidate => candidate.stackRoute === route);
+    if (item) return canAccessNavigationItem(item, {
+      hasPermission,
+      authenticatedUser: Boolean(user),
+      billingEnabled: flagsQuery.data?.billing_enabled === true,
+    });
+    if (route === 'Users') return hasPermission('users:read');
+    if (route === 'CameraWall' || route === 'CameraIntegrations') return hasPermission('camera:view');
+    if (route === 'SlicerPipelines' || route === 'PipelineRuns') return hasPermission('pipelines:read');
+    if (route === 'Finance') return Boolean(user) && flagsQuery.data?.billing_enabled === true &&
+      (hasPermission('cost_centers:read_own') || hasPermission('cost_centers:read_all') ||
+        hasPermission('cost_centers:create') || hasPermission('cost_centers:modify'));
+    return true;
+  }, [hasPermission, user, flagsQuery.data?.billing_enabled]);
 
   const moreItems = useMemo(() => {
     return layout.moreItems.filter(
-      item => item.stackRoute && !UNREGISTERED_ROUTES.includes(item.stackRoute),
+      item => item.stackRoute && !UNREGISTERED_ROUTES.includes(item.stackRoute) && canOpenRoute(item.stackRoute),
     );
-  }, [layout.moreItems]);
+  }, [layout.moreItems, canOpenRoute]);
+  const extraPages = EXTRA_PAGES.filter(item =>
+    !BUILT_IN_NAV_ITEMS.some(builtIn => String(builtIn.stackRoute) === item.route) && canOpenRoute(item.route));
 
   const insightItemIds = new Set(['stats', 'energy']);
   const insightItems = moreItems.filter(item => insightItemIds.has(item.id));
   const pageItems = moreItems.filter(item => !insightItemIds.has(item.id));
 
   const externalLinksVisible = !UNREGISTERED_ROUTES.includes('ExternalLinkBrowser');
->>>>>>> origin/develop
 
   const logoutMutation = useMutation({
     mutationFn: logout,
@@ -109,12 +113,6 @@ export default function MoreScreen() {
   });
 
   const openExternalLink = React.useCallback(
-<<<<<<< HEAD
-    async (input: { url: string; name: string; openInNewTab: boolean }) => {
-      const url = input.url.trim();
-      if (!URL_PROTOCOL_REGEX.test(url)) {
-        showToast('External links must start with http:// or https://', 'error');
-=======
     async (input: {
       url: string;
       name: string;
@@ -123,10 +121,9 @@ export default function MoreScreen() {
       const url = input.url.trim();
       if (!URL_PROTOCOL_REGEX.test(url)) {
         showToast(
-          'External links must start with http:// or https://',
+          nativeMessage('more.externalProtocol', { defaultValue: 'External links must start with http:// or https://' }),
           'error',
         );
->>>>>>> origin/develop
         return;
       }
 
@@ -134,21 +131,17 @@ export default function MoreScreen() {
         try {
           await Linking.openURL(url);
         } catch {
-          showToast('Unable to open the external link.', 'error');
+          showToast(nativeMessage('more.externalError', { defaultValue: 'Unable to open the external link.' }), 'error');
         }
         return;
       }
 
-<<<<<<< HEAD
-      navigation.navigate('ExternalLinkBrowser', { url, title: input.name });
-=======
       navigation.navigate('ExternalLinkBrowser', {
         url,
         title: input.name,
       });
->>>>>>> origin/develop
     },
-    [navigation, showToast],
+    [navigation, showToast, t],
   );
 
   return (
@@ -157,91 +150,51 @@ export default function MoreScreen() {
       contentContainerStyle={styles.content}
     >
       <View style={styles.hero}>
-<<<<<<< HEAD
-        <Text style={[styles.heroTitle, { color: colors.text }]}>More</Text>
-=======
->>>>>>> origin/develop
         <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
-          Signed in as {user?.username ?? 'Guest'}
+          {t('more.signedIn', { defaultValue: 'Signed in as {{username}}', username: user?.username ?? t('more.guest', { defaultValue: 'Guest' }) })}
         </Text>
         {demoMode ? (
           <View
             style={[styles.demoBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
           >
             <Text style={[styles.demoBadgeText, { color: colors.text }]}>
-              Demo mode - you are exploring a shared sample server. Use Exit
-              demo below to connect your own.
+              {t('more.demo', { defaultValue: 'Demo mode — you are exploring a shared sample server. Use Exit demo below to connect your own.' })}
             </Text>
           </View>
         ) : null}
       </View>
 
-<<<<<<< HEAD
-      {insightItems.length > 0 ? (
-        <View style={styles.group}>
-          <SectionHeader title="Insights" />
-          <SectionCard>
-            {insightItems.map(item =>
-              item.stackRoute ? (
-                <MenuItem
-                  key={item.id}
-                  icon={item.icon}
-                  label={item.label}
-                  subtitle={item.subtitle}
-                  onPress={() => navigation.navigate(item.stackRoute as never)}
-                />
-              ) : null,
-            )}
-          </SectionCard>
-        </View>
-      ) : null}
+      <AnnouncementsEntry onPress={() => navigation.navigate('Announcements')} />
 
-      <View style={styles.group}>
-        <SectionHeader title="Pages" />
-        <SectionCard>
-          {pageItems.map(item =>
-            item.stackRoute ? (
-=======
-      {pageItems.length > 0 && (
+      {(pageItems.length > 0 || extraPages.length > 0) && (
         <View style={styles.group}>
-          <SectionHeader title="Pages" />
+          <SectionHeader title={t('more.pages', { defaultValue: 'Pages' })} />
           <View>
             {pageItems.map(item => (
->>>>>>> origin/develop
               <MenuItem
                 key={item.id}
                 icon={item.icon}
-                label={item.label}
+                label={t(`nav.${item.id}`, { defaultValue: item.label })}
                 subtitle={item.subtitle}
-<<<<<<< HEAD
-                onPress={() => navigation.navigate(item.stackRoute as never)}
-              />
-            ) : null,
-          )}
-          {pageItems.length === 0 ? (
-            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-              No additional pages are currently visible.
-            </Text>
-          ) : null}
-        </SectionCard>
-      </View>
-=======
                 onPress={() => navigation.navigate(item.stackRoute as keyof RootStackParamList as never)}
               />
             ))}
+            {extraPages.map(item => <MenuItem key={item.key} icon={item.icon}
+              label={t(`nav.${item.key}`, { defaultValue: item.title })}
+              onPress={() => navigation.navigate(item.route)} />)}
           </View>
         </View>
       )}
 
       {insightItems.length > 0 && (
         <View style={styles.group}>
-          <SectionHeader title="Insights & tools" />
+          <SectionHeader title={t('more.insights', { defaultValue: 'Insights & tools' })} />
           <View>
             {insightItems.map(item => (
               <MenuItem
                 key={item.id}
                 icon={item.icon}
-                label={item.label}
+                label={t(`nav.${item.id}`, { defaultValue: item.label })}
                 subtitle={item.subtitle}
                 onPress={() => navigation.navigate(item.stackRoute as keyof RootStackParamList as never)}
               />
@@ -252,7 +205,7 @@ export default function MoreScreen() {
 
       {externalLinksVisible && (layout.externalLinks.length > 0 || layout.customNavItems.length > 0) && (
         <View style={styles.group}>
-          <SectionHeader title="Links" />
+          <SectionHeader title={t('more.links', { defaultValue: 'Links' })} />
           <View>
             {layout.externalLinks.map(link => (
               <MenuItem
@@ -260,6 +213,7 @@ export default function MoreScreen() {
                 icon={link.icon || 'external-link'}
                 label={link.name}
                 subtitle={link.url}
+                translateText={false}
                 onPress={() =>
                   void openExternalLink({
                     url: link.url,
@@ -275,6 +229,7 @@ export default function MoreScreen() {
                 icon={link.icon || 'external-link'}
                 label={link.name}
                 subtitle={link.url}
+                translateText={false}
                 onPress={() =>
                   void openExternalLink({
                     url: link.url,
@@ -287,53 +242,32 @@ export default function MoreScreen() {
           </View>
         </View>
       )}
->>>>>>> origin/develop
 
-      <View style={styles.group}>
-        <SectionHeader title="External links" />
-        <SectionCard>
-          {layout.externalLinks.map(link => (
-            <MenuItem
-              key={String(link.id)}
-              icon={link.icon || 'globe'}
-              label={link.name}
-              subtitle={link.url}
-              onPress={() => void openExternalLink({ url: link.url, name: link.name, openInNewTab: link.open_in_new_tab })}
-            />
-          ))}
-          {layout.externalLinks.length === 0 ? (
-            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-              No external links configured.
-            </Text>
-          ) : null}
-        </SectionCard>
-      </View>
-
-      <SectionCard>
+      <View style={styles.accountCard}>
         <MenuItem
           icon="server"
           label={
             changeServerMutation.isPending
-              ? 'Disconnecting...'
+              ? t('more.disconnecting', { defaultValue: 'Disconnecting...' })
               : demoMode
-                ? 'Exit demo'
-                : 'Change server'
+                ? t('more.exitDemo', { defaultValue: 'Exit demo' })
+                : t('more.changeServer', { defaultValue: 'Change server' })
           }
           subtitle={
             demoMode
-              ? 'Leave the demo and connect to your own Bambuddy server'
-              : 'Disconnect and connect to a different Bambuddy server'
+              ? t('more.leaveDemo', { defaultValue: 'Leave the demo and connect to your own BambuBuddy server' })
+              : t('more.disconnectHelp', { defaultValue: 'Disconnect and connect to a different BambuBuddy server' })
           }
           onPress={() => void changeServerMutation.mutateAsync()}
         />
         <MenuItem
           icon="power"
-          label={logoutMutation.isPending ? 'Signing out...' : 'Sign out'}
-          subtitle="Disconnect this mobile session"
+          label={logoutMutation.isPending ? t('more.signingOut', { defaultValue: 'Signing out...' }) : t('more.signOut', { defaultValue: 'Sign out' })}
+          subtitle={t('more.signOutHelp', { defaultValue: 'Disconnect this mobile session' })}
           onPress={() => void logoutMutation.mutateAsync()}
           destructive
         />
-      </SectionCard>
+      </View>
 
       <Text style={[styles.version, { color: colors.textTertiary }]}>Bambuddy Mobile v{version}</Text>
     </ScrollView>
@@ -369,10 +303,8 @@ const styles = StyleSheet.create({
   group: {
     gap: spacing.sm,
   },
-  helperText: {
-    fontSize: fontSize.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
+  accountCard: {
+    marginTop: spacing.sm,
   },
   version: {
     textAlign: 'center',

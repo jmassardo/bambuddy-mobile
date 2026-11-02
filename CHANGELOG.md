@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Complete account security controls, optional authentication, email/backup-code login, native SSO, scoped API keys, and connected-app consent.
+
 ### Fixed
+
+- Keep LDAP sign-in available when local accounts are disabled, and respect administrator-only user/group writes without removing delegated read access.
 
 - Restore authenticated iOS camera streams in the mobile app (#139, #142, #144)
 

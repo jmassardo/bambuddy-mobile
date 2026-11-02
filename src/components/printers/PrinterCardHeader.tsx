@@ -1,7 +1,10 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import React from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 import { StatusBadge } from '@/components/common/AppUI';
 import { InfoPill } from '@/components/printers/PrinterCardPrimitives';
+import { FirmwareBadge } from '@/components/printers/FirmwareBadge';
+import { PrinterAiDetectionBadge } from '@/components/printers/PrinterAiDetectionBadge';
 import { useTheme } from '@/theme';
 import { styles } from '@/components/printers/PrinterCard.styles';
 import type { PrinterCardHeaderProps } from '@/components/printers/PrinterCard.types';
@@ -13,7 +16,6 @@ import {
 import {
   AlertCircle,
   CheckCircle,
-  Eye,
   Link,
   Layers,
   Printer as PrinterIcon,
@@ -36,23 +38,13 @@ export function PrinterCardHeader({
   onQueuePress,
   onMaintenancePress,
   onShowHmsModal,
+  onFirmwarePress,
 }: PrinterCardHeaderProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const isConnected = status?.connected ?? false;
   const maintenanceTone = maintenance?.dueCount ? colors.error : colors.warning;
   const hmsTone = getSeverityColor(hmsErrors, colors);
-  const activeAiDetectors = status?.print_options
-    ? [
-        status.print_options.spaghetti_detector ? 'spaghetti detection' : null,
-        status.print_options.first_layer_inspector ? 'first layer inspection' : null,
-        status.print_options.printing_monitor ? 'printing monitor' : null,
-        status.print_options.nozzle_clumping_detector ? 'nozzle clumping detection' : null,
-        status.print_options.pileup_detector ? 'pileup detection' : null,
-        status.print_options.airprint_detector ? 'air-print detection' : null,
-      ].filter((detector): detector is string => detector !== null)
-    : [];
-  const aiDetectionEnabled = activeAiDetectors.length > 0;
-  const aiDetectionTone = aiDetectionEnabled ? colors.success : colors.textSecondary;
 
   return (
     <>
@@ -88,7 +80,7 @@ export function PrinterCardHeader({
               />
             </View>
             <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-              {printer.model || 'Unknown model'}
+              {printer.model || translateNative('native.e292a54ac2d93315')}
               {printer.location ? ` • ${printer.location}` : ''}
             </Text>
           </View>
@@ -100,10 +92,10 @@ export function PrinterCardHeader({
         <InfoPill
           label={
             printer.is_active === false
-              ? 'Maintenance mode'
+              ? translateNative('native.79b153b1ff0696da')
               : isConnected
-                ? 'Online'
-                : 'Offline'
+                ? translateNative('native.f592dbfa89d86eef')
+                : translateNative('native.460c8b942025eaac')
           }
           color={
             printer.is_active === false
@@ -131,7 +123,7 @@ export function PrinterCardHeader({
             />
           ) : status?.wifi_signal != null ? (
             <InfoPill
-              label={`${status.wifi_signal} dBm`}
+              label={translateNative('native.ea039d892bb558ca', { value0: String(status.wifi_signal) })}
               color={getWifiTone(status.wifi_signal, colors)}
               icon={
                 <Wifi
@@ -145,38 +137,22 @@ export function PrinterCardHeader({
         ) : null}
         {hmsErrors.length ? (
           <InfoPill
-            label={`${hmsErrors.length} HMS`}
+            label={translateNative('native.73d5a77480cbbcb9', { value0: String(hmsErrors.length) })}
             color={hmsTone}
             icon={<AlertCircle size={12} color={hmsTone} strokeWidth={2} />}
             onPress={onShowHmsModal}
           />
         ) : (
           <InfoPill
-            label="HMS OK"
+            label={translateNative('native.c685b8240ff0d9da')}
             color={colors.success}
             icon={<CheckCircle size={12} color={colors.success} strokeWidth={2} />}
           />
         )}
-        {isConnected && status?.print_options ? (
-          <View
-            accessible
-            accessibilityRole="text"
-            accessibilityLabel={
-              aiDetectionEnabled
-                ? `AI failure detection enabled. Active detectors: ${activeAiDetectors.join(', ')}`
-                : 'AI failure detection disabled'
-            }
-          >
-            <InfoPill
-              label={aiDetectionEnabled ? 'AI detection on' : 'AI detection off'}
-              color={aiDetectionTone}
-              icon={<Eye size={12} color={aiDetectionTone} strokeWidth={2} />}
-            />
-          </View>
-        ) : null}
+        <PrinterAiDetectionBadge printerId={printer.id} printerName={printer.name} />
         {queueCount > 0 ? (
           <InfoPill
-            label={`${queueCount} queued`}
+            label={translateNative('native.0f14212d98c0282f', { value0: String(queueCount) })}
             color={colors.info}
             icon={<Layers size={12} color={colors.info} strokeWidth={2} />}
             onPress={onQueuePress}
@@ -184,24 +160,22 @@ export function PrinterCardHeader({
         ) : null}
         {maintenanceCount > 0 ? (
           <InfoPill
-            label={`${maintenanceCount} maintenance`}
+            label={translateNative('native.3ef52b7b7dbfca3f', { value0: String(maintenanceCount) })}
             color={maintenanceTone}
             icon={<Wrench size={12} color={maintenanceTone} strokeWidth={2} />}
             onPress={onMaintenancePress}
           />
         ) : (
           <InfoPill
-            label="Maintenance OK"
+            label={translateNative('native.296e710f9f11f9af')}
             color={colors.success}
             icon={<Wrench size={12} color={colors.success} strokeWidth={2} />}
           />
         )}
-        {status?.firmware_version ? (
-          <InfoPill label={status.firmware_version} color={colors.textSecondary} />
-        ) : null}
+        <FirmwareBadge printerId={printer.id} currentVersion={status?.firmware_version} onPress={onFirmwarePress} />
         {status && DOOR_SENSOR_MODELS.has(printer.model ?? '') ? (
           <InfoPill
-            label={status.door_open ? 'Door open' : 'Door closed'}
+            label={status.door_open ? translateNative('native.28741f8ec4b8668a') : translateNative('native.f6b609e270a0d46b')}
             color={status.door_open ? colors.warning : colors.success}
           />
         ) : null}

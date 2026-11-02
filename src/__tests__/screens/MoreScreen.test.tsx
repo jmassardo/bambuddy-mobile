@@ -1,12 +1,23 @@
 import React from 'react';
+import { Pressable, Text } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import MoreScreen from '@/screens/MoreScreen';
+import {
+  LocalizationProvider,
+  createTranslator,
+  useNativeMessageState,
+  useTranslation,
+} from '@/i18n';
 
 const mockNavigate = jest.fn();
 const mockSetOptions = jest.fn();
 const mockUseQuery = jest.fn();
 const mockShowToast = jest.fn();
 const mockOpenURL = jest.fn().mockResolvedValue(undefined);
+const mockPermissions = new Set<string>();
+let mockUser: { id: number; username: string } | null = { id: 1, username: 'testuser' };
+let mockAnnouncementsVisible = false;
 
 jest.mock('react-native/Libraries/Linking/Linking', () => ({
   __esModule: true,
@@ -32,10 +43,25 @@ jest.mock('@/api/client', () => ({
     getExternalLinks: jest.fn(),
   },
 }));
+jest.mock('@/api/uiPreferences', () => ({
+  uiPreferencesApi: { getNavigationOrder: jest.fn(), getFlags: jest.fn() },
+}));
 
 jest.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { username: 'testuser' }, logout: jest.fn() }),
+  useAuth: () => ({
+    user: mockUser, logout: jest.fn(),
+    hasPermission: (permission: string) => mockPermissions.has('*') || mockPermissions.has(permission),
+  }),
 }));
+jest.mock('@/components/common/AnnouncementBanner', () => {
+  const ReactModule = require('react');
+  const { Text, View } = require('react-native');
+  return {
+    AnnouncementsEntry: ({ onPress }: { onPress: () => void }) => mockAnnouncementsVisible
+      ? ReactModule.createElement(View, { testID: 'announcements-entry', onPress }, ReactModule.createElement(Text, null, 'Announcements'))
+      : null,
+  };
+});
 
 jest.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ showToast: mockShowToast }),
@@ -43,7 +69,7 @@ jest.mock('@/contexts/ToastContext', () => ({
 
 jest.mock('@/api/server', () => ({
   useServerStore: Object.assign(
-    (selector: (state: { demoMode: boolean }) => boolean) => selector({ demoMode: false }),
+    (selector: (state: { demoMode: boolean; serverUrl: string }) => unknown) => selector({ demoMode: false, serverUrl: 'https://farm.example' }),
     { getState: () => ({ clearServerUrl: jest.fn() }) },
   ),
 }));
@@ -82,6 +108,10 @@ jest.mock('@/theme', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPermissions.clear();
+  mockPermissions.add('*');
+  mockUser = { id: 1, username: 'testuser' };
+  mockAnnouncementsVisible = false;
 });
 
 function setupQueries(opts?: {
@@ -89,18 +119,36 @@ function setupQueries(opts?: {
   externalLinks?: unknown[] | null;
   settingsError?: boolean;
   externalLinksError?: boolean;
+  billingEnabled?: boolean;
 }) {
   mockUseQuery.mockImplementation((options: { queryKey: string[] }) => {
-    if (options.queryKey[0] === 'settings') {
+    if (options.queryKey[0] === 'navigationOrder') {
       if (opts?.settingsError) return { data: undefined, isLoading: false, isError: true };
       return { data: opts?.settings ?? { default_sidebar_order: '' }, isLoading: false, isError: false };
     }
+    if (options.queryKey[0] === 'uiFlags') return { data: { billing_enabled: opts?.billingEnabled ?? false } };
     if (options.queryKey[0] === 'externalLinks') {
       if (opts?.externalLinksError) return { data: undefined, isLoading: false, isError: true };
       return { data: opts?.externalLinks ?? [], isLoading: false, isError: false };
     }
     return { data: undefined, isLoading: false, isError: false };
   });
+}
+
+function ReactiveToastProbe() {
+  const [message, setMessage] = useNativeMessageState('');
+  const { setLanguage } = useTranslation();
+  mockShowToast.mockImplementation(value => setMessage(value));
+
+  return (
+    <>
+      <MoreScreen />
+      <Text testID="more-visible-toast">{message}</Text>
+      <Pressable testID="change-display-language" onPress={() => setLanguage('zh-CN')}>
+        <Text>Change display language</Text>
+      </Pressable>
+    </>
+  );
 }
 
 describe('MoreScreen', () => {
@@ -198,5 +246,114 @@ describe('MoreScreen', () => {
 
     expect(getByText(/testuser/)).toBeTruthy();
     expect(getByText(/v1\.0\.0/)).toBeTruthy();
+  });
+
+  it('opens the announcements route only when its server-controlled entry is visible', async () => {
+    setupQueries();
+    mockAnnouncementsVisible = true;
+    const screen = await render(<MoreScreen />);
+    await fireEvent.press(screen.getByTestId('announcements-entry'));
+    expect(mockNavigate).toHaveBeenCalledWith('Announcements');
+    mockAnnouncementsVisible = false;
+    await screen.rerender(<MoreScreen />);
+    expect(screen.queryByTestId('announcements-entry')).toBeNull();
+  });
+
+  it('gates new camera, pipeline and user entries by permissions rather than administrator status', async () => {
+    setupQueries();
+    mockPermissions.clear();
+    mockPermissions.add('users:read');
+    const screen = await render(<MoreScreen />);
+    expect(screen.getByText('Users')).toBeTruthy();
+    expect(screen.queryByText('Camera wall')).toBeNull();
+    expect(screen.queryByText('Slicer pipelines')).toBeNull();
+    mockPermissions.clear();
+    mockPermissions.add('camera:view');
+    mockPermissions.add('pipelines:read');
+    await screen.rerender(<MoreScreen />);
+    expect(screen.queryByText('Users')).toBeNull();
+    await fireEvent.press(screen.getByTestId('menu-item-Camera wall'));
+    expect(mockNavigate).toHaveBeenCalledWith('CameraWall');
+    await fireEvent.press(screen.getByTestId('menu-item-Camera integrations'));
+    expect(mockNavigate).toHaveBeenCalledWith('CameraIntegrations');
+    await fireEvent.press(screen.getByTestId('menu-item-Slicer pipelines'));
+    expect(mockNavigate).toHaveBeenCalledWith('SlicerPipelines');
+    await fireEvent.press(screen.getByTestId('menu-item-Pipeline runs'));
+    expect(mockNavigate).toHaveBeenCalledWith('PipelineRuns');
+  });
+
+  it('requires an actual user, enabled billing, and a cost-center permission for Finance without fetching privileged settings', async () => {
+    setupQueries({ billingEnabled: true });
+    mockPermissions.clear();
+    mockPermissions.add('cost_centers:read_own');
+    const screen = await render(<MoreScreen />);
+    await fireEvent.press(screen.getByTestId('menu-item-Finance'));
+    expect(mockNavigate).toHaveBeenCalledWith('Finance');
+    expect(mockUseQuery.mock.calls.some(([options]) => options.queryKey[0] === 'settings')).toBe(false);
+    mockUser = null;
+    await screen.rerender(<MoreScreen />);
+    expect(screen.queryByText('Finance')).toBeNull();
+    mockUser = { id: 1, username: 'testuser' };
+    setupQueries({ billingEnabled: false });
+    await screen.rerender(<MoreScreen />);
+    expect(screen.queryByText('Finance')).toBeNull();
+  });
+
+  it('hides base-resource links denied by the same access policy as their registered routes', async () => {
+    setupQueries();
+    mockPermissions.clear();
+    mockPermissions.add('projects:read');
+    const screen = await render(<MoreScreen />);
+    expect(screen.getByText('Projects')).toBeTruthy();
+    for (const title of ['Inventory', 'SpoolBuddy', 'Maintenance', 'Stats', 'Energy', 'System', 'Print Log']) {
+      expect(screen.queryByText(title)).toBeNull();
+    }
+    await fireEvent.press(screen.getByTestId('menu-item-Projects'));
+    expect(mockNavigate).toHaveBeenCalledWith('Projects');
+  });
+
+  it.each([
+    {
+      name: 'unsupported external protocol',
+      url: 'ftp://example.test',
+      key: 'more.externalProtocol',
+      english: 'External links must start with http:// or https://',
+      rejects: false,
+    },
+    {
+      name: 'failed system browser launch',
+      url: 'https://example.test',
+      key: 'more.externalError',
+      english: 'Unable to open the external link.',
+      rejects: true,
+    },
+  ])('keeps visible $name feedback reactive without translating a server link name', async ({
+    url, key, english, rejects,
+  }) => {
+    const storage = jest.spyOn(AsyncStorage, 'getItem').mockResolvedValue(null);
+    try {
+      setupQueries({
+        externalLinks: [
+          { id: 1, name: 'Save', url, open_in_new_tab: true, custom_icon: null, sort_order: 1 },
+        ],
+      });
+      if (rejects) mockOpenURL.mockRejectedValueOnce(new Error('Browser unavailable'));
+      const screen = await render(
+        <LocalizationProvider>
+          <ReactiveToastProbe />
+        </LocalizationProvider>,
+      );
+      await screen.findByText('Settings');
+      await fireEvent.press(screen.getByTestId('menu-item-Save'));
+      await screen.findByText(english);
+
+      const translated = createTranslator('zh-CN')(key, { defaultValue: english });
+      expect(translated).not.toBe(english);
+      await fireEvent.press(screen.getByTestId('change-display-language'));
+      await screen.findByText(translated);
+      expect(screen.getByText('Save')).toBeTruthy();
+    } finally {
+      storage.mockRestore();
+    }
   });
 });

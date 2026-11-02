@@ -1,0 +1,12 @@
+{
+  "native.197a317960cf55b6": "低庫存門檻：{{threshold}}%",
+  "native.2c6f1553291f3699": "{{count}} 個通知服務提供者",
+  "native.2d8f4b1110eef95b": "{{count}} 台虛擬列印機",
+  "native.8114475cf643fbbc": "{{count}} 個存放位置",
+  "native.8f615a72dd98661e": "已設定 {{count}} 台攝影機",
+  "native.c4bfec3810af5347": "{{keys}} 組 API 金鑰 • {{tokens}} 個攝影機權杖",
+  "native.cb19f6798e4c8df9": "{{count}} 個智慧插座",
+  "native.d605514f8d9014a3": "{{count}} 台裝置",
+  "native.d9dd8c0c1c350e4c": "{{count}} 個 K 值設定檔",
+  "native.f509a8cbfea53808": "{{count}} 個自訂連結"
+}

@@ -1,14 +1,20 @@
-import React from 'react';
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   Modal,
-  View,
+  ScrollView,
   Text,
+  View,
+  type LayoutChangeEvent,
   Pressable,
   StyleSheet,
+  type ViewStyle,
   ActivityIndicator,
 } from 'react-native';
 import { AlertTriangle, Info, AlertCircle } from 'lucide-react-native';
 import { useTheme } from '@/theme';
+import { fontSize } from '@/theme/tokens';
 
 export interface ConfirmModalProps {
   visible: boolean;
@@ -20,6 +26,23 @@ export interface ConfirmModalProps {
   cancelLabel?: string;
   variant?: 'danger' | 'warning' | 'info';
   loading?: boolean;
+  /**
+   * Optional ref to a trigger component. When the modal closes, focus returns
+   * to this ref so screen readers don't lose their place.
+   */
+  returnFocusRef?: React.RefObject<React.ComponentRef<typeof Pressable> | null>;
+}
+
+function variantIcon(variant: 'danger' | 'warning' | 'info') {
+  if (variant === 'warning') return AlertTriangle;
+  if (variant === 'info') return Info;
+  return AlertCircle;
+}
+
+function variantDescription(variant: 'danger' | 'warning' | 'info') {
+  if (variant === 'warning') return translateNative('native.201075b73563c5a7');
+  if (variant === 'info') return translateNative('native.e665a9f35a027a6f');
+  return translateNative('native.9076936470978ba1');
 }
 
 export function ConfirmModal({
@@ -28,50 +51,160 @@ export function ConfirmModal({
   onConfirm,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel = translateNative('common.confirm'),
+  cancelLabel = translateNative('common.cancel'),
   variant = 'danger',
   loading = false,
+  returnFocusRef,
 }: ConfirmModalProps) {
+  useNativeLocale();
   const { colors } = useTheme();
+  const { text } = useTranslation();
+  const isMountedRef = useRef(false);
+  const isConfirmingRef = useRef(false);
 
-  const variantColors = {
-    danger: { icon: colors.error, button: colors.error, buttonHover: colors.error },
-    warning: { icon: colors.warning, button: colors.warning, buttonHover: colors.warning },
-    info: { icon: colors.accent, button: colors.accent, buttonHover: colors.accentDark },
+  const [cardHeight, setCardHeight] = useState(0);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
+  const handleCardLayout = useCallback((e: LayoutChangeEvent) => {
+    setCardHeight(e.nativeEvent.layout.height);
+  }, []);
+
+  // When modal opens, set modal semantics and move focus
+  useEffect(() => {
+    if (!visible || !isMountedRef.current) return;
+    isConfirmingRef.current = false;
+
+    // Small delay to ensure the native view is available
+    const timer = setTimeout(() => {
+      if (isMountedRef.current) {
+        try {
+          AccessibilityInfo.announceForAccessibility(text(title));
+        } catch {
+          // AccessibilityInfo may not be available in test environments
+        }
+      }
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [visible, title, text, isMountedRef]);
+
+  const handleClose = useCallback(() => {
+    if (loading) return;
+    onClose();
+    if (returnFocusRef?.current) {
+      try {
+        (returnFocusRef.current as any)?.focus?.();
+      } catch {
+        // Ref may be stale or unavailable
+      }
+    }
+  }, [loading, onClose, returnFocusRef]);
+
+  const handleConfirm = useCallback(() => {
+    if (loading || isConfirmingRef.current) return;
+    isConfirmingRef.current = true;
+    onConfirm();
+  }, [loading, onConfirm]);
+
+  const handleCancel = useCallback(() => {
+    isConfirmingRef.current = false;
+    handleClose();
+  }, [handleClose]);
+
+  const IconComponent = variantIcon(variant);
+  const variantDesc = variantDescription(variant);
+
+  // Calculate max height based on available screen space
+  const maxHeight = Math.max(cardHeight + 80, 300);
+
+  const cardStyle: ViewStyle = {
+    maxHeight: maxHeight,
   };
-  const vc = variantColors[variant];
 
-  const IconComponent = variant === 'danger' ? AlertCircle : variant === 'warning' ? AlertTriangle : Info;
+  const accentColor = variant === 'danger' ? colors.error : variant === 'warning' ? colors.warning : colors.accent;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
-        <View style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={handleClose}
+      presentationStyle="overFullScreen"
+    >
+      <View
+        style={[styles.backdrop, { backgroundColor: colors.overlay }]}
+        accessibilityViewIsModal={true}
+        accessibilityLabel={`${text(title)}. ${text(message)}. ${text(confirmLabel)} / ${text(cancelLabel)}`}
+      >
+        <View
+          style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }, cardStyle]}
+          onLayout={handleCardLayout}
+          accessibilityLabel={text(title)}
+          accessibilityState={{ busy: loading, disabled: false }}
+        >
           <View style={styles.iconRow}>
-            <View style={[styles.iconCircle, { backgroundColor: `${vc.icon}20` }]}>
-              <IconComponent size={24} color={vc.icon} />
+            <View style={[styles.iconCircle, { backgroundColor: `${accentColor}20` }]}>
+              <IconComponent size={24} color={accentColor} />
             </View>
+            <Text
+              style={[styles.srOnly, { color: accentColor }]}
+              accessibilityElementsHidden={true}
+              importantForAccessibility="no-hide-descendants"
+            >
+              {variantDesc}
+            </Text>
           </View>
-          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={true}
+          >
+            <Text
+              style={[styles.title, { color: colors.text }]}
+              accessibilityRole="header"
+              numberOfLines={0}
+            >
+              {text(title)}
+            </Text>
+            <Text
+              style={[styles.message, { color: colors.textSecondary }]}
+              accessibilityRole="text"
+              numberOfLines={0}
+            >
+              {text(message)}
+            </Text>
+          </ScrollView>
           <View style={styles.buttons}>
             <Pressable
-              onPress={onClose}
+              onPress={handleCancel}
               disabled={loading}
               style={[styles.button, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel={text(cancelLabel)}
+              accessibilityState={{ disabled: loading, checked: false }}
+              hitSlop={8}
             >
-              <Text style={[styles.buttonText, { color: colors.text }]}>{cancelLabel}</Text>
+              <Text style={[styles.buttonText, { color: colors.text }]}>{text(cancelLabel)}</Text>
             </Pressable>
             <Pressable
-              onPress={onConfirm}
+              onPress={handleConfirm}
               disabled={loading}
-              style={[styles.button, styles.confirmButton, { backgroundColor: vc.button }]}
+              style={[styles.button, styles.confirmButton, { backgroundColor: accentColor }]}
+              accessibilityRole="button"
+              accessibilityLabel={text(confirmLabel)}
+              accessibilityState={{ disabled: loading, checked: false, busy: loading }}
+              hitSlop={8}
             >
               {loading ? (
                 <ActivityIndicator size="small" color={colors.textInverse} />
               ) : (
-                <Text style={[styles.buttonText, { color: colors.textInverse }]}>{confirmLabel}</Text>
+                <Text style={[styles.buttonText, { color: colors.textInverse }]}>{text(confirmLabel)}</Text>
               )}
             </Pressable>
           </View>
@@ -97,7 +230,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconRow: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   iconCircle: {
     width: 48,
@@ -106,17 +239,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  srOnly: {
+    position: 'absolute',
+    left: -9999,
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: 'hidden',
+  },
   title: {
-    fontSize: 18,
+    fontSize: fontSize.xl,
     fontWeight: '600',
     marginBottom: 8,
     textAlign: 'center',
   },
   message: {
-    fontSize: 14,
+    fontSize: fontSize.base,
     lineHeight: 20,
     textAlign: 'center',
     marginBottom: 24,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   buttons: {
     flexDirection: 'row',
@@ -131,12 +276,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'transparent',
+    minHeight: 44,
   },
   confirmButton: {
     borderWidth: 0,
   },
   buttonText: {
-    fontSize: 14,
+    fontSize: fontSize.base,
     fontWeight: '600',
   },
 });

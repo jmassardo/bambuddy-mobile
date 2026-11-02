@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import {
   AlertCircle,
@@ -19,6 +20,7 @@ import {
   Shield,
   Trash2,
   Users,
+  WifiOff,
   Wrench,
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
@@ -28,8 +30,10 @@ interface LoadingScreenProps {
   message?: string;
 }
 
-export function LoadingScreen({ message = 'Loading...' }: LoadingScreenProps) {
+export function LoadingScreen({ message = translateNative('common.loading') }: LoadingScreenProps) {
+  useNativeLocale();
   const { colors } = useTheme();
+  useTranslation();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -102,7 +106,9 @@ const EMPTY_STATE_ICONS: Record<
 };
 
 export function EmptyState({ icon = '📭', title, message }: EmptyStateProps) {
+  useNativeLocale();
   const { colors } = useTheme();
+  useTranslation();
   const iconName = EMPTY_STATE_ICON_MAP[icon] ?? icon;
   const IconComponent = EMPTY_STATE_ICONS[iconName] ?? Archive;
 
@@ -119,27 +125,58 @@ export function EmptyState({ icon = '📭', title, message }: EmptyStateProps) {
   );
 }
 
-interface ErrorStateProps {
-  message: string;
+interface OfflineStateProps {
+  message?: string;
   onRetry?: () => void;
 }
 
-export function ErrorState({ message, onRetry }: ErrorStateProps) {
+export function OfflineState({ message = translateNative('native.c1644b8beb53389c'), onRetry }: OfflineStateProps) {
+  useNativeLocale();
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <View style={styles.emptyContainer}>
-      <View style={[styles.emptyIconWrap, { backgroundColor: `${colors.error}18` }]}>
-        <AlertCircle size={28} color={colors.error} strokeWidth={2} />
+      <View style={[styles.emptyIconWrap, { backgroundColor: `${colors.warning}18` }]}>
+        <WifiOff size={28} color={colors.warning} strokeWidth={2} />
       </View>
-      <Text style={[styles.emptyTitle, { color: colors.error }]}>Error</Text>
+      <Text style={[styles.emptyTitle, { color: colors.warning }]}>{t('common.offline', { defaultValue: 'No network' })}</Text>
       <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>
       {onRetry && (
         <Text
           style={[styles.retryButton, { color: colors.accent }]}
           onPress={onRetry}
         >
-          Tap to retry
+          {t('common.retry')}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+interface ErrorStateProps {
+  message: string;
+  onRetry?: () => void;
+}
+
+export function ErrorState({ message, onRetry }: ErrorStateProps) {
+  useNativeLocale();
+  const { colors } = useTheme();
+  const { t } = useTranslation();
+
+  return (
+    <View style={styles.emptyContainer}>
+      <View style={[styles.emptyIconWrap, { backgroundColor: `${colors.error}18` }]}>
+        <AlertCircle size={28} color={colors.error} strokeWidth={2} />
+      </View>
+      <Text style={[styles.emptyTitle, { color: colors.error }]}>{t('common.error')}</Text>
+      <Text style={[styles.emptyMessage, { color: colors.textSecondary }]} accessibilityRole="alert">{message}</Text>
+      {onRetry && (
+        <Text
+          style={[styles.retryButton, { color: colors.accent }]}
+          onPress={onRetry}
+        >
+          {t('common.retry')}
         </Text>
       )}
     </View>

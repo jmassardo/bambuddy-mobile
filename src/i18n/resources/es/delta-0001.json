@@ -1,0 +1,21 @@
+{
+  "native.04fb589d9c46972b": "¿Reintentar solo la vinculación al inventario?",
+  "native.078383ec46d40c2f": "Inicia sesión con tu cuenta de directorio.",
+  "native.0c60c0c6856b6903": "Los trabajos con variantes de laminado sin resolver no pueden asignarse a una impresora fija. Deja la impresora sin cambios o sin asignar.",
+  "native.0c65b108307c5d36": "Reintentar vinculación al inventario",
+  "native.1a5932500ebd8c6f": "Actualización completada. El dispositivo remoto indica la versión {{version}}.",
+  "native.4ca8f2ae45ddb60b": "Vinculación al inventario reparada. No se ha reescrito la etiqueta NFC física.",
+  "native.4d999eaa75bc989a": "Seguir el progreso de los flujos de laminado",
+  "native.7356160c2a259d93": "Supervisar juntas las cámaras de las impresoras",
+  "native.88d0c23d4edeb85b": "Conectar visores de cámara externos",
+  "native.990a472990fbdf8d": "La escritura NFC física se ha realizado correctamente. Vincula la etiqueta {{tag}} a la bobina #{{id}} sin reescribirla.",
+  "native.c13edffd24345730": "Centros de costes y facturación",
+  "native.c7482a2684ec7ea6": "Flujos de laminado",
+  "native.c76b0088d7977298": "Volver a comprobar el estado de inicio de sesión del directorio",
+  "native.c8c49bef3c51e3ff": "Integraciones de cámaras",
+  "native.e75b16b7c4dce790": "Ejecuciones de flujos",
+  "native.ececbf64c1ab0472": "Muro de cámaras",
+  "native.ef6149f2bdee70f3": "Escritura física correcta; error al vincular al inventario",
+  "native.f2aa245433a562b7": "Gestionar flujos de laminado automatizados",
+  "native.f981ae40b78c0d40": "No se pueden guardar los cambios del informe: {{error}}. Mantén esta pantalla abierta y vuelve a intentar la edición antes de reiniciar la aplicación."
+}

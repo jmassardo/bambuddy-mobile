@@ -13,6 +13,15 @@ import {
   createTestQueryClient,
 } from '@/testUtils/queryClient';
 import type { ApiEntity, VirtualPrinterConfig } from '@/types/api';
+import { integrationsApi } from '@/api/integrations';
+
+jest.mock('@react-native-clipboard/clipboard', () => ({ setString: jest.fn() }));
+jest.mock('@/api/integrations', () => ({
+  integrationsApi: {
+    interfaces: jest.fn(), certificate: jest.fn(), vpSettings: jest.fn(), tailscale: jest.fn(),
+    diagnoseVP: jest.fn(), diagnoseTarget: jest.fn(), saveArchiveNaming: jest.fn(),
+  },
+}));
 
 const mockShowToast = jest.fn();
 let mockIsAdmin = true;
@@ -31,6 +40,7 @@ jest.mock('@/api/client', () => ({
     deleteVirtualPrinter: jest.fn(),
     startVirtualPrinter: jest.fn(),
     stopVirtualPrinter: jest.fn(),
+    getPrinters: jest.fn(),
   },
 }));
 
@@ -187,6 +197,12 @@ describe('VirtualPrintersScreen', () => {
     jest.clearAllMocks();
     mockIsAdmin = true;
     mockList();
+    jest.mocked(api.getPrinters).mockResolvedValue([{ id: 8, name: 'Workshop X1', ip_address: '192.168.1.8' }] as Awaited<ReturnType<typeof api.getPrinters>>);
+    jest.mocked(integrationsApi.interfaces).mockResolvedValue({ interfaces: [{ name: 'eth0', ip: '192.168.1.2', netmask: '255.255.255.0', subnet: '192.168.1.0/24' }] });
+    jest.mocked(integrationsApi.certificate).mockResolvedValue({ pem: 'CERT', fingerprint_sha256: 'AA:BB', not_valid_after: '2027-01-01' });
+    jest.mocked(integrationsApi.vpSettings).mockResolvedValue({ archive_name_source: 'metadata' });
+    jest.mocked(integrationsApi.tailscale).mockResolvedValue({ available: false, fqdn: '', error: null });
+    jest.mocked(integrationsApi.diagnoseTarget).mockResolvedValue({ printer_id: 8, ip_address: '192.168.1.8', overall: 'ok', checks: [] });
     jest.mocked(api.createVirtualPrinter).mockResolvedValue(stoppedPrinter);
     jest.mocked(api.updateVirtualPrinter).mockResolvedValue(stoppedPrinter);
     jest.mocked(api.deleteVirtualPrinter).mockResolvedValue(undefined);
@@ -337,6 +353,24 @@ describe('VirtualPrintersScreen', () => {
       }),
     );
     await waitFor(() => expect(client.isMutating()).toBe(0));
+  });
+
+  it('saves named target/interface selections and AMS mapping without replacing access code with serial', async () => {
+    const { result } = await renderScreen();
+    await fireEvent.press(await result.findByRole('button', { name: 'Edit' }));
+    await fireEvent.press(result.getByText('Proxy'));
+    await fireEvent.press(await result.findByText('Workshop X1 (192.168.1.8)'));
+    await fireEvent.press(result.getAllByText('eth0 (192.168.1.2) — 192.168.1.0/24')[0]);
+    await fireEvent.press(result.getAllByText('eth0 (192.168.1.2) — 192.168.1.0/24')[1]);
+    await fireEvent.press(result.getByText('Test target connection'));
+    expect(await result.findByText('Overall diagnosis: ok')).toBeTruthy();
+    expect(integrationsApi.diagnoseTarget).toHaveBeenCalledWith(8);
+    await fireEvent.press(result.getByText('Save printer'));
+    await waitFor(() => expect(api.updateVirtualPrinter).toHaveBeenCalledWith(7, expect.objectContaining({
+      target_printer_id: 8, bind_ip: '192.168.1.2', remote_interface_ip: '192.168.1.2', save_ams_mapping: false,
+    })));
+    const payload = jest.mocked(api.updateVirtualPrinter).mock.calls[0][1];
+    expect(payload).not.toHaveProperty('access_code');
   });
 
   it('invalidates the list query after lifecycle mutations', async () => {

@@ -1,3 +1,5 @@
+import { NativeTranslation, translateNative, useNativeLocale } from '@/i18n';
+
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useTheme } from '@/theme';
@@ -28,6 +30,7 @@ export function PrinterCardFilamentSection({
   spoolAssignments,
   onTrayPress,
 }: PrinterCardFilamentSectionProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const hasSystems = Boolean(status?.ams?.length || status?.vt_tray?.length);
 
@@ -35,7 +38,7 @@ export function PrinterCardFilamentSection({
 
   return (
     <>
-      <SectionLabel label="Filament systems" />
+      <SectionLabel label={translateNative('native.fe0a8b6e3b0d9f0f')} />
       <View style={styles.amsList}>
         {(status?.ams ?? []).map(ams => {
           const trayCount = ams.tray.length;
@@ -64,9 +67,7 @@ export function PrinterCardFilamentSection({
                         styles.amsIndicatorText,
                         { color: getFillColor(100 - ams.temp, colors) },
                       ]}
-                    >
-                      {ams.temp}°C
-                    </Text>
+                    ><NativeTranslation id="native.dd28ea7a8411dee2" values={{ value0: (ams.temp) }} /></Text>
                   ) : null}
                   {ams.humidity != null ? (
                     <Text
@@ -81,9 +82,7 @@ export function PrinterCardFilamentSection({
                                 : colors.error,
                         },
                       ]}
-                    >
-                      {ams.humidity}% RH
-                    </Text>
+                    ><NativeTranslation id="native.38f24231b7f39457" values={{ value0: (ams.humidity) }} /></Text>
                   ) : null}
                 </View>
               </View>
@@ -143,8 +142,8 @@ export function PrinterCardFilamentSection({
           >
             <View style={styles.amsHeader}>
               <View style={styles.amsHeaderText}>
-                <Text style={[styles.amsTitle, { color: colors.text }]}>External</Text>
-                <Text style={[styles.amsSubtitle, { color: colors.textSecondary }]}>Virtual tray</Text>
+                <Text style={[styles.amsTitle, { color: colors.text }]}>{translateNative('native.91ac7d9ea4fafdb5')}</Text>
+                <Text style={[styles.amsSubtitle, { color: colors.textSecondary }]}>{translateNative('native.0799221a9e4b4c32')}</Text>
               </View>
             </View>
             <View style={styles.trayGrid}>
@@ -163,7 +162,7 @@ export function PrinterCardFilamentSection({
                     subtitle={
                       tray.tray_type && tray.tray_sub_brands
                         ? tray.tray_type
-                        : 'Virtual tray'
+                        : translateNative('native.0799221a9e4b4c32')
                     }
                     fill={getEffectiveTrayFill(
                       tray,
@@ -182,7 +181,7 @@ export function PrinterCardFilamentSection({
                         slotIndex: index,
                         isExternal: true,
                         label: helper,
-                        amsLabel: 'External spool',
+                        get amsLabel() { return translateNative('native.078173be8ca7093f'); },
                         temperature: null,
                       })
                     }

@@ -1,0 +1,897 @@
+{
+  "native.02e232e061be5514": {
+    "english": "on",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/inventory/InventoryEnvironment.tsx",
+        "line": 680,
+        "kind": "finite-display-choice",
+        "owner": "EnvironmentBindings",
+        "source": "'on'"
+      },
+      {
+        "file": "src/components/settings/PrintDefaultsSettings.tsx",
+        "line": 39,
+        "kind": "finite-display-choice",
+        "owner": "PrintDefaultsSettings",
+        "source": "'on'"
+      },
+      {
+        "file": "src/components/settings/PrintDefaultsSettings.tsx",
+        "line": 41,
+        "kind": "translation-default",
+        "owner": "PrintDefaultsSettings",
+        "existingKey": "common.on",
+        "source": "mode"
+      }
+    ]
+  },
+  "native.09260e0ad3e1d324": {
+    "english": "full",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraWallScreen.tsx",
+        "line": 90,
+        "kind": "finite-ui-option",
+        "owner": "CameraWallScreen",
+        "source": "'full'"
+      }
+    ]
+  },
+  "native.294fae9b9ab07565": {
+    "english": "no",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/SpoolBuddySettingsSection.tsx",
+        "line": 30,
+        "kind": "translation-default",
+        "owner": "SpoolBuddySettingsSection",
+        "existingKey": "native.294fae9b9ab07565",
+        "source": "\"no\""
+      },
+      {
+        "file": "src/components/settings/SpoolBuddySettingsSection.tsx",
+        "line": 30,
+        "kind": "translation-default",
+        "owner": "SpoolBuddySettingsSection",
+        "existingKey": "native.294fae9b9ab07565",
+        "source": "\"no\""
+      },
+      {
+        "file": "src/components/settings/UsersSecuritySection.tsx",
+        "line": 61,
+        "kind": "translation-default",
+        "owner": "UsersSecuritySection",
+        "existingKey": "native.294fae9b9ab07565",
+        "source": "\"no\""
+      },
+      {
+        "file": "src/components/settings/UsersSecuritySection.tsx",
+        "line": 115,
+        "kind": "translation-default",
+        "owner": "UsersSecuritySection",
+        "existingKey": "native.294fae9b9ab07565",
+        "source": "\"no\""
+      },
+      {
+        "file": "src/components/settings/UsersSecuritySection.tsx",
+        "line": 115,
+        "kind": "translation-default",
+        "owner": "UsersSecuritySection",
+        "existingKey": "native.294fae9b9ab07565",
+        "source": "\"no\""
+      },
+      {
+        "file": "src/screens/SpoolBuddyScreen.tsx",
+        "line": 931,
+        "kind": "translation-default",
+        "owner": "renderDevicesSection",
+        "existingKey": "native.294fae9b9ab07565",
+        "source": "\"no\""
+      },
+      {
+        "file": "src/screens/SpoolBuddyScreen.tsx",
+        "line": 932,
+        "kind": "translation-default",
+        "owner": "renderDevicesSection",
+        "existingKey": "native.294fae9b9ab07565",
+        "source": "\"no\""
+      }
+    ]
+  },
+  "native.2e017ce1c0d8c250": {
+    "english": "ON",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/SmartPlugPowerControls.tsx",
+        "line": 19,
+        "kind": "ui-helper-return",
+        "owner": "plugPowerState",
+        "source": "'ON'"
+      }
+    ]
+  },
+  "native.37f4028ffa0f0dbc": {
+    "english": "compact",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraWallScreen.tsx",
+        "line": 90,
+        "kind": "finite-ui-option",
+        "owner": "CameraWallScreen",
+        "source": "'compact'"
+      }
+    ]
+  },
+  "native.42399be9238f3fd0": {
+    "english": "camwall",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraIntegrationsScreen.tsx",
+        "line": 72,
+        "kind": "finite-ui-option",
+        "owner": "CameraTokenManager",
+        "source": "'camwall'"
+      }
+    ]
+  },
+  "native.454308c8cdb7a63d": {
+    "english": "Low",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 13,
+        "kind": "translation-default",
+        "owner": "STATUS_LABELS",
+        "existingKey": "native.454308c8cdb7a63d",
+        "source": "\"Low\""
+      }
+    ]
+  },
+  "native.4894bc2506c25592": {
+    "english": "Now",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/queue/GanttTimeline.tsx",
+        "line": 105,
+        "kind": "wrapped-translation-default",
+        "owner": "GanttTimeline",
+        "source": "'Now'"
+      }
+    ]
+  },
+  "native.50c262723339f592": {
+    "english": "OK",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/common/AlertModal.tsx",
+        "line": 29,
+        "kind": "translation-default",
+        "owner": "AlertModal",
+        "existingKey": "native.50c262723339f592",
+        "source": "\"OK\""
+      },
+      {
+        "file": "src/components/settings/SettingsModals.tsx",
+        "line": 168,
+        "kind": "translation-default",
+        "owner": "SettingsModals",
+        "existingKey": "native.50c262723339f592",
+        "source": "\"OK\""
+      }
+    ]
+  },
+  "native.568b35747389cde0": {
+    "english": "small",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraIntegrationsScreen.tsx",
+        "line": 140,
+        "kind": "finite-ui-option",
+        "owner": "CameraIntegrationsScreen",
+        "source": "'small'"
+      }
+    ]
+  },
+  "native.59f70e5e129742c4": {
+    "english": "OFF",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/SmartPlugPowerControls.tsx",
+        "line": 19,
+        "kind": "ui-helper-return",
+        "owner": "plugPowerState",
+        "source": "'OFF'"
+      }
+    ]
+  },
+  "native.663266c1c7b058c5": {
+    "english": "buttons",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/notifications/ProviderEditorFields.tsx",
+        "line": 117,
+        "kind": "finite-ui-option",
+        "owner": "ProviderDeliveryFields",
+        "source": "'buttons'"
+      }
+    ]
+  },
+  "native.69d469e78de0ce33": {
+    "english": "yes",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/SpoolBuddySettingsSection.tsx",
+        "line": 30,
+        "kind": "translation-default",
+        "owner": "SpoolBuddySettingsSection",
+        "existingKey": "native.69d469e78de0ce33",
+        "source": "\"yes\""
+      },
+      {
+        "file": "src/components/settings/SpoolBuddySettingsSection.tsx",
+        "line": 30,
+        "kind": "translation-default",
+        "owner": "SpoolBuddySettingsSection",
+        "existingKey": "native.69d469e78de0ce33",
+        "source": "\"yes\""
+      },
+      {
+        "file": "src/components/settings/UsersSecuritySection.tsx",
+        "line": 61,
+        "kind": "translation-default",
+        "owner": "UsersSecuritySection",
+        "existingKey": "native.69d469e78de0ce33",
+        "source": "\"yes\""
+      },
+      {
+        "file": "src/components/settings/UsersSecuritySection.tsx",
+        "line": 115,
+        "kind": "translation-default",
+        "owner": "UsersSecuritySection",
+        "existingKey": "native.69d469e78de0ce33",
+        "source": "\"yes\""
+      },
+      {
+        "file": "src/components/settings/UsersSecuritySection.tsx",
+        "line": 115,
+        "kind": "translation-default",
+        "owner": "UsersSecuritySection",
+        "existingKey": "native.69d469e78de0ce33",
+        "source": "\"yes\""
+      },
+      {
+        "file": "src/screens/SpoolBuddyScreen.tsx",
+        "line": 931,
+        "kind": "translation-default",
+        "owner": "renderDevicesSection",
+        "existingKey": "native.69d469e78de0ce33",
+        "source": "\"yes\""
+      },
+      {
+        "file": "src/screens/SpoolBuddyScreen.tsx",
+        "line": 932,
+        "kind": "translation-default",
+        "owner": "renderDevicesSection",
+        "existingKey": "native.69d469e78de0ce33",
+        "source": "\"yes\""
+      }
+    ]
+  },
+  "native.6f5fec5bfd923e20": {
+    "english": "reactions",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/notifications/ProviderEditorFields.tsx",
+        "line": 117,
+        "kind": "finite-ui-option",
+        "owner": "ProviderDeliveryFields",
+        "source": "'reactions'"
+      }
+    ]
+  },
+  "native.826b3b4e892042f3": {
+    "english": "ok",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/SpoolBuddyScreen.tsx",
+        "line": 932,
+        "kind": "translation-default",
+        "owner": "renderDevicesSection",
+        "existingKey": "native.826b3b4e892042f3",
+        "source": "\"ok\""
+      },
+      {
+        "file": "src/screens/SpoolBuddyScreen.tsx",
+        "line": 933,
+        "kind": "translation-default",
+        "owner": "renderDevicesSection",
+        "existingKey": "native.826b3b4e892042f3",
+        "source": "\"ok\""
+      }
+    ]
+  },
+  "native.827285178a7197a1": {
+    "english": "BOM",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/ProjectDetailScreen.tsx",
+        "line": 353,
+        "kind": "translation-default",
+        "owner": "ProjectDetailScreen",
+        "existingKey": "native.827285178a7197a1",
+        "source": "\"BOM\""
+      }
+    ]
+  },
+  "native.a3619e5a7b86c9e4": {
+    "english": "Bed",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrinterCardTemperatureSection.tsx",
+        "line": 51,
+        "kind": "translation-default",
+        "owner": "PrinterCardTemperatureSection",
+        "existingKey": "native.a3619e5a7b86c9e4",
+        "source": "\"Bed\""
+      },
+      {
+        "file": "src/screens/PrinterDetailScreen.tsx",
+        "line": 868,
+        "kind": "translation-default",
+        "owner": "PrinterDetailScreen",
+        "existingKey": "native.a3619e5a7b86c9e4",
+        "source": "\"Bed\""
+      },
+      {
+        "file": "src/screens/SlicerPipelinesScreen.tsx",
+        "line": 202,
+        "kind": "wrapped-translation-default",
+        "owner": "PipelineRow",
+        "source": "'Bed'"
+      }
+    ]
+  },
+  "native.a59e1ed5c50b1445": {
+    "english": "snapshot",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/PrinterCameraSettingsSection.tsx",
+        "line": 63,
+        "kind": "finite-ui-option",
+        "owner": "PrinterCameraForm",
+        "source": "'snapshot'"
+      }
+    ]
+  },
+  "native.a917326ee082f2fa": {
+    "english": "Run",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrinterDeviceControls.tsx",
+        "line": 167,
+        "kind": "translation-default",
+        "owner": "PrinterHAControls",
+        "existingKey": "device.run",
+        "source": "'Run'"
+      }
+    ]
+  },
+  "native.ab42cb02f226041f": {
+    "english": "both",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/notifications/ProviderEditorFields.tsx",
+        "line": 117,
+        "kind": "finite-ui-option",
+        "owner": "ProviderDeliveryFields",
+        "source": "'both'"
+      }
+    ]
+  },
+  "native.b1448a7f2cf1a8f1": {
+    "english": "Up",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/MoveControlsModal.tsx",
+        "line": 210,
+        "kind": "translation-default",
+        "owner": "MoveControlsModal",
+        "existingKey": "native.b1448a7f2cf1a8f1",
+        "source": "\"Up\""
+      },
+      {
+        "file": "src/components/printers/MoveControlsModal.tsx",
+        "line": 261,
+        "kind": "translation-default",
+        "owner": "MoveControlsModal",
+        "existingKey": "native.b1448a7f2cf1a8f1",
+        "source": "\"Up\""
+      }
+    ]
+  },
+  "native.b9acbc48541e900b": {
+    "english": "ETA",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/DashboardScreen.tsx",
+        "line": 70,
+        "kind": "translation-default",
+        "owner": "SORT_OPTIONS",
+        "existingKey": "native.b9acbc48541e900b",
+        "source": "\"ETA\""
+      },
+      {
+        "file": "src/screens/PrinterDetailScreen.tsx",
+        "line": 594,
+        "kind": "translation-default",
+        "owner": "PrinterDetailScreen",
+        "existingKey": "native.b9acbc48541e900b",
+        "source": "\"ETA\""
+      }
+    ]
+  },
+  "native.c3fdf71ac112b4e0": {
+    "english": "CPU",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/SystemScreen.tsx",
+        "line": 195,
+        "kind": "translation-default",
+        "owner": "SystemScreen",
+        "existingKey": "native.c3fdf71ac112b4e0",
+        "source": "\"CPU\""
+      }
+    ]
+  },
+  "native.c7e4e8a8db2bbe79": {
+    "english": "On",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrintModal.tsx",
+        "line": 1440,
+        "kind": "translation-default",
+        "owner": "PrintModal",
+        "existingKey": "native.c7e4e8a8db2bbe79",
+        "source": "\"On\""
+      },
+      {
+        "file": "src/components/printers/PrintModal.tsx",
+        "line": 1697,
+        "kind": "translation-default",
+        "owner": "PrintModal",
+        "existingKey": "native.c7e4e8a8db2bbe79",
+        "source": "\"On\""
+      },
+      {
+        "file": "src/components/printers/PrintModal.tsx",
+        "line": 1723,
+        "kind": "translation-default",
+        "owner": "PrintModal",
+        "existingKey": "native.c7e4e8a8db2bbe79",
+        "source": "\"On\""
+      },
+      {
+        "file": "src/components/printers/PrintOptionsForm.tsx",
+        "line": 168,
+        "kind": "translation-default",
+        "owner": "PrintOptionsForm",
+        "existingKey": "native.c7e4e8a8db2bbe79",
+        "source": "\"On\""
+      },
+      {
+        "file": "src/components/printers/PrintOptionsForm.tsx",
+        "line": 190,
+        "kind": "translation-default",
+        "owner": "PrintOptionsForm",
+        "existingKey": "native.c7e4e8a8db2bbe79",
+        "source": "\"On\""
+      },
+      {
+        "file": "src/components/printers/PrintOptionsForm.tsx",
+        "line": 203,
+        "kind": "translation-default",
+        "owner": "PrintOptionsForm",
+        "existingKey": "native.c7e4e8a8db2bbe79",
+        "source": "\"On\""
+      },
+      {
+        "file": "src/components/printers/TrayDetailModal.tsx",
+        "line": 739,
+        "kind": "translation-default",
+        "owner": "TrayDetailModal",
+        "existingKey": "native.c7e4e8a8db2bbe79",
+        "source": "\"On\""
+      },
+      {
+        "file": "src/screens/CloudProfilesScreen.tsx",
+        "line": 647,
+        "kind": "translation-default",
+        "owner": "CloudProfilesScreen",
+        "existingKey": "native.c7e4e8a8db2bbe79",
+        "source": "\"On\""
+      },
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 17,
+        "kind": "translation-default",
+        "owner": "STATUS_LABELS",
+        "existingKey": "native.c7e4e8a8db2bbe79",
+        "source": "\"On\""
+      }
+    ]
+  },
+  "native.cfc111a5b7b11fa5": {
+    "english": "AI",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/archives/ArchiveCard.tsx",
+        "line": 277,
+        "kind": "translation-default",
+        "owner": "ArchiveCard",
+        "existingKey": "native.cfc111a5b7b11fa5",
+        "source": "\"AI\""
+      }
+    ]
+  },
+  "native.d4e5a0b431ab8f69": {
+    "english": "Due",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/MaintenanceScreen.tsx",
+        "line": 623,
+        "kind": "translation-default",
+        "owner": "MaintenanceScreen",
+        "existingKey": "native.d4e5a0b431ab8f69",
+        "source": "\"Due\""
+      }
+    ]
+  },
+  "native.d588022ed383897a": {
+    "english": "large",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraIntegrationsScreen.tsx",
+        "line": 140,
+        "kind": "finite-ui-option",
+        "owner": "CameraIntegrationsScreen",
+        "source": "'large'"
+      }
+    ]
+  },
+  "native.da7b6fd9183d9e90": {
+    "english": "overlay",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraIntegrationsScreen.tsx",
+        "line": 72,
+        "kind": "finite-ui-option",
+        "owner": "CameraTokenManager",
+        "source": "'overlay'"
+      }
+    ]
+  },
+  "native.e6c6529ffe56e268": {
+    "english": "all",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/archives/ArchiveBrowseControls.tsx",
+        "line": 139,
+        "kind": "finite-display-choice",
+        "owner": "ArchiveBrowseControls",
+        "source": "'all'"
+      },
+      {
+        "file": "src/components/inventory/SpoolEditor.tsx",
+        "line": 454,
+        "kind": "finite-display-choice",
+        "owner": "SpoolEditor",
+        "source": "'all'"
+      },
+      {
+        "file": "src/components/settings/ScopedApiKeysManager.tsx",
+        "line": 87,
+        "kind": "translation-default",
+        "owner": "ScopedApiKeysManager",
+        "existingKey": "auth.allPrinters",
+        "source": "'all'"
+      },
+      {
+        "file": "src/screens/FinanceScreen.tsx",
+        "line": 527,
+        "kind": "finite-display-choice",
+        "owner": "FinanceScreen",
+        "source": "'all'"
+      },
+      {
+        "file": "src/screens/QueueScreen.tsx",
+        "line": 738,
+        "kind": "finite-display-choice",
+        "owner": "QueueScreen",
+        "source": "'all'"
+      },
+      {
+        "file": "src/screens/QueueScreen.tsx",
+        "line": 955,
+        "kind": "finite-display-choice",
+        "owner": "QueueScreen",
+        "source": "'all'"
+      }
+    ]
+  },
+  "native.eaa897b0631e7896": {
+    "english": "Off",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/AmsUnitControls.tsx",
+        "line": 131,
+        "kind": "translation-default",
+        "owner": "AmsUnitControls",
+        "existingKey": "device.off",
+        "source": "'Off'"
+      },
+      {
+        "file": "src/components/printers/PrinterDeviceControls.tsx",
+        "line": 44,
+        "kind": "translation-default",
+        "owner": "NumericDeviceControl",
+        "existingKey": "device.off",
+        "source": "'Off'"
+      },
+      {
+        "file": "src/components/printers/PrintModal.tsx",
+        "line": 1439,
+        "kind": "translation-default",
+        "owner": "PrintModal",
+        "existingKey": "native.eaa897b0631e7896",
+        "source": "\"Off\""
+      },
+      {
+        "file": "src/components/printers/PrintModal.tsx",
+        "line": 1696,
+        "kind": "translation-default",
+        "owner": "PrintModal",
+        "existingKey": "native.eaa897b0631e7896",
+        "source": "\"Off\""
+      },
+      {
+        "file": "src/components/printers/PrintModal.tsx",
+        "line": 1722,
+        "kind": "translation-default",
+        "owner": "PrintModal",
+        "existingKey": "native.eaa897b0631e7896",
+        "source": "\"Off\""
+      },
+      {
+        "file": "src/components/printers/PrintOptionsForm.tsx",
+        "line": 167,
+        "kind": "translation-default",
+        "owner": "PrintOptionsForm",
+        "existingKey": "native.eaa897b0631e7896",
+        "source": "\"Off\""
+      },
+      {
+        "file": "src/components/printers/PrintOptionsForm.tsx",
+        "line": 187,
+        "kind": "translation-default",
+        "owner": "PrintOptionsForm",
+        "existingKey": "native.eaa897b0631e7896",
+        "source": "\"Off\""
+      },
+      {
+        "file": "src/components/printers/PrintOptionsForm.tsx",
+        "line": 204,
+        "kind": "translation-default",
+        "owner": "PrintOptionsForm",
+        "existingKey": "native.eaa897b0631e7896",
+        "source": "\"Off\""
+      },
+      {
+        "file": "src/components/printers/TrayDetailModal.tsx",
+        "line": 739,
+        "kind": "translation-default",
+        "owner": "TrayDetailModal",
+        "existingKey": "native.eaa897b0631e7896",
+        "source": "\"Off\""
+      },
+      {
+        "file": "src/screens/CloudProfilesScreen.tsx",
+        "line": 647,
+        "kind": "translation-default",
+        "owner": "CloudProfilesScreen",
+        "existingKey": "native.eaa897b0631e7896",
+        "source": "\"Off\""
+      },
+      {
+        "file": "src/utils/statusLabel.ts",
+        "line": 17,
+        "kind": "translation-default",
+        "owner": "STATUS_LABELS",
+        "existingKey": "native.eaa897b0631e7896",
+        "source": "\"Off\""
+      }
+    ]
+  },
+  "native.ed8cc6cca0d49d14": {
+    "english": "medium",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraIntegrationsScreen.tsx",
+        "line": 140,
+        "kind": "finite-ui-option",
+        "owner": "CameraIntegrationsScreen",
+        "source": "'medium'"
+      }
+    ]
+  },
+  "native.edff7aa295a02fdf": {
+    "english": "ask",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/GeneralWorkflowSettings.tsx",
+        "line": 79,
+        "kind": "translation-default",
+        "owner": "GeneralWorkflowSettings",
+        "existingKey": "workflow.ask",
+        "source": "key"
+      }
+    ]
+  },
+  "native.efc0ca177ecbda94": {
+    "english": "bed",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/HeaterTelemetryDetails.tsx",
+        "line": 29,
+        "kind": "translation-default",
+        "owner": "HeaterTelemetryDetails",
+        "existingKey": "device.sensor.bed",
+        "source": "sensor === 'nozzle_2' ? translateNative(\"native.3334f987e1219a30\") : sensor === 'nozzle' && kinds.includes('nozzle_2') ? translateNative(\"native.812a70074f275a83\") : sensor"
+      }
+    ]
+  },
+  "native.f1e4b9464da2db24": {
+    "english": "Any",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/queue/GanttTimeline.tsx",
+        "line": 146,
+        "kind": "wrapped-translation-default",
+        "owner": "name",
+        "source": "'Any'"
+      },
+      {
+        "file": "src/components/slicing/RunWithPipelineModal.tsx",
+        "line": 125,
+        "kind": "wrapped-translation-default",
+        "owner": "RunWithPipelineModal",
+        "source": "'Any'"
+      },
+      {
+        "file": "src/screens/PipelineRunsScreen.tsx",
+        "line": 154,
+        "kind": "wrapped-translation-default",
+        "owner": "PipelineRunsScreen",
+        "source": "'Any'"
+      },
+      {
+        "file": "src/screens/SlicerPipelinesScreen.tsx",
+        "line": 70,
+        "kind": "wrapped-translation-default",
+        "owner": "SlicerPipelinesScreen",
+        "source": "'Any'"
+      },
+      {
+        "file": "src/screens/SlicerPipelinesScreen.tsx",
+        "line": 207,
+        "kind": "wrapped-translation-default",
+        "owner": "PipelineRow",
+        "source": "'Any'"
+      }
+    ]
+  },
+  "native.f4a72fbf9ac93a0b": {
+    "english": "off",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/inventory/InventoryEnvironment.tsx",
+        "line": 680,
+        "kind": "finite-display-choice",
+        "owner": "EnvironmentBindings",
+        "source": "'off'"
+      },
+      {
+        "file": "src/components/settings/PrintDefaultsSettings.tsx",
+        "line": 39,
+        "kind": "finite-display-choice",
+        "owner": "PrintDefaultsSettings",
+        "source": "'off'"
+      },
+      {
+        "file": "src/components/settings/PrintDefaultsSettings.tsx",
+        "line": 41,
+        "kind": "translation-default",
+        "owner": "PrintDefaultsSettings",
+        "existingKey": "common.off",
+        "source": "mode"
+      },
+      {
+        "file": "src/screens/CameraWallScreen.tsx",
+        "line": 90,
+        "kind": "finite-ui-option",
+        "owner": "CameraWallScreen",
+        "source": "'off'"
+      }
+    ]
+  }
+}

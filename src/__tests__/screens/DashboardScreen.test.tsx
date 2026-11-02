@@ -4,9 +4,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import DashboardScreen, {
   comparePrinters,
+  queueItemMatchesPrinter,
   type PrinterSortMode,
 } from '@/screens/DashboardScreen';
 import type { Printer, PrinterStatus } from '@/types/api';
+import { Alert } from 'react-native';
+import { api } from '@/api/client';
 
 const mockNavigate = jest.fn();
 const mockSetOptions = jest.fn();
@@ -39,7 +42,13 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useMutation: () => ({ mutate: mockMutate, isPending: false }),
+  useMutation: (options: { mutationFn: (value: unknown) => Promise<unknown>; onSuccess?: (value: unknown) => void; onError?: (error: unknown) => void }) => ({
+    mutate: (variables: unknown) => {
+      mockMutate(variables);
+      return Promise.resolve().then(() => options.mutationFn(variables)).then(value => options.onSuccess?.(value)).catch(error => options.onError?.(error));
+    },
+    isPending: false,
+  }),
   useQuery: (options: { queryKey: string[] }) => mockUseQuery(options),
   useQueries: () => mockUseQueries(),
   useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
@@ -53,6 +62,8 @@ jest.mock('@/api/client', () => ({
     getMaintenanceTasks: jest.fn(),
     getAssignments: jest.fn(),
     getPrinterStatus: jest.fn(),
+    clearPlate: jest.fn(),
+    clearHMSErrors: jest.fn(),
   },
 }));
 
@@ -97,7 +108,7 @@ jest.mock('@/components/common/AppUI', () => {
     ),
     StatCard: ({ label, value }: { label: string; value: string }) =>
       React.createElement(Text, null, `${label}:${value}`),
-    PrimaryButton: ({ label }: { label: string }) => React.createElement(Text, null, label),
+    PrimaryButton: ({ label, onPress, disabled }: { label: string; onPress?: () => void; disabled?: boolean }) => React.createElement(Pressable, { accessibilityRole: 'button', accessibilityLabel: label, onPress, disabled }, React.createElement(Text, null, label)),
   };
 });
 
@@ -145,6 +156,7 @@ jest.mock('@/components/printers/PrintModal', () => ({
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     hasAnyPermission: () => true,
+    hasPermission: () => true,
   }),
 }));
 
@@ -236,6 +248,33 @@ describe('DashboardScreen', () => {
     expect(toJSON()).toBeTruthy();
   });
 
+  it('combines location, finished status, and offline visibility, then reverses ETA sorting', async () => {
+    printers = [
+      { id: 1, name: 'Soon', model: 'P1S', location: 'Lab' },
+      { id: 2, name: 'Later', model: 'P1S', location: 'Lab' },
+      { id: 3, name: 'Finished', model: 'P1S', location: 'Lab' },
+      { id: 4, name: 'Elsewhere', model: 'P1S', location: 'Office' },
+    ] as Printer[];
+    statuses = [
+      { data: { ...printerStatus('RUNNING'), remaining_time: 5 }, isLoading: false, isRefetching: false },
+      { data: { ...printerStatus('RUNNING'), remaining_time: 50 }, isLoading: false, isRefetching: false },
+      { data: printerStatus('FINISH'), isLoading: false, isRefetching: false },
+      { data: printerStatus('FINISH'), isLoading: false, isRefetching: false },
+    ];
+    const screen = await render(<DashboardScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'All locations' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Lab' }));
+    await fireEvent(screen.getByLabelText('Hide offline'), 'valueChange', true);
+    await fireEvent.press(screen.getByRole('button', { name: 'Finished' }));
+    expect(printerNames(screen.getAllByTestId('printer-card'))).toEqual(['Finished']);
+    await fireEvent.press(screen.getByRole('button', { name: 'Printing' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Sort by time remaining' }));
+    expect(printerNames(screen.getAllByTestId('printer-card'))).toEqual(['Soon', 'Later']);
+    await fireEvent.press(screen.getByRole('button', { name: 'Ascending ↑' }));
+    expect(printerNames(screen.getAllByTestId('printer-card'))).toEqual(['Later', 'Soon']);
+    await screen.unmount();
+  });
+
   it('composes status filtering, search, and name sorting', async () => {
     printers = [
       { id: 1, name: 'Zulu', model: 'X1', location: 'Lab', serial_number: 'SER-1' },
@@ -253,13 +292,34 @@ describe('DashboardScreen', () => {
     const screen = await render(<DashboardScreen />);
     await fireEvent.press(screen.getByRole('button', { name: 'Printing' }));
     await fireEvent.changeText(screen.getByPlaceholderText('Search printers…'), 'lab');
-    await fireEvent.press(screen.getByRole('button', { name: 'Sort printers by Name' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Sort by name' }));
 
     await waitFor(() => {
       expect(printerNames(screen.getAllByTestId('printer-card'))).toEqual(['Alpha', 'Zulu']);
     });
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('bambuddy-printer-sort', 'name');
     await screen.unmount();
+  });
+
+  it('confirms bulk plate clearance, skips active targets, and reports individual outcomes', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    jest.mocked(api.clearPlate).mockResolvedValue(undefined);
+    statuses = [
+      { data: { ...printerStatus('FINISH'), awaiting_plate_clear: true }, isLoading: false, isRefetching: false },
+      { data: { ...printerStatus('RUNNING'), awaiting_plate_clear: true }, isLoading: false, isRefetching: false },
+    ];
+    const screen = await render(<DashboardScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Select all visible' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Clear selected plates' }));
+    expect(api.clearPlate).not.toHaveBeenCalled();
+    expect(alert.mock.calls[0][1]).toContain('1 applicable of 2 selected');
+    const buttons = alert.mock.calls[0][2]!;
+    await buttons[buttons.length - 1].onPress?.();
+    await waitFor(() => expect(api.clearPlate).toHaveBeenCalledWith(1));
+    expect(api.clearPlate).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('Per-printer results', expect.stringContaining('Printer Beta: Skipped (not applicable)')));
+    await screen.unmount();
+    alert.mockRestore();
   });
 
   it('restores the persisted sort preference on remount', async () => {
@@ -272,7 +332,7 @@ describe('DashboardScreen', () => {
       { data: printerStatus('IDLE'), isLoading: false, isRefetching: false },
     ];
     const firstMount = await render(<DashboardScreen />);
-    await fireEvent.press(firstMount.getByRole('button', { name: 'Sort printers by Name' }));
+    await fireEvent.press(firstMount.getByRole('button', { name: 'Sort by name' }));
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('bambuddy-printer-sort', 'name');
     await firstMount.unmount();
 
@@ -281,7 +341,7 @@ describe('DashboardScreen', () => {
     await waitFor(() => {
       expect(printerNames(secondMount.getAllByTestId('printer-card'))).toEqual(['Alpha', 'Zulu']);
       expect(
-        secondMount.getByRole('button', { name: 'Sort printers by Name' }).props
+        secondMount.getByRole('button', { name: 'Sort by name' }).props
           .accessibilityState,
       ).toEqual({ selected: true });
     });
@@ -306,6 +366,7 @@ describe('comparePrinters', () => {
     expect(localeCompare).toHaveBeenCalledWith(expect.any(String), undefined, {
       sensitivity: 'base',
     });
+
     localeCompare.mockRestore();
   });
 
@@ -399,3 +460,20 @@ function sortPrinters(
 function printerNames(nodes: Array<{ props: Record<string, unknown> }>) {
   return nodes.map(node => String(node.props.accessibilityLabel));
 }
+
+describe('queueItemMatchesPrinter', () => {
+  const target = { id: 1, model: 'P1S', location: 'Lab' } as Printer;
+  const loaded = { ams: [{ tray: [{ tray_type: 'PLA', tray_color: 'ff0000ff', tray_info_idx: 'GFA00' }] }], vt_tray: [] } as unknown as PrinterStatus;
+
+  it('keeps directly assigned jobs visible without gating their filament and rejects other printers', () => {
+    expect(queueItemMatchesPrinter(target, undefined, { status: 'pending', printer_id: 1, required_filament_types: ['ABS'] } as never)).toBe(true);
+    expect(queueItemMatchesPrinter(target, loaded, { status: 'pending', printer_id: 2 } as never)).toBe(false);
+  });
+
+  it('filters pool jobs by model/location, loaded material and forced filament variant', () => {
+    const job = { status: 'pending', printer_id: null, target_model: 'P1S', target_location: 'Lab', required_filament_types: ['PLA'], filament_overrides: [{ type: 'PLA', color: 'ff0000', force_color_match: true, tray_info_idx: 'GFA01' }] };
+    expect(queueItemMatchesPrinter(target, loaded, job as never)).toBe(false);
+    expect(queueItemMatchesPrinter(target, loaded, { ...job, filament_overrides: [{ ...job.filament_overrides[0], tray_info_idx: 'GFA00' }] } as never)).toBe(true);
+    expect(queueItemMatchesPrinter(target, loaded, { ...job, target_location: 'Office', filament_overrides: [] } as never)).toBe(false);
+  });
+});

@@ -1,0 +1,289 @@
+{
+  "native.04fb589d9c46972b": {
+    "english": "Retry the inventory link only?",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 851,
+        "kind": "indirect-app-prose",
+        "owner": "RemoteSpoolBuddyPanel",
+        "source": "'Retry the inventory link only?'"
+      }
+    ]
+  },
+  "native.078383ec46d40c2f": {
+    "english": "Sign in with your directory account.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/LoginScreen.tsx",
+        "line": 542,
+        "kind": "translation-default",
+        "owner": "LoginScreen",
+        "existingKey": "auth.directoryLoginHint",
+        "source": "'Sign in with your directory account.'"
+      }
+    ]
+  },
+  "native.0c60c0c6856b6903": {
+    "english": "Jobs with unresolved alternative slices cannot be assigned a fixed printer. Leave the printer unchanged or unassigned.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/queue/QueueBulkEditModal.tsx",
+        "line": 50,
+        "kind": "translation-default",
+        "owner": "assignmentError",
+        "existingKey": "printing.unresolvedVariantAssignment",
+        "source": "'Jobs with unresolved alternative slices cannot be assigned a fixed printer. Leave the printer unchanged or unassigned.'"
+      },
+      {
+        "file": "src/screens/QueueScreen.tsx",
+        "line": 991,
+        "kind": "translation-default",
+        "owner": "QueueScreen",
+        "existingKey": "printing.unresolvedVariantAssignment",
+        "source": "'Jobs with unresolved alternative slices cannot be assigned a fixed printer. Leave the printer unchanged or unassigned.'"
+      }
+    ]
+  },
+  "native.0c65b108307c5d36": {
+    "english": "Retry inventory link",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 843,
+        "kind": "indirect-app-prose",
+        "owner": "RemoteSpoolBuddyPanel",
+        "source": "'Retry inventory link'"
+      }
+    ]
+  },
+  "native.1a5932500ebd8c6f": {
+    "english": "Update completed. Remote device reports version {{version}}.",
+    "context": "shared",
+    "placeholders": [
+      "version"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 296,
+        "kind": "translation-default",
+        "owner": "RemoteSpoolBuddyPanel",
+        "existingKey": "spoolbuddy.updateVersionVerified",
+        "source": "'Update completed. Remote device reports version {{version}}.'"
+      }
+    ]
+  },
+  "native.4ca8f2ae45ddb60b": {
+    "english": "Inventory link repaired. The physical NFC tag was not rewritten.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 865,
+        "kind": "indirect-app-prose",
+        "owner": "RemoteSpoolBuddyPanel",
+        "source": "'Inventory link repaired. The physical NFC tag was not rewritten.'"
+      }
+    ]
+  },
+  "native.4d999eaa75bc989a": {
+    "english": "Track slicing workflow progress",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/navigation/navigationConfig.ts",
+        "line": 71,
+        "kind": "ui-object-label",
+        "owner": "BUILT_IN_NAV_ITEMS",
+        "source": "'Track slicing workflow progress'"
+      }
+    ]
+  },
+  "native.7356160c2a259d93": {
+    "english": "Monitor printer cameras together",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/navigation/navigationConfig.ts",
+        "line": 68,
+        "kind": "ui-object-label",
+        "owner": "BUILT_IN_NAV_ITEMS",
+        "source": "'Monitor printer cameras together'"
+      }
+    ]
+  },
+  "native.88d0c23d4edeb85b": {
+    "english": "Connect external camera viewers",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/navigation/navigationConfig.ts",
+        "line": 69,
+        "kind": "ui-object-label",
+        "owner": "BUILT_IN_NAV_ITEMS",
+        "source": "'Connect external camera viewers'"
+      }
+    ]
+  },
+  "native.990a472990fbdf8d": {
+    "english": "The physical NFC write succeeded. Link tag {{tag}} to spool #{{id}} without rewriting it.",
+    "context": "shared",
+    "placeholders": [
+      "id",
+      "tag"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 855,
+        "kind": "translation-default",
+        "owner": "RemoteSpoolBuddyPanel",
+        "existingKey": "spoolbuddy.retryInventoryLinkDetails",
+        "source": "'The physical NFC write succeeded. Link tag {{tag}} to spool #{{id}} without rewriting it.'"
+      }
+    ]
+  },
+  "native.c13edffd24345730": {
+    "english": "Cost centers and billing",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/navigation/navigationConfig.ts",
+        "line": 72,
+        "kind": "ui-object-label",
+        "owner": "BUILT_IN_NAV_ITEMS",
+        "source": "'Cost centers and billing'"
+      }
+    ]
+  },
+  "native.c7482a2684ec7ea6": {
+    "english": "Slicer Pipelines",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/navigation/navigationConfig.ts",
+        "line": 70,
+        "kind": "ui-object-label",
+        "owner": "BUILT_IN_NAV_ITEMS",
+        "source": "'Slicer Pipelines'"
+      }
+    ]
+  },
+  "native.c76b0088d7977298": {
+    "english": "Retry directory sign-in status",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/LoginScreen.tsx",
+        "line": 544,
+        "kind": "translation-default",
+        "owner": "LoginScreen",
+        "existingKey": "auth.retryDirectoryStatus",
+        "source": "'Retry directory sign-in status'"
+      }
+    ]
+  },
+  "native.c8c49bef3c51e3ff": {
+    "english": "Camera Integrations",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/navigation/navigationConfig.ts",
+        "line": 69,
+        "kind": "ui-object-label",
+        "owner": "BUILT_IN_NAV_ITEMS",
+        "source": "'Camera Integrations'"
+      }
+    ]
+  },
+  "native.e75b16b7c4dce790": {
+    "english": "Pipeline Runs",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/navigation/navigationConfig.ts",
+        "line": 71,
+        "kind": "ui-object-label",
+        "owner": "BUILT_IN_NAV_ITEMS",
+        "source": "'Pipeline Runs'"
+      }
+    ]
+  },
+  "native.ececbf64c1ab0472": {
+    "english": "Camera Wall",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/navigation/navigationConfig.ts",
+        "line": 68,
+        "kind": "ui-object-label",
+        "owner": "BUILT_IN_NAV_ITEMS",
+        "source": "'Camera Wall'"
+      }
+    ]
+  },
+  "native.ef6149f2bdee70f3": {
+    "english": "Physical write succeeded; inventory link failed",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 655,
+        "kind": "indirect-app-prose",
+        "owner": "RemoteSpoolBuddyPanel",
+        "source": "'Physical write succeeded; inventory link failed'"
+      }
+    ]
+  },
+  "native.f2aa245433a562b7": {
+    "english": "Manage automated slicing workflows",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/navigation/navigationConfig.ts",
+        "line": 70,
+        "kind": "ui-object-label",
+        "owner": "BUILT_IN_NAV_ITEMS",
+        "source": "'Manage automated slicing workflows'"
+      }
+    ]
+  },
+  "native.f981ae40b78c0d40": {
+    "english": "Unable to save report edits: {{error}}. Keep this screen open and retry the edit before restarting the app.",
+    "context": "shared",
+    "placeholders": [
+      "error"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/system/BugReportTools.tsx",
+        "line": 194,
+        "kind": "translation-default",
+        "owner": "persistEdits",
+        "existingKey": "system.report.draftSaveError",
+        "source": "'Unable to save report edits: {{error}}. Keep this screen open and retry the edit before restarting the app.'"
+      }
+    ]
+  }
+}

@@ -6,6 +6,7 @@ import type {
   MaintenanceStatus,
   Printer,
   PrinterStatus,
+  PrintQueueItem,
   SpoolAssignment,
 } from '@/types/api';
 
@@ -26,6 +27,7 @@ export interface PrinterCardProps {
   printer: Printer;
   status?: PrinterStatus;
   queueCount?: number;
+  nextQueueJob?: PrintQueueItem;
   maintenance?: MaintenanceSummary;
   spoolAssignments?: SpoolAssignment[];
   loading?: boolean;
@@ -44,6 +46,7 @@ export interface PrinterCardProps {
 }
 
 export interface PrinterCardHeaderProps {
+  onFirmwarePress?: () => void;
   printer: Printer;
   status?: PrinterStatus;
   badgeLabel: string;

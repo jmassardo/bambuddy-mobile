@@ -1,3 +1,4 @@
+import { translateNative } from '@/i18n';
 // Server connection store that persists the user's Bambuddy server URL
 // Uses AsyncStorage for persistence and Zustand for state management
 
@@ -43,7 +44,7 @@ export const useServerStore = create<ServerStore>((set) => ({
     // Normalize: strip trailing slash
     const normalized = url.replace(/\/+$/, '');
     if (!/^https?:\/\//i.test(normalized)) {
-      throw new Error('Server URL must use HTTP or HTTPS (e.g. https://...)');
+      throw new Error(translateNative('native.5cc52201d2b5b1a9'));
     }
     await AsyncStorage.setItem(SERVER_URL_KEY, normalized);
     if (previousUrl !== normalized) {

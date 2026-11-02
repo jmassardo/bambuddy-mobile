@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import type { ExternalCamera, SMTPSettings, SmartPlug } from '@/types/api';
-=======
 import type { KProfile, SMTPSettings, SmartPlug } from '@/types/api';
->>>>>>> origin/develop
 
 export type SectionKey =
   | 'general'
@@ -12,13 +8,9 @@ export type SectionKey =
   | 'filament'
   | 'kprofiles'
   | 'network'
-<<<<<<< HEAD
-  | 'navigation'
-=======
   | 'mqtt'
   | 'navigation'
   | 'custom-navigation'
->>>>>>> origin/develop
   | 'apikeys'
   | 'external-cameras'
   | 'virtual-printer'
@@ -81,9 +73,6 @@ export type ExternalLinkFormState = {
   sort_order: string;
 };
 
-<<<<<<< HEAD
-export type ExternalCameraType = ExternalCamera['camera_type'];
-=======
 export type CustomNavItemFormState = {
   name: string;
   url: string;
@@ -93,7 +82,6 @@ export type CustomNavItemFormState = {
 };
 
 export type ExternalCameraType = 'mjpeg' | 'rtsp' | 'snapshot';
->>>>>>> origin/develop
 
 export type ExternalCameraFormState = {
   name: string;
@@ -106,7 +94,6 @@ export type VirtualPrinterFormState = {
   name: string;
   model: string;
   model_name: string;
-  description: string;
   serial: string;
   serial_number: string;
   enabled: boolean;

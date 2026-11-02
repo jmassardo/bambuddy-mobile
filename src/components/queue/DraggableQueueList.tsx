@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
@@ -39,13 +40,14 @@ export function DraggableQueueList({
   onDragMove,
   onDragEnd,
 }: DraggableQueueListProps) {
+  useNativeLocale();
   const { colors } = useTheme();
   const [dragState, setDragState] = useState<{
     sourceIndex: number | undefined;
     targetIndex: number | undefined;
   }>({ sourceIndex: undefined, targetIndex: undefined });
 
-  const orderedItems = useMemo(() => {
+  const orderedItems = useLocalizedMemo(() => {
     return [...items].sort((a, b) => a.position - b.position);
   }, [items]);
 
@@ -116,8 +118,8 @@ export function DraggableQueueList({
     return (
       <EmptyState
         icon="📋"
-        title="No queued items"
-        message="The filtered queue is empty. Try clearing filters or add a print from Archives or Files."
+        title={translateNative('native.4960664d51e36b4f')}
+        message={translateNative('native.6628454e3ad16419')}
       />
     );
   }

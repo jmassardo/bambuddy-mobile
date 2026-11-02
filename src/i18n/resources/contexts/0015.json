@@ -1,0 +1,2419 @@
+{
+  "native.60c275cd2ebda7d8": {
+    "english": "AMS assignment",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/InventoryScreen.tsx",
+        "line": 794,
+        "kind": "ui-label-tuple",
+        "owner": "InventoryScreen",
+        "source": "'AMS assignment'"
+      }
+    ]
+  },
+  "native.60cd7dbd269009d2": {
+    "english": "Binding configuration information parsing failed; please try again.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 127,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'Binding configuration information parsing failed; please try again.'"
+      },
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 261,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'Binding configuration information parsing failed; please try again.'"
+      }
+    ]
+  },
+  "native.60d042b242a12a17": {
+    "english": "Spool not in inventory.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/inventory/NfcInventoryScanModal.tsx",
+        "line": 53,
+        "kind": "ui-helper-return",
+        "owner": "scanDescription",
+        "source": "'Spool not in inventory.'"
+      }
+    ]
+  },
+  "native.60e4109c5bb09964": {
+    "english": "Add a configured print from Files or Archives.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/QueueScreen.tsx",
+        "line": 857,
+        "kind": "wrapped-translation-default",
+        "owner": "QueueScreen",
+        "source": "'Add a configured print from Files or Archives.'"
+      }
+    ]
+  },
+  "native.6100b629c3440ede": {
+    "english": "Unable to recognize the left and right hotends. They might be third party hotends, or the hotend marks may be dirty. Please manually set the hotend types.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 216,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'Unable to recognize the left and right hotends. They might be third party hotends, or the hotend marks may be dirty. Please manually set the hotend types.'"
+      }
+    ]
+  },
+  "native.61028c9bf43470b9": {
+    "english": "Choose a target, entity and name.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/inventory/InventoryEnvironment.tsx",
+        "line": 460,
+        "kind": "app-error",
+        "owner": "mutation",
+        "source": "'Choose a target, entity and name.'"
+      }
+    ]
+  },
+  "native.6102d88f18811306": {
+    "english": "Search #ID, brand, preset, color, purchasing metadata…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/InventoryScreen.tsx",
+        "line": 423,
+        "kind": "translation-default",
+        "owner": "InventoryScreen",
+        "existingKey": "inventory.search",
+        "source": "'Search #ID, brand, preset, color, purchasing metadata…'"
+      }
+    ]
+  },
+  "native.6117e534f896024a": {
+    "english": "Group selected as batch",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/QueueScreen.tsx",
+        "line": 788,
+        "kind": "wrapped-translation-default",
+        "owner": "QueueScreen",
+        "source": "'Group selected as batch'"
+      }
+    ]
+  },
+  "native.612f3dd2a9f1b9ff": {
+    "english": "Items moved.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FilesScreen.tsx",
+        "line": 508,
+        "kind": "feedback-message",
+        "owner": "moveMutation",
+        "source": "'Items moved.'"
+      }
+    ]
+  },
+  "native.6130f287fa6b0697": {
+    "english": "Please place the cutting platform correctly and ensure the marker is exposed.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 219,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'Please place the cutting platform correctly and ensure the marker is exposed.'"
+      }
+    ]
+  },
+  "native.6142000d55f63b27": {
+    "english": "this link",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/SettingsModals.tsx",
+        "line": 219,
+        "kind": "indirect-app-prose",
+        "owner": "SettingsModals",
+        "source": "'this link'"
+      }
+    ]
+  },
+  "native.6158f82545f74a9f": {
+    "english": "X / Y",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/PrinterDetailScreen.tsx",
+        "line": 664,
+        "kind": "jsx-text",
+        "owner": "PrinterDetailScreen",
+        "source": "X / Y\n            "
+      }
+    ]
+  },
+  "native.615dc98e0f898337": {
+    "english": "Select bind IP before enabling",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/VirtualPrintersScreen.tsx",
+        "line": 479,
+        "kind": "wrapped-translation-default",
+        "owner": "VirtualPrintersScreen",
+        "source": "'Select bind IP before enabling'"
+      }
+    ]
+  },
+  "native.617ba1bfd8481e60": {
+    "english": "Delivery times must use HH:MM (00:00–23:59).",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/notificationProvider.ts",
+        "line": 278,
+        "kind": "ui-helper-return",
+        "owner": "validateProviderForm",
+        "source": "'Delivery times must use HH:MM (00:00–23:59).'"
+      }
+    ]
+  },
+  "native.61843626dacca185": {
+    "english": "SMTP settings saved.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/useSettingsScreenController.ts",
+        "line": 650,
+        "kind": "feedback-message",
+        "owner": "saveSMTPMutation",
+        "source": "'SMTP settings saved.'"
+      }
+    ]
+  },
+  "native.6188b0f89beb97d1": {
+    "english": "Sync mode",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/inventory/InventoryPolicySettings.tsx",
+        "line": 161,
+        "kind": "jsx-attribute",
+        "owner": "SpoolmanPolicySettings",
+        "source": "\"Sync mode\""
+      }
+    ]
+  },
+  "native.6192c91424256298": {
+    "english": "Reconnect",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/WebSocketStatusScreen.tsx",
+        "line": 66,
+        "kind": "ui-object-label",
+        "owner": "handleReconnect",
+        "source": "'Reconnect'"
+      },
+      {
+        "file": "src/screens/WebSocketStatusScreen.tsx",
+        "line": 218,
+        "kind": "jsx-attribute-expression",
+        "owner": "WebSocketStatusScreen",
+        "source": "'Reconnect'"
+      }
+    ]
+  },
+  "native.6196c74fa74a5632": {
+    "english": "Awaiting archive/discard decision",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/archives/ArchiveWorkflowUI.tsx",
+        "line": 377,
+        "kind": "translation-default",
+        "owner": "PendingRow",
+        "existingKey": "archives.awaitingDecision",
+        "source": "'Awaiting archive/discard decision'"
+      }
+    ]
+  },
+  "native.6198a1def03bfc98": {
+    "english": "Display brightness",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/SpoolBuddyScreen.tsx",
+        "line": 662,
+        "kind": "jsx-attribute",
+        "owner": "SpoolBuddyScreen",
+        "source": "\"Display brightness\""
+      }
+    ]
+  },
+  "native.61b948a7e769947e": {
+    "english": "AI detected air-printing defect. Please check the hotend extrusion status. Refer to assistant for solutions.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 570,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'AI detected air-printing defect. Please check the hotend extrusion status. Refer to assistant for solutions.'"
+      }
+    ]
+  },
+  "native.61b9d1cdee4b1c0b": {
+    "english": "Unable to create API key.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/useSettingsScreenController.ts",
+        "line": 417,
+        "kind": "feedback-message",
+        "owner": "createApiKeyMutation",
+        "source": "'Unable to create API key.'"
+      }
+    ]
+  },
+  "native.61c435f9f3460061": {
+    "english": "Alert below (optional)",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/inventory/InventoryEnvironment.tsx",
+        "line": 660,
+        "kind": "ui-label-tuple",
+        "owner": "EnvironmentBindings",
+        "source": "'Alert below (optional)'"
+      }
+    ]
+  },
+  "native.61c61767934ad899": {
+    "english": "Stop preview",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraIntegrationsScreen.tsx",
+        "line": 158,
+        "kind": "translation-default",
+        "owner": "CameraIntegrationsScreen",
+        "existingKey": "camera.hidePreview",
+        "source": "'Stop preview'"
+      }
+    ]
+  },
+  "native.61d0b49799079255": {
+    "english": "Avery 5160 US Letter sheet",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/api/inventory.ts",
+        "line": 150,
+        "kind": "ui-object-label",
+        "owner": "inventoryApi",
+        "source": "'Avery 5160 US Letter sheet'"
+      }
+    ]
+  },
+  "native.61d328c067df6cbf": {
+    "english": "MakerWorld model resolved.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/MakerWorldScreen.tsx",
+        "line": 72,
+        "kind": "feedback-message",
+        "owner": "resolveMutation",
+        "source": "'MakerWorld model resolved.'"
+      }
+    ]
+  },
+  "native.61d7a8943554bcf6": {
+    "english": "Pause all",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/DashboardScreen.tsx",
+        "line": 749,
+        "kind": "jsx-attribute",
+        "owner": "PrintersDashboardScreen",
+        "source": "\"Pause all\""
+      }
+    ]
+  },
+  "native.61d9e076e8e20425": {
+    "english": "Filament choice / Bambu filament ID",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/profiles/KProfileManager.tsx",
+        "line": 786,
+        "kind": "translation-default",
+        "owner": "KProfileManager",
+        "existingKey": "profiles.k.manualFilament",
+        "source": "'Filament choice / Bambu filament ID'"
+      }
+    ]
+  },
+  "native.61e7d393155c980f": {
+    "english": "Authorization timed out. Please make sure that your phone or PC has access to the internet, and ensure that the Bambu Studio/Bambu Handy APP is running in the foreground during the binding operation.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 134,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'Authorization timed out. Please make sure that your phone or PC has access to the internet, and ensure that the Bambu Studio/Bambu Handy APP is running in the foreground during the binding operation.'"
+      },
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 268,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'Authorization timed out. Please make sure that your phone or PC has access to the internet, and ensure that the Bambu Studio/Bambu Handy APP is running in the foreground during the binding operation.'"
+      }
+    ]
+  },
+  "native.61e99f04478fc750": {
+    "english": "PLA Basic, PETG, Matte…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/TrayDetailModal.tsx",
+        "line": 489,
+        "kind": "jsx-attribute",
+        "owner": "TrayDetailModal",
+        "source": "\"PLA Basic, PETG, Matte…\""
+      }
+    ]
+  },
+  "native.61f3418b1549833e": {
+    "english": "Energy multiplier",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/smartPlugForm.ts",
+        "line": 12,
+        "kind": "ui-object-label",
+        "owner": "mqttFields",
+        "source": "'Energy multiplier'"
+      }
+    ]
+  },
+  "native.61f61df044ab4d4a": {
+    "english": "Unable to read selected JSON file.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/utils/profileFiles.ts",
+        "line": 21,
+        "kind": "app-error",
+        "owner": "text",
+        "source": "'Unable to read selected JSON file.'"
+      }
+    ]
+  },
+  "native.61fb3457172f324c": {
+    "english": "{{value0}} deleted.",
+    "context": "shared",
+    "placeholders": [
+      "value0"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrinterCard.tsx",
+        "line": 323,
+        "kind": "feedback-message",
+        "owner": "deleteMutation",
+        "source": "`${printer.name} deleted.`"
+      }
+    ]
+  },
+  "native.61ffd170a142fae9": {
+    "english": "Slot: AMS ",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/SpoolAssignmentHistoryScreen.tsx",
+        "line": 568,
+        "kind": "jsx-text",
+        "owner": "SpoolAssignmentHistoryScreen",
+        "source": "Slot: AMS "
+      },
+      {
+        "file": "src/screens/SpoolAssignmentHistoryScreen.tsx",
+        "line": 641,
+        "kind": "jsx-text",
+        "owner": "SpoolAssignmentHistoryScreen",
+        "source": "Slot: AMS "
+      }
+    ]
+  },
+  "native.6213051ccbb0622b": {
+    "english": "AI detected nozzle clumping. Please check the nozzle condition. Refer to assistant for solutions.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 569,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'AI detected nozzle clumping. Please check the nozzle condition. Refer to assistant for solutions.'"
+      },
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 572,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'AI detected nozzle clumping. Please check the nozzle condition. Refer to assistant for solutions.'"
+      }
+    ]
+  },
+  "native.62152ce3d2dc1094": {
+    "english": "/orca-cloud/profiles",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/api/inventoryManagement.ts",
+        "line": 87,
+        "kind": "ui-label-tuple",
+        "owner": "sources",
+        "source": "'/orca-cloud/profiles'"
+      }
+    ]
+  },
+  "native.6216188968726372": {
+    "english": "Require exact color for slot",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrintModal.tsx",
+        "line": 1434,
+        "kind": "wrapped-translation-default",
+        "owner": "PrintModal",
+        "source": "'Require exact color for slot'"
+      }
+    ]
+  },
+  "native.621f9d863b59e34f": {
+    "english": "Unable to open this model file.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/ProjectDetailScreen.tsx",
+        "line": 465,
+        "kind": "feedback-message",
+        "owner": "ProjectDetailScreen",
+        "source": "'Unable to open this model file.'"
+      }
+    ]
+  },
+  "native.6222b77ddd973341": {
+    "english": "Energy URL (today and lifetime)",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/smartPlugForm.ts",
+        "line": 24,
+        "kind": "ui-object-label",
+        "owner": "restFields",
+        "source": "'Energy URL (today and lifetime)'"
+      }
+    ]
+  },
+  "native.622921300d7d8612": {
+    "english": "There was a problem downloading a file. Please check your network connection and resend the print job.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 114,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'There was a problem downloading a file. Please check your network connection and resend the print job.'"
+      }
+    ]
+  },
+  "native.622adb6be883b3ee": {
+    "english": " visible ·",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/InventoryScreen.tsx",
+        "line": 403,
+        "kind": "jsx-text",
+        "owner": "InventoryScreen",
+        "source": "visible ·"
+      }
+    ]
+  },
+  "native.62363493900507d9": {
+    "english": "Waiting",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/NextQueueJob.tsx",
+        "line": 42,
+        "kind": "translation-default",
+        "owner": "NextQueueJob",
+        "existingKey": "fleet.waiting",
+        "source": "'Waiting'"
+      },
+      {
+        "file": "src/components/queue/QueueItemCard.tsx",
+        "line": 103,
+        "kind": "ui-object-label",
+        "owner": "statusPresentation",
+        "source": "'Waiting'"
+      }
+    ]
+  },
+  "native.62370b3cef1523a0": {
+    "english": "Available",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/FirmwareModal.tsx",
+        "line": 105,
+        "kind": "translation-default",
+        "owner": "FirmwareModal",
+        "existingKey": "fleet.available",
+        "source": "'Available'"
+      },
+      {
+        "file": "src/screens/FinanceScreen.tsx",
+        "line": 427,
+        "kind": "wrapped-translation-default",
+        "owner": "FinanceScreen",
+        "source": "'Available'"
+      }
+    ]
+  },
+  "native.6244c66602e19ca0": {
+    "english": "Rename current folder",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FilesScreen.tsx",
+        "line": 941,
+        "kind": "translation-default",
+        "owner": "FilesScreen",
+        "existingKey": "library.renameFolder",
+        "source": "'Rename current folder'"
+      }
+    ]
+  },
+  "native.624bed550cf73e7d": {
+    "english": "Y+",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/PrinterDetailScreen.tsx",
+        "line": 669,
+        "kind": "jsx-attribute",
+        "owner": "PrinterDetailScreen",
+        "source": "\"Y+\""
+      }
+    ]
+  },
+  "native.6252f7fad56cadcb": {
+    "english": "An error occurred during AMS-HT C drying. Please go to Assistant for more details.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 714,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'An error occurred during AMS-HT C drying. Please go to Assistant for more details.'"
+      }
+    ]
+  },
+  "native.62593343ffbb8b10": {
+    "english": "Browse library / choose another source",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrintModal.tsx",
+        "line": 1046,
+        "kind": "wrapped-translation-default",
+        "owner": "PrintModal",
+        "source": "'Browse library / choose another source'"
+      }
+    ]
+  },
+  "native.625ddcf565891e88": {
+    "english": "Waiting for approval…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/profiles/OrcaDeviceAuthorization.tsx",
+        "line": 22,
+        "kind": "translation-default",
+        "owner": "statusLabels",
+        "existingKey": "profiles.orca.authorization_pending",
+        "source": "'Waiting for approval…'"
+      }
+    ]
+  },
+  "native.62617bedf02de543": {
+    "english": "Reassign",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/SpoolAssignmentHistoryScreen.tsx",
+        "line": 362,
+        "kind": "jsx-attribute",
+        "owner": "SpoolAssignmentHistoryScreen",
+        "source": "\"Reassign\""
+      }
+    ]
+  },
+  "native.6270e8ecbf85474f": {
+    "english": "Search endpoints or groups",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/ApiExplorerSettings.tsx",
+        "line": 159,
+        "kind": "wrapped-translation-default",
+        "owner": "ApiExplorerSettings",
+        "source": "'Search endpoints or groups'"
+      },
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 166,
+        "kind": "indirect-app-prose",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'Search endpoints or groups'"
+      }
+    ]
+  },
+  "native.6271f508e859590e": {
+    "english": "Enter a current authenticator or backup code to continue.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/SettingsModals.tsx",
+        "line": 195,
+        "kind": "jsx-attribute",
+        "owner": "SettingsModals",
+        "source": "\"Enter a current authenticator or backup code to continue.\""
+      }
+    ]
+  },
+  "native.6281202129c79e70": {
+    "english": "Subtype",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/inventory/InventoryBulkEditor.tsx",
+        "line": 19,
+        "kind": "ui-label-tuple",
+        "owner": "bulkFields",
+        "source": "'Subtype'"
+      },
+      {
+        "file": "src/components/inventory/SpoolEditor.tsx",
+        "line": 33,
+        "kind": "ui-label-tuple",
+        "owner": "commonFields",
+        "source": "'Subtype'"
+      }
+    ]
+  },
+  "native.628487da96568279": {
+    "english": "The grip cutting mat type does not match; please place a StrongGrip cutting mat.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 222,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'The grip cutting mat type does not match; please place a StrongGrip cutting mat.'"
+      }
+    ]
+  },
+  "native.628db87d7edb7321": {
+    "english": "This enrollment QR contains the server address and secret key. Share only with a trusted recipient.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/ScopedApiKeysManager.tsx",
+        "line": 68,
+        "kind": "translation-default",
+        "owner": "ScopedApiKeysManager",
+        "existingKey": "auth.enrollmentQRWarning",
+        "source": "'This enrollment QR contains the server address and secret key. Share only with a trusted recipient.'"
+      }
+    ]
+  },
+  "native.62a155bdfe8d655f": {
+    "english": "Login",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/LoginScreen.tsx",
+        "line": 75,
+        "kind": "ui-object-label",
+        "owner": "LoginScreen",
+        "source": "'Login'"
+      },
+      {
+        "file": "src/screens/LoginScreen.tsx",
+        "line": 537,
+        "kind": "jsx-attribute-expression",
+        "owner": "LoginScreen",
+        "source": "'Login'"
+      }
+    ]
+  },
+  "native.62b3289fe3da0618": {
+    "english": "Copy to another nozzle / extruder",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/profiles/KProfileManager.tsx",
+        "line": 695,
+        "kind": "translation-default",
+        "owner": "KProfileManager",
+        "existingKey": "profiles.k.copy",
+        "source": "'Copy to another nozzle / extruder'"
+      }
+    ]
+  },
+  "native.62b59de608dd7c05": {
+    "english": "Complete sets",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/ProjectDetailScreen.tsx",
+        "line": 337,
+        "kind": "translation-default",
+        "owner": "ProjectDetailScreen",
+        "existingKey": "projects.completeSets",
+        "source": "'Complete sets'"
+      }
+    ]
+  },
+  "native.62d4473ef1d395c9": {
+    "english": "An error occurred during AMS-HT G drying. Please go to Assistant for more details.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 795,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'An error occurred during AMS-HT G drying. Please go to Assistant for more details.'"
+      }
+    ]
+  },
+  "native.62d50fad184ff79a": {
+    "english": "OIDC provider deleted.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/useSettingsScreenController.ts",
+        "line": 880,
+        "kind": "feedback-message",
+        "owner": "deleteOIDCProviderMutation",
+        "source": "'OIDC provider deleted.'"
+      }
+    ]
+  },
+  "native.62e9b1fc006e41f9": {
+    "english": "Loading energy dashboard…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/EnergyScreen.tsx",
+        "line": 273,
+        "kind": "jsx-attribute",
+        "owner": "EnergyScreen",
+        "source": "\"Loading energy dashboard…\""
+      }
+    ]
+  },
+  "native.62eb8b14a0dedd10": {
+    "english": "Connect a printer to manage its calibration profiles.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/profiles/KProfileManager.tsx",
+        "line": 440,
+        "kind": "translation-default",
+        "owner": "KProfileManager",
+        "existingKey": "profiles.k.noneConnected",
+        "source": "'Connect a printer to manage its calibration profiles.'"
+      }
+    ]
+  },
+  "native.62ebcb6b4a319ddf": {
+    "english": "Schedule times must use HH:MM (00:00–23:59).",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/smartPlugForm.ts",
+        "line": 97,
+        "kind": "app-error",
+        "owner": "buildPlugPayload",
+        "source": "'Schedule times must use HH:MM (00:00–23:59).'"
+      }
+    ]
+  },
+  "native.62f38f02be9cb5c8": {
+    "english": "{{count}} loading",
+    "context": "shared",
+    "placeholders": [
+      "count"
+    ],
+    "occurrences": [
+      {
+        "file": "src/screens/DashboardScreen.tsx",
+        "line": 719,
+        "kind": "translation-default",
+        "owner": "PrintersDashboardScreen",
+        "existingKey": "fleet.loadingCount",
+        "source": "'{{count}} loading'"
+      }
+    ]
+  },
+  "native.62f6d6151446c8c9": {
+    "english": "Unable to trigger cloud sync.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CloudProfilesScreen.tsx",
+        "line": 233,
+        "kind": "feedback-message",
+        "owner": "cloudSyncMutation",
+        "source": "'Unable to trigger cloud sync.'"
+      },
+      {
+        "file": "src/screens/ProfilesScreen.tsx",
+        "line": 298,
+        "kind": "feedback-message",
+        "owner": "cloudSyncMutation",
+        "source": "'Unable to trigger cloud sync.'"
+      }
+    ]
+  },
+  "native.62fe9bf23f665e4a": {
+    "english": "Rebuild",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/finance/FinancePolicySection.tsx",
+        "line": 188,
+        "kind": "wrapped-translation-default",
+        "owner": "FinancePolicySection",
+        "source": "'Rebuild'"
+      }
+    ]
+  },
+  "native.630a1c5dad08d89f": {
+    "english": "Remote NFC write jobs",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 592,
+        "kind": "indirect-app-prose",
+        "owner": "RemoteSpoolBuddyPanel",
+        "source": "'Remote NFC write jobs'"
+      }
+    ]
+  },
+  "native.631c4c50ea927873": {
+    "english": "Unable to run the camera diagnostic.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraScreen.tsx",
+        "line": 1108,
+        "kind": "app-error-fallback",
+        "owner": "diagnoseMutation",
+        "source": "'Unable to run the camera diagnostic.'"
+      }
+    ]
+  },
+  "native.631ffddb2abbef70": {
+    "english": "Open notification preferences",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/NotificationsSettingsSection.tsx",
+        "line": 37,
+        "kind": "translation-default",
+        "owner": "NotificationsSettingsSection",
+        "existingKey": "notifications.openPreferences",
+        "source": "'Open notification preferences'"
+      },
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 93,
+        "kind": "indirect-app-prose",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'Open notification preferences'"
+      }
+    ]
+  },
+  "native.6333c03e1b776cfd": {
+    "english": "Stop active print?",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/QueueScreen.tsx",
+        "line": 217,
+        "kind": "indirect-app-prose",
+        "owner": "stop",
+        "source": "'Stop active print?'"
+      }
+    ]
+  },
+  "native.633a508ed66f2275": {
+    "english": "Unable to load MakerWorld data.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/MakerWorldScreen.tsx",
+        "line": 182,
+        "kind": "jsx-attribute",
+        "owner": "MakerWorldScreen",
+        "source": "\"Unable to load MakerWorld data.\""
+      }
+    ]
+  },
+  "native.634c29751d2412c9": {
+    "english": "AMS is busy",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/deviceControlUtils.ts",
+        "line": 36,
+        "kind": "indirect-app-prose",
+        "owner": "reasons",
+        "source": "'AMS is busy'"
+      }
+    ]
+  },
+  "native.635d8b37daf0ae69": {
+    "english": "Edit OIDC provider",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/SettingsModals.tsx",
+        "line": 57,
+        "kind": "jsx-attribute-expression",
+        "owner": "SettingsModals",
+        "source": "'Edit OIDC provider'"
+      }
+    ]
+  },
+  "native.63721b38f6ce354c": {
+    "english": "Enter name, filament and valid nonnegative K value.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/profiles/KProfileManager.tsx",
+        "line": 243,
+        "kind": "translation-default",
+        "owner": "save",
+        "existingKey": "profiles.k.invalid",
+        "source": "'Enter name, filament and valid nonnegative K value.'"
+      }
+    ]
+  },
+  "native.6376dbb0ee7b2f3b": {
+    "english": "Rows",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/files/AssetPreviewModal.tsx",
+        "line": 111,
+        "kind": "ui-entry-dictionary",
+        "owner": "html",
+        "source": "'Rows'"
+      }
+    ]
+  },
+  "native.637a9d111395d155": {
+    "english": "Admin username",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/SetupScreen.tsx",
+        "line": 86,
+        "kind": "jsx-attribute",
+        "owner": "SetupScreen",
+        "source": "\"Admin username\""
+      }
+    ]
+  },
+  "native.637ffd73d8de2938": {
+    "english": "Right / single",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/profiles/KProfileManager.tsx",
+        "line": 477,
+        "kind": "translation-default",
+        "owner": "KProfileManager",
+        "existingKey": "profiles.k.right",
+        "source": "'Right / single'"
+      },
+      {
+        "file": "src/components/profiles/KProfileManager.tsx",
+        "line": 826,
+        "kind": "translation-default",
+        "owner": "KProfileManager",
+        "existingKey": "profiles.k.right",
+        "source": "'Right / single'"
+      }
+    ]
+  },
+  "native.6383487e91f6d97d": {
+    "english": "Use designer settings",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/slicing/ProcessSettingsEditor.tsx",
+        "line": 231,
+        "kind": "wrapped-translation-default",
+        "owner": "ProcessSettingsEditor",
+        "source": "'Use designer settings'"
+      }
+    ]
+  },
+  "native.638faf82373632b9": {
+    "english": "Elapsed {{value0}}",
+    "context": "shared",
+    "placeholders": [
+      "value0"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrinterCardStatusSection.tsx",
+        "line": 118,
+        "kind": "jsx-compound-template",
+        "owner": "PrinterCardStatusSection",
+        "source": "<Text style={[styles.timelineItem, { color: colors.textSecondary }]}>\n              Elapsed {formatDuration(elapsedSeconds ?? 0)}\n            </Text>"
+      }
+    ]
+  },
+  "native.6397becf830889c4": {
+    "english": "Insert the filament (over 30cm long) until it stops. You might see slight smoke during flushing. After insertion, close the front door and top cover.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 517,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'Insert the filament (over 30cm long) until it stops. You might see slight smoke during flushing. After insertion, close the front door and top cover.'"
+      },
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 542,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'Insert the filament (over 30cm long) until it stops. You might see slight smoke during flushing. After insertion, close the front door and top cover.'"
+      }
+    ]
+  },
+  "native.639e8eb3d220b303": {
+    "english": "Documentation",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/profiles/MaintenanceControls.tsx",
+        "line": 94,
+        "kind": "translation-default",
+        "owner": "MaintenanceControls",
+        "existingKey": "maintenance.documentation",
+        "source": "'Documentation'"
+      }
+    ]
+  },
+  "native.63a37fd97781c2e2": {
+    "english": "Unable to submit print jobs",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrintModal.tsx",
+        "line": 996,
+        "kind": "wrapped-translation-default",
+        "owner": "message",
+        "source": "'Unable to submit print jobs'"
+      }
+    ]
+  },
+  "native.63a718e698f55b36": {
+    "english": "Calibration command failed.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrinterCard.tsx",
+        "line": 297,
+        "kind": "app-error-fallback",
+        "owner": "calibrateMutation",
+        "source": "'Calibration command failed.'"
+      }
+    ]
+  },
+  "native.63a94c29cbd86a0f": {
+    "english": "Layer {{layer}}/{{total}} · Remaining {{remaining}} min",
+    "context": "shared",
+    "placeholders": [
+      "layer",
+      "remaining",
+      "total"
+    ],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraWallScreen.tsx",
+        "line": 109,
+        "kind": "translation-default",
+        "owner": "CameraWallScreen",
+        "existingKey": "camera.wallDetails",
+        "source": "'Layer {{layer}}/{{total}} · Remaining {{remaining}} min'"
+      }
+    ]
+  },
+  "native.63b558169920d876": {
+    "english": "Email: {{value0}} • Status: {{value1}}",
+    "context": "shared",
+    "placeholders": [
+      "value0",
+      "value1"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/UsersSecuritySection.tsx",
+        "line": 158,
+        "kind": "jsx-compound-template",
+        "owner": "UsersSecuritySection",
+        "source": "<Text style={[settingsStyles.helper, { color: controller.colors.textSecondary }]}>Email: {controller.user?.email || 'No email on account'} • Status: {twoFAStatus?.email_otp_enabled ? 'enabled' : 'disabled'}</Text>"
+      }
+    ]
+  },
+  "native.63b6061516fa08c5": {
+    "english": "Printer file transfer repeatedly times out",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/system/SystemHealthPanel.tsx",
+        "line": 16,
+        "kind": "indirect-app-prose",
+        "owner": "remedies",
+        "source": "'Printer file transfer repeatedly times out'"
+      }
+    ]
+  },
+  "native.63c013bd70491798": {
+    "english": "Default local group",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/OIDCProvidersManager.tsx",
+        "line": 118,
+        "kind": "translation-default",
+        "owner": "OIDCProvidersManager",
+        "existingKey": "auth.defaultGroup",
+        "source": "'Default local group'"
+      }
+    ]
+  },
+  "native.63cbbf092f6ca786": {
+    "english": "Connected apps",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/ConnectedAppsManager.tsx",
+        "line": 53,
+        "kind": "translation-default",
+        "owner": "ConnectedAppsManager",
+        "existingKey": "auth.connectedApps",
+        "source": "'Connected apps'"
+      }
+    ]
+  },
+  "native.63d6c20426789bfb": {
+    "english": "Unable to load settings.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/SettingsScreen.tsx",
+        "line": 37,
+        "kind": "jsx-attribute",
+        "owner": "SettingsScreen",
+        "source": "\"Unable to load settings.\""
+      }
+    ]
+  },
+  "native.63d814e003698e6e": {
+    "english": "Skipped step detected: auto-recover complete; please resume print and check if there are any layer shift problems.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 48,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'Skipped step detected: auto-recover complete; please resume print and check if there are any layer shift problems.'"
+      }
+    ]
+  },
+  "native.63e9687f78a03f49": {
+    "english": "Disable filament warnings",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/FilamentSettingsSection.tsx",
+        "line": 38,
+        "kind": "jsx-attribute",
+        "owner": "FilamentSettingsSection",
+        "source": "\"Disable filament warnings\""
+      },
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 99,
+        "kind": "indirect-app-prose",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'Disable filament warnings'"
+      }
+    ]
+  },
+  "native.6407f3c05d1f3252": {
+    "english": "Unassign printer slot",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/inventory/SpoolDetails.tsx",
+        "line": 331,
+        "kind": "jsx-attribute",
+        "owner": "SpoolDetails",
+        "source": "\"Unassign printer slot\""
+      }
+    ]
+  },
+  "native.640c31dd9e4f6b2d": {
+    "english": "AMS-HT B is drying. Please stop drying process before loading/unloading material.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 690,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'AMS-HT B is drying. Please stop drying process before loading/unloading material.'"
+      }
+    ]
+  },
+  "native.642cd71842fea4f9": {
+    "english": "Disconnecting…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CloudProfilesScreen.tsx",
+        "line": 459,
+        "kind": "jsx-attribute-expression",
+        "owner": "CloudProfilesScreen",
+        "source": "'Disconnecting…'"
+      },
+      {
+        "file": "src/screens/CloudProfilesScreen.tsx",
+        "line": 507,
+        "kind": "jsx-attribute-expression",
+        "owner": "CloudProfilesScreen",
+        "source": "'Disconnecting…'"
+      },
+      {
+        "file": "src/screens/ProfilesScreen.tsx",
+        "line": 515,
+        "kind": "jsx-attribute-expression",
+        "owner": "ProfilesScreen",
+        "source": "'Disconnecting…'"
+      },
+      {
+        "file": "src/screens/ProfilesScreen.tsx",
+        "line": 658,
+        "kind": "jsx-attribute-expression",
+        "owner": "ProfilesScreen",
+        "source": "'Disconnecting…'"
+      }
+    ]
+  },
+  "native.644377c00e6b3c4a": {
+    "english": "Rename item",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FilesScreen.tsx",
+        "line": 1266,
+        "kind": "jsx-attribute",
+        "owner": "FilesScreen",
+        "source": "\"Rename item\""
+      }
+    ]
+  },
+  "native.64445fc2fab959c5": {
+    "english": "Print completed",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/NotificationsScreen.tsx",
+        "line": 24,
+        "kind": "ui-label-tuple",
+        "owner": "PREFERENCES",
+        "source": "'Print completed'"
+      },
+      {
+        "file": "src/utils/notificationProvider.ts",
+        "line": 76,
+        "kind": "ui-label-tuple",
+        "owner": "PROVIDER_EVENTS",
+        "source": "'Print completed'"
+      }
+    ]
+  },
+  "native.644c4ada33d445e6": {
+    "english": "Matched {{spool}}\nRemaining: {{weight}}",
+    "context": "shared",
+    "placeholders": [
+      "spool",
+      "weight"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 471,
+        "kind": "translation-default",
+        "owner": "RemoteSpoolBuddyPanel",
+        "existingKey": "spoolbuddy.matchedSummary",
+        "source": "'Matched {{spool}}\\nRemaining: {{weight}}'"
+      }
+    ]
+  },
+  "native.644f5f4a64728210": {
+    "english": "Signed in successfully.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/LoginScreen.tsx",
+        "line": 165,
+        "kind": "feedback-message",
+        "owner": "finalizeLogin",
+        "source": "'Signed in successfully.'"
+      },
+      {
+        "file": "src/screens/LoginScreen.tsx",
+        "line": 252,
+        "kind": "feedback-message",
+        "owner": "submitMutation",
+        "source": "'Signed in successfully.'"
+      }
+    ]
+  },
+  "native.645bf9c3241375dd": {
+    "english": "No matching templates.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/notifications/NotificationTemplates.tsx",
+        "line": 142,
+        "kind": "translation-default",
+        "owner": "NotificationTemplates",
+        "existingKey": "notifications.noTemplates",
+        "source": "'No matching templates.'"
+      }
+    ]
+  },
+  "native.6460d2d6a054aabb": {
+    "english": "{{value0}}: Print failed{{value1}}",
+    "context": "shared",
+    "placeholders": [
+      "value0",
+      "value1"
+    ],
+    "occurrences": [
+      {
+        "file": "src/hooks/usePrinterEventNotifications.ts",
+        "line": 73,
+        "kind": "feedback-message",
+        "owner": "handlePrintFailed",
+        "source": "`${printerName}: Print failed${extra}`"
+      },
+      {
+        "file": "src/hooks/useWebSocket.ts",
+        "line": 187,
+        "kind": "feedback-message",
+        "owner": "handleMessage",
+        "source": "`${printer}: Print failed${extra}`"
+      }
+    ]
+  },
+  "native.648ae64662069d65": {
+    "english": "AI detection: {{name}}",
+    "context": "shared",
+    "placeholders": [
+      "name"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrinterAiDetectionBadge.tsx",
+        "line": 80,
+        "kind": "translation-default",
+        "owner": "PrinterAiDetectionBadge",
+        "existingKey": "workflow.ai.detail",
+        "source": "'AI detection: {{name}}'"
+      }
+    ]
+  },
+  "native.64953c4977785cdb": {
+    "english": "Filament catalog",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 110,
+        "kind": "indirect-app-prose",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'Filament catalog'"
+      }
+    ]
+  },
+  "native.649d2a9c05f2b32c": {
+    "english": "unknown",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/profiles/CloudProfileDetailModal.tsx",
+        "line": 115,
+        "kind": "jsx-attribute-expression",
+        "owner": "CloudProfileDetailModal",
+        "source": "'unknown'"
+      },
+      {
+        "file": "src/components/settings/SmartPlugsSection.tsx",
+        "line": 90,
+        "kind": "jsx-attribute-expression",
+        "owner": "SmartPlugCardMobile",
+        "source": "'unknown'"
+      }
+    ]
+  },
+  "native.64a0dbe9b57518a5": {
+    "english": " • Scale: ",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/SpoolBuddySettingsSection.tsx",
+        "line": 28,
+        "kind": "jsx-text",
+        "owner": "SpoolBuddySettingsSection",
+        "source": "• Scale: "
+      }
+    ]
+  },
+  "native.64c6e8a135214315": {
+    "english": "Next: {{next}} · Timezone: {{timezone}}",
+    "context": "shared",
+    "placeholders": [
+      "next",
+      "timezone"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/LocalBackupTools.tsx",
+        "line": 220,
+        "kind": "translation-default",
+        "owner": "LocalBackupTools",
+        "existingKey": "backup.local.next",
+        "source": "'Next: {{next}} · Timezone: {{timezone}}'"
+      }
+    ]
+  },
+  "native.64c8dc18de92a544": {
+    "english": "Completed print history",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/navigation/navigationConfig.ts",
+        "line": 44,
+        "kind": "ui-object-label",
+        "owner": "BUILT_IN_NAV_ITEMS",
+        "source": "'Completed print history'"
+      }
+    ]
+  },
+  "native.64cbe305f359d4ce": {
+    "english": "The last print was a reprint from internal history. Send a new file to external storage for a complete archive.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/system/DiagnosticChecklist.tsx",
+        "line": 43,
+        "kind": "indirect-app-prose",
+        "owner": "checks",
+        "source": "'The last print was a reprint from internal history. Send a new file to external storage for a complete archive.'"
+      }
+    ]
+  },
+  "native.64e043e56bf5c59f": {
+    "english": "Backup codes",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 272,
+        "kind": "indirect-app-prose",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'Backup codes'"
+      },
+      {
+        "file": "src/components/settings/UsersSecuritySection.tsx",
+        "line": 189,
+        "kind": "jsx-attribute",
+        "owner": "UsersSecuritySection",
+        "source": "\"Backup codes\""
+      }
+    ]
+  },
+  "native.64eb129cbd734d82": {
+    "english": "The cutting mat type is unknown; please replace it with the correct cutting mat.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 205,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'The cutting mat type is unknown; please replace it with the correct cutting mat.'"
+      }
+    ]
+  },
+  "native.64ed671adb9e9374": {
+    "english": " (read only)",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FilesScreen.tsx",
+        "line": 1300,
+        "kind": "translation-default",
+        "owner": "FilesScreen",
+        "existingKey": "library.readonlySuffix",
+        "source": "' (read only)'"
+      }
+    ]
+  },
+  "native.64f720b4dcbe9443": {
+    "english": "Syncing…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/FilamentSettingsSection.tsx",
+        "line": 72,
+        "kind": "jsx-attribute-expression",
+        "owner": "FilamentSettingsSection",
+        "source": "'Syncing…'"
+      },
+      {
+        "file": "src/screens/CloudProfilesScreen.tsx",
+        "line": 451,
+        "kind": "jsx-attribute-expression",
+        "owner": "CloudProfilesScreen",
+        "source": "'Syncing…'"
+      },
+      {
+        "file": "src/screens/CloudProfilesScreen.tsx",
+        "line": 624,
+        "kind": "jsx-expression",
+        "owner": "CloudProfilesScreen",
+        "source": "'Syncing…'"
+      },
+      {
+        "file": "src/screens/CloudProfilesScreen.tsx",
+        "line": 673,
+        "kind": "jsx-attribute-expression",
+        "owner": "CloudProfilesScreen",
+        "source": "'Syncing…'"
+      },
+      {
+        "file": "src/screens/ProfilesScreen.tsx",
+        "line": 497,
+        "kind": "jsx-attribute-expression",
+        "owner": "ProfilesScreen",
+        "source": "'Syncing…'"
+      }
+    ]
+  },
+  "native.650451ed93d5493d": {
+    "english": "Unable to open the timelapse link.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/ArchivesScreen.tsx",
+        "line": 481,
+        "kind": "feedback-message",
+        "owner": "ArchivesScreen",
+        "source": "'Unable to open the timelapse link.'"
+      }
+    ]
+  },
+  "native.65056cdeecf1b5aa": {
+    "english": "{{app}} and its grants will be removed.",
+    "context": "shared",
+    "placeholders": [
+      "app"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/ConnectedAppsManager.tsx",
+        "line": 80,
+        "kind": "translation-default",
+        "owner": "ConnectedAppsManager",
+        "existingKey": "auth.deleteAppWarning",
+        "source": "'{{app}} and its grants will be removed.'"
+      }
+    ]
+  },
+  "native.6507d3b53aca5ed1": {
+    "english": "Permanently remove {{count}} selected files from this physical printer. This cannot be undone.",
+    "context": "shared",
+    "placeholders": [
+      "count"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrinterSDBrowser.tsx",
+        "line": 78,
+        "kind": "translation-default",
+        "owner": "remove",
+        "existingKey": "device.deleteFilesConfirm",
+        "source": "'Permanently remove {{count}} selected files from this physical printer. This cannot be undone.'"
+      }
+    ]
+  },
+  "native.6516fd100eb76f5c": {
+    "english": "Restart the printer to recover its file service. Until it recovers, print files, covers and timelapses cannot be retrieved.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/system/SystemHealthPanel.tsx",
+        "line": 23,
+        "kind": "indirect-app-prose",
+        "owner": "remedies",
+        "source": "'Restart the printer to recover its file service. Until it recovers, print files, covers and timelapses cannot be retrieved.'"
+      }
+    ]
+  },
+  "native.651afb80a1bfddfe": {
+    "english": "none",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/ScopedApiKeysManager.tsx",
+        "line": 85,
+        "kind": "translation-default",
+        "owner": "ScopedApiKeysManager",
+        "existingKey": "common.none",
+        "source": "'none'"
+      },
+      {
+        "file": "src/screens/FinanceScreen.tsx",
+        "line": 640,
+        "kind": "finite-display-choice",
+        "owner": "FinanceScreen",
+        "source": "'none'"
+      }
+    ]
+  },
+  "native.653d62838e1578b2": {
+    "english": "Discard all",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/archives/ArchiveWorkflowUI.tsx",
+        "line": 554,
+        "kind": "translation-default",
+        "owner": "ArchiveIngestionPanel",
+        "existingKey": "archives.discardAll",
+        "source": "'Discard all'"
+      }
+    ]
+  },
+  "native.6541b7808095908e": {
+    "english": "Verify the LAN access code in printer settings and update the saved printer credentials.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/system/SystemHealthPanel.tsx",
+        "line": 13,
+        "kind": "indirect-app-prose",
+        "owner": "remedies",
+        "source": "'Verify the LAN access code in printer settings and update the saved printer credentials.'"
+      }
+    ]
+  },
+  "native.65617b41eb7f31b5": {
+    "english": "No matching filtered inventory SKU; delivery projection unavailable.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/inventory/InventoryForecast.tsx",
+        "line": 634,
+        "kind": "jsx-text",
+        "owner": "ShoppingList",
+        "source": "No matching filtered inventory SKU; delivery projection\n                    unavailable.\n                  "
+      }
+    ]
+  },
+  "native.656af55acc484b97": {
+    "english": "Link unknown tag",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/spoolbuddy/RemoteSpoolBuddyPanel.tsx",
+        "line": 496,
+        "kind": "indirect-app-prose",
+        "owner": "RemoteSpoolBuddyPanel",
+        "source": "'Link unknown tag'"
+      }
+    ]
+  },
+  "native.657e961fd034f096": {
+    "english": "storage_location",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/inventory/SpoolDetails.tsx",
+        "line": 241,
+        "kind": "finite-display-choice",
+        "owner": "SpoolDetails",
+        "source": "'storage_location'"
+      },
+      {
+        "file": "src/screens/InventoryScreen.tsx",
+        "line": 828,
+        "kind": "finite-display-choice",
+        "owner": "InventoryScreen",
+        "source": "'storage_location'"
+      }
+    ]
+  },
+  "native.658cacc2e5313afb": {
+    "english": "Open archive",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/PrintLogScreen.tsx",
+        "line": 609,
+        "kind": "translation-default",
+        "owner": "PrintLogScreen",
+        "existingKey": "archives.openArchive",
+        "source": "'Open archive'"
+      }
+    ]
+  },
+  "native.6595bc386105b0e2": {
+    "english": "Fixed hotend group",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrintModal.tsx",
+        "line": 1684,
+        "kind": "wrapped-translation-default",
+        "owner": "PrintModal",
+        "source": "'Fixed hotend group'"
+      }
+    ]
+  },
+  "native.659bf3415dc60537": {
+    "english": "Max pipeline copies",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/QueueSettingsSection.tsx",
+        "line": 113,
+        "kind": "jsx-attribute",
+        "owner": "QueueSettingsSection",
+        "source": "\"Max pipeline copies\""
+      },
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 63,
+        "kind": "indirect-app-prose",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'Max pipeline copies'"
+      }
+    ]
+  },
+  "native.65b780ba957ab843": {
+    "english": "Model / nozzle preset",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/inventory/SpoolEditor.tsx",
+        "line": 801,
+        "kind": "jsx-attribute",
+        "owner": "SpoolPrinterAssociations",
+        "source": "\"Model / nozzle preset\""
+      }
+    ]
+  },
+  "native.65c3413cb744f6a0": {
+    "english": "Cutting the filament failed. Please check to see if the cutter is stuck. Refer to the Assistant for solutions.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 584,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'Cutting the filament failed. Please check to see if the cutter is stuck. Refer to the Assistant for solutions.'"
+      }
+    ]
+  },
+  "native.65ecb647318d8e30": {
+    "english": "Energy trend",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/EnergyScreen.tsx",
+        "line": 379,
+        "kind": "jsx-attribute",
+        "owner": "EnergyScreen",
+        "source": "\"Energy trend\""
+      }
+    ]
+  },
+  "native.65f0137f40864023": {
+    "english": "Next columns",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/files/AssetPreviewModal.tsx",
+        "line": 110,
+        "kind": "ui-entry-dictionary",
+        "owner": "html",
+        "source": "'Next columns'"
+      }
+    ]
+  },
+  "native.65f741ee9982b71e": {
+    "english": "The MicroSD Card is write-protected. Please replace the MicroSD Card.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 125,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'The MicroSD Card is write-protected. Please replace the MicroSD Card.'"
+      }
+    ]
+  },
+  "native.6628454e3ad16419": {
+    "english": "The filtered queue is empty. Try clearing filters or add a print from Archives or Files.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/queue/DraggableQueueList.tsx",
+        "line": 120,
+        "kind": "jsx-attribute",
+        "owner": "DraggableQueueList",
+        "source": "\"The filtered queue is empty. Try clearing filters or add a print from Archives or Files.\""
+      }
+    ]
+  },
+  "native.662fe1594dcc89ec": {
+    "english": "Material and valid nozzle diameter are required.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/ConfigureDeviceSlot.tsx",
+        "line": 60,
+        "kind": "translation-default",
+        "owner": "save",
+        "existingKey": "device.materialNozzle",
+        "source": "'Material and valid nozzle diameter are required.'"
+      }
+    ]
+  },
+  "native.66464f9fedfb30dd": {
+    "english": "Unable to remove slot.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/SpoolBuddyScreen.tsx",
+        "line": 313,
+        "kind": "feedback-message",
+        "owner": "deleteSlotMutation",
+        "source": "'Unable to remove slot.'"
+      }
+    ]
+  },
+  "native.6646771b0ec078ce": {
+    "english": "Loading files…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FilesScreen.tsx",
+        "line": 775,
+        "kind": "jsx-attribute",
+        "owner": "FilesScreen",
+        "source": "\"Loading files…\""
+      }
+    ]
+  },
+  "native.665b7b80bf0af489": {
+    "english": "Encryption health unavailable.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/AccountSecurityControls.tsx",
+        "line": 83,
+        "kind": "translation-default",
+        "owner": "EncryptionStatusPanel",
+        "existingKey": "auth.encryptionUnavailable",
+        "source": "'Encryption health unavailable.'"
+      }
+    ]
+  },
+  "native.666a52cda10a4d17": {
+    "english": "Ludicrous",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrinterCard.helpers.ts",
+        "line": 43,
+        "kind": "ui-object-label",
+        "owner": "SPEED_LEVELS",
+        "source": "'Ludicrous'"
+      },
+      {
+        "file": "src/screens/PrinterDetailScreen.tsx",
+        "line": 66,
+        "kind": "ui-object-label",
+        "owner": "SPEED_MODES",
+        "source": "'Ludicrous'"
+      }
+    ]
+  },
+  "native.666df583f3938f7b": {
+    "english": " g used",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/SpoolBuddyScreen.tsx",
+        "line": 1602,
+        "kind": "jsx-text",
+        "owner": "renderUsageSection",
+        "source": "g used\n                "
+      }
+    ]
+  },
+  "native.667417787a8681ab": {
+    "english": "Select all eligible",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrintModal.tsx",
+        "line": 1247,
+        "kind": "wrapped-translation-default",
+        "owner": "PrintModal",
+        "source": "'Select all eligible'"
+      }
+    ]
+  },
+  "native.66902ccad23d0979": {
+    "english": "No custom links",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/CustomNavigationSettingsSection.tsx",
+        "line": 121,
+        "kind": "jsx-attribute",
+        "owner": "CustomNavigationSettingsSection",
+        "source": "\"No custom links\""
+      }
+    ]
+  },
+  "native.6695195f88a38c9f": {
+    "english": "Cutting module Serial Number error: unable to calibrate or make project.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/printers/hmsErrorCatalog.ts",
+        "line": 207,
+        "kind": "ui-label-dictionary",
+        "owner": "ERROR_DESCRIPTIONS",
+        "source": "'Cutting module Serial Number error: unable to calibrate or make project.'"
+      }
+    ]
+  },
+  "native.66cef8911feba51c": {
+    "english": "Server queue",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/FilesScreen.tsx",
+        "line": 894,
+        "kind": "jsx-attribute",
+        "owner": "FilesScreen",
+        "source": "\"Server queue\""
+      }
+    ]
+  },
+  "native.66d49695f1827c1c": {
+    "english": "Opens diagnostics and plate detection controls",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraScreen.tsx",
+        "line": 1554,
+        "kind": "jsx-attribute",
+        "owner": "CameraScreen",
+        "source": "\"Opens diagnostics and plate detection controls\""
+      },
+      {
+        "file": "src/screens/CameraScreen.tsx",
+        "line": 1621,
+        "kind": "jsx-attribute",
+        "owner": "CameraScreen",
+        "source": "\"Opens diagnostics and plate detection controls\""
+      }
+    ]
+  },
+  "native.66d8b73d097a9630": {
+    "english": "Location name is required.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/useSettingsScreenController.ts",
+        "line": 1272,
+        "kind": "feedback-message",
+        "owner": "handleSaveLocation",
+        "source": "'Location name is required.'"
+      }
+    ]
+  },
+  "native.66e530acadc76e17": {
+    "english": "Show changed fields only",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/profiles/PresetEditor.tsx",
+        "line": 646,
+        "kind": "translation-default",
+        "owner": "PresetEditor",
+        "existingKey": "profiles.showChanged",
+        "source": "'Show changed fields only'"
+      }
+    ]
+  },
+  "native.66e8fed372985bb5": {
+    "english": "Add to inventory",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/inventory/NfcInventoryScanModal.tsx",
+        "line": 227,
+        "kind": "ui-object-label",
+        "owner": "actions",
+        "source": "'Add to inventory'"
+      }
+    ]
+  },
+  "native.66f0ea9f96852e2f": {
+    "english": "{{value0}}mm {{value1}}",
+    "context": "shared",
+    "placeholders": [
+      "value0",
+      "value1"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/printers/PrinterCardTemperatureSection.tsx",
+        "line": 38,
+        "kind": "jsx-attribute-expression",
+        "owner": "PrinterCardTemperatureSection",
+        "source": "`${status.nozzles[0].nozzle_diameter}mm ${status.nozzles[0].nozzle_type.replace(/_/g, ' ')}`"
+      }
+    ]
+  },
+  "native.66f53452f7bc5afc": {
+    "english": "Groups",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/UsersScreen.tsx",
+        "line": 318,
+        "kind": "jsx-text",
+        "owner": "UsersScreen",
+        "source": "Groups"
+      },
+      {
+        "file": "src/screens/UsersScreen.tsx",
+        "line": 459,
+        "kind": "jsx-text",
+        "owner": "UsersScreen",
+        "source": "Groups"
+      },
+      {
+        "file": "src/screens/UsersScreen.tsx",
+        "line": 510,
+        "kind": "jsx-text",
+        "owner": "UsersScreen",
+        "source": "Groups"
+      }
+    ]
+  },
+  "native.66f6568fe584ff60": {
+    "english": "First camera frame",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraScreen.tsx",
+        "line": 240,
+        "kind": "ui-helper-return",
+        "owner": "stageTitle",
+        "source": "'First camera frame'"
+      }
+    ]
+  },
+  "native.67014258e5f246b2": {
+    "english": "Ask for print outcome",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/settings/PrintDefaultsSettings.tsx",
+        "line": 47,
+        "kind": "ui-label-tuple",
+        "owner": "PrintDefaultsSettings",
+        "source": "'Ask for print outcome'"
+      },
+      {
+        "file": "src/components/settings/settingsSearch.ts",
+        "line": 51,
+        "kind": "indirect-app-prose",
+        "owner": "SETTINGS_SEARCH_INDEX",
+        "source": "'Ask for print outcome'"
+      }
+    ]
+  },
+  "native.670a1b5f222eb34f": {
+    "english": "Drying temperature (45–{{max}}°C)",
+    "context": "shared",
+    "placeholders": [
+      "max"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/printers/AmsUnitControls.tsx",
+        "line": 132,
+        "kind": "translation-default",
+        "owner": "AmsUnitControls",
+        "existingKey": "device.dryingTemperature",
+        "source": "'Drying temperature (45–{{max}}°C)'"
+      }
+    ]
+  },
+  "native.672319ece219d61a": {
+    "english": "Copy slicer address: {{address}}",
+    "context": "shared",
+    "placeholders": [
+      "address"
+    ],
+    "occurrences": [
+      {
+        "file": "src/components/settings/VirtualPrinterIntegration.tsx",
+        "line": 84,
+        "kind": "translation-default",
+        "owner": "VirtualPrinterAddress",
+        "existingKey": "integrations.copyAddress",
+        "source": "'Copy slicer address: {{address}}'"
+      }
+    ]
+  },
+  "native.67261ee2accd09c0": {
+    "english": "Export all projects",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/components/projects/ProjectTransferActions.tsx",
+        "line": 78,
+        "kind": "translation-default",
+        "owner": "ProjectTransferActions",
+        "existingKey": "projects.exportAll",
+        "source": "'Export all projects'"
+      }
+    ]
+  },
+  "native.6752ca24a00568b0": {
+    "english": " · Port: ",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/CameraScreen.tsx",
+        "line": 400,
+        "kind": "jsx-text",
+        "owner": "DiagnosticSheet",
+        "source": "· Port: "
+      }
+    ]
+  }
+}

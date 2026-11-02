@@ -1,3 +1,4 @@
+import { translateNative, useNativeLocale } from '@/i18n';
 import { StyleSheet, Text, View } from 'react-native';
 import { WifiOff } from 'lucide-react-native';
 import { useTheme } from '../../theme';
@@ -8,6 +9,7 @@ interface OfflineBannerProps {
 }
 
 export function OfflineBanner({ isOffline }: OfflineBannerProps) {
+  useNativeLocale();
   const { colors } = useTheme();
 
   if (!isOffline) return null;
@@ -15,7 +17,7 @@ export function OfflineBanner({ isOffline }: OfflineBannerProps) {
   return (
     <View style={[styles.banner, { backgroundColor: `${colors.warning}20`, borderBottomColor: colors.warning + '40' }]}>
       <WifiOff size={16} color={colors.warning} style={styles.icon} strokeWidth={2.5} />
-      <Text style={[styles.message, { color: colors.warning }]}>No network connection. Showing cached data.</Text>
+      <Text style={[styles.message, { color: colors.warning }]}>{translateNative('native.0766a8d8c788e4f3')}</Text>
     </View>
   );
 }
