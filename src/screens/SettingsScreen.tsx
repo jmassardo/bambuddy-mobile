@@ -42,6 +42,8 @@ export default function SettingsScreen() {
   return (
     <SettingsSearchFocusProvider content={content} scroll={scroll}>
       <ScrollView
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
         ref={scroll}
         style={[settingsStyles.container, { backgroundColor: controller.colors.background }]}
         refreshControl={
@@ -62,7 +64,6 @@ export default function SettingsScreen() {
       >
         <View ref={content} collapsable={false} style={settingsStyles.content}>
         <View style={settingsStyles.header}>
-          <Text style={[settingsStyles.title, { color: controller.colors.text }]}>{translateNative('nav.settings')}</Text>
           <Text style={[settingsStyles.subtitle, { color: controller.colors.textSecondary }]}>{translateNative('native.112376eccbe7a16b')}</Text>
         </View>
 

@@ -1,0 +1,232 @@
+name: Release Candidate
+
+on:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+env:
+  FASTLANE_SKIP_DOCS: "1"
+  BUNDLE_FORCE_RUBY_PLATFORM: "1"
+
+jobs:
+  prepare:
+    if: "!contains(github.event.head_commit.message, '[skip release]')"
+    runs-on: ubuntu-latest
+    environment: release-query
+    outputs:
+      commit: ${{ steps.prepare.outputs.commit }}
+      version: ${{ steps.prepare.outputs.version }}
+      build_number: ${{ steps.prepare.outputs.build_number }}
+      branch: ${{ steps.prepare.outputs.branch }}
+    steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: bambuddy-mobile
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app.outputs.token }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - name: Keep Bundler configuration outside the checkout
+        run: echo "BUNDLE_APP_CONFIG=$RUNNER_TEMP/bambuddy-bundler" >> "$GITHUB_ENV"
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Prepare query credentials
+        run: node scripts/release/pipeline.js credentials google
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT }}
+      - name: Read existing store versions
+        run: bundle exec fastlane ios release_metadata
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          RELEASE_STORE_METADATA_PATH: ${{ runner.temp }}/store-release-metadata.json
+      - name: Reserve version and commit candidate metadata
+        id: prepare
+        run: node scripts/release/pipeline.js prepare
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          RELEASE_STORE_METADATA_PATH: ${{ runner.temp }}/store-release-metadata.json
+      - name: Remove temporary store credentials
+        if: always()
+        run: node scripts/release/pipeline.js cleanup-credentials
+
+  quality:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test -- --ci --coverage
+
+  ios:
+    needs: [prepare, quality]
+    runs-on: macos-latest
+    environment: release-ios
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_GIT_URL: ${{ vars.MATCH_GIT_URL }}
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      BAMBUDDY_DEMO_URL: ${{ secrets.BAMBUDDY_DEMO_URL }}
+      BAMBUDDY_DEMO_USERNAME: ${{ secrets.BAMBUDDY_DEMO_USERNAME }}
+      BAMBUDDY_DEMO_PASSWORD: ${{ secrets.BAMBUDDY_DEMO_PASSWORD }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Keep Bundler configuration outside the checkout
+        run: echo "BUNDLE_APP_CONFIG=$RUNNER_TEMP/bambuddy-bundler" >> "$GITHUB_ENV"
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - run: npm ci
+      - name: Prepare read-only signing-repository access
+        run: node scripts/release/pipeline.js credentials match
+        env:
+          MATCH_GIT_PRIVATE_KEY_CONTENT: ${{ secrets.MATCH_GIT_PRIVATE_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+      - run: bundle exec ruby fastlane/tests/release_test.rb
+      - run: bundle exec pod install --project-directory=ios
+      - run: bundle exec fastlane ios release_candidate
+      - run: git diff --exit-code
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && hashFiles('ios/build/Bambuddy.ipa') != '' }}
+        with:
+          name: candidate-ios-${{ github.run_id }}
+          path: |
+            ios/build/Bambuddy.ipa
+            ios/build/*.dSYM.zip
+          if-no-files-found: error
+          retention-days: 90
+      - name: Remove temporary signing-repository credentials
+        if: always()
+        run: node scripts/release/pipeline.js cleanup-credentials
+
+  android:
+    needs: [prepare, quality]
+    runs-on: ubuntu-latest
+    environment: release-android
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      BAMBUDDY_RELEASE_STORE_PASSWORD: ${{ secrets.BAMBUDDY_RELEASE_STORE_PASSWORD }}
+      BAMBUDDY_RELEASE_KEY_ALIAS: ${{ secrets.BAMBUDDY_RELEASE_KEY_ALIAS }}
+      BAMBUDDY_RELEASE_KEY_PASSWORD: ${{ secrets.BAMBUDDY_RELEASE_KEY_PASSWORD }}
+      BAMBUDDY_DEMO_URL: ${{ secrets.BAMBUDDY_DEMO_URL }}
+      BAMBUDDY_DEMO_USERNAME: ${{ secrets.BAMBUDDY_DEMO_USERNAME }}
+      BAMBUDDY_DEMO_PASSWORD: ${{ secrets.BAMBUDDY_DEMO_PASSWORD }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Keep Bundler configuration outside the checkout
+        run: echo "BUNDLE_APP_CONFIG=$RUNNER_TEMP/bambuddy-bundler" >> "$GITHUB_ENV"
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - run: npm ci
+      - name: Prepare signing and store credentials
+        run: node scripts/release/pipeline.js credentials android
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT }}
+          BAMBUDDY_RELEASE_STORE_CONTENT: ${{ secrets.BAMBUDDY_RELEASE_STORE_CONTENT }}
+      - run: bundle exec ruby fastlane/tests/release_test.rb
+      - run: bundle exec fastlane android release_candidate
+      - run: git diff --exit-code
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && hashFiles('android/app/build/outputs/bundle/release/app-release.aab') != '' }}
+        with:
+          name: candidate-android-${{ github.run_id }}
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 90
+      - name: Remove temporary signing and store credentials
+        if: always()
+        run: node scripts/release/pipeline.js cleanup-credentials
+
+  publish-record:
+    needs: [prepare, quality, ios, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: candidate-*-${{ github.run_id }}
+          path: release-artifacts
+          merge-multiple: true
+      - run: node scripts/release/pipeline.js record release-artifacts
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-candidate-${{ github.run_id }}
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 90
+
+  release-pr:
+    needs: [prepare, publish-record]
+    runs-on: ubuntu-latest
+    environment: release-query
+    steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: bambuddy-mobile
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - name: Open and enable automatic merge of the tested candidate
+        run: node scripts/release/pipeline.js open-pr
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}

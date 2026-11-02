@@ -3,6 +3,7 @@ import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React from 'react';
 import { Modal, View, Text, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
@@ -69,9 +70,10 @@ export function OIDCAuthorizationBrowser({ authorizationUrl, serverUrl, onToken,
     } catch { return url === 'about:blank'; }
   };
   return <Modal visible animationType="slide" onRequestClose={onCancel} presentationStyle="pageSheet">
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaProvider>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={{ color: colors.text }}>{t('auth.secureSSO', { defaultValue: 'Secure single sign-on' })}</Text>
+        <Text accessibilityRole="header" style={{ color: colors.text }}>{t('auth.secureSSO', { defaultValue: 'Secure single sign-on' })}</Text>
         <PrimaryButton label={t('auth.cancelSSO', { defaultValue: 'Cancel single sign-on' })} variant="secondary" onPress={onCancel} />
       </View>
       <WebView
@@ -89,7 +91,8 @@ export function OIDCAuthorizationBrowser({ authorizationUrl, serverUrl, onToken,
         incognito
         startInLoadingState
       />
-    </View>
+    </SafeAreaView>
+    </SafeAreaProvider>
   </Modal>;
 }
 const styles = StyleSheet.create({ container: { flex: 1 }, header: { gap: spacing.sm, padding: spacing.lg } });

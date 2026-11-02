@@ -3,7 +3,7 @@ import React from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { printersApi } from '@/api/printers';
-import { Button, Input } from '@/components/common/AppUI';
+import { Chip, Input } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 
@@ -40,8 +40,8 @@ export function NotificationChoices({ label, value, choices, onChange }: {
       <Text style={{ color: colors.text }}>{label}</Text>
       <View style={styles.choices}>
         {choices.map(choice => (
-          <Button key={choice} title={choice ? t(`notifications.choice.${choice}`, { defaultValue: choice }) : t('common.default', { defaultValue: 'Default' })} size="sm"
-            variant={choice === value ? 'primary' : 'secondary'} onPress={() => onChange(choice)} />
+          <Chip key={choice} label={choice ? t(`notifications.choice.${choice}`, { defaultValue: choice }) : t('common.default', { defaultValue: 'Default' })}
+            selected={choice === value} onPress={() => onChange(choice)} />
         ))}
       </View>
     </View>
@@ -93,11 +93,11 @@ export function ProviderDeliveryFields({ form, setForm }: Props) {
       </Text>
       {printers.error ? <Text style={{ color: colors.error }}>{printers.error.message}</Text> : null}
       <View style={styles.choices}>
-        <Button title={t('notifications.allPrinters', { defaultValue: 'All printers' })} size="sm" variant={form.printer_id === null ? 'primary' : 'secondary'}
+        <Chip label={t('notifications.allPrinters', { defaultValue: 'All printers' })} selected={form.printer_id === null}
           onPress={() => update({ printer_id: null })} />
         {printers.data?.map(printer => (
-          <Button key={String(printer.id)} title={String(printer.name)} size="sm"
-            variant={form.printer_id === Number(printer.id) ? 'primary' : 'secondary'}
+          <Chip key={String(printer.id)} label={String(printer.name)}
+            selected={form.printer_id === Number(printer.id)}
             onPress={() => update({ printer_id: Number(printer.id) })} />
         ))}
       </View>

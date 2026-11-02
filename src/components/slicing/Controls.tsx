@@ -2,6 +2,8 @@ import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useState } from 'react';
 import {
   Modal,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
 import { spacing, borderRadius } from '@/theme/tokens';
@@ -59,7 +62,9 @@ export function Choice({
         animationType="slide"
         onRequestClose={() => setOpen(false)}
       >
-        <View style={styles.backdrop}>
+        <SafeAreaProvider>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
           <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
             <TextField label={label} value={search} onChangeText={setSearch} />
             <ScrollView keyboardShouldPersistTaps="handled">
@@ -71,10 +76,12 @@ export function Choice({
                   <Pressable
                     key={o.value}
                     accessibilityRole="radio"
-                    accessibilityState={{ selected: o.value === value }}
+                    accessibilityState={{ selected: o.value === value, disabled }}
                     accessibilityLabel={o.label}
+                    disabled={disabled}
                     style={[styles.option, { borderColor: colors.border }]}
                     onPress={() => {
+                      if (disabled) return;
                       onChange(o.value);
                       setOpen(false);
                       setSearch('');
@@ -93,7 +100,9 @@ export function Choice({
               onPress={() => setOpen(false)}
             />
           </View>
-        </View>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaProvider>
       </Modal>
     </View>
   );
@@ -145,7 +154,9 @@ export function Sheet({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.backdrop}>
+      <SafeAreaProvider>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
           <Copy>{title}</Copy>
           <PrimaryButton
@@ -160,7 +171,9 @@ export function Sheet({
             {children}
           </ScrollView>
         </View>
-      </View>
+      </SafeAreaView>
+      </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -177,7 +190,6 @@ export const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: '#0009',
     padding: spacing.md,
   },
   sheet: {

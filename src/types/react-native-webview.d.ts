@@ -33,6 +33,8 @@ declare module 'react-native-webview' {
     mixedContentMode?: 'never' | 'always' | 'compatibility';
     thirdPartyCookiesEnabled?: boolean;
     startInLoadingState?: boolean;
+    renderLoading?: () => React.ReactElement;
+    renderError?: (errorDomain: string | undefined, errorCode: number, errorDescription: string) => React.ReactElement;
   }
 
   export interface WebViewHandle {

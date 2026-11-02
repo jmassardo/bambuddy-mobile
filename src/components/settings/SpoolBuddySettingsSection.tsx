@@ -2,7 +2,7 @@ import { NativeTranslation, translateNative, useNativeLocale, useTranslation } f
 
 import React from 'react';
 import { Text, View } from 'react-native';
-import { EmptyState } from '@/components/common/StateScreens';
+import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { PrimaryButton, SectionCard, StatusBadge } from '@/components/common/AppUI';
 import { settingsStyles } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
@@ -17,7 +17,7 @@ export function SpoolBuddySettingsSection({ controller }: { controller: Settings
 
   return (
     <SectionCard title={translateNative('native.56d13dfac15377cd')} subtitle={translateNative('native.ce986efe1e5e7480')}>
-      {devices.length > 0 ? (
+      {controller.queries.spoolbuddyQuery.isLoading ? <LoadingScreen inline /> : controller.queries.spoolbuddyQuery.isError ? <ErrorState message={controller.queries.spoolbuddyQuery.error.message} onRetry={() => void controller.queries.spoolbuddyQuery.refetch()} /> : devices.length > 0 ? (
         devices.map(device => (
           <View key={pickString(device, ['id', 'device_id'])} style={[settingsStyles.itemCard, { backgroundColor: controller.colors.surfaceElevated, borderColor: controller.colors.border }]}> 
             <View style={settingsStyles.itemHeader}>

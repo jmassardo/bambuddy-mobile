@@ -1,15 +1,267 @@
+require "json"
+require "fileutils"
+
 default_platform(:ios)
 
-def api_key
-  app_store_connect_api_key(
-    key_id: ENV["ASC_KEY_ID"] || "PNN76572ZY",
-    issuer_id: ENV["ASC_ISSUER_ID"] || "61e9d4b7-8267-4d4a-aed4-ba66aeace3b4",
-    key_filepath: ENV["ASC_KEY_FILEPATH"] || File.expand_path("~/Downloads/AuthKey_PNN76572ZY.p8"),
+def required_env(name)
+  value = ENV[name]
+  UI.user_error!("#{name} is required") if value.nil? || value.strip.empty?
+  value
+end
+
+def api_key(required: false)
+  options = {
+    key_id: required ? required_env("ASC_KEY_ID") : ENV["ASC_KEY_ID"] || "PNN76572ZY",
+    issuer_id: required ? required_env("ASC_ISSUER_ID") : ENV["ASC_ISSUER_ID"] || "61e9d4b7-8267-4d4a-aed4-ba66aeace3b4",
     in_house: false
+  }
+  if required || !ENV["ASC_KEY_CONTENT"].to_s.empty?
+    options[:key_content] = required_env("ASC_KEY_CONTENT")
+  else
+    options[:key_filepath] = ENV["ASC_KEY_FILEPATH"] || File.expand_path("~/Downloads/AuthKey_PNN76572ZY.p8")
+  end
+  app_store_connect_api_key(**options)
+end
+
+def release_identity
+  version = required_env("RELEASE_VERSION")
+  number = required_env("BUILD_NUMBER")
+  UI.user_error!("RELEASE_VERSION must be a strict three-part semver") unless strict_store_version?(version)
+  unless /\A[1-9]\d*\z/.match?(number) && number.to_i <= 2_100_000_000
+    UI.user_error!("BUILD_NUMBER must be an integer between 1 and 2100000000")
+  end
+  { version: version, number: number }
+end
+
+def strict_store_version?(version)
+  /\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\z/.match?(version.to_s)
+end
+
+def normalized_existing_store_version(value)
+  version = value.to_s
+  unless /\A(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){0,2}\z/.match?(version)
+    UI.user_error!("App Store Connect must contain one-to-three-part numeric app-store versions")
+  end
+  parts = version.split(".")
+  (parts + ["0"] * (3 - parts.length)).join(".")
+end
+
+def release_root
+  File.expand_path("..", FastlaneCore::FastlaneFolder.path)
+end
+
+def validate_candidate_metadata(identity, platform)
+  package = JSON.parse(File.read(File.join(release_root, "package.json")))
+  UI.user_error!("Candidate package version does not match RELEASE_VERSION") unless package["version"] == identity[:version]
+  if platform == :ios
+    project = File.read(File.join(release_root, "ios/Bambuddy.xcodeproj/project.pbxproj"))
+    versions = project.scan(/MARKETING_VERSION = ([^;]+);/).flatten
+    numbers = project.scan(/CURRENT_PROJECT_VERSION = ([^;]+);/).flatten
+  else
+    project = File.read(File.join(release_root, "android/app/build.gradle"))
+    versions = project.scan(/\bversionName\s+"([^"]+)"/).flatten
+    numbers = project.scan(/\bversionCode\s+(\d+)/).flatten
+  end
+  unless !versions.empty? && versions.all? { |version| version == identity[:version] } &&
+         !numbers.empty? && numbers.all? { |number| number == identity[:number] }
+    UI.user_error!("Candidate #{platform} version/build metadata does not match RELEASE_VERSION/BUILD_NUMBER")
+  end
+end
+
+def asc_app
+  app = Spaceship::ConnectAPI::App.find("com.dxrf.bambuddy")
+  UI.user_error!("Existing App Store Connect app com.dxrf.bambuddy is required") unless app
+  app
+end
+
+def exact_processed_ios_build(identity, already_submitted: false)
+  app = asc_app
+  builds = Spaceship::ConnectAPI::Build.all(
+    app_id: app.id,
+    version: identity[:version],
+    build_number: identity[:number],
+    platform: "IOS"
   )
+  unless builds.length == 1 &&
+         builds.first.version == identity[:number] &&
+         builds.first.pre_release_version&.version == identity[:version] &&
+         builds.first.pre_release_version&.platform == "IOS"
+    UI.user_error!("Exact iOS candidate #{identity[:version]} (#{identity[:number]}) was not found uniquely")
+  end
+  build = builds.first
+  ready_states = ["READY_FOR_BETA_TESTING", "IN_BETA_TESTING"]
+  unless build.processing_state == "VALID" &&
+         (already_submitted || (build.expired == false && ready_states.include?(build.build_beta_detail&.internal_build_state)))
+    UI.user_error!("Exact iOS candidate is not processed, accepted, and ready for release")
+  end
+  build
+end
+
+def ios_promotion_complete?(identity)
+  versions = asc_app.get_app_store_versions(filter: { platform: "IOS" })
+  matches = versions.select { |version| version.version_string == identity[:version] }
+  UI.user_error!("Exact iOS store version is ambiguous") if matches.length > 1
+  return false if matches.empty?
+  version = matches.first
+  if version.build && version.build.version != identity[:number]
+    UI.user_error!("Exact iOS store version is associated with a different build")
+  end
+  submitted_states = %w[WAITING_FOR_REVIEW IN_REVIEW ACCEPTED PENDING_APPLE_RELEASE WAITING_FOR_EXPORT_COMPLIANCE]
+  published_states = %w[PROCESSING_FOR_DISTRIBUTION READY_FOR_DISTRIBUTION REPLACED_WITH_NEW_VERSION]
+  return false unless (submitted_states + published_states).include?(version.app_version_state)
+  build = exact_processed_ios_build(identity, already_submitted: true)
+  unless version.build && version.build.id == build.id
+    UI.user_error!("Submitted iOS store version does not reference the exact candidate build")
+  end
+  if submitted_states.include?(version.app_version_state) && version.release_type != "AFTER_APPROVAL"
+    UI.user_error!("Submitted iOS candidate is not configured for automatic public release")
+  end
+  UI.success("Exact iOS candidate is already submitted or released")
+  true
+end
+
+def notes_from_changelog(version, source)
+  sections = source.scan(/^## \[#{Regexp.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\z)/m)
+  UI.user_error!("Exact candidate release notes are missing or ambiguous in CHANGELOG.md") unless sections.length == 1
+  notes = sections.first.first.gsub(/^\[[^\]]+\]:[^\n]*(?:\n|\z)/, "").gsub(/^###\s+/, "").strip
+  UI.user_error!("Exact candidate release notes are empty") if notes.empty?
+  notes.length > 4000 ? notes[0, 3999] + "…" : notes
+end
+
+def candidate_release_notes(identity)
+  notes_from_changelog(identity[:version], File.read(File.join(release_root, "CHANGELOG.md")))
+end
+
+def prepare_ios_store_version(identity)
+  notes = candidate_release_notes(identity)
+  app = asc_app
+  editable_states = %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED METADATA_REJECTED INVALID_BINARY]
+  versions = app.get_app_store_versions(filter: { platform: "IOS" })
+  matches = versions.select { |version| version.version_string == identity[:version] }
+  UI.user_error!("Exact iOS store version is ambiguous") if matches.length > 1
+  if matches.empty?
+    editable = versions.select { |version| editable_states.include?(version.app_version_state) }
+    reusable = editable.one? && editable.first.app_version_state == "REJECTED" &&
+               Gem::Version.new(normalized_existing_store_version(editable.first.version_string)) < Gem::Version.new(identity[:version])
+    if !editable.empty? && !reusable
+      UI.user_error!("A different editable iOS store version exists; refusing to overwrite it")
+    end
+    app.ensure_version!(identity[:version], platform: "IOS")
+  elsif !editable_states.include?(matches.first.app_version_state)
+    UI.user_error!("Exact iOS store version is not ready for submission")
+  end
+  version = app.get_edit_app_store_version(platform: "IOS")
+  unless version && version.version_string == identity[:version] &&
+         editable_states.include?(version.app_version_state)
+    UI.user_error!("Exact editable iOS store version is not available")
+  end
+  # Deliver skips releaseType updates when skip_metadata is true.
+  version.update(attributes: { releaseType: "AFTER_APPROVAL" })
+  localizations = version.get_app_store_version_localizations
+  UI.user_error!("Existing App Store version localizations are required") if localizations.empty?
+  unless app.get_app_store_versions(filter: { platform: "IOS" }).one?
+    localizations.each { |localization| localization.update(attributes: { whatsNew: notes }) }
+  end
+end
+
+def google_credentials
+  path = File.expand_path(required_env("GOOGLE_SERVICE_ACCOUNT_KEY_PATH"))
+  UI.user_error!("Google service account credential file is missing") unless File.file?(path)
+  { package_name: "com.dxrf.bambuddy", json_key: path }
+end
+
+def read_google_tracks(credentials)
+  require "supply"
+  require "supply/options"
+  client = Supply::Client.make_from_config(
+    params: FastlaneCore::Configuration.create(Supply::Options.available_options, credentials)
+  )
+  client.begin_edit(package_name: credentials[:package_name])
+  begin
+    # The Play read API uses a disposable edit. Never commit it.
+    client.tracks("internal", "alpha", "beta", "production")
+  ensure
+    client.abort_current_edit
+  end
+end
+
+def exact_internal_android_release(identity, credentials)
+  track = read_google_tracks(credentials).find { |item| item.track == "internal" }
+  releases = (track&.releases || []).select do |release|
+    (release.version_codes || []).map(&:to_s).include?(identity[:number])
+  end
+  unless releases.length == 1 && releases.first.status == "completed"
+    UI.user_error!("Exact Android candidate is missing or not ready on internal")
+  end
+  # Supply promotes an entire release, not just version_code. Refuse mixed releases.
+  unless releases.first.version_codes.map(&:to_s) == [identity[:number]]
+    UI.user_error!("Internal release includes other builds; refusing to promote more than the exact candidate")
+  end
+  releases.first
+end
+
+def android_promotion_complete?(identity, credentials)
+  track = read_google_tracks(credentials).find { |item| item.track == "production" }
+  matches = (track&.releases || []).select do |release|
+    (release.version_codes || []).map(&:to_s).include?(identity[:number])
+  end
+  return false if matches.empty?
+  unless matches.length == 1 && matches.first.status == "completed"
+    UI.user_error!("Exact Android production candidate is ambiguous or not fully released")
+  end
+  UI.success("Exact Android candidate is already released")
+  true
+end
+
+def match_git_options
+  private_key = ENV["MATCH_GIT_PRIVATE_KEY"]
+  unless private_key.to_s.strip.empty?
+    UI.user_error!("MATCH_GIT_PRIVATE_KEY must point to a private-key file") unless File.file?(private_key)
+    return { git_private_key: private_key }
+  end
+  value = ENV["MATCH_GIT_BASIC_AUTHORIZATION"] || ENV["MATCH_GIT_AUTHORIZATION"]
+  UI.user_error!("MATCH_GIT_PRIVATE_KEY or MATCH_GIT_BASIC_AUTHORIZATION is required") if value.nil? || value.strip.empty?
+  { git_basic_authorization: value }
+end
+
+def query_release_metadata
+  path = File.expand_path(required_env("RELEASE_STORE_METADATA_PATH"))
+  api_key(required: true)
+  app = asc_app
+  versions = app.get_app_store_versions(filter: { platform: "IOS" }).map do |store|
+    normalized_existing_store_version(store.version_string)
+  end
+  UI.user_error!("App Store Connect must contain numeric app-store versions") if versions.empty?
+  store_version = versions.max_by { |version| version.split(".").map(&:to_i) }
+  builds = Spaceship::ConnectAPI::Build.all(app_id: app.id, platform: "IOS")
+  numbers = builds.filter_map do |build|
+    build.version.to_i if /\A\d+\z/.match?(build.version.to_s)
+  end
+  read_google_tracks(google_credentials).each do |track|
+    (track.releases || []).each do |release|
+      (release.version_codes || []).each do |code|
+        UI.user_error!("Google Play returned an invalid version code") unless /\A[1-9]\d*\z/.match?(code.to_s)
+        numbers << code.to_i
+      end
+    end
+  end
+  next_number = (numbers.max || 0) + 1
+  UI.user_error!("Store build number range is exhausted") if next_number > 2_100_000_000
+  FileUtils.mkdir_p(File.dirname(path))
+  File.write(path, JSON.generate(store_version: store_version, next_build_number: next_number) + "\n")
+end
+
+desc "Query existing store versions/builds without signing, building, or committing Play edits"
+lane :release_metadata do
+  query_release_metadata
 end
 
 platform :ios do
+  desc "Query ASC/Play release metadata without signing or building"
+  lane :release_metadata do
+    query_release_metadata
+  end
+
   desc "Register the App ID on the Developer Portal"
   lane :create_app do
     # Register bundle ID via App Store Connect API
@@ -72,7 +324,70 @@ platform :ios do
       configuration: "Release",
       export_method: "app-store",
       output_directory: "ios/build",
+      output_name: "Bambuddy.ipa",
       include_symbols: true
+    )
+  end
+
+  desc "Build the exact signed candidate once and wait for TestFlight processing"
+  lane :release_candidate do
+    identity = release_identity
+    validate_candidate_metadata(identity, :ios)
+    required_env("MATCH_PASSWORD")
+    git_options = match_git_options
+    key = api_key(required: true)
+    setup_ci(force: true)
+    match(
+      type: "appstore",
+      readonly: true,
+      api_key: key,
+      **git_options
+    )
+    build_ios_app(
+      workspace: "ios/Bambuddy.xcworkspace",
+      scheme: "Bambuddy",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "ios/build",
+      output_name: "Bambuddy.ipa",
+      include_symbols: true,
+      xcargs: "CURRENT_PROJECT_VERSION=#{identity[:number]}"
+    )
+    upload_to_testflight(
+      api_key: key,
+      app_identifier: "com.dxrf.bambuddy",
+      ipa: "ios/build/Bambuddy.ipa",
+      app_version: identity[:version],
+      build_number: identity[:number],
+      skip_waiting_for_build_processing: false,
+      wait_processing_timeout_duration: 3600,
+      uses_non_exempt_encryption: false
+    )
+    exact_processed_ios_build(identity)
+  end
+
+  desc "Submit only the exact processed TestFlight candidate; never rebuild or upload an IPA"
+  lane :promote do
+    identity = release_identity
+    key = api_key(required: true)
+    next if ios_promotion_complete?(identity)
+    exact_processed_ios_build(identity)
+    prepare_ios_store_version(identity)
+    upload_to_app_store(
+      api_key: key,
+      app_identifier: "com.dxrf.bambuddy",
+      platform: "ios",
+      app_version: identity[:version],
+      build_number: identity[:number],
+      skip_app_version_update: true,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
+      submit_for_review: true,
+      automatic_release: true,
+      force: true,
+      run_precheck_before_submit: false,
+      submission_information: { export_compliance_uses_encryption: false }
     )
   end
 
@@ -116,6 +431,56 @@ platform :android do
       properties: {
         "VERSION_CODE" => ENV.fetch("VERSION_CODE", "1")
       }
+    )
+  end
+
+  desc "Build the exact production-signed candidate AAB once and upload to internal"
+  lane :release_candidate do
+    identity = release_identity
+    validate_candidate_metadata(identity, :android)
+    %w[BAMBUDDY_RELEASE_STORE_FILE BAMBUDDY_RELEASE_STORE_PASSWORD BAMBUDDY_RELEASE_KEY_ALIAS BAMBUDDY_RELEASE_KEY_PASSWORD].each do |name|
+      required_env(name)
+    end
+    unless File.file?(File.expand_path(ENV.fetch("BAMBUDDY_RELEASE_STORE_FILE")))
+      UI.user_error!("Production Android keystore file is missing")
+    end
+    credentials = google_credentials
+    gradle(project_dir: "android", task: "bundleRelease", print_command: false)
+    upload_to_play_store(
+      **credentials,
+      track: "internal",
+      aab: "android/app/build/outputs/bundle/release/app-release.aab",
+      version_code: identity[:number].to_i,
+      version_name: identity[:version],
+      release_status: "completed",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+    exact_internal_android_release(identity, credentials)
+  end
+
+  desc "Promote only the exact accepted internal candidate; never build or upload a binary"
+  lane :promote do
+    identity = release_identity
+    credentials = google_credentials
+    next if android_promotion_complete?(identity, credentials)
+    exact_internal_android_release(identity, credentials)
+    upload_to_play_store(
+      **credentials,
+      track: "internal",
+      track_promote_to: "production",
+      version_code: identity[:number].to_i,
+      release_status: "completed",
+      track_promote_release_status: "completed",
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
     )
   end
 

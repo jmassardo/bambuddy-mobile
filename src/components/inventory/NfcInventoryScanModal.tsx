@@ -9,10 +9,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  type ViewStyle,
   View,
-  type LayoutChangeEvent,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Check, CircleDashed, Tag, X, AlertCircle } from 'lucide-react-native';
 import { useTheme } from '@/theme';
 import { useNfc } from '@/hooks/useNfc';
@@ -55,7 +54,7 @@ function scanDescription(phase: ScanPhase): string {
     case 'not_found': return translateNative('native.60d042b242a12a17');
     case 'found': return translateNative('native.f1522078b548271d');
     case 'duplicate': return translateNative('native.56a92fea627c7d2c');
-    case 'error': return translateNative('native.111d3913eb1a77d7');
+    case 'error': return phase.message;
     case 'cancelled': return translateNative('native.1fb8f43bb5c86145');
   }
 }
@@ -77,7 +76,6 @@ export function NfcInventoryScanModal({
   const isProcessingRef = useRef(false);
 
   const [phase, setPhase] = useState<ScanPhase>({ phase: 'checking' });
-  const [cardHeight, setCardHeight] = useState(0);
   const [_retryCount, _setRetryCount] = useState(0);
 
   useEffect(() => {
@@ -206,15 +204,12 @@ export function NfcInventoryScanModal({
     }
   }, [visible]);
 
-  const maxHeight = Math.max(cardHeight + 80, 300);
-  const cardStyle: ViewStyle = { maxHeight };
-
   // Compute actions based on phase
   const actions = useLocalizedMemo((): Array<{
     label: string;
     onPress: () => void;
     disabled: boolean;
-    destructive?: boolean;
+    secondary?: boolean;
     loading?: boolean;
   }> => {
     if (phase.phase === 'ready') {
@@ -229,13 +224,13 @@ export function NfcInventoryScanModal({
       return [
         { get label() { return translateNative('native.66e8fed372985bb5'); }, onPress: handleAddToInventory, disabled: false },
         { get label() { return translateNative('native.9e3aed9ca27b49a5'); }, onPress: handleScanAnother, disabled: isProcessingRef.current },
-        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, destructive: true },
+        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, secondary: true },
       ];
     }
     if (phase.phase === 'duplicate') {
       return [
         { get label() { return translateNative('native.9e3aed9ca27b49a5'); }, onPress: handleScanAnother, disabled: isProcessingRef.current },
-        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, destructive: true },
+        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, secondary: true },
       ];
     }
     if (phase.phase === 'found') {
@@ -243,33 +238,33 @@ export function NfcInventoryScanModal({
         { get label() { return translateNative('native.060e4f38051c717e'); }, onPress: handleEditSpool, disabled: false },
         { get label() { return translateNative('native.1dd4c6bd868053df'); }, onPress: handleAssignSpool, disabled: false },
         { get label() { return translateNative('native.9e3aed9ca27b49a5'); }, onPress: handleScanAnother, disabled: isProcessingRef.current },
-        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, destructive: true },
+        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, secondary: true },
       ];
     }
     if (phase.phase === 'error') {
       return [
         { get label() { return translateNative('common.retry'); }, onPress: handleRetry, disabled: isProcessingRef.current },
-        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, destructive: true },
+        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, secondary: true },
       ];
     }
     if (phase.phase === 'cancelled') {
       return [
         { get label() { return translateNative('native.1f08b975eae81786'); }, onPress: handleStartScan, disabled: isProcessingRef.current },
-        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, destructive: true },
+        { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, secondary: true },
       ];
     }
     // unsupported / disabled / checking
     return [
-      { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, destructive: true },
+      { get label() { return translateNative('native.7ab7b842cbd975a6'); }, onPress: handleDone, disabled: false, secondary: true },
     ];
   }, [phase, handleStartScan, handleCancelScan, handleAddToInventory, handleEditSpool, handleAssignSpool, handleScanAnother, handleDone, handleRetry, isProcessingRef]);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleDone} presentationStyle="overFullScreen">
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]} accessibilityViewIsModal={true}>
+      <SafeAreaProvider>
+      <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]} accessibilityViewIsModal={true}>
         <View
-          style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }, cardStyle]}
-          onLayout={(e: LayoutChangeEvent) => setCardHeight(e.nativeEvent.layout.height)}
+          style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}
           accessibilityLabel={scanDescription(phase)}
         >
           {/* Status section */}
@@ -359,7 +354,7 @@ export function NfcInventoryScanModal({
               <View style={styles.duplicateList}>
                 <Text style={[styles.spoolLabel, { color: colors.textSecondary }]} numberOfLines={0}><NativeTranslation id="native.f3b785a40965592c" values={{ value0: (phase.spools.length) }} /></Text>
                 {phase.spools.map((spool) => (
-                  <View key={pickNumber(spool, ['id'])} style={styles.spoolItem}>
+                  <View key={pickNumber(spool, ['id'])} style={[styles.spoolItem, { borderColor: colors.border }]}>
                     <Text style={[styles.spoolName, { color: colors.text }]} numberOfLines={1}>
                       {pickString(spool, ['brand'])}
                       {' — '}
@@ -385,22 +380,24 @@ export function NfcInventoryScanModal({
                 disabled={action.disabled}
                 style={[
                   styles.actionButton,
-                  action.destructive && styles.destructiveButton,
-                  action.loading && styles.actionButtonLoading,
+                  {
+                    backgroundColor: action.secondary ? colors.surfaceElevated : colors.accent,
+                    borderColor: action.secondary ? colors.border : colors.accent,
+                  },
+                  (action.disabled || action.loading) && styles.actionButtonLoading,
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
-                accessibilityState={{ disabled: action.disabled, checked: false }}
+                accessibilityState={{ disabled: action.disabled }}
                 hitSlop={8}
               >
                 {action.loading ? (
-                  <ActivityIndicator size="small" color={action.destructive ? colors.error : colors.textInverse} />
+                  <ActivityIndicator size="small" color={action.secondary ? colors.text : colors.textInverse} />
                 ) : (
                   <Text
                     style={[
                       styles.actionButtonText,
-                      action.destructive ? { color: colors.error } : { color: colors.textInverse },
-                      action.destructive ? styles.destructiveButtonText : null,
+                      { color: action.secondary ? colors.text : colors.textInverse },
                       action.loading ? { opacity: 0 } : null,
                     ]}
                   >
@@ -411,7 +408,8 @@ export function NfcInventoryScanModal({
             ))}
           </View>
         </View>
-      </View>
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -426,6 +424,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 340,
+    maxHeight: '90%',
     borderRadius: 16,
     borderWidth: 1,
     padding: 24,
@@ -483,16 +482,18 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
     marginBottom: 4,
   },
   actionsContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     width: '100%',
   },
   actionButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '45%',
+    minWidth: 120,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
@@ -501,17 +502,11 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     minHeight: 44,
   },
-  destructiveButton: {
-    backgroundColor: 'rgba(220, 38, 38, 0.15)',
-    borderColor: 'rgba(220, 38, 38, 0.3)',
-  },
   actionButtonLoading: {
     opacity: 0.7,
   },
   actionButtonText: {
     fontSize: fontSize.base,
     fontWeight: '600',
-  },
-  destructiveButtonText: {
   },
 });

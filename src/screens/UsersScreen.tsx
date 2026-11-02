@@ -7,8 +7,11 @@ import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
+  Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,6 +19,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Edit2, Plus, Trash2 } from 'lucide-react-native';
 import { api } from '@/api/client';
@@ -310,7 +314,16 @@ export default function UsersScreen() {
                   <PrimaryButton
                     label={resetPasswordMutation.isPending ? translateNative('native.cc1642fca0298ffc') : translateNative('native.3ffb98cec8b0e01b')}
                     variant="secondary"
-                    onPress={() => void resetPasswordMutation.mutateAsync(pickNumber(item, ['id']))}
+                    disabled={resetPasswordMutation.isPending}
+                    loading={resetPasswordMutation.isPending}
+                    onPress={() => Alert.alert(
+                      translateNative('native.3ffb98cec8b0e01b'),
+                      pickString(item, ['username']),
+                      [
+                        { text: translateNative('common.cancel'), style: 'cancel' },
+                        { text: translateNative('native.3ffb98cec8b0e01b'), style: 'destructive', onPress: () => resetPasswordMutation.mutate(pickNumber(item, ['id'])) },
+                      ],
+                    )}
                   />
                 ) : null}
                 {canDeleteUser && pickNumber(item, ['id']) !== pickNumber(currentUser, ['id']) ? (
@@ -335,6 +348,8 @@ export default function UsersScreen() {
                 style={[styles.groupAddBtn, { backgroundColor: colors.accent }]}
                 accessibilityLabel={translateNative('native.c706494d805923fb')}
                 accessibilityRole="button"
+                accessibilityState={{ disabled: !canCreateGroup }}
+                hitSlop={10}
               >
                 <Plus size={14} color={colors.textInverse} strokeWidth={2.5} />
               </Pressable>
@@ -353,7 +368,7 @@ export default function UsersScreen() {
                     </Text>
                   </View>
                   <View style={styles.groupActions}>
-                    <Pressable disabled={!canUpdateGroup} onPress={() => { setEditGroupId(gId); setShowGroupEdit(true); }} style={styles.groupActionBtn} accessibilityLabel={translateNative('native.e49ab65dcc95ff22')} accessibilityRole="button">
+                    <Pressable disabled={!canUpdateGroup} onPress={() => { setEditGroupId(gId); setShowGroupEdit(true); }} style={styles.groupActionBtn} accessibilityLabel={translateNative('native.e49ab65dcc95ff22')} accessibilityRole="button" accessibilityState={{ disabled: !canUpdateGroup }}>
                       <Edit2 size={14} color={colors.textSecondary} />
                     </Pressable>
                     {!isSystem && canDeleteGroup && (
@@ -400,10 +415,12 @@ export default function UsersScreen() {
 
       {canCreateUser ? <FloatingActionButton icon="plus" label={translateNative('native.7d75125ed0d1c636')} onPress={() => setShowCreate(true)} /> : null}
 
-      <Modal visible={showCreate && canCreateUser} animationType="slide" transparent>
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
+      <Modal visible={showCreate && canCreateUser} animationType="slide" transparent onRequestClose={resetCreateState}>
+        <SafeAreaProvider style={styles.container}>
+        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
-            <ScrollView contentContainerStyle={styles.modalContent}>
+            <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
               <Text style={[styles.modalTitle, { color: colors.text }]}>{translateNative('native.7d75125ed0d1c636')}</Text>
               {ldapEnabled && canCreateUser ? (
                 <InlineTabBar
@@ -505,13 +522,17 @@ export default function UsersScreen() {
               )}
             </ScrollView>
           </View>
-        </View>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaProvider>
       </Modal>
 
-      <Modal visible={showEdit && canUpdateUser} animationType="slide" transparent>
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
+      <Modal visible={showEdit && canUpdateUser} animationType="slide" transparent onRequestClose={closeEdit}>
+        <SafeAreaProvider style={styles.container}>
+        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
-            <ScrollView contentContainerStyle={styles.modalContent}>
+            <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
               <Text style={[styles.modalTitle, { color: colors.text }]}>{translateNative('native.ba0406d32c9fd83e')}</Text>
               <TextField label={translateNative('native.f503af8b2bf430e6')} value={form.username} onChangeText={value => setForm(current => ({ ...current, username: value }))} />
               <TextField label={translateNative('native.6d96e259f012a733')} value={form.email} onChangeText={value => setForm(current => ({ ...current, email: value }))} placeholder="user@example.com" keyboardType="email-address" />
@@ -554,7 +575,9 @@ export default function UsersScreen() {
               </View>
             </ScrollView>
           </View>
-        </View>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaProvider>
       </Modal>
 
       <GroupEditModal
@@ -667,6 +690,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   groupsSectionHeader: {
+    minHeight: 48,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -707,9 +731,14 @@ const styles = StyleSheet.create({
   },
   groupActionBtn: {
     padding: spacing.xs,
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   ldapSection: {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, Alert } from 'react-native';
+import { Text, TextInput, Alert } from 'react-native';
 import ReactTestRenderer, { act, type ReactTestInstance } from 'react-test-renderer';
 import { QueryClientProvider } from '@tanstack/react-query';
 import ServerSetupScreen from '@/screens/ServerSetupScreen';
@@ -146,6 +146,15 @@ describe('ServerSetupScreen demo button', () => {
   });
 
   afterEach(clearTestQueryClients);
+
+  it('keeps malformed server URLs on the form instead of throwing during connection', async () => {
+    const root = await render();
+    await act(async () => { root.root.findByType(TextInput).props.onChangeText('not a server URL'); });
+    await act(async () => { findPressableForText(root, 'Connect').props.onPress(); });
+    expect(mockSetServerUrl).not.toHaveBeenCalled();
+    expect(mockGetAuthStatus).not.toHaveBeenCalled();
+    expect(root.root.findByType(TextInput).props.value).toBe('not a server URL');
+  });
 
   it('is hidden when the build has no demo configuration', async () => {
     mockIsDemoConfigured.mockReturnValue(false);

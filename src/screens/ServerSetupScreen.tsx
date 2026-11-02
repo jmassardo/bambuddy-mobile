@@ -29,14 +29,22 @@ function normalizeUrl(input: string) {
   return url.toString().replace(/\/$/, '');
 }
 
-export default function ServerConfigScreen() {
+export default function ServerConfigScreen({
+  embedded = false,
+  disabled = false,
+  onReadyChange,
+}: {
+  embedded?: boolean;
+  disabled?: boolean;
+  onReadyChange?: (ready: boolean) => void;
+}) {
   const titleLocale = useNativeLocale();
   const navigation = useNavigation<RootNavigationProp<'ServerSetup'>>();
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: translateNative('native.992d78618ce5a620'), headerShown: false });
-  }, [navigation, titleLocale]);
+    if (!embedded) navigation.setOptions({ title: translateNative('native.992d78618ce5a620'), headerShown: false });
+  }, [navigation, titleLocale, embedded]);
   const { colors } = useTheme();
-  const { setServerConnected, login } = useAuth();
+  const { setServerConnected, serverConnected, loading, login } = useAuth();
   const { showToast } = useToast();
   const storedUrl = useServerStore(state => state.serverUrl);
   const [serverUrl, setServerUrl] = useState(storedUrl ?? '');
@@ -101,7 +109,12 @@ export default function ServerConfigScreen() {
     },
   });
 
-  const busy = connectMutation.isPending || demoMutation.isPending;
+  const busy = disabled || Boolean(loading) || connectMutation.isPending || demoMutation.isPending;
+  const ready = Boolean(
+    storedUrl && storedUrl === serverUrl.trim().replace(/\/+$/, '') &&
+    serverConnected && !loading && !busy,
+  );
+  useEffect(() => { onReadyChange?.(ready); }, [onReadyChange, ready]);
 
   /** Shows a demo mode confirmation dialog before connecting. */
   function handleDemo() {
@@ -121,7 +134,13 @@ export default function ServerConfigScreen() {
 
   /** Initiates connection, showing a warning if the URL uses plain HTTP */
   function handleConnect() {
-    const normalized = normalizeUrl(serverUrl);
+    let normalized: string;
+    try {
+      normalized = normalizeUrl(serverUrl);
+    } catch {
+      setError(nativeMessage('native.55719db16dfe438e'));
+      return;
+    }
     if (isInsecureUrl(normalized)) {
       Alert.alert(
         translateNative('native.5aab1d54c4e71f40'),
@@ -131,26 +150,27 @@ export default function ServerConfigScreen() {
           {
             get text() { return translateNative('native.4d36e2e601c11a70'); },
             style: 'destructive',
-            onPress: () => void connectMutation.mutateAsync(),
+            onPress: () => connectMutation.mutate(),
           },
         ],
       );
     } else {
-      void connectMutation.mutateAsync();
+      connectMutation.mutate();
     }
   }
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={!embedded && Platform.OS === 'ios' ? 'padding' : undefined}
+      style={embedded ? styles.embedded : [styles.container, { backgroundColor: colors.background }]}
     >
       <View
-        style={[
+        style={embedded ? styles.embedded : [
           styles.card,
           { backgroundColor: colors.card, borderColor: colors.cardBorder },
         ]}
       >
+        {!embedded ? <>
         <Image
           source={require('../../assets/images/bambuddy-logo.png')}
           style={styles.logoImage}
@@ -160,10 +180,12 @@ export default function ServerConfigScreen() {
           {translateNative('native.5c4db6d9e74be876')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           {translateNative('native.868cbc8ebae6e3f1')}</Text>
+        </> : null}
         <TextField
           label={translateNative('native.301fd81a82ae3258')}
           value={serverUrl}
           onChangeText={setServerUrl}
+          editable={!busy}
           keyboardType="url"
           autoCapitalize="none"
           autoCorrect={false}
@@ -184,13 +206,13 @@ export default function ServerConfigScreen() {
           variant="secondary"
           disabled={busy}
         />
-        <PrimaryButton
+        {!embedded || !ready ? <PrimaryButton
           label={connectMutation.isPending ? translateNative('native.ca729717d0f94e46') : translateNative('common.connect')}
           onPress={handleConnect}
           loading={connectMutation.isPending}
-          disabled={serverUrl.trim().length === 0 || demoMutation.isPending}
-        />
-        {isDemoConfigured() ? (
+          disabled={serverUrl.trim().length === 0 || busy}
+        /> : null}
+        {isDemoConfigured() && (!embedded || !storedUrl) ? (
           <View style={styles.demoSection}>
             <View
               style={[styles.divider, { backgroundColor: colors.cardBorder }]}
@@ -204,7 +226,7 @@ export default function ServerConfigScreen() {
               onPress={handleDemo}
               variant="secondary"
               loading={demoMutation.isPending}
-              disabled={connectMutation.isPending}
+              disabled={busy}
             />
           </View>
         ) : null}
@@ -214,6 +236,9 @@ export default function ServerConfigScreen() {
 }
 
 const styles = StyleSheet.create({
+  embedded: {
+    gap: spacing.lg,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',

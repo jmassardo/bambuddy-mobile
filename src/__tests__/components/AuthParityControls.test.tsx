@@ -308,6 +308,17 @@ it('denies only after validating registration, without issuing an authorization 
   expect(m.authorize).not.toHaveBeenCalled();
   expect(Linking.openURL).toHaveBeenCalledWith('https://portal/callback?error=access_denied&state=request-state');
 });
+
+it('keeps both consent actions unavailable while a denial callback is opening', async () => {
+  let resolve!: () => void;
+  jest.mocked(Linking.openURL).mockImplementationOnce(() => new Promise<void>(done => { resolve = done; }));
+  const r = await render(<ConnectAuthorizeScreen route={{ params }} />);
+  await press(r, 'Deny');
+  expect(r.root.findByProps({ testID: 'Allow Portal' }).props.disabled).toBe(true);
+  expect(r.root.findByProps({ testID: 'Deny' }).props.disabled).toBe(true);
+  expect(m.authorize).not.toHaveBeenCalled();
+  await act(async () => resolve());
+});
 it('never offers consent or follows a callback when the server rejects client registration', async () => {
   m.authorizeInfo.mockRejectedValue(new Error('Callback mismatch'));
   const r = await render(<ConnectAuthorizeScreen route={{ params }} />);

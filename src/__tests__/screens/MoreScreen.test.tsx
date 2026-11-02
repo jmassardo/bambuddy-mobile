@@ -15,6 +15,9 @@ const mockSetOptions = jest.fn();
 const mockUseQuery = jest.fn();
 const mockShowToast = jest.fn();
 const mockOpenURL = jest.fn().mockResolvedValue(undefined);
+const mockLogout = jest.fn(async () => {});
+let mockLogoutPending = false;
+let mockServerPending = false;
 const mockPermissions = new Set<string>();
 let mockUser: { id: number; username: string } | null = { id: 1, username: 'testuser' };
 let mockAnnouncementsVisible = false;
@@ -33,7 +36,7 @@ jest.mock('@tanstack/react-query', () => ({
   useQuery: (options: { queryKey: string[] }) => mockUseQuery(options),
   useMutation: ({ mutationFn }: { mutationFn: () => Promise<void> }) => ({
     mutateAsync: mutationFn,
-    isPending: false,
+    isPending: mutationFn === mockLogout ? mockLogoutPending : mockServerPending,
   }),
 }));
 
@@ -49,7 +52,7 @@ jest.mock('@/api/uiPreferences', () => ({
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
-    user: mockUser, logout: jest.fn(),
+    user: mockUser, logout: mockLogout,
     hasPermission: (permission: string) => mockPermissions.has('*') || mockPermissions.has(permission),
   }),
 }));
@@ -83,8 +86,8 @@ jest.mock('@/components/common/AppUI', () => {
   const { Text, View } = require('react-native');
 
   return {
-    MenuItem: ({ label, subtitle, onPress }: { label: string; subtitle?: string; onPress: () => void }) =>
-      ReactModule.createElement(View, { testID: 'menu-item-' + label, onPress },
+    MenuItem: ({ label, subtitle, onPress, disabled, loading }: { label: string; subtitle?: string; onPress: () => void; disabled?: boolean; loading?: boolean }) =>
+      ReactModule.createElement(View, { testID: 'menu-item-' + label, onPress, disabled, accessibilityState: { disabled, busy: loading } },
         ReactModule.createElement(Text, null, label),
         subtitle ? ReactModule.createElement(Text, null, subtitle) : null,
       ),
@@ -112,6 +115,8 @@ beforeEach(() => {
   mockPermissions.add('*');
   mockUser = { id: 1, username: 'testuser' };
   mockAnnouncementsVisible = false;
+  mockLogoutPending = false;
+  mockServerPending = false;
 });
 
 function setupQueries(opts?: {
@@ -152,6 +157,22 @@ function ReactiveToastProbe() {
 }
 
 describe('MoreScreen', () => {
+  it.each([
+    { logoutPending: true, serverPending: false },
+    { logoutPending: false, serverPending: true },
+  ])('disables both session actions and exposes only the active action as busy: %j', async ({ logoutPending, serverPending }) => {
+    mockLogoutPending = logoutPending;
+    mockServerPending = serverPending;
+    setupQueries();
+    const ui = await render(<MoreScreen />);
+    const server = ui.getByTestId(/menu-item-(Disconnecting|Change server)/);
+    const logout = ui.getByTestId(/menu-item-(Signing out|Sign out)/);
+    expect(server.props.accessibilityState).toEqual({ disabled: true, busy: serverPending });
+    expect(logout.props.accessibilityState).toEqual({ disabled: true, busy: logoutPending });
+    await server.props.onPress();
+    await logout.props.onPress();
+    expect(mockLogout).not.toHaveBeenCalled();
+  });
   it('renders default menu items from navigationConfig', async () => {
     setupQueries();
     const { getByText } = await render(<MoreScreen />);

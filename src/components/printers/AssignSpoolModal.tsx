@@ -4,16 +4,20 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Package, Search, X } from 'lucide-react-native';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
+import { ErrorState } from '@/components/common/StateScreens';
 import { api, ApiError } from '@/api/client';
 import { printerControlsApi as device } from '@/api/printerControls';
 import { useAuth } from '@/contexts/AuthContext';
@@ -188,7 +192,9 @@ export function AssignSpoolModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+      <SafeAreaProvider>
+      <KeyboardAvoidingView style={styles.viewport} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View
           style={[
@@ -205,6 +211,8 @@ export function AssignSpoolModal({
             </View>
             <Pressable
               onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
               style={[
                 styles.iconButton,
                 { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
@@ -228,7 +236,7 @@ export function AssignSpoolModal({
           </View> : null}
           {binding ? <Text style={{ color: colors.text }}>{t('device.spoolmanBinding', { defaultValue: 'Current Spoolman binding: #{{id}}', id: binding.spoolman_spool_id })}</Text> : null}
           {bindings.error ? <Text style={{ color: colors.error }}>{bindings.error.message}</Text> : null}
-          {source === 'spoolman' ? <ScrollView>
+          {source === 'spoolman' ? <ScrollView keyboardShouldPersistTaps="handled">
             {spoolmanSpools.isLoading ? <ActivityIndicator /> : null}
             {spoolmanSpools.error ? <Text style={{ color: colors.error }}>{spoolmanSpools.error.message}</Text> : null}
             {spoolmanSpools.data?.filter(spool => !bindings.data?.some(item =>
@@ -272,10 +280,11 @@ export function AssignSpoolModal({
             ) : null}
           </View>
 
-          <ScrollView
+          {source === 'inventory' ? <ScrollView
             style={styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             {spoolsQuery.isLoading || assignmentsQuery.isLoading ? (
               <View style={styles.stateBlock}>
@@ -285,7 +294,16 @@ export function AssignSpoolModal({
               </View>
             ) : null}
 
-            {!spoolsQuery.isLoading && filteredSpools.length === 0 ? (
+            {spoolsQuery.error || assignmentsQuery.error ? (
+              <ErrorState
+                message={(spoolsQuery.error || assignmentsQuery.error)!.message}
+                onRetry={() => {
+                  void spoolsQuery.refetch();
+                  void assignmentsQuery.refetch();
+                }}
+              />
+            ) : null}
+            {spoolsQuery.isSuccess && assignmentsQuery.isSuccess && filteredSpools.length === 0 ? (
               <View style={styles.stateBlock}>
                 <Search size={20} color={colors.textTertiary} strokeWidth={2} />
                 <Text style={[styles.stateText, { color: colors.textSecondary }]}>
@@ -335,16 +353,19 @@ export function AssignSpoolModal({
                 </Pressable>
               );
             }) : null}
-          </ScrollView>
+          </ScrollView> : null}
 
           <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         </View>
-      </View>
+      </SafeAreaView>
+      </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  viewport: { flex: 1 },
   backdrop: {
     flex: 1,
     alignItems: 'center',
@@ -377,8 +398,8 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
   },
   iconButton: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     alignItems: 'center',

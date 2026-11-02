@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 import React from 'react';
-import { Image, Pressable, TextInput } from 'react-native';
+import { Image, Pressable, Switch, TextInput } from 'react-native';
 import ReactTestRenderer, {
   act,
   type ReactTestInstance,
@@ -20,6 +20,7 @@ const mockClose = jest.fn();
 const mockSettings = jest.fn();
 const mockPermission = jest.fn(() => true);
 let mockRemaining = 1000;
+let mockArchiveMetadata: Record<string, unknown> = {};
 const mockStatus = {
   connected: true,
   state: 'IDLE',
@@ -67,6 +68,9 @@ jest.mock('@react-native-documents/picker', () => ({
   isErrorWithCode: () => false,
   errorCodes: { OPERATION_CANCELED: 'cancelled' },
 }));
+jest.mock('react-native-safe-area-context', () =>
+  require('react-native-safe-area-context/jest/mock').default,
+);
 jest.mock('@/api/http', () => ({
   request: (...args: unknown[]) => mockRequest(...args),
   buildMediaUrl: (path: string) => `https://server/api/v1${path}`,
@@ -235,6 +239,7 @@ describe('configured native print launch', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRemaining = 1000;
+    mockArchiveMetadata = {};
     mockPermission.mockReturnValue(true);
     mockSettings.mockResolvedValue({
       default_bed_levelling: 'auto',
@@ -309,6 +314,7 @@ describe('configured native print launch', () => {
           filename: 'model.gcode.3mf',
           sliced_for_model: path === '/library/files/11' ? 'H2D' : 'X1C',
           bed_type: 'Textured PEI',
+          ...(path === '/archives/20' ? mockArchiveMetadata : {}),
         };
       },
     );
@@ -353,11 +359,125 @@ describe('configured native print launch', () => {
       renderer.root.findAllByType(Image).map(image => image.props.source.uri),
     ).toEqual([
       'https://server/api/v1/archives/20/plate-thumbnail/1',
-      'https://server/api/v1/archives/20/plate-thumbnail/2',
     ]);
     await press(renderer, 'Cancel');
     expect(mutations()).toEqual([]);
     expect(mockClose).toHaveBeenCalled();
+  });
+  it('reprints only the recorded plate on its original compatible printer with essential controls', async () => {
+    mockArchiveMetadata = { plate_id: 2, printer_id: 2 };
+    await renderModal({ initialFileId: null, initialArchiveId: 20, initialPrinterId: null, initialMode: 'asap' });
+    expect(renderer.root.findAllByType(Image).map(image => image.props.source.uri)).toEqual([
+      'https://server/api/v1/archives/20/plate-thumbnail/2',
+    ]);
+    expect(renderer.root.findAllByType(Switch).map(control => control.props.accessibilityLabel)).toEqual(['Timelapse', 'Use AMS']);
+    expect(renderer.root.findAllByType(Choice).map(control => control.props.label)).toEqual(['Schedule']);
+    await press(renderer, 'Reprint');
+    expect(mutations()).toEqual([expect.objectContaining({
+      path: '/queue/',
+      data: expect.objectContaining({ archive_id: 20, printer_id: 2, plate_id: 2, quantity: 1, ams_mapping: [1] }),
+    })]);
+  });
+  it('keeps an explicit printer choice instead of replacing it with archive history', async () => {
+    mockArchiveMetadata = { plate_id: 2, printer_id: 2 };
+    await renderModal({ initialFileId: null, initialArchiveId: 20, initialPrinterId: 1, initialMode: 'asap' });
+    await press(renderer, 'Reprint');
+    expect(mutations()[0].data).toMatchObject({ printer_id: 1, plate_id: 2 });
+  });
+  it('lets the server assign the recorded plate to any compatible printer of its model', async () => {
+    mockArchiveMetadata = { plate_id: 2, printer_id: 2 };
+    await renderModal({ initialFileId: null, initialArchiveId: 20, initialPrinterId: null, initialMode: 'asap' });
+    await press(renderer, 'Change printer');
+    await choose(renderer, 'Choose printers', 'Any compatible printer (X1C)');
+    expect(renderer.root.findAllByType(Choice).map(control => control.props.label)).toEqual(['Schedule']);
+    await press(renderer, 'Reprint');
+    expect(mutations()).toEqual([expect.objectContaining({
+      path: '/queue/',
+      data: expect.objectContaining({ archive_id: 20, plate_id: 2, printer_id: null, target_model: 'X1C', target_location: null }),
+    })]);
+    expect(mutations()[0].data).not.toHaveProperty('ams_mapping');
+  });
+  it('can change back from automatic assignment to a specific printer without losing the recorded plate', async () => {
+    mockArchiveMetadata = { plate_id: 2, printer_id: 2 };
+    await renderModal({ initialFileId: null, initialArchiveId: 20, initialPrinterId: null, initialMode: 'asap' });
+    await press(renderer, 'Change printer');
+    await choose(renderer, 'Choose printers', 'Any compatible printer (X1C)');
+    await press(renderer, 'Change printer');
+    await choose(renderer, 'Choose printers', 'Printer Two');
+    await press(renderer, 'Reprint');
+    expect(mutations()[0].data).toMatchObject({ plate_id: 2, printer_id: 2, target_model: null, ams_mapping: [1] });
+  });
+  it('reveals plate, printer, mapping and advanced controls without resetting the reprint draft on refetch', async () => {
+    mockArchiveMetadata = { plate_id: 2, printer_id: 2 };
+    await renderModal({ initialFileId: null, initialArchiveId: 20, initialPrinterId: null, initialMode: 'asap' });
+    await press(renderer, 'Change printer');
+    await choose(renderer, 'Choose printers', 'Printer One');
+    await press(renderer, 'Change plates');
+    expect(renderer.root.findAllByType(Image)).toHaveLength(2);
+    await press(renderer, 'Deselect all plates');
+    expect(renderer.root.findAllByType(TextInput).some(input => input.props.accessibilityLabel === 'Copies (1–999)')).toBe(false);
+    const firstPlate = renderer.root.findAllByType(Choice).find(control => control.props.label === 'Plate selection')!;
+    await act(async () => button(firstPlate, 'Selected').props.onPress());
+    await settle();
+    await press(renderer, 'Change plates');
+    expect(renderer.root.findAllByType(Image).map(image => image.props.source.uri)).toEqual(['https://server/api/v1/archives/20/plate-thumbnail/1']);
+    await press(renderer, 'Filament mapping');
+    expect(renderer.root.findAllByType(Choice).some(control => String(control.props.label).startsWith('Slot 1 PLA'))).toBe(true);
+    const timelapse = renderer.root.findAllByType(Switch).find(control => control.props.accessibilityLabel === 'Timelapse')!;
+    await act(async () => timelapse.props.onValueChange(true));
+    await press(renderer, 'Advanced options');
+    await choose(renderer, 'Bed levelling', 'On');
+    await press(renderer, 'Advanced options');
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['launchSource', 'archive', 20] });
+      await client.invalidateQueries({ queryKey: ['launchPlates', 'archive', 20] });
+      await client.invalidateQueries({ queryKey: ['printers'] });
+    });
+    await settle();
+    await press(renderer, 'Reprint');
+    expect(mutations()).toEqual([expect.objectContaining({
+      path: '/queue/',
+      data: expect.objectContaining({ printer_id: 1, plate_id: 1, timelapse: true, bed_levelling: 'on' }),
+    })]);
+  });
+  it.each([null, 3])('requires a printer choice when the original printer is missing or incompatible (%s)', async printerId => {
+    mockArchiveMetadata = { plate_id: 2, printer_id: printerId };
+    await renderModal({ initialFileId: null, initialArchiveId: 20, initialPrinterId: null, initialMode: 'asap' });
+    await press(renderer, 'Reprint');
+    expect(mutations()).toEqual([]);
+    await choose(renderer, 'Choose printers', 'Printer One');
+    await press(renderer, 'Reprint');
+    expect(mutations()[0].data).toMatchObject({ printer_id: 1, plate_id: 2 });
+  });
+  it('does not silently substitute the first plate when the recorded plate is unavailable', async () => {
+    mockArchiveMetadata = { plate_id: 7, printer_id: 1 };
+    await renderModal({ initialFileId: null, initialArchiveId: 20, initialPrinterId: null, initialMode: 'asap' });
+    expect(renderer.root.findAllByType(Image)).toHaveLength(2);
+    expect(renderer.root.findAllByType(TextInput).some(input => input.props.accessibilityLabel === 'Copies (1–999)')).toBe(false);
+    await press(renderer, 'Reprint');
+    expect(mutations()).toEqual([]);
+  });
+  it('initializes each reopened archive from its own history instead of the previous cached source', async () => {
+    mockArchiveMetadata = { plate_id: 2, printer_id: 2 };
+    await renderModal({ initialFileId: null, initialArchiveId: 20, initialPrinterId: null, initialMode: 'asap' });
+    const renderNext = (visible: boolean) => (
+      <QueryClientProvider client={client}>
+        <PrintModal visible={visible} onClose={mockClose} initialArchiveId={21} initialMode="asap" />
+      </QueryClientProvider>
+    );
+    await act(async () => renderer.update(renderNext(false)));
+    await act(async () => renderer.update(renderNext(true)));
+    await settle();
+    await settle();
+    await settle();
+    expect(renderer.root.findAllByType(Image).map(image => image.props.source.uri)).toEqual([
+      'https://server/api/v1/archives/21/plate-thumbnail/1',
+    ]);
+    await press(renderer, 'Reprint');
+    expect(mutations()).toEqual([]);
+    await choose(renderer, 'Choose printers', 'Printer One');
+    await press(renderer, 'Reprint');
+    expect(mutations()[0].data).toMatchObject({ archive_id: 21, printer_id: 1, plate_id: 1 });
   });
   it('saves an isolated queue draft with tri-state values, preheat zero and no new run', async () => {
     const original = {

@@ -6,8 +6,14 @@ const mockNavigate = jest.fn();
 const mockSetOptions = jest.fn();
 const mockUseQuery = jest.fn();
 const mockInvalidateQueries = jest.fn();
-jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ hasPermission: () => true }) }));
+let mockCanControl = true;
+let mockConnected = true;
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ hasPermission: (permission: string) => permission !== 'printers:control' || mockCanControl }) }));
 jest.mock('@/components/printers/EditPrinterModal', () => ({ EditPrinterModal: () => null }));
+jest.mock('@/components/printers/PrinterDeviceControls', () => ({ PrinterDeviceControls: () => null }));
+jest.mock('@/components/printers/PrinterSourceActions', () => ({ PrinterSourceActions: () => null }));
+jest.mock('@/components/settings/SmartPlugPowerControls', () => ({ PrinterPowerIntegration: () => null }));
+jest.mock('@/hooks/useStreamToken', () => ({ useCameraToken: () => ({ token: null, isReady: false }) }));
 
 const baseStatus = {
   state: 'IDLE',
@@ -94,7 +100,7 @@ jest.mock('@/components/common/AppUI', () => {
         {label}:{value}
       </Text>
     ),
-    PrimaryButton: ({ label }: { label: string }) => <Text>{label}</Text>,
+    PrimaryButton: ({ label, ...props }: { label: string; disabled?: boolean; onPress?: () => void }) => <Pressable accessibilityRole="button" accessibilityLabel={label} {...props}><Text>{label}</Text></Pressable>,
     SectionCard: ({
       title,
       subtitle,
@@ -174,7 +180,7 @@ function setupQueries({
       }
       if (queryKey[0] === 'printerStatus') {
         return {
-          data: baseStatus,
+          data: { ...baseStatus, connected: mockConnected },
           isLoading: false,
           isError: false,
           isRefetching: false,
@@ -223,6 +229,8 @@ function setupQueries({
 describe('PrinterDetailScreen heater history', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCanControl = true;
+    mockConnected = true;
   });
 
   it('renders range selector and chart when heater history is present', async () => {

@@ -8,6 +8,10 @@ def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
+def releaseStoreFile = System.getenv("BAMBUDDY_RELEASE_STORE_FILE") ?: keystoreProperties.getProperty("storeFile")
+def releaseStorePassword = System.getenv("BAMBUDDY_RELEASE_STORE_PASSWORD") ?: keystoreProperties.getProperty("storePassword")
+def releaseKeyAlias = System.getenv("BAMBUDDY_RELEASE_KEY_ALIAS") ?: keystoreProperties.getProperty("keyAlias")
+def releaseKeyPassword = System.getenv("BAMBUDDY_RELEASE_KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword")
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -89,8 +93,8 @@ android {
         applicationId "com.dxrf.bambuddy"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.1.0"
+        versionCode 6
+        versionName "1.1.2"
     }
     signingConfigs {
         debug {
@@ -100,10 +104,10 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file(System.getenv("BAMBUDDY_RELEASE_STORE_FILE") ?: "release.keystore")
-            storePassword System.getenv("BAMBUDDY_RELEASE_STORE_PASSWORD")
-            keyAlias System.getenv("BAMBUDDY_RELEASE_KEY_ALIAS")
-            keyPassword System.getenv("BAMBUDDY_RELEASE_KEY_PASSWORD")
+            storeFile releaseStoreFile ? file(releaseStoreFile) : null
+            storePassword releaseStorePassword
+            keyAlias releaseKeyAlias
+            keyPassword releaseKeyPassword
         }
     }
     buildTypes {
@@ -111,11 +115,20 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    if (graph.allTasks.any { it.project == project && it.name.toLowerCase().contains("release") }) {
+        if ([releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword].any { !it?.trim() }) {
+            throw new GradleException("Production release signing requires a keystore, store password, key alias, and key password")
+        }
+        if (!file(releaseStoreFile).isFile()) {
+            throw new GradleException("Production release keystore file does not exist")
         }
     }
 }

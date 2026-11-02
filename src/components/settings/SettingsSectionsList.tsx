@@ -44,7 +44,7 @@ export function SettingsSectionsList({
           })}
         >
           {!results.length ? (
-            <Text>
+            <Text style={{ color: controller.colors.textSecondary }}>
               {t('workflow.noSearchResults', {
                 defaultValue: 'No matching settings.',
               })}

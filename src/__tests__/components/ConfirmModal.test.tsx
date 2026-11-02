@@ -192,6 +192,16 @@ describe('ConfirmModal', () => {
   });
 
   describe('duplicate confirm prevention', () => {
+    it('allows another confirmation after a failed asynchronous attempt finishes', () => {
+      const renderer = renderModal();
+      act(() => findPressableForText(renderer, 'Delete').props.onPress());
+      act(() => renderer.update(<ConfirmModal {...defaultProps} loading />));
+      act(() => renderer.update(<ConfirmModal {...defaultProps} loading={false} />));
+      act(() => findPressableForText(renderer, 'Delete').props.onPress());
+
+      expect(defaultProps.onConfirm).toHaveBeenCalledTimes(2);
+    });
+
     it('invokes onConfirm only once on rapid presses', () => {
       const renderer = renderModal();
 

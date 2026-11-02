@@ -1,7 +1,8 @@
 import { translateNative, useNativeLocale } from '@/i18n';
 
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { Chip } from '@/components/common/AppUI';
 import { useTheme } from '@/theme';
@@ -28,20 +29,24 @@ export function SimpleModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[settingsStyles.modalBackdrop, { backgroundColor: colors.overlay }]}> 
+      <SafeAreaProvider>
+      <KeyboardAvoidingView style={settingsStyles.modalViewport} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <SafeAreaView style={[settingsStyles.modalBackdrop, { backgroundColor: colors.overlay }]}>
         <View style={[settingsStyles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
           <View style={settingsStyles.modalHeader}>
             <View style={settingsStyles.modalHeaderText}>
               <Text style={[settingsStyles.modalTitle, { color: colors.text }]}>{title}</Text>
               {subtitle ? <Text style={[settingsStyles.modalSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
             </View>
-            <Pressable onPress={onClose} style={settingsStyles.closeButton}>
+            <Pressable onPress={onClose} style={settingsStyles.closeButton} accessibilityRole="button" accessibilityLabel={translateNative('common.close')}>
               <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
           {children}
         </View>
-      </View>
+      </SafeAreaView>
+      </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -68,9 +73,7 @@ export function OptionChipsField<T extends string>({
       <Text style={[settingsStyles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
       <View style={settingsStyles.chipWrap}>
         {options.map(option => (
-          <View key={option.key} style={{ opacity: disabled ? 0.5 : 1 }}>
-            <Chip label={option.label} selected={option.key === value} onPress={() => !disabled && onChange(option.key)} />
-          </View>
+          <Chip key={option.key} label={option.label} selected={option.key === value} disabled={disabled} onPress={() => !disabled && onChange(option.key)} />
         ))}
       </View>
     </View>
@@ -136,6 +139,7 @@ export function describePlugConnection(plug: SmartPlug) {
 }
 
 export const settingsStyles = StyleSheet.create({
+  modalViewport: { flex: 1 },
   container: { flex: 1 },
   content: {
     padding: spacing.lg,
@@ -275,8 +279,10 @@ export const settingsStyles = StyleSheet.create({
     lineHeight: 18,
   },
   closeButton: {
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalBody: {
     padding: spacing.lg,

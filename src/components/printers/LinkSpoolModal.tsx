@@ -4,16 +4,20 @@ import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, us
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link2, Search, X } from 'lucide-react-native';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
+import { ErrorState } from '@/components/common/StateScreens';
 import { api, ApiError } from '@/api/client';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
@@ -144,7 +148,9 @@ export function LinkSpoolModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+      <SafeAreaProvider>
+      <KeyboardAvoidingView style={styles.viewport} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View
           style={[
@@ -161,6 +167,8 @@ export function LinkSpoolModal({
             </View>
             <Pressable
               onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={translateNative('common.close')}
               style={[
                 styles.iconButton,
                 { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
@@ -211,6 +219,7 @@ export function LinkSpoolModal({
             style={styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             {spoolsQuery.isLoading ? (
               <View style={styles.stateBlock}>
@@ -220,7 +229,10 @@ export function LinkSpoolModal({
               </View>
             ) : null}
 
-            {!spoolsQuery.isLoading && filteredSpools.length === 0 ? (
+            {spoolsQuery.error ? (
+              <ErrorState message={spoolsQuery.error.message} onRetry={() => void spoolsQuery.refetch()} />
+            ) : null}
+            {spoolsQuery.isSuccess && filteredSpools.length === 0 ? (
               <View style={styles.stateBlock}>
                 <Search size={20} color={colors.textTertiary} strokeWidth={2} />
                 <Text style={[styles.stateText, { color: colors.textSecondary }]}>
@@ -274,12 +286,15 @@ export function LinkSpoolModal({
 
           <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         </View>
-      </View>
+      </SafeAreaView>
+      </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  viewport: { flex: 1 },
   backdrop: {
     flex: 1,
     alignItems: 'center',
@@ -312,8 +327,8 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
   },
   iconButton: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     alignItems: 'center',

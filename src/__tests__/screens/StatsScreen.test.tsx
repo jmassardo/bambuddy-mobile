@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-shadow -- Test file with React imports shadowing globals */
 import React from 'react';
-import { render, within } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
 import StatsScreen from '@/screens/StatsScreen';
 
 const mockSetOptions = jest.fn();
@@ -157,16 +157,19 @@ jest.mock('@/components/common/AppUI', () => {
       title,
       subtitle,
       children,
+      right,
     }: {
       title: string;
       subtitle?: string;
       children: React.ReactNode;
+      right?: React.ReactNode;
     }) =>
       React.createElement(
         View,
         null,
         React.createElement(Text, null, title),
         subtitle ? React.createElement(Text, null, subtitle) : null,
+        right,
         children,
       ),
     StatCard: ({ label, value }: { label: string; value: string }) =>
@@ -279,18 +282,23 @@ describe('StatsScreen', () => {
 
   it('hides user filtering for non-admin users', async () => {
     mockIsAdmin = false;
-    const { queryByText } = await render(<StatsScreen />);
+    const view = await render(<StatsScreen />);
+    await fireEvent.press(view.getByRole('button', { name: 'Filters & export' }));
 
-    expect(queryByText('User')).toBeNull();
+    expect(view.queryByText('User')).toBeNull();
     expect(lastArchiveStatsParams?.createdById).toBeUndefined();
     expect(lastArchivesParams?.createdById).toBeUndefined();
   });
 
   it('shows an All users default for admins', async () => {
-    const { getByText } = await render(<StatsScreen />);
+    const view = await render(<StatsScreen />);
+    expect(view.queryByText('Export CSV')).toBeNull();
+    expect(view.getByText(/All printers · All users/)).toBeTruthy();
+    await fireEvent.press(view.getByRole('button', { name: 'Filters & export' }));
 
-    expect(getByText('User')).toBeTruthy();
-    expect(getByText('All users')).toBeTruthy();
+    expect(view.getByText('User')).toBeTruthy();
+    expect(view.getByText('All users')).toBeTruthy();
+    expect(view.getByText('Export CSV')).toBeTruthy();
     expect(lastArchiveStatsParams?.createdById).toBeUndefined();
     expect(lastArchivesParams?.createdById).toBeUndefined();
   });

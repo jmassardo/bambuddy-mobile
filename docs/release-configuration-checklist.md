@@ -1,5 +1,8 @@
 # Release configuration contract
 
+> Historical manual-approval contract, superseded by [build-once releases](build-once-releases.md).
+> Do not apply this legacy configuration to the automatic pipeline.
+
 This checklist defines the required release-governance configuration for
 `jmassardo/bambuddy-mobile`. It is a configuration contract, not evidence of
 current state or an operations runbook. Every missing or differing control is

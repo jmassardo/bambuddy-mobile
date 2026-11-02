@@ -4,6 +4,7 @@ import React from 'react';
 import {
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -42,15 +43,19 @@ export function AlertModal({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} />
+        <View accessibilityViewIsModal style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
           <View style={[styles.iconWrap, { backgroundColor: tone.bg }]}>
             <tone.Icon size={24} color={tone.icon} />
           </View>
-          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
+            <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{title}</Text>
+            <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
+          </ScrollView>
           <Pressable
             onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel={dismissLabel}
             style={[styles.button, { backgroundColor: colors.accent, borderColor: colors.accent }]}
           >
             <Text style={[styles.buttonText, { color: colors.textInverse }]}>{dismissLabel}</Text>
@@ -71,6 +76,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 360,
+    maxHeight: '90%',
     borderRadius: borderRadius.xl,
     borderWidth: 1,
     padding: spacing.xl,
@@ -84,6 +90,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  scroll: {
+    flexShrink: 1,
+    alignSelf: 'stretch',
+  },
+  body: {
+    gap: spacing.md,
+  },
   title: {
     fontSize: fontSize.lg,
     fontWeight: fontWeight.semibold,
@@ -96,6 +109,8 @@ const styles = StyleSheet.create({
   },
   button: {
     minWidth: 120,
+    minHeight: 48,
+    justifyContent: 'center',
     borderRadius: borderRadius.md,
     borderWidth: 1,
     paddingHorizontal: spacing.lg,
@@ -105,5 +120,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: fontSize.base,
     fontWeight: fontWeight.semibold,
+    textAlign: 'center',
   },
 });

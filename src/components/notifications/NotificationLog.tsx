@@ -1,4 +1,6 @@
 import { useNativeLocale, useTranslation } from '@/i18n';
+import { formatPreferredDateTime } from '@/utils/preferences';
+import { localizedStatus } from '@/utils/statusLabel';
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -67,11 +69,12 @@ export function NotificationLog() {
         {entries.map(entry => (
           <View key={entry.id} style={[styles.entry, { borderColor: colors.border }]}>
             <Text style={{ color: entry.success ? colors.success : colors.error }}>
-              {entry.event_type} · {entry.success ? t('notifications.sent', { defaultValue: 'Sent' }) : t('notifications.failed', { defaultValue: 'Failed' })}
+              {localizedStatus(entry.event_type)} · {entry.success ? t('notifications.sent', { defaultValue: 'Sent' }) : t('notifications.failed', { defaultValue: 'Failed' })}
             </Text>
-            <Text style={{ color: colors.textSecondary }}>{entry.created_at} · {entry.provider_name ?? entry.provider_type}</Text>
+            <Text style={{ color: colors.textSecondary }}>{formatPreferredDateTime(entry.created_at)} · {entry.provider_name ?? entry.provider_type}</Text>
             <Text style={{ color: colors.text }} numberOfLines={expanded === entry.id ? undefined : 2}>{entry.title}</Text>
             <Button title={expanded === entry.id ? t('common.collapse', { defaultValue: 'Collapse' }) : t('notifications.inspect', { defaultValue: 'Inspect delivery' })}
+              expanded={expanded === entry.id}
               variant="secondary" size="sm" onPress={() => setExpanded(current => current === entry.id ? null : entry.id)} />
             {expanded === entry.id ? (
               <View style={styles.group}>

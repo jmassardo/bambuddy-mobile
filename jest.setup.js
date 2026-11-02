@@ -1,6 +1,10 @@
 // Jest setup for Bambuddy Mobile
 import '@testing-library/jest-native/extend-expect';
 
+jest.mock('react-native-safe-area-context', () =>
+  require('react-native-safe-area-context/jest/mock').default,
+);
+
 // Mock react-native-keychain
 jest.mock('react-native-keychain', () => ({
   setGenericPassword: jest.fn(() => Promise.resolve(true)),

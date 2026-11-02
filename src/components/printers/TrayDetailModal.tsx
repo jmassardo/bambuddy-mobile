@@ -5,13 +5,16 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Check,
@@ -443,7 +446,9 @@ export function TrayDetailModal({
         animationType="slide"
         onRequestClose={onClose}
       >
-        <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+        <SafeAreaProvider>
+        <KeyboardAvoidingView style={styles.viewport} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
           <View
             style={[
@@ -456,6 +461,8 @@ export function TrayDetailModal({
                 {configuring ? (
                   <Pressable
                     onPress={() => setConfiguring(false)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.back')}
                     style={[
                       styles.iconButton,
                       { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
@@ -475,6 +482,8 @@ export function TrayDetailModal({
               </View>
               <Pressable
                 onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
                 style={[
                   styles.iconButton,
                   { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
@@ -495,7 +504,7 @@ export function TrayDetailModal({
                   autoCorrect={false}
                 />
                 <Text style={[styles.configureHint, { color: colors.textSecondary }]}><NativeTranslation id="native.dc612a3227ee838d" values={{ value0: (currentProfileLabel) }} /></Text>
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   {selectedPreset ? <ConfigureDeviceSlot key={`${selectedPreset.source}-${selectedPreset.id}`} printerId={printerId}
                     amsId={context.amsId} trayId={deviceSlotTrayId(context.amsId, context.trayId)} tray={tray} preset={selectedPreset}
                     onSaved={() => { setConfiguring(false); setSelectedPreset(null); }} /> : null}
@@ -546,7 +555,7 @@ export function TrayDetailModal({
                 </ScrollView>
               </View>
             ) : (
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 {isPrinting ? (
                   <View
                     style={[
@@ -713,6 +722,13 @@ export function TrayDetailModal({
                           placeholder={translateNative('native.f50c8cc334067989')}
                         />
                         <Pressable
+                          accessibilityRole="switch"
+                          accessibilityLabel={translateNative('native.870b9bfd757d2ae2')}
+                          accessibilityState={{
+                            checked: rotateTray && !dryingLoadedTray && dryingCaps?.canRotate === true,
+                            disabled: dryingLoadedTray || !dryingCaps?.canRotate,
+                          }}
+                          disabled={dryingLoadedTray || !dryingCaps?.canRotate}
                           onPress={() => {
                             if (!dryingLoadedTray && dryingCaps?.canRotate) setRotateTray(current => !current);
                           }}
@@ -862,7 +878,9 @@ export function TrayDetailModal({
               </ScrollView>
             )}
           </View>
-        </View>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaProvider>
       </Modal>
 
       <AssignSpoolModal
@@ -893,6 +911,7 @@ export function TrayDetailModal({
 }
 
 const styles = StyleSheet.create({
+  viewport: { flex: 1 },
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -912,7 +931,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   headerActions: {
-    width: 40,
+    width: 44,
     alignItems: 'flex-start',
   },
   headerText: {
@@ -929,8 +948,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   iconButton: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     alignItems: 'center',
@@ -1052,7 +1071,7 @@ const styles = StyleSheet.create({
   },
   configureContent: {
     gap: spacing.sm,
-    minHeight: 300,
+    flexShrink: 1,
   },
   configureHint: {
     fontSize: fontSize.sm,

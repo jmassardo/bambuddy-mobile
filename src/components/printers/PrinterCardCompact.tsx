@@ -6,17 +6,20 @@ import { useTheme } from '@/theme';
 import type { Printer, PrinterStatus } from '@/types/api';
 import { PrimaryButton } from '@/components/common/AppUI';
 
-import { getSeverityColor, PRINT_GREEN } from '@/components/printers/PrinterCard.helpers';
+import { PRINT_GREEN } from '@/components/printers/PrinterCard.helpers';
 import { filterKnownHMSErrors } from '@/components/printers/hmsErrorCatalog';
 import { styles } from '@/components/printers/PrinterCard.styles';
 
 interface PrinterCardCompactProps {
   printer: Printer;
   selected: boolean;
+  selectionMode: boolean;
   isConnected: boolean;
   isPrinting: boolean;
   progress: number;
   status?: PrinterStatus;
+  badgeLabel: string;
+  badgeColor: string;
   canClearPlate?: boolean;
   clearPlatePending?: boolean;
   onClearPlate?: () => void;
@@ -28,10 +31,13 @@ interface PrinterCardCompactProps {
 export function PrinterCardCompact({
   printer,
   selected,
+  selectionMode,
   isConnected,
   isPrinting,
   progress,
   status,
+  badgeLabel,
+  badgeColor,
   canClearPlate,
   clearPlatePending,
   onClearPlate,
@@ -44,11 +50,7 @@ export function PrinterCardCompact({
   const { t } = useTranslation();
   const hmsErrors = filterKnownHMSErrors(status?.hms_errors ?? []);
   const hasError = hmsErrors.length > 0;
-  const statusDotColor = !isConnected ? colors.statusOffline : hasError ? getSeverityColor(hmsErrors, colors) : status?.state === 'PAUSE' || status?.awaiting_plate_clear ? colors.warning : isPrinting
-    ? PRINT_GREEN
-    : isConnected
-      ? colors.success
-      : colors.error;
+  const statusDotColor = badgeColor;
 
   return (
     <View
@@ -60,7 +62,7 @@ export function PrinterCardCompact({
         },
       ]}
     >
-      <Pressable onPress={onPress} onLongPress={onLongPress} accessibilityRole="button" accessibilityLabel={printer.name}>
+      <Pressable onPress={onPress} onLongPress={onLongPress} accessibilityRole={selectionMode ? 'checkbox' : 'button'} accessibilityLabel={printer.name} accessibilityState={selectionMode ? { checked: selected } : undefined}>
       <View style={styles.compactHeader}>
         <View
           style={[
@@ -105,7 +107,7 @@ export function PrinterCardCompact({
           {isPrinting ? `${progress}%` : '----%'}
         </Text>
       </View>
-      <Text style={{ color: statusDotColor }}>{!isConnected ? t('fleet.offline', { defaultValue: 'Offline' }) : hasError ? t('fleet.hmsCount', { defaultValue: '{{count}} HMS alerts', count: hmsErrors.length }) : status?.state === 'PAUSE' ? t('fleet.paused', { defaultValue: 'Paused' }) : status?.awaiting_plate_clear ? t('fleet.dirtyPlate', { defaultValue: 'Plate awaiting clearance' }) : status?.state ?? '—'}</Text>
+      <Text style={{ color: statusDotColor }}>{!isConnected ? t('fleet.offline', { defaultValue: 'Offline' }) : hasError ? t('fleet.hmsCount', { defaultValue: '{{count}} HMS alerts', count: hmsErrors.length }) : status?.state === 'PAUSE' ? t('fleet.paused', { defaultValue: 'Paused' }) : status?.awaiting_plate_clear && status.state !== 'FAILED' ? t('fleet.dirtyPlate', { defaultValue: 'Plate awaiting clearance' }) : badgeLabel}</Text>
       {hasError && status?.state === 'PAUSE' ? <Text style={{ color: colors.warning }}>{t('fleet.paused', { defaultValue: 'Paused' })}</Text> : null}
       {status?.awaiting_plate_clear && (hasError || status.state === 'PAUSE') ? <Text style={{ color: colors.warning }}>{t('fleet.dirtyPlate', { defaultValue: 'Plate awaiting clearance' })}</Text> : null}
       {isPrinting ? <Text style={{ color: colors.textSecondary }}>{t('fleet.compactMetrics', { defaultValue: '{{remaining}} min · ETA {{eta}} · Layer {{layer}}/{{total}}', remaining: status?.remaining_time ?? '—', eta: status?.remaining_time == null ? '—' : new Date(Date.now() + status.remaining_time * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), layer: status?.layer_num ?? '—', total: status?.total_layers ?? '—' })}</Text> : null}

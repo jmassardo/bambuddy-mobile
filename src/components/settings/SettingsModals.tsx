@@ -59,7 +59,7 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
   return (
     <>
       <SimpleModal visible={providerModalVisible} title={editingProvider ? translateNative('native.635d8b37daf0ae69') : translateNative('native.cf0dcfe39449197e')} subtitle={translateNative('native.e8ed69f15dd7a895')} onClose={actions.closeProviderModal}>
-        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={settingsStyles.modalBody}>
           <TextField label={translateNative('common.name')} value={providerForm.name} onChangeText={value => actions.setProviderForm(current => ({ ...current, name: value }))} />
           <TextField label={translateNative('native.a4fa4ef57f74cdd9')} value={providerForm.issuer_url} onChangeText={value => actions.setProviderForm(current => ({ ...current, issuer_url: value }))} autoCapitalize="none" />
           <TextField label={translateNative('native.c66e40e9330690db')} value={providerForm.client_id} onChangeText={value => actions.setProviderForm(current => ({ ...current, client_id: value }))} autoCapitalize="none" />
@@ -79,7 +79,7 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
       </SimpleModal>
 
       <SimpleModal visible={plugModalVisible} title={editingPlug ? translateNative('native.5cd26aa23babdad4') : translateNative('native.5f6128ede25edfd8')} subtitle={translateNative('native.92fd7d5cd941ea1a')} onClose={actions.closePlugModal}>
-        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={settingsStyles.modalBody}>
           <TextField label={translateNative('common.name')} value={plugForm.name} onChangeText={value => actions.setPlugForm(current => ({ ...current, name: value }))} />
           <OptionChipsField label={translateNative('native.463699cf4d88af54')} value={plugForm.plug_type} options={SMART_PLUG_TYPE_OPTIONS} onChange={value => actions.setPlugForm(current => ({ ...EMPTY_SMART_PLUG_FORM, ...current, plug_type: value as SmartPlugType }))} />
           {plugForm.plug_type === 'tasmota' ? (
@@ -116,7 +116,7 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
       </SimpleModal>
 
       <SimpleModal visible={externalLinkModalVisible} title={editingExternalLink ? translateNative('native.9bee9615e48fec8a') : translateNative('native.7cc3338c074adb7f')} subtitle={translateNative('native.6e3570993a3c7836')} onClose={actions.closeExternalLinkModal}>
-        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={settingsStyles.modalBody}>
           <TextField label={translateNative('common.name')} value={externalLinkForm.name} onChangeText={value => actions.setExternalLinkForm(current => ({ ...current, name: value }))} />
           <TextField label="URL" value={externalLinkForm.url} onChangeText={value => actions.setExternalLinkForm(current => ({ ...current, url: value }))} autoCapitalize="none" />
           <TextField label={translateNative('native.4f06c4d9aa3ba07c')} value={externalLinkForm.icon} onChangeText={value => actions.setExternalLinkForm(current => ({ ...current, icon: value }))} autoCapitalize="none" placeholder={translateNative('native.211865a156c7910b')} />
@@ -135,7 +135,7 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
       </SimpleModal>
 
       <SimpleModal visible={customNavModalVisible} title={editingCustomNav ? translateNative('native.9ce2f6270de7d5e3') : translateNative('native.d1717313c1f08126')} subtitle={translateNative('native.e38281a3cb37be0c')} onClose={actions.closeCustomNavModal}>
-        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={settingsStyles.modalBody}>
           <TextField label={translateNative('common.name')} value={customNavForm.name} onChangeText={value => actions.setCustomNavForm(current => ({ ...current, name: value }))} />
           <TextField label="URL" value={customNavForm.url} onChangeText={value => actions.setCustomNavForm(current => ({ ...current, url: value }))} autoCapitalize="none" placeholder="https://example.com" />
           <TextField label={translateNative('native.4f06c4d9aa3ba07c')} value={customNavForm.icon} onChangeText={value => actions.setCustomNavForm(current => ({ ...current, icon: value }))} autoCapitalize="none" placeholder={translateNative('native.211865a156c7910b')} />
@@ -153,7 +153,7 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
       </SimpleModal>
 
       <SimpleModal visible={virtualPrinterModalVisible} title={editingVirtualPrinter ? translateNative('native.514c84a5ccbf6c63') : translateNative('native.72f5a60c986eaf7f')} subtitle={translateNative('native.2e60717f077eb9f3')} onClose={actions.closeVirtualPrinterModal}>
-        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={settingsStyles.modalBody}>
           <TextField label={translateNative('common.name')} value={virtualPrinterForm.name} onChangeText={value => actions.setVirtualPrinterForm(current => ({ ...current, name: value }))} />
           <OptionChipsField label={translateNative('native.8b62363d3367fc41')} value={virtualPrinterForm.model_name} options={controller.derived.virtualPrinterModels} onChange={value => actions.setVirtualPrinterForm(current => ({ ...current, model_name: value }))} />
           <TextField label={translateNative('native.5c8fc78423beb60a')} value={virtualPrinterForm.model_name} onChangeText={value => actions.setVirtualPrinterForm(current => ({ ...current, model_name: value }))} />
@@ -169,7 +169,7 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
       <AlertModal visible={Boolean(createdCameraToken)} variant="success" title={translateNative('native.80455701e1fdfecc')} message={createdCameraToken || translateNative('native.a2f36a9e8909ab0d')} dismissLabel={translateNative('native.50c262723339f592', { defaultValue: 'OK' })} onClose={() => actions.setCreatedCameraToken('')} />
 
       <SimpleModal visible={showTOTPSetup} title={translateNative('native.6e20be355da15baa')} subtitle={translateNative('native.93bea79493501ab5')} onClose={() => { actions.setShowTOTPSetup(false); actions.queryClient.removeQueries({ queryKey: ['totp-setup'] }); actions.setTotpCode(''); }}>
-        <View style={settingsStyles.modalBody}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={settingsStyles.modalBody}>
           {queries.totpSetupQuery.isLoading ? (
             <ActivityIndicator size="large" color={controller.colors.accent} />
           ) : queries.totpSetupQuery.data ? (
@@ -183,37 +183,37 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
           ) : (
             <Text style={[settingsStyles.helper, { color: controller.colors.error }]}>{translateNative('native.e7d1c514591bfcac')}</Text>
           )}
-        </View>
+        </ScrollView>
       </SimpleModal>
 
       <SimpleModal visible={showTOTPDisable} title={translateNative('native.a19c6ed345084af7')} subtitle={translateNative('native.6ab3bfe1c0362c51')} onClose={() => { actions.setShowTOTPDisable(false); actions.setTotpDisableCode(''); }}>
-        <View style={settingsStyles.modalBody}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={settingsStyles.modalBody}>
           <TextField label={translateNative('native.9e7c2a373d4b6965')} value={totpDisableCode} onChangeText={actions.setTotpDisableCode} autoCapitalize="characters" />
           <View style={settingsStyles.modalFooter}>
             <PrimaryButton label={translateNative('common.cancel')} variant="secondary" onPress={() => { actions.setShowTOTPDisable(false); actions.setTotpDisableCode(''); }} />
             <PrimaryButton label={mutations.disableTOTPMutation.isPending ? translateNative('native.ed02fd5e7b88e337') : translateNative('native.a19c6ed345084af7')} variant="danger" onPress={() => void mutations.disableTOTPMutation.mutateAsync(totpDisableCode)} disabled={totpDisableCode.trim().length < 6 || mutations.disableTOTPMutation.isPending} loading={mutations.disableTOTPMutation.isPending} />
           </View>
-        </View>
+        </ScrollView>
       </SimpleModal>
 
       <SimpleModal visible={showTOTPRegen} title={translateNative('native.09a2cb83a0a5c570')} subtitle={translateNative('native.6271f508e859590e')} onClose={() => { actions.setShowTOTPRegen(false); actions.setTotpRegenCode(''); }}>
-        <View style={settingsStyles.modalBody}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={settingsStyles.modalBody}>
           <TextField label={translateNative('native.9e7c2a373d4b6965')} value={totpRegenCode} onChangeText={actions.setTotpRegenCode} autoCapitalize="characters" />
           <View style={settingsStyles.modalFooter}>
             <PrimaryButton label={translateNative('common.cancel')} variant="secondary" onPress={() => { actions.setShowTOTPRegen(false); actions.setTotpRegenCode(''); }} />
             <PrimaryButton label={mutations.regenerateBackupCodesMutation.isPending ? translateNative('native.508255621a40f4ae') : translateNative('native.f340f63927c403f2')} onPress={() => void mutations.regenerateBackupCodesMutation.mutateAsync(totpRegenCode)} disabled={totpRegenCode.trim().length < 6 || mutations.regenerateBackupCodesMutation.isPending} loading={mutations.regenerateBackupCodesMutation.isPending} />
           </View>
-        </View>
+        </ScrollView>
       </SimpleModal>
 
       <SimpleModal visible={showDisableEmail2FA} title={translateNative('native.29d07eb6f3774a6b')} subtitle={translateNative('native.3782ec6143a730a6')} onClose={() => { actions.setShowDisableEmail2FA(false); actions.setEmailDisablePassword(''); }}>
-        <View style={settingsStyles.modalBody}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={settingsStyles.modalBody}>
           <TextField label={translateNative('native.08c9c68cc706272f')} value={emailDisablePassword} onChangeText={actions.setEmailDisablePassword} secureTextEntry />
           <View style={settingsStyles.modalFooter}>
             <PrimaryButton label={translateNative('common.cancel')} variant="secondary" onPress={() => { actions.setShowDisableEmail2FA(false); actions.setEmailDisablePassword(''); }} />
             <PrimaryButton label={mutations.disableEmailOTPMutation.isPending ? translateNative('native.ed02fd5e7b88e337') : translateNative('native.29d07eb6f3774a6b')} variant="danger" onPress={() => void mutations.disableEmailOTPMutation.mutateAsync(emailDisablePassword)} disabled={!emailDisablePassword.trim() || mutations.disableEmailOTPMutation.isPending} loading={mutations.disableEmailOTPMutation.isPending} />
           </View>
-        </View>
+        </ScrollView>
       </SimpleModal>
 
       <ConfirmModal visible={providerDeleteTarget !== null} title={translateNative('native.37f644fc3da8b128')} message={providerDeleteTarget ? translateNative('native.3e132ab74d3e7e22', { value0: String(providerDeleteTarget.name) }) : translateNative('native.279fd651a48b893f')} confirmLabel={translateNative('common.delete')} onClose={() => actions.setProviderDeleteTarget(null)} onConfirm={() => providerDeleteTarget && void mutations.deleteOIDCProviderMutation.mutateAsync(providerDeleteTarget.id)} loading={mutations.deleteOIDCProviderMutation.isPending} />
@@ -225,7 +225,7 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
       <ConfirmModal visible={pendingDeleteVirtualPrinter !== null} title={translateNative('native.a144096ce76900d7')} message={pendingDeleteVirtualPrinter ? translateNative('native.3e132ab74d3e7e22', { value0: String(pickString(pendingDeleteVirtualPrinter, ['name'], translateNative('native.4d5594ecba0b0b5e'))) }) : translateNative('native.8742adfec1b30469')} confirmLabel={translateNative('common.delete')} onClose={() => actions.setPendingDeleteVirtualPrinter(null)} onConfirm={() => pendingDeleteVirtualPrinter && void mutations.deleteVirtualPrinterMutation.mutateAsync(pickNumber(pendingDeleteVirtualPrinter, ['id']))} loading={mutations.deleteVirtualPrinterMutation.isPending} />
 
       <SimpleModal visible={externalCameraModalVisible} title={editingExternalCamera ? translateNative('native.1b3463163b9e3fad') : translateNative('native.959063ba27aa536b')} subtitle={translateNative('native.7a69490538c9bd00')} onClose={actions.closeExternalCameraModal}>
-        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={settingsStyles.modalBody}>
           <TextField label={translateNative('common.name')} value={externalCameraForm.name} onChangeText={value => actions.setExternalCameraForm(current => ({ ...current, name: value }))} />
           <TextField label={translateNative('native.2b7f904474188d81')} value={externalCameraForm.stream_url} onChangeText={value => actions.setExternalCameraForm(current => ({ ...current, stream_url: value }))} autoCapitalize="none" placeholder="rtsp:// or http:// or https:// URL" />
           <OptionChipsField label={translateNative('native.d13b1c4b6b43bbbd')} value={externalCameraForm.camera_type} options={EXTERNAL_CAMERA_TYPE_OPTIONS} onChange={value => actions.setExternalCameraForm(current => ({ ...current, camera_type: value }))} />
@@ -240,7 +240,7 @@ export function SettingsModals({ controller }: { controller: SettingsScreenContr
       <ConfirmModal visible={pendingDeleteExternalCamera !== null} title={translateNative('native.fdadd587d1784b34')} message={pendingDeleteExternalCamera ? translateNative('native.3e132ab74d3e7e22', { value0: String(pickString(pendingDeleteExternalCamera, ['name'], translateNative('native.81f8dd7fd8099f22'))) }) : translateNative('native.1859c00852903826')} confirmLabel={translateNative('common.delete')} onClose={() => actions.setPendingDeleteExternalCamera(null)} onConfirm={() => pendingDeleteExternalCamera && void mutations.deleteExternalCameraMutation.mutateAsync(pickNumber(pendingDeleteExternalCamera, ['id']))} loading={mutations.deleteExternalCameraMutation.isPending} />
 
       <SimpleModal visible={locationModalVisible} title={editingLocation ? translateNative('native.a06f2c9b14e6e73c') : translateNative('native.2846432316620fd1')} subtitle={translateNative('native.e5a2d8907e2a902f')} onClose={actions.closeLocationModal}>
-        <ScrollView contentContainerStyle={settingsStyles.modalBody}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={settingsStyles.modalBody}>
           <TextField label={translateNative('common.name')} value={locationForm.name} onChangeText={value => actions.setLocationForm(current => ({ ...current, name: value }))} placeholder={translateNative('native.425fe6638a069ac5')} />
           <TextField label={translateNative('native.2c9ce243b8a0f476')} value={locationForm.identifier} onChangeText={value => actions.setLocationForm(current => ({ ...current, identifier: value }))} placeholder={translateNative('native.7b4298b76c274a63')} />
           <TextField label={translateNative('native.a5dba1b4a932b0ea')} value={locationForm.address} onChangeText={value => actions.setLocationForm(current => ({ ...current, address: value }))} placeholder={translateNative('native.43332df0fcf37e64')} />

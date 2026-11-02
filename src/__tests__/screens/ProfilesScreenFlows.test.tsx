@@ -41,6 +41,8 @@ jest.mock('@/api/client', () => ({
     orcaCloudStatus: jest.fn(),
     getCloudProfiles: jest.fn(),
     getOrcaCloudProfiles: jest.fn(),
+    cloudLogout: jest.fn(),
+    orcaCloudLogout: jest.fn(),
   },
   ApiError: class ApiError extends Error {},
 }));
@@ -106,6 +108,28 @@ beforeEach(() => {
     });
 });
 afterEach(() => clients.splice(0).forEach(client => client.clear()));
+it.each(['bambu', 'orca'] as const)('confirms %s disconnect and disables it while pending', async provider => {
+  jest.mocked(api.orcaCloudStatus).mockResolvedValue({ connected: true });
+  jest.mocked(api.getOrcaCloudProfiles).mockResolvedValue({ filament: [], process: [], printer: [] });
+  const logout = provider === 'bambu' ? api.cloudLogout : api.orcaCloudLogout;
+  let finish: ((value: Record<string, unknown>) => void) | undefined;
+  jest.mocked(logout).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  try {
+    const view = await mount();
+    if (provider === 'orca') await fireEvent.press(view.getByText('Orca Cloud'));
+    await fireEvent.press(await view.findByRole('button', { name: 'Disconnect' }));
+    expect(logout).not.toHaveBeenCalled();
+    await act(async () => alert.mock.calls[0][2]?.find(button => button.style === 'destructive')?.onPress?.());
+    await waitFor(() => expect(view.getByRole('button', { name: /Disconnecting/ })).toBeDisabled());
+    expect(logout).toHaveBeenCalledTimes(1);
+    await fireEvent.press(view.getByRole('button', { name: /Disconnecting/ }));
+    expect(alert).toHaveBeenCalledTimes(1);
+  } finally {
+    await act(async () => finish?.({}));
+    alert.mockRestore();
+  }
+});
 it('combines metadata filters on grouped cloud responses and clears without removing details/compare actions', async () => {
   const screen = await mount();
   await screen.findByText('PLA @BBL X1C 0.4 nozzle');

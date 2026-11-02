@@ -126,7 +126,9 @@ it('shows own wallet without exposing administrative data or mutations', async (
   expect(mocked.ledger).toHaveBeenCalledWith(false, 0, undefined);
   expect(mocked.users).not.toHaveBeenCalled();
   expect(view.queryByRole('button', { name: 'Administration' })).toBeNull();
-  expect(view.queryByRole('button', { name: 'Deposit' })).toBeNull();
+  await fireEvent.press(view.getByRole('button', { name: 'Deposit' }));
+  expect(view.queryByLabelText('Amount')).toBeNull();
+  expect(mocked.adjust).not.toHaveBeenCalled();
 });
 
 it('allows a create-only operator into administration without fetching the all-user ledger', async () => {
@@ -230,7 +232,7 @@ it('filters transactions beyond the first server page and preserves partial-prin
   await waitFor(() =>
     expect(mocked.ledger).toHaveBeenCalledWith(true, 50, undefined),
   );
-  await fireEvent.press(view.getByRole('button', { name: 'print_charge' }));
+  await fireEvent.press(view.getByRole('button', { name: 'Print charge' }));
   await waitFor(() =>
     expect(view.getByText('Older [failed: 5m]')).toBeTruthy(),
   );

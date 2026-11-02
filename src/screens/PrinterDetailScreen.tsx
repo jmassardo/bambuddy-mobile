@@ -12,7 +12,9 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -20,6 +22,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDown,
@@ -35,6 +38,7 @@ import { EditPrinterModal } from '@/components/printers/EditPrinterModal';
 import { MQTTConsole } from '@/components/printers/MQTTConsole';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useCameraToken } from '@/hooks/useStreamToken';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import {
@@ -141,6 +145,9 @@ function JogButton({
     <Pressable
       onPress={onPress}
       disabled={disabled || !onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: disabled || !onPress }}
       style={[
         styles.jogButton,
         {
@@ -174,6 +181,7 @@ export default function PrinterDetailScreen() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { hasPermission } = useAuth();
+  const { token: cameraToken, isReady: cameraReady } = useCameraToken(hasPermission('camera:view'));
   const hasEditPermission = hasPermission('printers:update');
   const [showDebugModal, setShowDebugModal] = React.useState(false);
   const [showEditModal, setShowEditModal] = React.useState(false);
@@ -476,8 +484,10 @@ export default function PrinterDetailScreen() {
     )
     .slice(0, 10);
   const movementDelta = jogStepSize;
+  const canControlPrinter = hasPermission('printers:control') && Boolean(statusQuery.data?.connected);
 
   const movementDisabled =
+    !canControlPrinter ||
     isPrinting ||
     xyJogMutation.isPending ||
     zJogMutation.isPending ||
@@ -509,6 +519,10 @@ export default function PrinterDetailScreen() {
           <Pressable
             onPress={showEdit}
             disabled={!hasEditPermission}
+            accessibilityRole="button"
+            accessibilityLabel={translateNative('common.edit')}
+            accessibilityState={{ disabled: !hasEditPermission }}
+            hitSlop={8}
             style={[
               styles.editButton,
               {
@@ -564,10 +578,10 @@ export default function PrinterDetailScreen() {
       <Pressable
         onPress={() => navigation.navigate('Camera', { id: String(printerId) })}
       >
-        <Image
-          source={{ uri: api.getCameraSnapshotUrl(printerId) }}
+        {cameraReady ? <Image
+          source={{ uri: api.getCameraSnapshotUrl(printerId, cameraToken) }}
           style={[styles.snapshot, { backgroundColor: colors.surface }]}
-        />
+        /> : null}
       </Pressable>
 
       <SectionCard
@@ -645,6 +659,7 @@ export default function PrinterDetailScreen() {
                   : translateNative('native.15e639611f60e39c')
               }
               onPress={() => void actionMutation.mutateAsync('light')}
+              disabled={!canControlPrinter || actionMutation.isPending}
               variant="secondary"
               loading={actionMutation.isPending}
             />
@@ -788,6 +803,8 @@ export default function PrinterDetailScreen() {
                   key={step}
                   onPress={() => setJogStepSize(step)}
                   disabled={movementDisabled}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected, disabled: movementDisabled }}
                   style={[
                     styles.selectorChip,
                     {
@@ -824,6 +841,8 @@ export default function PrinterDetailScreen() {
                   key={option.value}
                   onPress={() => setJogSpeed(option.value)}
                   disabled={movementDisabled}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected, disabled: movementDisabled }}
                   style={[
                     styles.selectorChip,
                     {
@@ -1010,6 +1029,9 @@ export default function PrinterDetailScreen() {
               <Pressable
                 key={mode.value}
                 onPress={() => void speedMutation.mutateAsync(mode.value)}
+                disabled={!canControlPrinter || speedMutation.isPending}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active, disabled: !canControlPrinter || speedMutation.isPending, busy: speedMutation.isPending }}
                 style={[
                   styles.speedButton,
                   {
@@ -1018,6 +1040,7 @@ export default function PrinterDetailScreen() {
                       : colors.surfaceElevated,
                     borderColor: active ? colors.accent : colors.border,
                   },
+                  (!canControlPrinter || speedMutation.isPending) && styles.disabledButton,
                 ]}
               >
                 <Text
@@ -1049,7 +1072,9 @@ export default function PrinterDetailScreen() {
       </SectionCard>
 
       <Modal visible={showDebugModal} transparent animationType="slide" onRequestClose={() => setShowDebugModal(false)}>
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}> 
+        <SafeAreaProvider style={styles.container}>
+        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
             <View style={styles.modalHeader}>
               <View style={styles.headerText}>
@@ -1059,7 +1084,7 @@ export default function PrinterDetailScreen() {
                 </Text>
               </View>
             </View>
-            <ScrollView contentContainerStyle={styles.modalBody}>
+            <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
               {showDebugModal ? <MQTTConsole printerId={printerId} /> : null}
               <SectionCard title={translateNative('native.9f76394a3aa2df15')} subtitle={translateNative('native.436a43245389a515')}>
                 {mqttLogsQuery.isLoading ? (
@@ -1195,7 +1220,9 @@ export default function PrinterDetailScreen() {
               <PrimaryButton label={translateNative('common.close')} onPress={() => setShowDebugModal(false)} />
             </View>
           </View>
-        </View>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaProvider>
       </Modal>
 
       <EditPrinterModal visible={showEditModal} printer={printerQuery.data ?? null} onClose={() => setShowEditModal(false)} />

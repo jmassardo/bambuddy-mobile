@@ -4,6 +4,7 @@ import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, us
 import React, { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Share from 'react-native-share';
+import { Ellipsis } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { RootNavigationProp } from '@/navigation/types';
 import {
@@ -16,6 +17,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { SimpleBarChart } from '@/components/common/Charts';
@@ -187,6 +189,7 @@ export default function StatsScreen() {
   const [selectedPrinterId, setSelectedPrinterId] = useState<number | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selector, setSelector] = useState<SelectorKey>(null);
+  const [showTools, setShowTools] = useState(false);
   const [userFilterValidated, setUserFilterValidated] = useState(true);
 
   React.useEffect(() => {
@@ -522,6 +525,7 @@ export default function StatsScreen() {
       <ScrollView
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={
@@ -575,7 +579,24 @@ export default function StatsScreen() {
           </View>
         )}
 
-        <SectionCard title={translateNative('native.96c944d7b6cedf1a')} subtitle={translateNative('native.d36309c1d711dd12')}>
+        <SectionCard
+          title={translateNative('native.96c944d7b6cedf1a')}
+          right={
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={translateNative('native.96c944d7b6cedf1a')}
+              accessibilityState={{ expanded: showTools, selected: selectedPrinterId !== null || selectedUserId !== null }}
+              style={styles.disclosure}
+              onPress={() => setShowTools(current => !current)}
+            >
+              <Ellipsis size={20} color={colors.text} />
+            </Pressable>
+          }
+        >
+          <Text style={{ color: colors.textSecondary }}>
+            {selectedPrinterLabel}{canFilterUser ? ` · ${selectedUserLabel}` : ''}
+          </Text>
+          {showTools && <>
           <View style={styles.filterGrid}>
             <Pressable style={[styles.filterButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setSelector('printer')}>
               <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>{translateNative('screen.printer')}</Text>
@@ -624,6 +645,7 @@ export default function StatsScreen() {
             loading={recalculateCostsMutation.isPending}
             disabled={recalculateCostsMutation.isPending}
           />}
+          </>}
         </SectionCard>
 
         <View style={styles.grid}>
@@ -958,6 +980,8 @@ function SelectionModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <SafeAreaProvider style={styles.container}>
+      <SafeAreaView style={styles.container}>
       <Pressable style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]} onPress={onClose}>
         <Pressable style={[styles.modalCard, { backgroundColor: colors.surface }]} onPress={() => {}}>
           <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
@@ -986,6 +1010,8 @@ function SelectionModal({
           <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         </Pressable>
       </Pressable>
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -996,6 +1022,12 @@ function SelectionItemSeparator() {
 }
 
 const styles = StyleSheet.create({
+  disclosure: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: { flex: 1 },
   content: {
     padding: spacing.lg,

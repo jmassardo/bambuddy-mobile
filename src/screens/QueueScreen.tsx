@@ -4,12 +4,18 @@ import { localizedStatus } from '@/utils/statusLabel';
 
 import React, { useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { ChevronDown, ChevronRight, Ellipsis, SlidersHorizontal } from 'lucide-react-native';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { ApiError } from '@/api/http';
@@ -41,7 +47,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 
 import { useTheme } from '@/theme';
-import { spacing } from '@/theme/tokens';
+import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import type {
   PrintBatch,
   PrintQueueItem,
@@ -84,6 +90,8 @@ export default function QueueScreen() {
   const { showToast } = useToast();
   const client = useQueryClient();
   const [tab, setTab] = useState<Tab>('queue');
+  const [showFilters, setShowFilters] = useState(false);
+  const [showTools, setShowTools] = useState(false);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [printer, setPrinter] = useState('all');
@@ -98,6 +106,7 @@ export default function QueueScreen() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [batchName, setBatchName] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<number[]>([]);
+  const [batchTools, setBatchTools] = useState<number | null>(null);
   const [batchDetailId, setBatchDetailId] = useState<number | null>(null);
   const [launch, setLaunch] = useState<{
     item: PrintQueueItem;
@@ -441,18 +450,15 @@ export default function QueueScreen() {
         batch = first.batch_id;
       if (!batch) return card(first);
       return (
-        <SectionCard
-          key={`batch-${batch}`}
-          title={`${first.batch_name ?? `#${batch}`} · ${block.length} ${tr(
-            'pending',
-          )}`}
-        >
-          <View style={styles.row}>
-            <PrimaryButton
-              label={tr(
+        <View key={`batch-${batch}`} style={styles.listSection}>
+          <View style={styles.batchHeader}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={tr(
                 collapsed.includes(batch) ? translateNative('native.b30e4ae6f07f6a30') : translateNative('native.74a215e67407dd5d'),
               )}
-              variant="secondary"
+              accessibilityState={{ expanded: !collapsed.includes(batch) }}
+              style={styles.batchToggle}
               onPress={() =>
                 setCollapsed(current =>
                   current.includes(batch)
@@ -460,7 +466,26 @@ export default function QueueScreen() {
                     : [...current, batch],
                 )
               }
-            />
+            >
+              {collapsed.includes(batch) ? <ChevronRight size={18} color={colors.textSecondary} /> : <ChevronDown size={18} color={colors.textSecondary} />}
+              <Text style={[styles.batchTitle, { color: colors.textSecondary }]}>
+                {`${first.batch_name ?? `#${batch}`} · ${block.length} ${tr('pending')}`}
+              </Text>
+            </Pressable>
+            {(hasPermission('queue:reorder') && sort === 'position') || hasPermission('queue:update_all') ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${t('nav.more')} · ${first.batch_name ?? `#${batch}`}`}
+                accessibilityState={{ expanded: batchTools === batch }}
+                hitSlop={4}
+                style={styles.batchMore}
+                onPress={() => setBatchTools(current => current === batch ? null : batch)}
+              >
+                <Ellipsis size={18} color={colors.textSecondary} />
+              </Pressable>
+            ) : null}
+          </View>
+          {batchTools === batch ? <View style={styles.row}>
             {hasPermission('queue:reorder') && sort === 'position' && (
               <>
                 <PrimaryButton
@@ -490,9 +515,9 @@ export default function QueueScreen() {
                 }
               />
             )}
-          </View>
+          </View> : null}
           {!collapsed.includes(batch) && block.map(card)}
-        </SectionCard>
+        </View>
       );
     });
   };
@@ -621,6 +646,7 @@ export default function QueueScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={queue.isRefetching}
@@ -646,7 +672,18 @@ export default function QueueScreen() {
             setSelected([]);
           }}
         />
-        <View style={styles.row}>
+        <View style={styles.toolbar}>
+          <View style={styles.toolbarSearch}>
+            <SearchBar value={search} onChangeText={setSearch} placeholder={tr('Search queue, history, batches')} />
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('common.filters')} accessibilityState={{ expanded: showFilters, selected: status !== 'all' || printer !== 'all' || Boolean(location) }} onPress={() => setShowFilters(value => !value)} style={[styles.toolbarButton, { backgroundColor: showFilters ? colors.accentBg : colors.surfaceElevated, borderColor: colors.border }]}>
+            <SlidersHorizontal size={18} color={colors.text} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('nav.more')} accessibilityState={{ expanded: showTools }} onPress={() => setShowTools(value => !value)} style={[styles.toolbarButton, { backgroundColor: showTools ? colors.accentBg : colors.surfaceElevated, borderColor: colors.border }]}>
+            <Ellipsis size={18} color={colors.text} />
+          </Pressable>
+        </View>
+        {showTools ? <View style={styles.row}>
           <StatCard label={tr('Printing')} value={String(active.length)} />
           <StatCard label={tr('Pending')} value={String(pending.length)} />
           <StatCard
@@ -661,7 +698,7 @@ export default function QueueScreen() {
               pending.reduce((sum, i) => sum + (i.filament_used_grams ?? 0), 0),
             )}
           />
-        </View>
+        </View> : null}
         {gates.map(([id, gate]) => (
           <SectionCard
             key={id}
@@ -697,12 +734,7 @@ export default function QueueScreen() {
             )}
           </SectionCard>
         ))}
-        <SearchBar
-          value={search}
-          onChangeText={setSearch}
-          placeholder={tr('Search queue, history, batches')}
-        />
-        {tab !== 'batches' && (
+        {showFilters && tab !== 'batches' && (
           <SectionCard title={tr('Filters')}>
             <Choice
               label={translateNative('screen.printer')}
@@ -753,6 +785,7 @@ export default function QueueScreen() {
         )}
         {tab === 'queue' && (
           <>
+            {showFilters ? <>
             <Choice
               label={translateNative('native.c2ecc32fe0e20327')}
               value={layout}
@@ -786,7 +819,8 @@ export default function QueueScreen() {
               ]}
               onChange={setDirection}
             />
-            <View style={styles.row}>
+            </> : null}
+            {showTools || selected.length > 0 ? <View style={styles.row}>
               <PrimaryButton
                 label={tr('Select visible pending')}
                 variant="secondary"
@@ -850,22 +884,21 @@ export default function QueueScreen() {
                   />
                 </>
               )}
-            </View>
-            <SectionCard title={tr('Currently printing')}>
-              {active.filter(filter).map(card)}
-            </SectionCard>
-            <SectionCard title={tr('Queued items')}>
+            </View> : null}
+            <View style={styles.listSection}>
+              <Text accessibilityRole="header" style={[styles.sectionTitle, { color: colors.text }]}>{tr('Queued items')}</Text>
               {layout === 'position'
                 ? renderPending(filteredPending)
                 : Array.from(new Set(filteredPending.map(printerLabel))).map(
                     label => (
-                      <SectionCard key={label} title={label}>
+                      <View key={label} style={styles.listSection}>
+                        <Text accessibilityRole="header" style={[styles.batchTitle, { color: colors.textSecondary }]}>{label}</Text>
                         {renderPending(
                           filteredPending.filter(
                             i => printerLabel(i) === label,
                           ),
                         )}
-                      </SectionCard>
+                      </View>
                     ),
                   )}
               {!filteredPending.length && (
@@ -874,11 +907,16 @@ export default function QueueScreen() {
                   message={tr('Add a configured print from Files or Archives.')}
                 />
               )}
-            </SectionCard>
+            </View>
+            {active.filter(filter).length > 0 ? <View style={styles.listSection}>
+              <Text accessibilityRole="header" style={[styles.sectionTitle, { color: colors.text }]}>{tr('Currently printing')}</Text>
+              {active.filter(filter).map(card)}
+            </View> : null}
           </>
         )}
         {tab === 'history' && (
           <>
+            {showFilters ? <>
             <Choice
               label={translateNative('native.fcb8a4c1768e7fc6')}
               value={historySort}
@@ -897,7 +935,8 @@ export default function QueueScreen() {
               ]}
               onChange={setHistoryDirection}
             />
-            {hasPermission('queue:delete_all') && (
+            </> : null}
+            {showTools && hasPermission('queue:delete_all') && (
               <PrimaryButton
                 label={`${tr('Clear history')} (${history.length})`}
                 variant="danger"
@@ -951,7 +990,7 @@ export default function QueueScreen() {
         )}
         {tab === 'batches' && (
           <>
-            <Choice
+            {showFilters ? <Choice
               label={translateNative('native.8cb0b2fae44798e8')}
               value={batchStatus}
               options={['active', 'completed', 'cancelled', 'all'].map(s => ({
@@ -959,7 +998,7 @@ export default function QueueScreen() {
                 label: s,
               }))}
               onChange={setBatchStatus}
-            />
+            /> : null}
             {batches.isError && (
               <ErrorState
                 message={tr('Unable to load batch orders')}
@@ -1013,7 +1052,10 @@ export default function QueueScreen() {
         animationType="slide"
         onRequestClose={() => setBatchName(null)}
       >
-        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+        <SafeAreaProvider style={styles.container}>
+        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <ScrollView contentContainerStyle={styles.modal} keyboardShouldPersistTaps="handled">
           <LaunchField
             label={translateNative('native.3fbfdb405f0fd055')}
             value={batchName ?? ''}
@@ -1038,13 +1080,18 @@ export default function QueueScreen() {
             variant="secondary"
             onPress={() => setBatchName(null)}
           />
-        </View>
+        </ScrollView>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaProvider>
       </Modal>
       <Modal
         visible={batchDetailId != null}
         animationType="slide"
         onRequestClose={() => setBatchDetailId(null)}
       >
+        <SafeAreaProvider style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <ScrollView
           contentContainerStyle={[
             styles.modal,
@@ -1059,6 +1106,8 @@ export default function QueueScreen() {
             onPress={() => setBatchDetailId(null)}
           />
         </ScrollView>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
       {launch && (
         <PrintModal
@@ -1103,6 +1152,22 @@ export default function QueueScreen() {
 }
 
 const styles = StyleSheet.create({
+  listSection: { gap: spacing.md },
+  sectionTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },
+  batchHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  batchToggle: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44 },
+  batchTitle: { flexShrink: 1, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+  batchMore: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  toolbarSearch: { flex: 1 },
+  toolbarButton: {
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: { flex: 1 },
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

@@ -14,6 +14,7 @@ import {
   Switch,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react-native';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
@@ -138,10 +139,11 @@ export function EditPrinterModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+      <SafeAreaProvider>
+      <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardArea}
         >
           <View
@@ -160,6 +162,8 @@ export function EditPrinterModal({
               </View>
               <Pressable
                 onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
                 style={[
                   styles.closeButton,
                   { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
@@ -169,7 +173,7 @@ export function EditPrinterModal({
               </Pressable>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <TextField label={t('fleet.ip', { defaultValue: 'IP / hostname' })} value={ipAddress} onChangeText={setIpAddress} autoCapitalize="none" />
               <TextField label={t('fleet.replacementCode', { defaultValue: 'Replacement access code (blank keeps existing)' })} value={accessCode} onChangeText={setAccessCode} secureTextEntry autoCapitalize="none" />
               <TextField label={t('fleet.model', { defaultValue: 'Model' })} value={model} onChangeText={setModel} />
@@ -209,7 +213,8 @@ export function EditPrinterModal({
             </View>
           </View>
         </KeyboardAvoidingView>
-      </View>
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -249,8 +254,8 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
   },
   closeButton: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     alignItems: 'center',

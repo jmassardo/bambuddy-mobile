@@ -4,6 +4,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PipelineRunsScreen } from '@/screens/PipelineRunsScreen';
 import { SlicerPipelinesScreen } from '@/screens/SlicerPipelinesScreen';
+import { translateNative } from '@/i18n';
 import { slicingApi } from '@/api/slicing';
 import { printersApi } from '@/api/printers';
 import type {
@@ -53,6 +54,14 @@ const pipeline = {
   filament_presets: [{ source: 'local', id: 'filament' }],
   bed_type: null,
 } as SlicerPipeline;
+
+it('shows a filtered-empty result instead of a blank pipeline list', async () => {
+  const result = await render(wrap(<SlicerPipelinesScreen />));
+  await waitFor(() => expect(result.getByText('PLA bundle')).toBeTruthy());
+  await fireEvent.changeText(result.getByLabelText('Search pipelines'), 'missing');
+  expect(result.getByText(translateNative('pipelineManagement.noMatchingPipelines'))).toBeTruthy();
+  expect(result.queryByText('PLA bundle')).toBeNull();
+});
 const failed: PipelineRun = {
   id: 5,
   pipeline_id: 1,
@@ -228,7 +237,8 @@ describe('Pipeline operations', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const ui = await render(wrap(<PipelineRunsScreen />));
     await ui.findByText('#5 PLA bundle · partial_failure');
-    await fireEvent.press(ui.getByText('#5 PLA bundle · partial_failure'));
+    await fireEvent.press(ui.getByRole('button', { name: '#5 PLA bundle · partial_failure', expanded: false }));
+    expect(ui.getByRole('button', { name: '#5 PLA bundle · partial_failure', expanded: true })).toBeTruthy();
     expect(ui.getByText('Retry of run #2')).toBeTruthy();
     expect(ui.getByText('Printer disconnected')).toBeTruthy();
     await fireEvent.press(ui.getByText('Retry failed copies only'));

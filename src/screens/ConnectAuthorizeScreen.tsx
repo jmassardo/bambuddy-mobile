@@ -24,6 +24,7 @@ export default function ConnectAuthorizeScreen({ route }: { route: { params?: Co
   const { colors } = useTheme();
   const [message, setMessage] = useNativeMessageState('');
   const [finished, setFinished] = useState(false);
+  const [denying, setDenying] = useState(false);
   const params: ConnectAuthorizeParams = route.params ?? { client_id: '', redirect_uri: '', code_challenge: '', code_challenge_method: 'S256' };
   React.useEffect(() => { setFinished(false); setMessage(''); }, [params.client_id, params.redirect_uri, params.code_challenge, params.state, setMessage]);
   const valid = Boolean(params.client_id && params.redirect_uri && /^[A-Za-z0-9_-]{43}$/.test(params.code_challenge) && params.code_challenge_method === 'S256');
@@ -34,7 +35,7 @@ export default function ConnectAuthorizeScreen({ route }: { route: { params?: Co
   });
   const approve = useMutation({
     mutationFn: async (request: ConnectAuthorizeParams) => {
-      if (!info.data || !valid || finished) throw new Error(translateNative('native.2572e923838fec8a'));
+      if (!info.data || !valid || finished || denying) throw new Error(translateNative('native.2572e923838fec8a'));
       const response = await authManagementApi.authorize(request);
       setFinished(true);
       await Linking.openURL(connectCallback(response.redirect_uri, { code: response.code, state: request.state ?? '' }));
@@ -43,12 +44,14 @@ export default function ConnectAuthorizeScreen({ route }: { route: { params?: Co
     onError: (e: Error) => setMessage(e.message),
   });
   const deny = async () => {
-    if (!info.data || finished) return;
+    if (!info.data || finished || denying || approve.isPending) return;
+    setDenying(true);
     try {
       await Linking.openURL(connectCallback(params.redirect_uri, { get error() { return translateNative('native.e28199da54ac630b'); }, state: params.state ?? '' }));
       setFinished(true);
       setMessage(nativeMessage('native.078cc26bb9ceab9a'));
     } catch (e) { setMessage(e instanceof Error ? e.message : nativeMessage('native.8e9397d78acabe85')); }
+    finally { setDenying(false); }
   };
   return <ScrollView contentContainerStyle={styles.content} style={{ backgroundColor: colors.background }}>
     <SectionCard title={t('auth.connectApp', { defaultValue: 'Connect an app' })}>
@@ -64,8 +67,8 @@ export default function ConnectAuthorizeScreen({ route }: { route: { params?: Co
               <Text style={{ color: colors.textSecondary }}>{t('auth.consentScope', { defaultValue: 'This app receives your identity, email, administrator status, groups, and permissions. It does not receive a BambuBuddy API token or permission to operate printers.' })}</Text>
               <Text selectable style={{ color: colors.textSecondary }}><NativeTranslation id="native.dc5f0860220454d5" values={{ value0: (params.redirect_uri) }} /></Text>
               {info.data.already_granted ? <Text style={{ color: colors.textSecondary }}>{translateNative('native.76d138aa665e59cf')}</Text> : null}
-              <PrimaryButton label={t('auth.allowApp', { defaultValue: 'Allow {{app}}', app: info.data.app_name })} disabled={approve.isPending || finished} onPress={() => approve.mutate({ ...params })} />
-              <PrimaryButton label={t('auth.deny', { defaultValue: 'Deny' })} variant="secondary" disabled={approve.isPending || finished} onPress={() => void deny()} />
+              <PrimaryButton label={t('auth.allowApp', { defaultValue: 'Allow {{app}}', app: info.data.app_name })} loading={approve.isPending} disabled={approve.isPending || denying || finished} onPress={() => approve.mutate({ ...params })} />
+              <PrimaryButton label={t('auth.deny', { defaultValue: 'Deny' })} variant="secondary" loading={denying} disabled={approve.isPending || denying || finished} onPress={() => void deny()} />
             </> : null}
       {message ? <Text accessibilityRole="alert" style={{ color: colors.text }}>{message}</Text> : null}
     </SectionCard>

@@ -2,7 +2,11 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { promoteUnreleased } = require('../../scripts/release/changelog.js');
+const {
+  parseChangelog,
+  promoteUnreleased,
+  validateReleaseDate,
+} = require('../../scripts/release/changelog.js');
 
 const RELEASE_VERSION = '1.1.1';
 const PRERELEASE_VERSION = '1.1.0';
@@ -258,6 +262,31 @@ function assertCheckout(packageText, changelog) {
   throw new Error('package/changelog release state is contradictory');
 }
 
+function assertCurrentCheckout(packageText, changelog) {
+  const version = JSON.parse(packageText).version;
+  const parsed = parseChangelog(changelog, { allowEmptyUnreleased: true });
+  invariant(
+    parsed.priorVersion === version,
+    'package/changelog release state is contradictory',
+  );
+  if (compareVersions(version, RELEASE_VERSION) < 0) {
+    assertPrerelease(changelog);
+    return 'prerelease';
+  }
+  const latest = parsed.headings.find(section => section.name !== 'Unreleased');
+  invariant(
+    latest?.name === version,
+    'package/changelog release state is contradictory',
+  );
+  validateReleaseDate(latest.date);
+  const owner = parseSections(changelog).find(section =>
+    section.body.includes(CAMERA_NOTE) || section.body.includes(SECURITY_NOTE),
+  );
+  invariant(owner && owner.name !== 'Unreleased', 'release notes must be owned by a released version');
+  assertReleaseNotes(changelog, owner.name);
+  return 'released';
+}
+
 describe('release-aware camera and security changelog contract', () => {
   test('protects the canonical prerelease fixture', () => {
     expect(() => assertPrerelease(prereleaseFixture)).not.toThrow();
@@ -272,8 +301,29 @@ describe('release-aware camera and security changelog contract', () => {
 
   test('selects and validates the actual checkout state without mutation', () => {
     expect(['prerelease', 'released']).toContain(
-      assertCheckout(actualPackage, actualChangelog),
+      assertCurrentCheckout(actualPackage, actualChangelog),
     );
+  });
+
+  test.each(['1.1.1', '2.0.1'])('accepts automatic release %s with its actual date and preserved notes', version => {
+    const promoted = promoteUnreleased(prereleaseFixture, version, '2026-11-01');
+    expect(assertCurrentCheckout(JSON.stringify({ version }), promoted)).toBe('released');
+    expect(() => assertCurrentCheckout(JSON.stringify({ version }), promoted.replace(
+      '2026-11-01', '2026-02-30',
+    ))).toThrow('Release date is invalid');
+    expect(() => assertCurrentCheckout(JSON.stringify({ version }), promoted.replace(
+      'Restore authenticated', 'Restore secure',
+    ))).toThrow('camera note must exist exactly once in the Fixed category');
+  });
+
+  test('preserves historical notes when the next automatic patch is released', () => {
+    const first = promoteUnreleased(prereleaseFixture, '1.1.1', '2026-11-01');
+    const pending = first.replace('## [Unreleased]\n',
+      '## [Unreleased]\n\n### Changed\n\n- Next patch.\n');
+    const next = promoteUnreleased(pending, '1.1.2', '2026-11-02');
+    expect(assertCurrentCheckout(JSON.stringify({ version: '1.1.2' }), next)).toBe('released');
+    expect(() => assertCurrentCheckout(JSON.stringify({ version: '1.1.3' }), next))
+      .toThrow('package/changelog release state is contradictory');
   });
 
   test.each([
