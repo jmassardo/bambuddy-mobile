@@ -98,6 +98,9 @@ Stores are independent and cannot commit atomically. If one submission succeeds
 and the other fails, retry **Promote Store Release** on the same latest `main`
 commit. Promotion is idempotent for the exact existing build. A different build or
 an unrelated App Store version already in review fails rather than being replaced.
+One older `REJECTED` App Store version can be updated to the candidate version,
+preserving its existing listing and review metadata for resubmission. Other drafts,
+newer rejected versions, and multiple editable versions are never repurposed.
 Use manual workflow dispatch only on `main`; superseded main events are rejected.
 
 To halt future releases, disable **Release Candidate** and **Promote Store Release**

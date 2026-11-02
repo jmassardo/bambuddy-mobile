@@ -37,6 +37,15 @@ def strict_store_version?(version)
   /\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\z/.match?(version.to_s)
 end
 
+def normalized_existing_store_version(value)
+  version = value.to_s
+  unless /\A(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){0,2}\z/.match?(version)
+    UI.user_error!("App Store Connect must contain one-to-three-part numeric app-store versions")
+  end
+  parts = version.split(".")
+  (parts + ["0"] * (3 - parts.length)).join(".")
+end
+
 def release_root
   File.expand_path("..", FastlaneCore::FastlaneFolder.path)
 end
@@ -131,7 +140,10 @@ def prepare_ios_store_version(identity)
   matches = versions.select { |version| version.version_string == identity[:version] }
   UI.user_error!("Exact iOS store version is ambiguous") if matches.length > 1
   if matches.empty?
-    if versions.any? { |version| editable_states.include?(version.app_version_state) }
+    editable = versions.select { |version| editable_states.include?(version.app_version_state) }
+    reusable = editable.one? && editable.first.app_version_state == "REJECTED" &&
+               Gem::Version.new(normalized_existing_store_version(editable.first.version_string)) < Gem::Version.new(identity[:version])
+    if !editable.empty? && !reusable
       UI.user_error!("A different editable iOS store version exists; refusing to overwrite it")
     end
     app.ensure_version!(identity[:version], platform: "IOS")
@@ -215,12 +227,7 @@ def query_release_metadata
   api_key(required: true)
   app = asc_app
   versions = app.get_app_store_versions(filter: { platform: "IOS" }).map do |store|
-    version = store.version_string.to_s
-    unless /\A(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){0,2}\z/.match?(version)
-      UI.user_error!("App Store Connect must contain one-to-three-part numeric app-store versions")
-    end
-    parts = version.split(".")
-    (parts + ["0"] * (3 - parts.length)).join(".")
+    normalized_existing_store_version(store.version_string)
   end
   UI.user_error!("App Store Connect must contain numeric app-store versions") if versions.empty?
   store_version = versions.max_by { |version| version.split(".").map(&:to_i) }
