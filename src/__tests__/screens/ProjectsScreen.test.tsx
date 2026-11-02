@@ -5,6 +5,8 @@ import ProjectsScreen from '@/screens/ProjectsScreen';
 import { api } from '@/api/client';
 
 const mockNavigation = { setOptions: jest.fn(), navigate: jest.fn() };
+let mockPermissions: Set<string> | null = null;
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ hasPermission: (permission: string) => mockPermissions === null || mockPermissions.has(permission) }) }));
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => mockNavigation }));
 jest.mock('@/contexts/ToastContext', () => ({ useToast: () => ({ showToast: jest.fn() }) }));
 jest.mock('@/theme', () => ({ useTheme: () => ({ colors: new Proxy({}, { get: () => '#888888' }) }) }));
@@ -24,6 +26,7 @@ const projects = [
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPermissions = null;
   jest.mocked(api.getProjects).mockResolvedValue(projects as never);
   jest.mocked(api.createProject).mockResolvedValue({ id: 5 });
   jest.mocked(api.updateProject).mockResolvedValue({});
@@ -61,7 +64,8 @@ it('creates nested projects with complete-set targets and prevents selecting des
   await fireEvent.press(screen.getByText('Create'));
   await waitFor(() => expect(api.createProject).toHaveBeenCalledWith(expect.objectContaining({ name: 'New assembly', parent_id: 3, target_sets: 7 })));
   await waitFor(() => expect(screen.queryByText('New project')).toBeNull());
-  await fireEvent.press(screen.getAllByText('Edit')[0]);
+  await fireEvent.press(screen.getByRole('button', { name: 'More · Root' }));
+  await fireEvent.press(screen.getByText('Edit'));
   await fireEvent.press(screen.getByText('Parent: None (top level)'));
   // Only Other is eligible: Root, Child and Grandchild would all create a cycle.
   expect(screen.queryByText('— Child')).toBeNull();
@@ -69,4 +73,23 @@ it('creates nested projects with complete-set targets and prevents selecting des
   await fireEvent.press(screen.getByRole('button', { name: 'Other' }));
   await fireEvent.press(screen.getByText('Save'));
   await waitFor(() => expect(api.updateProject).toHaveBeenCalledWith(1, expect.objectContaining({ parent_id: 4, target_sets: 5 })));
+});
+
+it('keeps opening projects available without exposing unpermitted secondary actions', async () => {
+  mockPermissions = new Set(['projects:read']);
+  const screen = await setup();
+  expect(screen.queryByRole('button', { name: 'Project' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'More · Root' })).toBeNull();
+  await fireEvent.press(screen.getAllByText('Open')[0]);
+  expect(mockNavigation.navigate).toHaveBeenCalledWith('ProjectDetail', { id: 1 });
+});
+
+it('discloses permitted project actions without filling the card', async () => {
+  const screen = await setup();
+  expect(screen.queryByText('Batch Print')).toBeNull();
+  expect(screen.queryByText('Delete')).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'More · Root' }));
+  expect(screen.getByText('Batch Print')).toBeTruthy();
+  expect(screen.getByText('Edit')).toBeTruthy();
+  expect(screen.getByText('Delete')).toBeTruthy();
 });

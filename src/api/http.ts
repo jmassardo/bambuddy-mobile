@@ -192,16 +192,21 @@ async function refreshMediaToken(): Promise<boolean> {
   }
 
   const serverOrigin = getServerOrigin(serverUrl);
-  if (!authToken) {
+  const currentAuthToken = authToken;
+  if (!currentAuthToken) {
     updateMediaToken(null, serverOrigin, true);
     return true;
   }
 
   try {
-    const response = await request<Record<string, unknown>>('/auth/tokens', {
+    const response = await request<Record<string, unknown>>('/auth/media-token', {
       method: 'POST',
-      body: JSON.stringify({ scope: MEDIA_TOKEN_SCOPE }),
     });
+    if (serverUrl !== getCurrentServerUrl() || currentAuthToken !== authToken) return false;
+    if (typeof response.token !== 'string' || !response.token) {
+      updateMediaToken(null, serverOrigin, false);
+      return false;
+    }
     updateMediaToken(
       typeof response.token === 'string' ? response.token : null,
       serverOrigin,
@@ -209,7 +214,8 @@ async function refreshMediaToken(): Promise<boolean> {
     );
     return true;
   } catch {
-    updateMediaToken(null, serverOrigin, true);
+    if (serverUrl !== getCurrentServerUrl() || currentAuthToken !== authToken) return false;
+    updateMediaToken(null, serverOrigin, false);
     return false;
   }
 }
@@ -240,28 +246,36 @@ export function getMediaTokenVersion(): number {
 }
 
 export function buildMediaUrl(path: string, params?: URLSearchParams): string {
+  return buildScopedUrl(path, getScopedMediaToken(), params);
+}
+
+export function buildCameraUrl(path: string, token: string | null, params?: URLSearchParams): string {
+  return buildScopedUrl(path, token, params);
+}
+
+function buildScopedUrl(path: string, token: string | null, params?: URLSearchParams): string {
   const serverUrl = getServerUrl();
   const query = new URLSearchParams(params);
-  const scopedToken = getScopedMediaToken();
-  if (scopedToken) {
-    query.set('token', scopedToken);
+  if (token) {
+    query.set('token', token);
   }
   const queryString = query.toString();
   return `${serverUrl}/api/v1${path}${queryString ? `?${queryString}` : ''}`;
 }
 
-export async function getCameraStreamToken(): Promise<{ token: string | null }> {
-  if (!getScopedMediaToken() && getAuthToken()) {
-    const refreshed = await refreshMediaToken();
-    if (!refreshed) {
-      throw new ApiError(
-        translateNative('native.a20f9017bbda9b7f'),
-        0,
-        'media_token_unavailable',
-      );
-    }
+export async function getMediaToken(): Promise<{ token: string | null }> {
+  if (!await refreshMediaToken()) {
+    throw new ApiError(
+      translateNative('native.a20f9017bbda9b7f'),
+      0,
+      'media_token_unavailable',
+    );
   }
   return { token: getScopedMediaToken() };
+}
+
+export async function getCameraStreamToken(): Promise<{ token: string | null }> {
+  return request('/printers/camera/stream-token', { method: 'POST' });
 }
 
 export function setStreamToken(token: string | null): void {
@@ -274,16 +288,17 @@ export function setStreamToken(token: string | null): void {
 }
 
 export function withStreamToken(url: string): string {
+  const serverUrl = getCurrentServerUrl();
+  if (!serverUrl) return url;
   const scopedToken = getScopedMediaToken();
-  if (!scopedToken) return url;
-
   try {
-    const parsed = new URL(url);
-    parsed.searchParams.set('token', scopedToken);
+    const parsed = new URL(url, `${serverUrl}/`);
+    if (parsed.origin !== getServerOrigin(serverUrl)) return url;
+    if (scopedToken) parsed.searchParams.set('token', scopedToken);
+    else parsed.searchParams.delete('token');
     return parsed.toString();
   } catch {
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}token=${encodeURIComponent(scopedToken)}`;
+    return url;
   }
 }
 

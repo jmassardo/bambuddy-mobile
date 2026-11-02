@@ -4,19 +4,23 @@ import { nativeEnglishSuffix, nativeMessage, translateNative, useLocalizedMemo, 
 import React, { useEffect, useState } from 'react';
 import {
   Modal,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { inventoryBackend } from '@/api/inventoryManagement';
 import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
-import { EmptyState } from '@/components/common/StateScreens';
+import { EmptyState, ErrorState } from '@/components/common/StateScreens';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -138,18 +142,21 @@ export function LocationsModal({
   return (
     <>
       <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-        <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}> 
+        <SafeAreaProvider>
+        <KeyboardAvoidingView style={styles.viewport} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
           <View style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
             <View style={styles.header}>
               <View style={styles.headerText}>
                 <Text style={[styles.title, { color: colors.text }]}>{translateNative('native.2fa2048283af4f30')}</Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{translateNative('native.5e9f2c50afc64f2e')}</Text>
               </View>
-              <Pressable onPress={onClose} hitSlop={8}>
+              <Pressable onPress={onClose} style={styles.closeButton} accessibilityRole="button" accessibilityLabel={translateNative('common.close')}>
                 <X size={18} color={colors.textSecondary} strokeWidth={2} />
               </Pressable>
             </View>
 
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.listContent}>
             <SectionCard title={editing ? translateNative('native.e31b25c4cac430e9') : translateNative('native.69340a073e7e3418')}>
               <TextField label={translateNative('common.name')} value={name} onChangeText={setName} placeholder={translateNative('native.425fe6638a069ac5')} />
               <TextField label={translateNative('native.2c9ce243b8a0f476')} value={identifier} onChangeText={setIdentifier} placeholder={translateNative('native.7b4298b76c274a63')} />
@@ -164,6 +171,8 @@ export function LocationsModal({
                       setEditing(null);
                       setName('');
                       setIdentifier('');
+                      setAddress('');
+                      setNotes('');
                     }}
                   />
                 ) : null}
@@ -176,8 +185,10 @@ export function LocationsModal({
               </View>
             </SectionCard>
 
-            <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-              {locations.length === 0 ? (
+            <View style={styles.listContent}>
+              {locationsQuery.isLoading ? <ActivityIndicator color={colors.accent} accessibilityLabel={translateNative('common.loading')} /> : null}
+              {locationsQuery.error ? <ErrorState message={locationsQuery.error.message} onRetry={() => void locationsQuery.refetch()} /> : null}
+              {locationsQuery.isSuccess && locations.length === 0 ? (
                 <EmptyState icon="📍" title={translateNative('native.b3861bd05024eae9')} message={translateNative('native.fc7d4790dee70139')} />
               ) : (
                 locations.map(location => (
@@ -211,13 +222,16 @@ export function LocationsModal({
                   </View>
                 ))
               )}
+            </View>
             </ScrollView>
 
             <View style={styles.footer}>
               <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
             </View>
           </View>
-        </View>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaProvider>
       </Modal>
 
       <ConfirmModal
@@ -237,6 +251,13 @@ export function LocationsModal({
 }
 
 const styles = StyleSheet.create({
+  viewport: { flex: 1 },
+  closeButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   backdrop: {
     flex: 1,
     justifyContent: 'center',
@@ -271,9 +292,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flexWrap: 'wrap',
     marginTop: spacing.md,
-  },
-  list: {
-    maxHeight: 360,
   },
   listContent: {
     gap: spacing.sm,

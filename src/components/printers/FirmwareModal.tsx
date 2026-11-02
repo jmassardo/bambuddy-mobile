@@ -89,13 +89,13 @@ export function FirmwareModal({
           latest: info.data?.latest_version ?? '—',
         })}
       </Text>
-      <Text style={{ color: colors.text }}>
+      {canRead && info.isSuccess ? <Text style={{ color: colors.text }}>
         {info.data?.update_available
           ? t('fleet.updateAvailable', { defaultValue: 'Update available' })
           : t('fleet.upToDate', {
               defaultValue: 'No newer firmware available',
             })}
-      </Text>
+      </Text> : null}
       {info.data?.available_versions.map(entry => (
         <PrimaryButton
           key={entry.version}

@@ -11,6 +11,8 @@ import {
   Image,
   Linking,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -18,7 +20,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import { CheckCircle, Download, Pause, X } from 'lucide-react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { CheckCircle, Download, Ellipsis, Pause, SlidersHorizontal, X } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { ArchiveCard } from '@/components/archives/ArchiveCard';
@@ -130,20 +133,26 @@ function SimpleModal({
   const { colors } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}> 
+      <SafeAreaProvider style={styles.container}>
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}>
         <View style={[styles.modalCard, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderText}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
               {subtitle ? <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
             </View>
-            <Pressable onPress={onClose}>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={translateNative('common.close')} style={styles.modalClose}>
               <X size={18} color={colors.textSecondary} strokeWidth={2} />
             </Pressable>
           </View>
-          {children}
+          <ScrollView style={styles.modalBodyScroll} contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            {children}
+          </ScrollView>
         </View>
-      </View>
+      </SafeAreaView>
+      </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -165,6 +174,13 @@ export default function ArchivesScreen() {
   const [outcomeId, setOutcomeId] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showTools, setShowTools] = useState(false);
+  const listRef = React.useRef<FlatList<Archive>>(null);
+  const goToPage = (nextPage: number) => {
+    setPage(nextPage);
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
   const [customPurgeDays, setCustomPurgeDays] = useState('90');
   const canUpdate = (archive: Archive) => hasPermission('archives:update_all') || (archive.created_by_id === user?.id && hasPermission('archives:update_own'));
   const canDelete = (archive: Archive) => hasPermission('archives:delete_all') || (archive.created_by_id === user?.id && hasPermission('archives:delete_own'));
@@ -204,7 +220,7 @@ export default function ArchivesScreen() {
        
       title: translateNative('nav.archives'),
       headerRight: () => (
-        <Pressable onPress={() => setShowExportModal(true)} style={styles.headerButton} hitSlop={8}>
+        <Pressable onPress={() => setShowExportModal(true)} style={styles.headerButton} hitSlop={8} accessibilityRole="button" accessibilityLabel={translateNative('native.d2ff97dc9d5b8666')}>
           <Download size={18} color={colors.text} strokeWidth={2} />
         </Pressable>
       ),
@@ -401,13 +417,19 @@ export default function ArchivesScreen() {
     onError: (error: Error) => showToast(error.message, 'error'),
   });
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const refreshAll = async () => {
-    await Promise.all([
-      archivesQuery.refetch(),
-      printersQuery.refetch(),
-      tagsQuery.refetch(),
-      statsQuery.refetch(),
-    ]);
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        archivesQuery.refetch(),
+        printersQuery.refetch(),
+        tagsQuery.refetch(),
+        statsQuery.refetch(),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const statusCounts = {
@@ -453,6 +475,7 @@ export default function ArchivesScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}> 
       <FlatList
+        ref={listRef}
         extraData={mediaToken}
         key={viewMode}
         data={filteredArchives.slice(page * pageSize, (page + 1) * pageSize)}
@@ -504,10 +527,12 @@ export default function ArchivesScreen() {
           </View>
         )}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         columnWrapperStyle={viewMode === 'grid' ? styles.gridRow : undefined}
         refreshControl={
           <RefreshControl
-            refreshing={archivesQuery.isRefetching || printersQuery.isRefetching || statsQuery.isRefetching}
+            testID="archives-refresh"
+            refreshing={isRefreshing}
             onRefresh={() => {
               refreshAll();
             }}
@@ -516,17 +541,19 @@ export default function ArchivesScreen() {
         }
         ListHeaderComponent={
           <View style={styles.headerStack}>
-            <ArchiveIngestionPanel />
-            <ArchiveBrowseControls archives={archives} options={browse} onChange={setBrowse} />
-            <SectionCard title={t('archives.pages', { defaultValue: '{{count}} matching archives · page {{page}} / {{pages}}', count: filteredArchives.length, page: page + 1, pages: maxPage + 1 })}>
-              <View style={styles.filterRow}>{[25, 50, 100, 200].map(size => <Chip key={size} label={String(size)} selected={size === pageSize} onPress={() => setPageSize(size)} />)}</View>
-              <View style={styles.filterRow}>
-                <PrimaryButton label={t('common.first', { defaultValue: 'First' })} disabled={page === 0} onPress={() => setPage(0)} />
-                <PrimaryButton label={t('common.previous', { defaultValue: 'Previous' })} disabled={page === 0} onPress={() => setPage(page - 1)} />
-                <PrimaryButton label={t('common.next', { defaultValue: 'Next' })} disabled={page >= maxPage} onPress={() => setPage(page + 1)} />
-                <PrimaryButton label={t('common.last', { defaultValue: 'Last' })} disabled={page >= maxPage} onPress={() => setPage(maxPage)} />
+            <View style={styles.toolbar}>
+              <View style={styles.toolbarSearch}>
+                <SearchBar value={search} onChangeText={text => setFilters({ search: text })} placeholder={translateNative('native.ca2f9500682b69bd')} />
               </View>
-            </SectionCard>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('common.filters')} accessibilityState={{ expanded: showFilters, selected: statusFilter !== 'all' || rangeFilter !== 'all' || printerFilter !== 'all' || filamentTypeFilter !== 'all' || tagFilter !== null || aiFilter !== 'all' }} onPress={() => setShowFilters(value => !value)} style={[styles.toolbarButton, { backgroundColor: showFilters ? colors.accentBg : colors.surfaceElevated, borderColor: colors.border }]}>
+                <SlidersHorizontal size={18} color={colors.text} />
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('nav.more')} accessibilityState={{ expanded: showTools }} onPress={() => setShowTools(value => !value)} style={[styles.toolbarButton, { backgroundColor: showTools ? colors.accentBg : colors.surfaceElevated, borderColor: colors.border }]}>
+                <Ellipsis size={18} color={colors.text} />
+              </Pressable>
+            </View>
+            {showTools ? <>
+            <ArchiveIngestionPanel />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
               <StatCard label={translateNative('native.6d57baccade5ba80')} value={String(filteredArchives.length)} helper={translateNative('native.4fd8680d181245e0', { value0: String(archives.length) })} />
               <StatCard label={translateNative('native.e674ffca8f9210c5')} value={String(stats?.successful_prints ?? 0)} helper={translateNative('native.0db89c0245abe34e')} />
@@ -534,9 +561,7 @@ export default function ArchivesScreen() {
               <StatCard label={translateNative('native.e3f6c45e9f8c8d80')} value={formatDuration(Math.round((stats?.total_print_time_hours ?? 0) * 3600))} helper={translateNative('native.d94e443f85c0eaec')} />
               <StatCard label={translateNative('common.cost')} value={formatCurrency(stats?.total_cost ?? 0)} helper={translateNative('native.d94e443f85c0eaec')} />
             </ScrollView>
-
-            <SectionCard title={translateNative('native.f7ba4dbd4159e4e6')} subtitle={translateNative('native.e7cb6a9679244b2e')}>
-              <SearchBar value={search} onChangeText={text => setFilters({ search: text })} placeholder={translateNative('native.ca2f9500682b69bd')} />
+            </> : null}
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
                 {(['all', 'completed', 'failed', 'running', 'paused', 'canceled', 'favorite', 'duplicate'] as const).map(status => (
@@ -549,6 +574,8 @@ export default function ArchivesScreen() {
                 ))}
               </ScrollView>
 
+              {showFilters ? <SectionCard title={t('common.filters')}>
+              <ArchiveBrowseControls archives={archives} options={browse} onChange={setBrowse} />
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
                 {(['all', 'ai', 'human', 'any'] as const).map(mode => (
                   <Chip
@@ -614,7 +641,6 @@ export default function ArchivesScreen() {
                 </ScrollView>
               ) : null}
 
-              <View style={styles.headerActions}>
                 {(statusFilter !== 'all' || rangeFilter !== 'all' || printerFilter !== 'all' || filamentTypeFilter !== 'all' || tagFilter != null || aiFilter !== 'all') ? (
                   <PrimaryButton
                     label={translateNative('native.42cc919f7bae50c1')}
@@ -624,6 +650,8 @@ export default function ArchivesScreen() {
                     }}
                   />
                 ) : null}
+              </SectionCard> : null}
+              {showTools ? <View style={styles.headerActions}>
                 <PrimaryButton
                   label={viewMode === 'grid' ? translateNative('native.33b836845ee11768') : translateNative('native.7dec88bad08e1b80')}
                   variant="secondary"
@@ -643,8 +671,7 @@ export default function ArchivesScreen() {
                 {selectedIds.length >= 2 && selectedIds.length <= 5 ? (
                   <PrimaryButton label={translateNative('native.e17e75c9c6578978', { value0: String(selectedIds.length) })} onPress={() => setCompareIds(selectedIds)} />
                 ) : null}
-              </View>
-            </SectionCard>
+              </View> : null}
           </View>
         }
         ListEmptyComponent={
@@ -653,6 +680,17 @@ export default function ArchivesScreen() {
             title={translateNative('native.cfdf637966a04a08')}
             message={translateNative('native.6b00500109571eaf')}
           />
+        }
+        ListFooterComponent={
+          <SectionCard title={t('archives.pages', { defaultValue: '{{count}} matching archives · page {{page}} / {{pages}}', count: filteredArchives.length, page: page + 1, pages: maxPage + 1 })}>
+            <View style={styles.filterRow}>{[25, 50, 100, 200].map(size => <Chip key={size} label={String(size)} selected={size === pageSize} onPress={() => { setPageSize(size); goToPage(0); }} />)}</View>
+            <View style={styles.filterRow}>
+              <PrimaryButton label={t('common.first', { defaultValue: 'First' })} disabled={page === 0} onPress={() => goToPage(0)} />
+              <PrimaryButton label={t('common.previous', { defaultValue: 'Previous' })} disabled={page === 0} onPress={() => goToPage(page - 1)} />
+              <PrimaryButton label={t('common.next', { defaultValue: 'Next' })} disabled={page >= maxPage} onPress={() => goToPage(page + 1)} />
+              <PrimaryButton label={t('common.last', { defaultValue: 'Last' })} disabled={page >= maxPage} onPress={() => goToPage(maxPage)} />
+            </View>
+          </SectionCard>
         }
       />
 
@@ -882,6 +920,16 @@ export default function ArchivesScreen() {
 }
 
 const styles = StyleSheet.create({
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  toolbarSearch: { flex: 1 },
+  toolbarButton: {
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   qrImage: { width: 200, height: 200, alignSelf: 'center' },
   container: {
     flex: 1,
@@ -981,8 +1029,12 @@ const styles = StyleSheet.create({
   modalScroll: {
     maxHeight: 360,
   },
+  modalClose: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  modalBodyScroll: { flexGrow: 0, flexShrink: 1 },
+  modalBody: { gap: spacing.md },
   modalFooter: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: spacing.sm,
     marginTop: spacing.sm,

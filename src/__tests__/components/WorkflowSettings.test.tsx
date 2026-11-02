@@ -14,7 +14,7 @@ import { QueueSettingsSection } from '@/components/settings/QueueSettingsSection
 import { ApiExplorerSettings } from '@/components/settings/ApiExplorerSettings';
 import { GeneralWorkflowSettings } from '@/components/settings/GeneralWorkflowSettings';
 import { FailureDetectionSettingsSection } from '@/components/settings/FailureDetectionSettingsSection';
-import { WorkflowNumberField } from '@/components/settings/WorkflowFields';
+import { NumericSettingsField, WorkflowNumberField } from '@/components/settings/WorkflowFields';
 import { OptionChipsField, SwitchRow } from '@/components/settings/shared';
 import {
   PrimaryButton,
@@ -74,6 +74,24 @@ const mockSetSection = jest.fn();
 const mockSetUserPanel = jest.fn();
 const mockShowToast = jest.fn();
 const clients: QueryClient[] = [];
+
+it('keeps cleared and decimal numeric drafts until editing is complete', async () => {
+  const saved = jest.fn();
+  function NumberHarness() {
+    const [value, setValue] = useState(25);
+    return <NumericSettingsField label="Cost" value={String(value)} onChangeNumber={next => { saved(next); setValue(next); }} />;
+  }
+  let renderer!: ReactTestRenderer;
+  await act(async () => { renderer = create(<NumberHarness />); });
+  await act(async () => renderer.root.findByType(TextInput).props.onChangeText(''));
+  expect(renderer.root.findByType(TextInput).props.value).toBe('');
+  expect(saved).not.toHaveBeenCalled();
+  await act(async () => renderer.root.findByType(TextInput).props.onChangeText('0.'));
+  expect(renderer.root.findByType(TextInput).props.value).toBe('0.');
+  await act(async () => renderer.root.findByType(TextInput).props.onChangeText('0.15'));
+  expect(saved).toHaveBeenLastCalledWith(0.15);
+  await act(async () => renderer.unmount());
+});
 
 function Harness({
   initial,

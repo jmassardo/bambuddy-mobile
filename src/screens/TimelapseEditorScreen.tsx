@@ -58,6 +58,8 @@ export default function TimelapseEditorScreen() {
   const [playhead, setPlayhead] = useState(0);
   const [previewError, setPreviewError] = useNativeMessageState<string | null>(null);
   const [version, setVersion] = useState(0);
+  const [previewVersion, setPreviewVersion] = useState(0);
+  const hydratedMedia = useRef<string | null>(null);
   const info = useQuery({
     queryKey: ['timelapseInfo', archiveId, version],
     queryFn: () => archiveWorkflows.timelapseInfo(archiveId),
@@ -67,12 +69,14 @@ export default function TimelapseEditorScreen() {
     queryFn: () => archiveWorkflows.timelapseThumbnails(archiveId),
   });
   useEffect(() => {
-    if (info.data) {
+    const key = `${archiveId}:${version}`;
+    if (info.data && hydratedMedia.current !== key) {
+      hydratedMedia.current = key;
       setStart('0');
       setEnd(String(info.data.duration));
       setSpeed(1);
     }
-  }, [info.data]);
+  }, [info.data, archiveId, version]);
   const range = useLocalizedMemo(() => {
     try {
       return {
@@ -173,6 +177,8 @@ export default function TimelapseEditorScreen() {
     );
   return (
     <ScrollView
+      automaticallyAdjustKeyboardInsets
+      keyboardShouldPersistTaps="handled"
       contentContainerStyle={[
         styles.content,
         { backgroundColor: colors.background },
@@ -187,7 +193,7 @@ export default function TimelapseEditorScreen() {
         {preview ? (
           <EditorWebView
             ref={previewRef}
-            key={`${version}-${token}`}
+            key={`${version}-${previewVersion}-${token}`}
             style={styles.video}
             source={{ html: preview }}
             originWhitelist={['about:blank']}
@@ -222,7 +228,7 @@ export default function TimelapseEditorScreen() {
               label={t('common.retry', { defaultValue: 'Retry preview' })}
               onPress={() => {
                 setPreviewError(null);
-                setVersion(previous => previous + 1);
+                setPreviewVersion(previous => previous + 1);
               }}
             />
           </>
@@ -284,6 +290,8 @@ export default function TimelapseEditorScreen() {
             </View>
           ))}
         </ScrollView>
+        {frames.isLoading ? <Text style={{ color: colors.textSecondary }}>{t('common.loading')}</Text> : null}
+        {frames.isError ? <PrimaryButton label={t('common.retry')} variant="secondary" onPress={() => void frames.refetch()} /> : null}
         <View style={styles.row}>
           {[0.25, 0.5, 1, 1.5, 2, 4].map(value => (
             <Chip

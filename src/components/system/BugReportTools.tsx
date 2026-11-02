@@ -1,7 +1,7 @@
 import { nativeMessage, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { AppState, Image, Linking, StyleSheet, Text, View } from 'react-native';
+import { Alert, AppState, Image, Linking, StyleSheet, Text, View } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { systemApi } from '@/api/system';
@@ -501,14 +501,19 @@ export function BugReportTools() {
             variant="danger"
             disabled={action.isPending}
             onPress={() =>
-              action.mutate(async () => {
+              Alert.alert(t('system.report.discard', {
+                defaultValue: 'Discard report and restore logging',
+              }), undefined, [
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('system.report.discard', { defaultValue: 'Discard report and restore logging' }), style: 'destructive', onPress: () => action.mutate(async () => {
                 await stop();
                 await update(null);
                 setScreenshot(undefined);
                 return t('system.report.discarded', {
                   defaultValue: 'Report discarded. Nothing was submitted.',
                 });
-              })
+              }) },
+              ])
             }
           />
         </>

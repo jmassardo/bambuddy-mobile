@@ -55,6 +55,23 @@ beforeEach(() => {
 });
 afterEach(() => { jest.restoreAllMocks(); });
 
+it('renders counted dashboard text when the native runtime has no plural rules', () => {
+  const original = Object.getOwnPropertyDescriptor(Intl, 'PluralRules')!;
+  try {
+    Object.defineProperty(Intl, 'PluralRules', { ...original, value: undefined });
+    jest.isolateModules(() => {
+      const { availableLanguages, createTranslator: translate } = require('@/i18n') as typeof import('@/i18n');
+      expect(translate('en')('fleet.loadingCount', { count: 3, defaultValue: '{{count}} loading' })).toBe('3 loading');
+      expect(Intl.PluralRules.supportedLocalesOf(availableLanguages.map(item => item.key))).toHaveLength(availableLanguages.length);
+      expect(new Intl.PluralRules('ru').select(2)).toBe('few');
+      expect(new Intl.PluralRules('uk').select(5)).toBe('many');
+      expect(new Intl.PluralRules('ja').select(2)).toBe('other');
+    });
+  } finally {
+    Object.defineProperty(Intl, 'PluralRules', original);
+  }
+});
+
 it('uses native Spanish preferences ahead of Hermes Intl English, while preserving stored selection and reset', async () => {
   jest.replaceProperty(Platform, 'OS', 'ios');
   jest.spyOn(Settings, 'get').mockImplementation(key => key === 'AppleLanguages' ? ['es'] : 'es_ES');

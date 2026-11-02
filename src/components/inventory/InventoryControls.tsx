@@ -1,13 +1,16 @@
 import { translateNative, useNativeLocale } from '@/i18n';
 import React, { useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   PrimaryButton as AppButton,
   SectionCard,
@@ -73,7 +76,11 @@ export function InventoryModal({
   const { colors } = useTheme();
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
+      <SafeAreaProvider style={styles.viewport}>
+      <KeyboardAvoidingView style={styles.viewport} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <SafeAreaView style={[styles.viewport, { backgroundColor: colors.background }]}>
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.modal,
           { backgroundColor: colors.background },
@@ -88,6 +95,9 @@ export function InventoryModal({
         <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         {children}
       </ScrollView>
+      </SafeAreaView>
+      </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -212,6 +222,7 @@ export const inventoryControlStyles = StyleSheet.create({
   },
 });
 const styles = StyleSheet.create({
+  viewport: { flex: 1 },
   modal: {
     padding: spacing.lg,
     paddingTop: spacing['5xl'],

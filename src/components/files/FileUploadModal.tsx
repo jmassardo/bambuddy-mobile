@@ -13,6 +13,7 @@ import {
   ScrollView,
   Switch,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import { useMutation } from '@tanstack/react-query';
 import { FileUp, Upload, X } from 'lucide-react-native';
@@ -130,7 +131,8 @@ export function FileUploadModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {if (!uploadMutation.isPending) onClose();}}>
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}> 
+      <SafeAreaProvider>
+      <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <View style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}> 
           <View style={[styles.header, { borderBottomColor: colors.borderSubtle }]}> 
             <View style={styles.headerTextWrap}>
@@ -142,7 +144,7 @@ export function FileUploadModal({
             </Pressable>
           </View>
 
-          <View style={styles.content}>
+          <ScrollView contentContainerStyle={styles.content}>
             <Pressable
               disabled={uploadMutation.isPending}
               onPress={() => {
@@ -163,7 +165,7 @@ export function FileUploadModal({
               </View>
             </Pressable>
 
-            <ScrollView style={styles.fileList}>
+            <ScrollView nestedScrollEnabled style={styles.fileList}>
               {selectedFiles.map(file => (
                 <View key={file.uri} style={[styles.fileSummary, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
                   <Text style={[styles.fileName, { color: colors.text }]}>{file.name}</Text>
@@ -205,7 +207,7 @@ export function FileUploadModal({
                 <Text style={[styles.progressLabel, { color: colors.textSecondary }]}><NativeTranslation id="native.a29b901e1158605d" values={{ value0: (progress) }} /></Text>
               </View>
             ) : null}
-          </View>
+          </ScrollView>
 
           <View style={[styles.footer, { borderTopColor: colors.borderSubtle }]}> 
             <Pressable
@@ -244,7 +246,8 @@ export function FileUploadModal({
             </Pressable>
           </View>
         </View>
-      </View>
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -259,6 +262,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   card: {
+    maxHeight: '90%',
     borderWidth: 1,
     borderRadius: borderRadius.xl,
   },
@@ -281,7 +285,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
   },
   closeButton: {
-    padding: spacing.xs,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     padding: spacing.lg,

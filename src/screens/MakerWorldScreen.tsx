@@ -15,6 +15,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { makerworldApi } from '@/api/makerworld';
@@ -26,7 +27,7 @@ import { makerworldImportRequest } from '@/utils/makerworld';
 import { openLibrary } from '@/utils/libraryNavigation';
 import type { MakerworldImportRequest, MakerworldImportResponse } from '@/types/api';
 import { PrimaryButton, SectionCard, StatusBadge, TextField } from '@/components/common/AppUI';
-import { EmptyState, ErrorState } from '@/components/common/StateScreens';
+import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
@@ -185,11 +186,15 @@ export default function MakerWorldScreen() {
   if (statusQuery.isError || recentQuery.isError) {
     return <ErrorState message={translateNative('native.633a508ed66f2275')} onRetry={() => void refreshAll()} />;
   }
+  if (statusQuery.isPending || recentQuery.isPending) {
+    return <LoadingScreen />;
+  }
 
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
       refreshControl={
         <RefreshControl
           refreshing={statusQuery.isRefetching || recentQuery.isRefetching}
@@ -334,13 +339,15 @@ export default function MakerWorldScreen() {
       </SectionCard>
       {sliceFile ? <SliceModal visible onClose={() => setSliceFile(null)} sourceType="file" sourceId={sliceFile.id} sourceName={sliceFile.name} /> : null}
 
-      <Modal visible={!!selectedImage} animationType="fade" transparent>
-        <View style={[styles.lightbox, { backgroundColor: colors.overlay }]}> 
+      <Modal visible={!!selectedImage} animationType="fade" transparent onRequestClose={() => setSelectedImage(null)}>
+        <SafeAreaProvider style={styles.container}>
+        <SafeAreaView style={[styles.lightbox, { backgroundColor: colors.overlay }]}>
           <View style={styles.lightboxCard}>
             {selectedImage ? <Image source={{ uri: selectedImage }} style={styles.lightboxImage} resizeMode="contain" /> : null}
             <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={() => setSelectedImage(null)} />
           </View>
-        </View>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
     </ScrollView>
   );
@@ -400,6 +407,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   importCard: {

@@ -1,14 +1,18 @@
 import { nativeMessage, useNativeLocale, useTranslation } from '@/i18n';
 
 import React, { useState } from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { slicingApi } from '@/api/slicing';
 import { printersApi } from '@/api/printers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { PrimaryButton, TextField } from '@/components/common/AppUI';
-import { Box, Choice, Copy, styles } from '@/components/slicing/Controls';
+import { Box, Choice, Copy } from '@/components/slicing/Controls';
+import { useTheme } from '@/theme';
+import { spacing } from '@/theme/tokens';
+import { formatPreferredDateTime } from '@/utils/preferences';
+import { localizedStatus } from '@/utils/statusLabel';
 import { hasTarget, refValue, staleRefs } from '@/utils/sliceConfiguration';
 import type {
   Printer,
@@ -17,9 +21,12 @@ import type {
   UnifiedPresetsResponse,
 } from '@/types/api';
 
+const screenStyles = StyleSheet.create({ content: { padding: spacing.lg, gap: spacing.md } });
+
 export function SlicerPipelinesScreen() {
   useNativeLocale();
   const { t } = useTranslation();
+  const { colors } = useTheme();
   const text = (s: string) => t(`pipelineManagement.${s}`, { defaultValue: s });
   const { hasPermission } = useAuth();
   const [search, setSearch] = useState('');
@@ -43,11 +50,18 @@ export function SlicerPipelinesScreen() {
       (printers.data ?? []).map(p => p.model).filter((m): m is string => !!m),
     ),
   ];
+  const filteredPipelines = (pipelines.data?.pipelines ?? [])
+    .filter(p => `${p.name} ${p.description ?? ''}`.toLowerCase().includes(search.toLowerCase()))
+    .filter(p => !target || (target === 'none' ? !hasTarget(p) : target.startsWith('p:')
+      ? p.target_kind === 'specific_printer' && p.target_printer_id === Number(target.slice(2))
+      : p.target_kind === 'printer_class' && p.target_model_class === target.slice(2)));
   if (!hasPermission('pipelines:read'))
     return <Copy>{text('Permission denied')}</Copy>;
   return (
     <ScrollView
-      contentContainerStyle={styles.box}
+      style={{ backgroundColor: colors.background }}
+      contentContainerStyle={screenStyles.content}
+      automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
     >
       <TextField
@@ -84,24 +98,7 @@ export function SlicerPipelinesScreen() {
         (q, i) => q.isError && <Copy key={i}>{q.error.message}</Copy>,
       )}
       {pipelines.isLoading && <Copy>{text('Loading pipelines…')}</Copy>}
-      {(pipelines.data?.pipelines ?? [])
-        .filter(p =>
-          `${p.name} ${p.description ?? ''}`
-            .toLowerCase()
-            .includes(search.toLowerCase()),
-        )
-        .filter(
-          p =>
-            !target ||
-            (target === 'none'
-              ? !hasTarget(p)
-              : target.startsWith('p:')
-              ? p.target_kind === 'specific_printer' &&
-                p.target_printer_id === Number(target.slice(2))
-              : p.target_kind === 'printer_class' &&
-                p.target_model_class === target.slice(2)),
-        )
-        .map(p => (
+      {filteredPipelines.map(p => (
           <PipelineRow
             key={`${p.id}:${p.updated_at}`}
             pipeline={p}
@@ -117,6 +114,8 @@ export function SlicerPipelinesScreen() {
           )}
         </Copy>
       )}
+      {pipelines.isSuccess && Boolean(pipelines.data?.pipelines.length) && !filteredPipelines.length
+        ? <Copy>{t('pipelineManagement.noMatchingPipelines')}</Copy> : null}
     </ScrollView>
   );
 }
@@ -232,15 +231,15 @@ function PipelineRow({
           .join(', ')}`}</Copy>
       )}
       {last.isError && <Copy>{last.error.message}</Copy>}
-      <Copy>
+      {last.isLoading ? <Copy>{t('common.loading')}</Copy> : !last.isError ? <Copy>
         {run
-          ? `${text('Last run')}: #${run.id} ${run.status} · ${
+          ? `${text('Last run')}: #${run.id} ${localizedStatus(run.status)} · ${
               run.copies_completed
-            }/${run.copies} · ${run.created_at}${
+            }/${run.copies} · ${formatPreferredDateTime(run.created_at)}${
               run.error_message ? ` · ${run.error_message}` : ''
             }`
           : text('No runs yet')}
-      </Copy>
+      </Copy> : null}
       {writable &&
         (editing ? (
           <>
@@ -338,7 +337,7 @@ function PipelineRow({
       {writable && (
         <PrimaryButton
           label={text('Delete pipeline')}
-          variant="secondary"
+          variant="danger"
           disabled={remove.isPending}
           onPress={() =>
             Alert.alert(text('Delete pipeline?'), pipeline.name, [

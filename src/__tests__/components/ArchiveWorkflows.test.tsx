@@ -17,7 +17,9 @@ import {
   EmbeddedArchiveProjectPage,
 } from '@/components/archives/ArchiveDetailTools';
 import { EditArchiveModal } from '@/components/archives/EditArchiveModal';
+import TimelapseEditorScreen from '@/screens/TimelapseEditorScreen';
 import { archiveWorkflows } from '@/api/archiveWorkflows';
+import { archivesApi } from '@/api/archives';
 import { api } from '@/api/client';
 import { pick } from '@react-native-documents/picker';
 import type { Archive } from '@/types/api';
@@ -55,8 +57,10 @@ jest.mock('@react-native-documents/picker', () => ({
   errorCodes: { OPERATION_CANCELED: 'cancelled' },
 }));
 jest.mock('react-native-webview', () => ({
-  WebView: require('react-native').View,
+  WebView: (props: object) => require('react').createElement(require('react-native').View, { ...props, testID: 'archive-webview' }),
 }));
+jest.mock('@react-navigation/native', () => ({ useRoute: () => ({ params: { archiveId: 9 } }) }));
+jest.mock('@/hooks/useStreamToken', () => ({ useMediaToken: () => ({ token: 'media', isReady: true }) }));
 jest.mock('@react-native-clipboard/clipboard', () => ({
   setString: jest.fn(),
 }));
@@ -89,6 +93,8 @@ jest.mock('@/api/archiveWorkflows', () => ({
     folders: jest.fn(),
     projectPage: jest.fn(),
     saveProjectPage: jest.fn(),
+    timelapseInfo: jest.fn(),
+    timelapseThumbnails: jest.fn(),
   },
 }));
 
@@ -103,6 +109,22 @@ const sample = {
   user_verdict: null,
   failure_reason: null,
 } as Archive;
+
+it('retries the timelapse preview without resetting trim drafts or fetching metadata again', async () => {
+  const mediaUrl = jest.spyOn(archivesApi, 'getArchiveTimelapse').mockReturnValue('https://farm.test/timelapse');
+  jest.mocked(archiveWorkflows.timelapseInfo).mockResolvedValue({ duration: 60, width: 1920, height: 1080, fps: 30 } as Awaited<ReturnType<typeof archiveWorkflows.timelapseInfo>>);
+  jest.mocked(archiveWorkflows.timelapseThumbnails).mockResolvedValue({ thumbnails: [], timestamps: [] });
+  const ui = await wrap(<TimelapseEditorScreen />);
+  const start = await ui.findByLabelText('Trim start (seconds, decimals supported)');
+  await fireEvent.changeText(start, '3.5');
+  await fireEvent.changeText(ui.getByLabelText('Trim end (seconds, decimals supported)'), '50');
+  await fireEvent(ui.getByTestId('archive-webview'), 'error');
+  await fireEvent.press(ui.getByText('Retry'));
+  expect(ui.getByLabelText('Trim start (seconds, decimals supported)').props.value).toBe('3.5');
+  expect(ui.getByLabelText('Trim end (seconds, decimals supported)').props.value).toBe('50');
+  expect(archiveWorkflows.timelapseInfo).toHaveBeenCalledTimes(1);
+  mediaUrl.mockRestore();
+});
 const wrap = (element: React.ReactElement) =>
   render(
     <QueryClientProvider

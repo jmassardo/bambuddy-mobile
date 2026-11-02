@@ -397,6 +397,13 @@ export default function SpoolBuddyScreen() {
   const assignments = (slotAssignmentsQuery.data ?? []) as SpoolBuddySlotAssignment[];
   const usageRecords = (usageQuery.data ?? []) as SpoolBuddyUsageRecord[];
   const usageSummaries = (usageSummaryQuery.data ?? []) as SpoolBuddyUsageSummary[];
+  const activeDetailQueries = !selectedDeviceId || activeTab === 'devices'
+    ? []
+    : activeTab === 'slots'
+      ? [deviceSlotsQuery, slotAssignmentsQuery]
+      : [usageQuery, usageSummaryQuery];
+  const detailError = activeDetailQueries.find(query => query.isError)?.error;
+  const detailsLoading = activeDetailQueries.some(query => query.isPending);
 
   const assignmentMap = useLocalizedMemo(() => {
     const map = new Map<number, SpoolBuddySlotAssignment>();
@@ -432,6 +439,8 @@ export default function SpoolBuddyScreen() {
           {tabs.map(tab => (
             <Pressable
               key={tab.key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === tab.key }}
               style={[
                 styles.tabButton,
                 activeTab === tab.key && [styles.tabButtonActive, { backgroundColor: colors.accent }],
@@ -456,12 +465,11 @@ export default function SpoolBuddyScreen() {
           contentContainerStyle={styles.content}
           refreshControl={
             <RefreshControl
-              refreshing={spoolbuddyQuery.isRefetching || deviceSlotsQuery.isRefetching}
+              testID="spoolbuddy-refresh"
+              refreshing={spoolbuddyQuery.isRefetching || activeDetailQueries.some(query => query.isRefetching)}
               onRefresh={() => {
                 void spoolbuddyQuery.refetch();
-                if (selectedDeviceId) {
-                  void deviceSlotsQuery.refetch();
-                }
+                activeDetailQueries.forEach(query => { void query.refetch(); });
               }}
               tintColor={colors.accent}
             />
@@ -491,7 +499,8 @@ export default function SpoolBuddyScreen() {
             },
           })}
 
-          {activeTab === 'slots' && renderSlotsSection({
+          {detailError ? <ErrorState message={detailError.message} onRetry={() => { activeDetailQueries.forEach(query => { void query.refetch(); }); }} /> : detailsLoading ? <LoadingScreen inline /> : null}
+          {activeTab === 'slots' && !detailError && !detailsLoading && renderSlotsSection({
             slots,
             deviceSlotsQuery,
             selectedDeviceId,
@@ -535,7 +544,7 @@ export default function SpoolBuddyScreen() {
             setPendingDeleteDevice,
           })}
 
-          {activeTab === 'usage' && renderUsageSection({
+          {activeTab === 'usage' && !detailError && !detailsLoading && renderUsageSection({
             usageQuery,
             usageRecords,
             usageSummaryQuery,
@@ -845,9 +854,6 @@ function renderDevicesSection({
   return (
     <>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>
-          SpoolBuddy
-        </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           {translateNative('native.f450c1469558d158')}</Text>
       </View>
@@ -1135,6 +1141,9 @@ function renderSlotsSection({
               return (
                 <Pressable
                   key={deviceId}
+                  accessibilityRole="button"
+                  accessibilityLabel={pickString(device, ['hostname', 'device_id'], 'SpoolBuddy')}
+                  accessibilityState={{ selected: selectedDeviceId === deviceId }}
                   style={[
                     styles.deviceChip,
                     selectedDeviceId === deviceId && [
@@ -1461,6 +1470,9 @@ function renderUsageSection({
               return (
                 <Pressable
                   key={deviceId}
+                  accessibilityRole="button"
+                  accessibilityLabel={pickString(device, ['hostname', 'device_id'], 'SpoolBuddy')}
+                  accessibilityState={{ selected: selectedDeviceId === deviceId }}
                   style={[
                     styles.deviceChip,
                     selectedDeviceId === deviceId && [
@@ -1576,7 +1588,7 @@ function renderUsageSection({
       )}
 
       {selectedDeviceId && usageRecords.length === 0 && usageQuery.isFetching && (
-        <LoadingScreen message={translateNative('native.55718e7f69a944d5')} />
+        <LoadingScreen inline message={translateNative('native.55718e7f69a944d5')} />
       )}
 
       {selectedDeviceId && usageRecords.length === 0 && !usageQuery.isFetching && (

@@ -2,7 +2,7 @@ import { nativeEnglishSuffix, translateNative, useNativeLocale } from '@/i18n';
 
 import React from 'react';
 import { View } from 'react-native';
-import { EmptyState } from '@/components/common/StateScreens';
+import { EmptyState, ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { PrimaryButton, SectionCard, StatusBadge } from '@/components/common/AppUI';
 import { settingsStyles } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
@@ -19,10 +19,11 @@ export function StorageLocationsSection({ controller }: { controller: SettingsSc
         <PrimaryButton
           label={translateNative('native.2846432316620fd1')}
           variant="secondary"
+          disabled={!controller.permissions.canManageSpools}
           onPress={() => controller.actions.openLocationModal()}
         />
       </SectionCard>
-      {locations.length > 0 ? (
+      {locationsQuery.isLoading ? <LoadingScreen inline /> : locationsQuery.isError ? <ErrorState message={locationsQuery.error.message} onRetry={() => void locationsQuery.refetch()} /> : locations.length > 0 ? (
         locations.map(location => (
           <StorageLocationCard
             key={location.id}

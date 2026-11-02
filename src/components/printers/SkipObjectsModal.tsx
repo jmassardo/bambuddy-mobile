@@ -1,6 +1,7 @@
 import { useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { request } from '@/api/http';
@@ -59,7 +60,8 @@ export function SkipObjectsModal({ visible, printerId, onClose }: {
       if (canSkip && selectedIds.length) mutation.mutate(selectedIds);
     } }]);
   return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <SafeAreaProvider>
+    <SafeAreaView edges={{ top: 'maximum', bottom: 'maximum', left: 'maximum', right: 'maximum' }} style={[styles.root, { backgroundColor: colors.background }]}>
       <PrimaryButton label={t('common.close')} variant="secondary" onPress={onClose} />
       <Text style={{ color: colors.text }}>{t('device.skipObjectsTitle', { defaultValue: 'Skip objects' })}</Text>
       {!canSkip ? <Text style={{ color: colors.warning }}>{t('device.skipGuard', { defaultValue: 'A connected running print after layer 1 and printer control permission are required.' })}</Text> : null}
@@ -81,7 +83,8 @@ export function SkipObjectsModal({ visible, printerId, onClose }: {
         variant="danger" disabled={!canSkip || !selectedIds.length} loading={mutation.isPending} onPress={confirm} />
       {mutation.error ? <Text style={{ color: colors.error }}>{mutation.error.message}</Text> : null}
       {mutation.isSuccess ? <Text style={{ color: colors.success }}>{t('device.objectsSkipped', { defaultValue: 'Selected objects skipped.' })}</Text> : null}
-    </View>
+    </SafeAreaView>
+    </SafeAreaProvider>
   </Modal>;
 }
 

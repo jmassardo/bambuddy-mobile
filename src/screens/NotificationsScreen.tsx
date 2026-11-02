@@ -68,12 +68,9 @@ export default function NotificationsScreen() {
         client.invalidateQueries({ queryKey: [key] })),
     ]);
   };
-  if (auth.isLoading || settings.isLoading || personal.isLoading) return <LoadingScreen />;
-  if (auth.error || settings.error || personal.error) return <ErrorState
-    message={t('notifications.loadError', { defaultValue: 'Unable to load notification settings.' })} onRetry={() => { void refresh(); }} />;
   const available = pickBoolean(auth.data, ['advanced_auth_enabled']) && pickBoolean(settings.data, ['user_notifications_enabled']);
   return (
-    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}
+    <ScrollView automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled" style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={auth.isRefetching || settings.isRefetching || personal.isRefetching}
         onRefresh={() => { void refresh(); }} tintColor={colors.accent} />}>
       {hasPermission('notifications:read') ? <NotificationProviders /> : null}
@@ -83,7 +80,8 @@ export default function NotificationsScreen() {
       <PushNotificationToggleCard />
       <Card>
         <SectionHeader title={t('notifications.emailPreferences', { defaultValue: 'Personal email notification preferences' })} />
-        {!available ? (
+        {auth.isLoading || settings.isLoading || personal.isLoading ? <LoadingScreen inline /> : auth.error || settings.error || personal.error ? <ErrorState
+          message={t('notifications.loadError', { defaultValue: 'Unable to load notification settings.' })} onRetry={() => { void refresh(); }} /> : !available ? (
           <View style={styles.group}>
             <Text style={{ color: colors.textSecondary }}>{t('notifications.emailUnavailable', {
               defaultValue: 'Enable advanced authentication and user email notifications in Settings to manage per-user email alerts.',

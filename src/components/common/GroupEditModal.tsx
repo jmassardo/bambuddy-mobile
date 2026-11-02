@@ -3,13 +3,16 @@ import { NativeTranslation, nativeMessage, translateNative, useLocalizedMemo, us
 
 import React, { useEffect, useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X, Check, Minus, Shield } from 'lucide-react-native';
 import { api } from '@/api/client';
@@ -17,6 +20,7 @@ import { useTheme } from '@/theme';
 import { useToast } from '@/contexts/ToastContext';
 import {  } from '@/theme/tokens';
 import { TextField, PrimaryButton, SearchBar } from '@/components/common/AppUI';
+import { ErrorState, LoadingScreen } from '@/components/common/StateScreens';
 import { pickArray, pickString, type ApiRecord } from '@/utils/data';
 
 interface Props {
@@ -36,6 +40,8 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
   const [description, setDescription] = useState('');
   const [permissions, setPermissions] = useState<string[]>([]);
   const [search, setSearch] = useState('');
+  const [initializedGroup, setInitializedGroup] = useState<string | null>(null);
+  const formKey = isEditing ? `group:${groupId}` : 'new';
 
   const groupQuery = useQuery({
     queryKey: ['group', groupId],
@@ -49,19 +55,25 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
     enabled: visible,
   });
 
-  // Initialize form from group data
   useEffect(() => {
+    if (!visible) {
+      setInitializedGroup(null);
+      return;
+    }
+    if (initializedGroup === formKey) return;
     if (isEditing && groupQuery.data) {
       const data = groupQuery.data as ApiRecord;
       setName(pickString(data, ['name']));
       setDescription(pickString(data, ['description']));
       setPermissions(pickArray(data, ['permissions']) as string[]);
-    } else if (!isEditing && visible) {
+    } else if (!isEditing) {
       setName('');
       setDescription('');
       setPermissions([]);
-    }
-  }, [groupQuery.data, isEditing, visible]);
+    } else return;
+    setSearch('');
+    setInitializedGroup(formKey);
+  }, [formKey, groupQuery.data, initializedGroup, isEditing, visible]);
 
   const createMutation = useMutation({
     mutationFn: (data: { name: string; description?: string; permissions: string[] }) =>
@@ -99,6 +111,11 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
   };
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
+  const handleClose = () => {
+    if (!isSaving) onClose();
+  };
+  const queryError = (!permissionsQuery.data && permissionsQuery.error) ||
+    (isEditing && !groupQuery.data && groupQuery.error);
 
   const categories = useLocalizedMemo(() => {
     const data = permissionsQuery.data as ApiRecord | undefined;
@@ -141,9 +158,10 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
   const clearAll = () => setPermissions([]);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
-        <View style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <SafeAreaProvider style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+        <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} accessibilityViewIsModal style={[styles.card, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.borderSubtle }]}>
             <View style={{ flex: 1 }}>
@@ -152,25 +170,31 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
               </Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}><NativeTranslation id="native.934307fd99d33c94" values={{ value0: (permissions.length), value1: (allPerms.length) }} /></Text>
             </View>
-            <Pressable onPress={onClose} style={styles.closeBtn}>
+            <Pressable onPress={handleClose} disabled={isSaving} style={styles.closeBtn} accessibilityLabel={translateNative('common.close')} accessibilityRole="button" accessibilityState={{ disabled: isSaving }}>
               <X size={18} color={colors.textSecondary} />
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            {queryError ? (
+              <ErrorState message={queryError.message} onRetry={() => {
+                permissionsQuery.refetch();
+                if (isEditing) groupQuery.refetch();
+              }} />
+            ) : permissionsQuery.isPending || (isEditing && groupQuery.isPending) || initializedGroup !== formKey ? <LoadingScreen inline /> : <>
             {/* Name + Description */}
-            <TextField label={translateNative('native.2d9a415b53589540')} value={name} onChangeText={setName} placeholder={translateNative('native.2adc6b536f8c82d6')} />
-            <TextField label={translateNative('native.a7115fb87dd30c12')} value={description} onChangeText={setDescription} placeholder={translateNative('native.7898f2a35154d41d')} />
+            <TextField label={translateNative('native.2d9a415b53589540')} value={name} onChangeText={setName} editable={!isSaving} placeholder={translateNative('native.2adc6b536f8c82d6')} />
+            <TextField label={translateNative('native.a7115fb87dd30c12')} value={description} onChangeText={setDescription} editable={!isSaving} placeholder={translateNative('native.7898f2a35154d41d')} />
 
             {/* Permission controls */}
             <View style={styles.permHeader}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
                 <Shield size={14} color={colors.accent} /> {translateNative('native.dd83f53be6c46779')}</Text>
               <View style={styles.permActions}>
-                <Pressable onPress={selectAll} accessibilityLabel={translateNative('native.b286defcc0b99c65')} accessibilityRole="button">
+                <Pressable onPress={selectAll} style={styles.actionButton} disabled={isSaving} accessibilityState={{ disabled: isSaving }} accessibilityLabel={translateNative('native.b286defcc0b99c65')} accessibilityRole="button">
                   <Text style={[styles.actionLink, { color: colors.accent }]}>{translateNative('common.all')}</Text>
                 </Pressable>
-                <Pressable onPress={clearAll} accessibilityLabel={translateNative('native.5b963e151826d816')} accessibilityRole="button">
+                <Pressable onPress={clearAll} style={styles.actionButton} disabled={isSaving} accessibilityState={{ disabled: isSaving }} accessibilityLabel={translateNative('native.5b963e151826d816')} accessibilityRole="button">
                   <Text style={[styles.actionLink, { color: colors.textSecondary }]}>{translateNative('common.none')}</Text>
                 </Pressable>
               </View>
@@ -187,10 +211,11 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
                 <View key={cat.name} style={[styles.categoryCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
                   <Pressable
                     onPress={() => toggleCategory(catPermValues, !allSelected)}
+                    disabled={isSaving}
                     style={styles.categoryHeader}
                     accessibilityLabel={`${cat.label}: ${allSelected ? translateNative('native.e33f6ece7f8005e2') : someSelected ? translateNative('native.c9001cd2905b950c') : translateNative('native.99dd79d4bc8e1787')}`}
                     accessibilityRole="checkbox"
-                    accessibilityState={{ checked: allSelected }}
+                    accessibilityState={{ checked: allSelected ? true : someSelected ? 'mixed' : false, disabled: isSaving }}
                   >
                     <View style={[
                       styles.checkbox,
@@ -211,10 +236,11 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
                     <Pressable
                       key={perm.value}
                       onPress={() => togglePermission(perm.value)}
-                      style={styles.permRow}
+                      disabled={isSaving}
+                      style={[styles.permRow, { borderTopColor: colors.borderSubtle }]}
                       accessibilityRole="switch"
                       accessibilityLabel={perm.label}
-                      accessibilityState={{ checked: permissions.includes(perm.value) }}
+                      accessibilityState={{ checked: permissions.includes(perm.value), disabled: isSaving }}
                     >
                       <View style={[
                         styles.checkbox,
@@ -244,9 +270,11 @@ export function GroupEditModal({ visible, onClose, groupId }: Props) {
               loading={isSaving}
               disabled={!name.trim()}
             />
+            </>}
           </ScrollView>
-        </View>
-      </View>
+        </SafeAreaView>
+        </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -268,14 +296,17 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 18, fontWeight: '600' },
   subtitle: { fontSize: 12, marginTop: 2 },
-  closeBtn: { padding: 4 },
+  closeBtn: { padding: 4, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 16, paddingBottom: 40, gap: 16 },
+  scroll: { flexShrink: 1 },
   sectionTitle: { fontSize: 14, fontWeight: '600' },
   permHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   permActions: { flexDirection: 'row', gap: 12 },
   actionLink: { fontSize: 13, fontWeight: '500' },
+  actionButton: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
   categoryCard: { borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
   categoryHeader: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
@@ -284,13 +315,13 @@ const styles = StyleSheet.create({
   categoryName: { fontSize: 14, fontWeight: '600', flex: 1 },
   categoryCount: { fontSize: 12 },
   permRow: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 10,
     borderTopWidth: 0.5,
-    borderTopColor: 'rgba(255,255,255,0.05)',
   },
   permLabel: { fontSize: 13 },
   permDesc: { fontSize: 11, marginTop: 2 },

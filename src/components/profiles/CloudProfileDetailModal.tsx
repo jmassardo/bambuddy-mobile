@@ -2,12 +2,15 @@ import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import React, { useEffect, useState } from 'react';
 import {
   Modal,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { PrimaryButton, StatusBadge, TextField } from '@/components/common/AppUI';
 
@@ -56,7 +59,9 @@ export function CloudProfileDetailModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+      <SafeAreaProvider>
+      <KeyboardAvoidingView style={styles.viewport} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <SafeAreaView style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View
           style={[
@@ -99,7 +104,7 @@ export function CloudProfileDetailModal({
               <PrimaryButton label={translateNative('common.retry')} variant="secondary" onPress={onRetry} />
             </View>
           ) : detail ? (
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
               <TextField label={t('profiles.searchSettings', { defaultValue: 'Search all setting values' })} value={search} onChangeText={setSearch} />
               <PrimaryButton label={raw ? t('profiles.showValues', { defaultValue: 'Show values' }) : t('profiles.showJson', { defaultValue: 'Show complete JSON' })} variant="secondary" onPress={() => setRaw(!raw)} />
               {raw ? <Text selectable style={[styles.settingValue, { color: colors.text }]}>{JSON.stringify(detail, null, 2)}</Text> : null}
@@ -187,12 +192,15 @@ export function CloudProfileDetailModal({
 
           <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={onClose} />
         </View>
-      </View>
+      </SafeAreaView>
+      </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  viewport: { flex: 1 },
   backdrop: {
     flex: 1,
     justifyContent: 'center',
@@ -224,8 +232,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   closeButton: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     alignItems: 'center',

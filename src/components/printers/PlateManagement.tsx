@@ -4,7 +4,7 @@ import { Alert, Image, StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { camerasApi } from '@/api/cameras';
 import { api } from '@/api/client';
-import { useMediaToken } from '@/hooks/useStreamToken';
+import { useCameraToken } from '@/hooks/useStreamToken';
 import { PrimaryButton, SectionCard, TextField } from '@/components/common/AppUI';
 import { CameraMessage } from './CameraControls';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +20,7 @@ function ReferenceEditor({ printerId, reference, canEdit, refresh }: {
 }) {
   useNativeLocale();
   const { t } = useTranslation();
-  const { isReady, token } = useMediaToken();
+  const { isReady, token } = useCameraToken();
   const [label, setLabel] = useState(reference.label);
   const mutation = useMutation({
     mutationFn: (remove: boolean) => remove
@@ -30,7 +30,7 @@ function ReferenceEditor({ printerId, reference, canEdit, refresh }: {
   });
   return (
     <View style={styles.reference}>
-      {isReady && reference.has_image ? <Image accessibilityLabel={reference.label} style={styles.thumbnail} source={{ uri: camerasApi.referenceImage(printerId, reference.index) }} key={`${reference.timestamp}:${token}`} /> : null}
+      {isReady && reference.has_image ? <Image accessibilityLabel={reference.label} style={styles.thumbnail} source={{ uri: camerasApi.referenceImage(printerId, reference.index, token) }} key={`${reference.timestamp}:${token}`} /> : null}
       <CameraMessage>{reference.timestamp}</CameraMessage>
       <TextField label={t('camera.referenceLabel', { defaultValue: 'Reference label' })} value={label} onChangeText={setLabel} />
       <PrimaryButton label={t('common.save', { defaultValue: 'Save' })} disabled={!canEdit || mutation.isPending} onPress={() => mutation.mutate(false)} />

@@ -3,13 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { printersApi } from '@/api/printers';
-import { useMediaToken } from '@/hooks/useStreamToken';
+import { useCameraToken } from '@/hooks/useStreamToken';
 
 import { CameraMessage } from './CameraControls';
 
 export function ScopedCameraStream({ printerId, rotation = 0 }: { printerId: number; rotation?: number }) {
   useNativeLocale();
-  const { isReady, token } = useMediaToken();
+  const { isReady, token } = useCameraToken();
   const { t } = useTranslation();
   const [failed, setFailed] = useState(false);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -17,7 +17,7 @@ export function ScopedCameraStream({ printerId, rotation = 0 }: { printerId: num
   const swapAxes = (degrees === 90 || degrees === 270) && size.width > 0;
   useEffect(() => setFailed(false), [printerId, token]);
   if (!isReady) return <CameraMessage>{t('camera.waitingMedia', { defaultValue: 'Preparing camera access…' })}</CameraMessage>;
-  const uri = printersApi.getCameraStreamUrl(printerId);
+  const uri = printersApi.getCameraStreamUrl(printerId, token);
   if (failed) return <CameraMessage>{t('camera.streamFailed', { defaultValue: 'Live stream unavailable. Reduce the live cap to use snapshots.' })}</CameraMessage>;
   return <View style={styles.container} key={token} onLayout={event => {
     const { width, height } = event.nativeEvent.layout;

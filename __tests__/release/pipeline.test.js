@@ -5,6 +5,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 const { nextVersion, allocateRelease, validateContext, checkRun } = require('../../scripts/release/pipeline');
+const { readReleaseMetadata } = require('../../scripts/release/metadata');
+const { parseChangelog } = require('../../scripts/release/changelog');
 
 const root = path.resolve(__dirname, '../..');
 const pipelinePath = path.join(root, 'scripts/release/pipeline.js');
@@ -47,6 +49,15 @@ beforeEach(() => {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.copyFileSync(path.join(root, file), target);
   }
+  const baseline = readReleaseMetadata(directory, { allowEmptyUnreleased: true });
+  const version = nextVersion([baseline.version]);
+  const buildNumber = Math.max(baseline.iosBuild, baseline.androidVersionCode, 99) + 1;
+  const changelogPath = path.join(directory, 'CHANGELOG.md');
+  const changelog = fs.readFileSync(changelogPath, 'utf8');
+  if (!parseChangelog(changelog, { allowEmptyUnreleased: true }).unreleasedBody) {
+    fs.writeFileSync(changelogPath, changelog.replace(/^## \[Unreleased\]\r?$/m,
+      '## [Unreleased]\n\n### Changed\n\n- Release test fixture.'));
+  }
   git('init', '--quiet');
   git('config', 'user.name', 'Release test');
   git('config', 'user.email', 'release-test@example.invalid');
@@ -57,11 +68,13 @@ beforeEach(() => {
   git('add', '.');
   git('commit', '--quiet', '-m', 'develop change');
   context = {
-    sourceCommit: git('rev-parse', 'HEAD'), mainBase, version: '1.1.1',
-    buildNumber: 100, runId: '123', runAttempt: '1', branch: 'release/candidate/v1.1.1',
+    sourceCommit: git('rev-parse', 'HEAD'), mainBase, version,
+    buildNumber, runId: '123', runAttempt: '1', branch: `release/candidate/v${version}`,
   };
   execFileSync(process.execPath, ['-e',
-    `require(${JSON.stringify(metadataPath)}).applyReleaseMetadataUpdate('.', {version: '1.1.1',date:'2026-11-01',iosBuild:100,androidVersionCode:100});`,
+    `require(${JSON.stringify(metadataPath)}).applyReleaseMetadataUpdate('.', ${JSON.stringify({
+      version, date: '2026-11-01', iosBuild: buildNumber, androidVersionCode: buildNumber,
+    })});`,
   ], { cwd: directory });
   fs.mkdirSync(path.join(directory, '.release'));
   fs.writeFileSync(path.join(directory, '.release/candidate.json'), JSON.stringify(context));
@@ -106,6 +119,22 @@ it('rejects rerunning preparation before it can reserve a new version under exis
   });
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('Candidate preparation cannot be rerun');
+});
+
+it('queries the canonical repository endpoint before allowing a candidate build', () => {
+  const result = spawnSync(process.execPath, ['-e', `
+    global.fetch = async url => url === 'https://api.github.com/repos/jmassardo/bambuddy-mobile'
+      ? {ok:true,status:200,json:async()=>({allow_auto_merge:false})}
+      : {ok:false,status:404};
+    require(${JSON.stringify(pipelinePath)}).main('prepare')
+      .catch(error=>{console.error(error.message);process.exitCode=1;});
+  `], {
+    cwd: directory, encoding: 'utf8',
+    env: { ...process.env, GITHUB_REF: 'refs/heads/develop', GITHUB_RUN_ATTEMPT: '1',
+      GITHUB_REPOSITORY: 'jmassardo/bambuddy-mobile', GITHUB_TOKEN: 'test-only-token' },
+  });
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('Enable repository auto-merge before building release candidates');
 });
 
 it.each([

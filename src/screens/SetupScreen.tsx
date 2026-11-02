@@ -7,6 +7,7 @@ import type { RootNavigationProp } from '@/navigation/types';
 import {
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -71,6 +72,7 @@ export default function SetupScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.container, { backgroundColor: colors.background }]}
     >
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View
         style={[
           styles.card,
@@ -117,6 +119,7 @@ export default function SetupScreen() {
           }
         />
       </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -124,6 +127,9 @@ export default function SetupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
     justifyContent: 'center',
     padding: spacing.lg,
   },

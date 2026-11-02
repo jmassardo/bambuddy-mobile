@@ -6,6 +6,7 @@ import { PrimaryButton, SectionCard, StatusBadge, TextField } from '@/components
 import { SwitchRow, stringifyNumberField, settingsStyles } from './shared';
 import type { SettingsScreenController } from './useSettingsScreenController';
 import { formatDateTime, pickBoolean, pickNumber, pickString } from '@/utils/data';
+import { NumericSettingsField } from './WorkflowFields';
 
 export function FilamentSettingsSection({ controller }: { controller: SettingsScreenController }) {
   useNativeLocale();
@@ -41,8 +42,8 @@ export function FilamentSettingsSection({ controller }: { controller: SettingsSc
         <SwitchRow label={translateNative('native.63e9687f78a03f49')} value={Boolean(draft.disable_filament_warnings)} onValueChange={value => setDraft(current => ({ ...current, disable_filament_warnings: value }))} />
         <SwitchRow label={translateNative('native.b8d1a5d4d3387478')} value={Boolean(draft.prefer_lowest_filament)} onValueChange={value => setDraft(current => ({ ...current, prefer_lowest_filament: value }))} />
         <SwitchRow label={translateNative('native.049242152bbe3401')} value={Boolean(draft.per_printer_mapping_expanded)} onValueChange={value => setDraft(current => ({ ...current, per_printer_mapping_expanded: value }))} />
-        <TextField label={translateNative('native.342248bc862b8035')} value={stringifyNumberField(draft.low_stock_threshold, '20')} onChangeText={value => setDraft(current => ({ ...current, low_stock_threshold: Number(value) || 20 }))} keyboardType="number-pad" />
-        <TextField label={translateNative('native.f0fcb8e7c2f3675b')} value={stringifyNumberField(draft.forecast_global_lead_time_days, '14')} onChangeText={value => setDraft(current => ({ ...current, forecast_global_lead_time_days: Number(value) || 14 }))} keyboardType="number-pad" />
+        <NumericSettingsField label={translateNative('native.342248bc862b8035')} value={stringifyNumberField(draft.low_stock_threshold, '20')} onChangeNumber={value => setDraft(current => ({ ...current, low_stock_threshold: value }))} keyboardType="number-pad" />
+        <NumericSettingsField label={translateNative('native.f0fcb8e7c2f3675b')} value={stringifyNumberField(draft.forecast_global_lead_time_days, '14')} onChangeNumber={value => setDraft(current => ({ ...current, forecast_global_lead_time_days: value }))} keyboardType="number-pad" />
       </SectionCard>
       <SectionCard title={translateNative('native.ba0c463c354abcaa')} subtitle={translateNative('native.dc9462d9ce0f7f52')}>
         <SwitchRow label={translateNative('native.9cec3a1b7cc877fc')} value={Boolean(draft.spoolman_enabled)} onValueChange={value => setDraft(current => ({ ...current, spoolman_enabled: value }))} />

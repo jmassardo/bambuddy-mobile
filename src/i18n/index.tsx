@@ -1,3 +1,4 @@
+import 'intl-pluralrules';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { I18nManager, Platform, Settings } from 'react-native';

@@ -152,8 +152,10 @@ export const archivesApi = {
   getArchivePlateThumbnail: (id: number, plateIndex: number): string =>
     buildMediaUrl(`/archives/${id}/plate-thumbnail/${plateIndex}`),
 
-  getArchiveThumbnail: (id: number): string =>
-    buildMediaUrl(`/archives/${id}/thumbnail`),
+  getArchiveThumbnail: (id: number, plateId?: number | null): string =>
+    buildMediaUrl(plateId != null
+      ? `/archives/${id}/plate-thumbnail/${plateId}`
+      : `/archives/${id}/thumbnail`),
 
   getArchiveTimelapse: (id: number): string =>
     buildMediaUrl(`/archives/${id}/timelapse`),

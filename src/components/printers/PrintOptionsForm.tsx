@@ -1,7 +1,7 @@
 import { nativeLabelTuple, translateNative, useNativeLocale } from '@/i18n';
 
 import React from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@/theme';
 import { spacing } from '@/theme/tokens';
 
@@ -128,6 +128,7 @@ export function PrintOptionsForm({
   injectionAllowed = true,
   canControl = true,
   showManualStart = true,
+  compact = false,
 }: {
   value: PrintQueueItemUpdate;
   onChange: (value: PrintQueueItemUpdate) => void;
@@ -136,8 +137,29 @@ export function PrintOptionsForm({
   injectionAllowed?: boolean;
   canControl?: boolean;
   showManualStart?: boolean;
+  compact?: boolean;
 }) {
   useNativeLocale();
+  const { colors } = useTheme();
+  if (compact) {
+    return (
+      <View>
+        {booleanPrintFields
+          .filter(([field]) => field === 'use_ams' || field === 'timelapse')
+          .map(([field, label]) => (
+            <View key={field} style={styles.compactOption}>
+              <LaunchText>{label}</LaunchText>
+              <Switch
+                accessibilityLabel={label}
+                value={value[field] === true}
+                trackColor={{ true: colors.accent }}
+                onValueChange={enabled => onChange({ ...value, [field]: enabled })}
+              />
+            </View>
+          ))}
+      </View>
+    );
+  }
   const unchanged = { value: undefined, get label() { return translateNative('native.6ae0647a123bb8da'); } };
   return (
     <View>
@@ -259,6 +281,13 @@ export function PrintOptionsForm({
 }
 
 const styles = StyleSheet.create({
+  compactOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 44,
+    gap: spacing.sm,
+  },
   option: {
     minHeight: 44,
     padding: spacing.sm,

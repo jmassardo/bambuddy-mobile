@@ -107,3 +107,13 @@ it('keeps archive sources usable when the linked-library query fails instead of 
   if (Platform.OS === 'ios') await fireEvent(screen.getByTestId('project-source-modal'), 'dismiss');
   await waitFor(() => expect(mockPipeline).toHaveBeenCalledWith(expect.objectContaining({ sourceType: 'archive', sourceId: 22 })));
 });
+
+it('shows search-empty feedback without suggesting that project sources are missing', async () => {
+  const screen = await setup('pipeline');
+  await fireEvent.changeText(screen.getByPlaceholderText('Search project sources'), 'not-present');
+  expect(screen.getByText('No matching project sources.')).toBeTruthy();
+  expect(screen.queryByText(/Link a library folder/)).toBeNull();
+  await fireEvent.changeText(screen.getByPlaceholderText('Search project sources'), '');
+  expect(screen.getByText('Archive: Archived part')).toBeTruthy();
+  expect(screen.queryByText('No matching project sources.')).toBeNull();
+});

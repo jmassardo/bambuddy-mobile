@@ -27,7 +27,8 @@ function output(values) {
 }
 
 async function api(endpoint, method = 'GET', body) {
-  const response = await fetch(`https://api.github.com/repos/${required('GITHUB_REPOSITORY')}/${endpoint}`, {
+  const root = `https://api.github.com/repos/${required('GITHUB_REPOSITORY')}`;
+  const response = await fetch(endpoint ? `${root}/${endpoint}` : root, {
     method,
     headers: {
       Authorization: `Bearer ${process.env.GH_TOKEN || required('GITHUB_TOKEN')}`,

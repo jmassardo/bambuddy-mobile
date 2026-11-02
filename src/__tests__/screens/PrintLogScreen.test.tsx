@@ -5,6 +5,7 @@ import PrintLogScreen from '@/screens/PrintLogScreen';
 import { archivesApi } from '@/api/archives';
 import { archiveWorkflows } from '@/api/archiveWorkflows';
 import { api } from '@/api/client';
+import { shareBlob } from '@/utils/share';
 import type { PrintLogEntry } from '@/types/api';
 
 let mockArchiveId: number | undefined;
@@ -44,6 +45,7 @@ jest.mock('@/api/client', () => ({
     updateArchive: jest.fn(),
   },
 }));
+jest.mock('@/utils/share', () => ({ shareBlob: jest.fn() }));
 const entry = {
   id: 44,
   archive_id: 7,
@@ -87,7 +89,8 @@ beforeEach(() => {
 it('reaches records after 500 through server pagination and exposes energy data', async () => {
   const result = await wrap();
   await waitFor(() => expect(result.getByText('1.25 kWh')).toBeTruthy());
-  await fireEvent.press(result.getByText('Last'));
+  expect(result.queryByLabelText('Exact user name (blank = all)')).toBeNull();
+  await fireEvent.press(result.getByRole('button', { name: 'Last' }));
   await waitFor(() =>
     expect(archivesApi.getPrintLogs).toHaveBeenLastCalledWith(
       expect.objectContaining({ limit: 50, offset: 1000 }),
@@ -108,6 +111,7 @@ it('uses only archive-scoped runs when launched from archive detail', async () =
 
 it('combines exact username and inclusive date bounds in requests', async () => {
   const result = await wrap();
+  await fireEvent.press(result.getByRole('button', { name: 'Filters' }));
   await fireEvent.changeText(
     result.getByLabelText('Exact user name (blank = all)'),
     'alice',
@@ -129,6 +133,31 @@ it('combines exact username and inclusive date bounds in requests', async () => 
       }),
     ),
   );
+  await fireEvent.press(result.getByRole('button', { name: 'Close' }));
+  expect(result.queryByLabelText('Exact user name (blank = all)')).toBeNull();
+  expect(result.getByText(/User: alice.*2026-10-01 – 2026-10-27/)).toBeTruthy();
+  expect(result.getByRole('button', { name: 'Filters' }).props.accessibilityState).toEqual({
+    expanded: false,
+    selected: true,
+  });
+});
+
+it('retains page size and current-page export behind the tools disclosure', async () => {
+  const result = await wrap();
+  await result.findAllByText('Actual run');
+  expect(result.queryByText('Export page as JSON')).toBeNull();
+  await fireEvent.press(result.getByRole('button', { name: 'Filters' }));
+  await fireEvent.press(result.getByText('100'));
+  await waitFor(() => expect(archivesApi.getPrintLogs).toHaveBeenLastCalledWith(
+    expect.objectContaining({ limit: 100, offset: 0 }),
+  ));
+  await fireEvent.press(result.getByText('Export page as JSON'));
+  await waitFor(() => expect(shareBlob).toHaveBeenCalledWith(
+    expect.any(Blob),
+    'print-log-page-1.json',
+  ));
+  expect(result.getByText(/100 per page/)).toBeTruthy();
+  expect(result.queryByText('Export page as JSON')).toBeNull();
 });
 
 it('corrects the selected run rather than mutating its linked archive', async () => {

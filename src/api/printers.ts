@@ -15,7 +15,7 @@ import type {
   SubnetScanStatus,
   VirtualPrinterConfig,
 } from '@/types/api';
-import { buildMediaUrl, request, requestWithFallback } from './http';
+import { buildCameraUrl, buildMediaUrl, request, requestWithFallback } from './http';
 
 export const printersApi = {
   getPrinters: async () => request<Array<ApiEntity<Printer>>>('/printers/'),
@@ -378,11 +378,11 @@ export const printersApi = {
   getPrinterImageUrl: (printerId: number): string =>
     buildMediaUrl(`/printers/${printerId}/image`),
 
-  getCameraSnapshotUrl: (printerId: number): string =>
-    buildMediaUrl(`/printers/${printerId}/camera/snapshot`),
+  getCameraSnapshotUrl: (printerId: number, token: string | null = null): string =>
+    buildCameraUrl(`/printers/${printerId}/camera/snapshot`, token),
 
-  getCameraStreamUrl: (printerId: number): string =>
-    buildMediaUrl(`/printers/${printerId}/camera/stream`),
+  getCameraStreamUrl: (printerId: number, token: string | null = null): string =>
+    buildCameraUrl(`/printers/${printerId}/camera/stream`, token),
 
   diagnosePrinterCamera: async (printerId: number) =>
     request<CameraDiagnoseResult>(`/printers/${printerId}/camera/diagnose`, {

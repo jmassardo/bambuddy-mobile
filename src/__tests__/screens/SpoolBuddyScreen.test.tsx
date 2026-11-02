@@ -20,7 +20,19 @@ const mockCreateDevice = jest.fn();
 const mockUpdateDevice = jest.fn();
 const mockDeleteDevice = jest.fn();
 const mockCalibrateDevice = jest.fn();
+const mockGetSlots = jest.fn();
+const mockGetAssignments = jest.fn();
+const mockGetUsage = jest.fn();
+const mockGetUsageSummary = jest.fn();
 jest.mock('@react-native-clipboard/clipboard', () => ({ setString: jest.fn() }));
+jest.mock('react-native/Libraries/Components/RefreshControl/RefreshControl', () => {
+  const ReactModule = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: (props: Record<string, unknown>) => ReactModule.createElement(View, props),
+  };
+});
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ hasPermission: () => true }) }));
 jest.mock('@/hooks/useWebSocket', () => ({ useWebSocket: () => ({ isConnected: true }) }));
 jest.mock('@/api/spoolbuddy', () => ({
@@ -67,6 +79,11 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('@/api/client', () => ({
   api: {
     getSpoolBuddyDevices: (...args: unknown[]) => mockGetDevices(...args),
+    getSpools: async () => [],
+    getSpoolBuddySlots: (...args: unknown[]) => mockGetSlots(...args),
+    getSpoolBuddySlotAssignments: (...args: unknown[]) => mockGetAssignments(...args),
+    getSpoolBuddyUsage: (...args: unknown[]) => mockGetUsage(...args),
+    getSpoolBuddyUsageSummary: (...args: unknown[]) => mockGetUsageSummary(...args),
     createSpoolBuddyDevice: (...args: unknown[]) => mockCreateDevice(...args),
     updateSpoolBuddyDevice: (...args: unknown[]) => mockUpdateDevice(...args),
     deleteSpoolBuddyDevice: (...args: unknown[]) => mockDeleteDevice(...args),
@@ -187,7 +204,7 @@ jest.mock('@/components/common/StateScreens', () => {
       ),
     ErrorState: ({ message }: { message: string }) =>
       React.createElement(Text, null, message),
-    LoadingScreen: ({ message }: { message: string }) =>
+    LoadingScreen: ({ message = 'Loading…' }: { message?: string }) =>
       React.createElement(Text, null, message),
   };
 });
@@ -254,6 +271,10 @@ describe('SpoolBuddyScreen', () => {
     mockUpdateDevice.mockResolvedValue(device);
     mockDeleteDevice.mockResolvedValue(undefined);
     mockCalibrateDevice.mockResolvedValue(undefined);
+    mockGetSlots.mockResolvedValue([]);
+    mockGetAssignments.mockResolvedValue([]);
+    mockGetUsage.mockResolvedValue([]);
+    mockGetUsageSummary.mockResolvedValue([]);
   });
 
   afterEach(async () => {

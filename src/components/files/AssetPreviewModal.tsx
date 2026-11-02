@@ -3,6 +3,7 @@ import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useN
 
 import React, { useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, request, requestBlob } from '@/api/http';
@@ -131,7 +132,8 @@ export function AssetPreviewModal({ source, onClose, onPrevious, onNext, onDelet
     } finally { setBusy(false); }
   };
   return <Modal visible={source !== null} animationType="slide" onRequestClose={onClose}>
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <SafeAreaProvider>
+    <SafeAreaView edges={{ top: 'maximum', bottom: 'maximum', left: 'maximum', right: 'maximum' }} style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         {onPrevious ? <PrimaryButton label={t('library.previousPhoto', { defaultValue: 'Previous photo' })} onPress={onPrevious} /> : null}
         {onNext ? <PrimaryButton label={t('library.nextPhoto', { defaultValue: 'Next photo' })} onPress={onNext} /> : null}
@@ -184,7 +186,8 @@ export function AssetPreviewModal({ source, onClose, onPrevious, onNext, onDelet
         }}
         style={styles.web}
       /> : null}
-    </View>
+    </SafeAreaView>
+    </SafeAreaProvider>
   </Modal>;
 }
 
