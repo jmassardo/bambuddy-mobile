@@ -159,7 +159,9 @@ def prepare_ios_store_version(identity)
   version.update(attributes: { releaseType: "AFTER_APPROVAL" })
   localizations = version.get_app_store_version_localizations
   UI.user_error!("Existing App Store version localizations are required") if localizations.empty?
-  localizations.each { |localization| localization.update(attributes: { whatsNew: notes }) }
+  unless app.get_app_store_versions(filter: { platform: "IOS" }).one?
+    localizations.each { |localization| localization.update(attributes: { whatsNew: notes }) }
+  end
 end
 
 def google_credentials

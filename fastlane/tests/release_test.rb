@@ -240,17 +240,26 @@ class ReleaseLanesTest < Minitest::Test
       @actions.clear
       rejected = StoreVersion.new(old_version, "REJECTED", nil, ready_build(version: old_version, number: "12"), "MANUAL")
       @app.versions = [rejected]
+      @app.versions.unshift(StoreVersion.new("1.0", "READY_FOR_DISTRIBUTION")) if old_version == "1.2.3"
+      original_records = @app.versions.dup
       run_lane(:ios, :promote)
       assert_only_actions :app_store_connect_api_key, :upload_to_app_store
-      assert_equal [rejected], @app.versions
+      assert_equal original_records, @app.versions
       assert_equal "1.2.4", rejected.version_string
-      assert_equal(
-        [{ versionString: "1.2.4" }, { releaseType: "AFTER_APPROVAL" }, { whatsNew: "Exact candidate release notes" }],
-        rejected.updates
-      )
+      expected_updates = [{ versionString: "1.2.4" }, { releaseType: "AFTER_APPROVAL" }]
+      expected_updates << { whatsNew: "Exact candidate release notes" } if old_version == "1.2.3"
+      assert_equal expected_updates, rejected.updates
       assert_equal "87", action_options(:upload_to_app_store)[:build_number]
       assert_equal true, action_options(:upload_to_app_store)[:skip_binary_upload]
     end
+  end
+
+  def test_ios_first_store_version_does_not_send_update_only_release_notes
+    @app.versions = [StoreVersion.new("1.2.4", "PREPARE_FOR_SUBMISSION")]
+    run_lane(:ios, :promote)
+    assert_only_actions :app_store_connect_api_key, :upload_to_app_store
+    assert_equal [{ releaseType: "AFTER_APPROVAL" }], @app.versions.first.updates
+    assert_equal true, action_options(:upload_to_app_store)[:submit_for_review]
   end
 
   def test_ios_does_not_repurpose_drafts_newer_rejected_records_or_ambiguous_records

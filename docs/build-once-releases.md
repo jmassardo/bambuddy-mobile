@@ -101,6 +101,8 @@ an unrelated App Store version already in review fails rather than being replace
 One older `REJECTED` App Store version can be updated to the candidate version,
 preserving its existing listing and review metadata for resubmission. Other drafts,
 newer rejected versions, and multiple editable versions are never repurposed.
+Apple's first store version does not receive update-only "What's New" notes;
+later versions receive the exact candidate's changelog notes.
 Use manual workflow dispatch only on `main`; superseded main events are rejected.
 
 To halt future releases, disable **Release Candidate** and **Promote Store Release**
