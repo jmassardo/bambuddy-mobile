@@ -423,12 +423,6 @@ export function RemoteSpoolBuddyPanel({ deviceId }: { deviceId: string }) {
         }`}
       >
         <Text style={textStyle}>
-          {tr(
-            'remoteExplanation',
-            'Remote physical NFC reader and scale. Phone NFC can only read a UID; it does not write these tags.',
-          )}
-        </Text>
-        <Text style={textStyle}>
           {connection.isConnected
             ? tr('liveConnected', 'Live remote events connected.')
             : tr(

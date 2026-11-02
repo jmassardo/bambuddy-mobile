@@ -22,6 +22,8 @@ class ReleaseLanesTest < Minitest::Test
     def update(attributes:)
       self.updates ||= []
       updates << attributes
+      self.version_string = attributes[:versionString] if attributes.key?(:versionString)
+      self.release_type = attributes[:releaseType] if attributes.key?(:releaseType)
     end
 
     def get_app_store_version_localizations
@@ -38,12 +40,17 @@ class ReleaseLanesTest < Minitest::Test
 
     def ensure_version!(version, platform:)
       raise "Wrong platform" unless platform == "IOS"
-      versions << StoreVersion.new(version, "PREPARE_FOR_SUBMISSION")
+      editable = get_edit_app_store_version(platform: platform)
+      if editable
+        editable.update(attributes: { versionString: version }) unless editable.version_string == version
+      else
+        versions << StoreVersion.new(version, "PREPARE_FOR_SUBMISSION")
+      end
     end
 
     def get_edit_app_store_version(platform:)
       raise "Wrong platform" unless platform == "IOS"
-      versions.find { |version| version.app_version_state == "PREPARE_FOR_SUBMISSION" }
+      versions.find { |version| %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED METADATA_REJECTED INVALID_BINARY].include?(version.app_version_state) }
     end
   end
 
@@ -228,6 +235,48 @@ class ReleaseLanesTest < Minitest::Test
     assert_nil @app.versions.first.updates
   end
 
+  def test_ios_reuses_only_an_older_rejected_record_without_replacing_its_listing
+    %w[1.0 1.2.3].each do |old_version|
+      @actions.clear
+      rejected = StoreVersion.new(old_version, "REJECTED", nil, ready_build(version: old_version, number: "12"), "MANUAL")
+      @app.versions = [rejected]
+      @app.versions.unshift(StoreVersion.new("1.0", "READY_FOR_DISTRIBUTION")) if old_version == "1.2.3"
+      original_records = @app.versions.dup
+      run_lane(:ios, :promote)
+      assert_only_actions :app_store_connect_api_key, :upload_to_app_store
+      assert_equal original_records, @app.versions
+      assert_equal "1.2.4", rejected.version_string
+      expected_updates = [{ versionString: "1.2.4" }, { releaseType: "AFTER_APPROVAL" }]
+      expected_updates << { whatsNew: "Exact candidate release notes" } if old_version == "1.2.3"
+      assert_equal expected_updates, rejected.updates
+      assert_equal "87", action_options(:upload_to_app_store)[:build_number]
+      assert_equal true, action_options(:upload_to_app_store)[:skip_binary_upload]
+    end
+  end
+
+  def test_ios_first_store_version_does_not_send_update_only_release_notes
+    @app.versions = [StoreVersion.new("1.2.4", "PREPARE_FOR_SUBMISSION")]
+    run_lane(:ios, :promote)
+    assert_only_actions :app_store_connect_api_key, :upload_to_app_store
+    assert_equal [{ releaseType: "AFTER_APPROVAL" }], @app.versions.first.updates
+    assert_equal true, action_options(:upload_to_app_store)[:submit_for_review]
+  end
+
+  def test_ios_does_not_repurpose_drafts_newer_rejected_records_or_ambiguous_records
+    [
+      [StoreVersion.new("1.0", "PREPARE_FOR_SUBMISSION")],
+      [StoreVersion.new("1.3.0", "REJECTED")],
+      [StoreVersion.new("1.0", "REJECTED"), StoreVersion.new("1.1", "REJECTED")]
+    ].each do |versions|
+      @app.versions = versions
+      assert_release_failure(:ios, :promote, /different editable/)
+      versions.each { |version| assert_nil version.updates }
+    end
+    @app.versions = [StoreVersion.new("1.0-beta", "REJECTED")]
+    assert_release_failure(:ios, :promote, /numeric/)
+    assert_nil @app.versions.first.updates
+  end
+
   def test_exact_changelog_notes_exclude_other_releases_and_reference_links
     source = "# Changelog\n\n## [Unreleased]\n\n- Future change\n\n" \
              "## [1.2.4] - 2026-11-01\n\n### Fixed\n\n- Candidate change\n\n" \
@@ -340,12 +389,24 @@ class ReleaseLanesTest < Minitest::Test
     assert_only_actions :app_store_connect_api_key
   end
 
+  def test_query_normalizes_existing_apple_versions_without_relaxing_candidate_versions
+    @metadata_path = File.join(ROOT, "fastlane/tests/.release-metadata-#{Process.pid}.json")
+    ENV["RELEASE_STORE_METADATA_PATH"] = @metadata_path
+    { "1.0" => "1.0.0", "1.10" => "1.10.0", "2" => "2.0.0" }.each do |legacy, normalized|
+      @app.versions = [StoreVersion.new(legacy), StoreVersion.new("0.9.9")]
+      run_lane(nil, :release_metadata)
+      assert_equal normalized, JSON.parse(File.read(@metadata_path))["store_version"]
+    end
+    ENV["RELEASE_VERSION"] = "1.0"
+    assert_release_failure(:ios, :release_candidate, /strict three-part/)
+  end
+
   def test_query_fails_on_missing_app_versions_invalid_versions_or_exhausted_numbers
     @metadata_path = File.join(ROOT, "fastlane/tests/.release-metadata-#{Process.pid}.json")
     ENV["RELEASE_STORE_METADATA_PATH"] = @metadata_path
-    [[], [StoreVersion.new("1.2")], [StoreVersion.new("01.2.3")]].each do |versions|
+    [[], *%w[01.2.3 1.2.3-beta 1.2.3.4 1.2.].map { |version| [StoreVersion.new(version)] }].each do |versions|
       @app.versions = versions
-      assert_release_failure(nil, :release_metadata, /three-part/)
+      assert_release_failure(nil, :release_metadata, /numeric/)
       refute File.exist?(@metadata_path)
     end
     @app.versions = [StoreVersion.new("1.2.3")]

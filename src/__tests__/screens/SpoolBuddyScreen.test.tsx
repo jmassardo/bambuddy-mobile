@@ -287,7 +287,7 @@ describe('SpoolBuddyScreen', () => {
     await screen.findByText('Workshop Buddy');
     await fireEvent.press(screen.getByLabelText('Remote controls / calibrate'));
     expect(await screen.findByText('Remote SpoolBuddy')).toBeTruthy();
-    expect(screen.getByText('Remote physical NFC reader and scale. Phone NFC can only read a UID; it does not write these tags.')).toBeTruthy();
+    expect(screen.queryByText(/Phone NFC can only read/)).toBeNull();
     expect(mockCalibrateDevice).not.toHaveBeenCalled();
   });
 
