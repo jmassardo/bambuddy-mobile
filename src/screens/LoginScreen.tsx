@@ -1,4 +1,4 @@
-import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
+import { nativeMessage, translateNative, useNativeLocale, useNativeMessageState, useTranslation } from '@/i18n';
 
 
 import React, { useEffect, useState } from 'react';
@@ -30,6 +30,7 @@ import { SwitchRow } from '@/components/settings/shared';
 import { createOidcState, oidcCallbackBase } from '@/utils/authSecurity';
 import { OIDCAuthorizationBrowser } from '@/components/common/OIDCAuthorizationBrowser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { canRequestPasswordManagerLogin, findPasswordManagerLogin } from '@/utils/passwordManager';
 
 function parseOidcCallback(url: string) {
   try {
@@ -96,14 +97,6 @@ export default function LoginScreen() {
   const [authorizationUrl, setAuthorizationUrl] = useState<string | null>(null);
   const [callbackServer, setCallbackServer] = useState<string | null>(null);
 
-  const serverHostname = useLocalizedMemo(() => {
-    if (!serverUrl) return undefined;
-    try {
-      return new URL(serverUrl).hostname;
-    } catch {
-      return undefined;
-    }
-  }, [serverUrl]);
   const [error, setError] = useNativeMessageState('');
   const [step, setStep] = useState<'credentials' | '2fa' | 'forgot' | 'reset'>('credentials');
   const [forgotEmail, setForgotEmail] = useState('');
@@ -111,6 +104,21 @@ export default function LoginScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const pendingOidcState = React.useRef<string | null>(null);
+  const passwordManagerMutation = useMutation({
+    mutationFn: (requestedServer: string) => findPasswordManagerLogin(requestedServer),
+    onMutate: () => setError(''),
+    onSuccess: (credentials, requestedServer) => {
+      if (credentials && useServerStore.getState().serverUrl === requestedServer) {
+        setUsername(credentials.username);
+        setPassword(credentials.password);
+      }
+    },
+    onError: (_error, requestedServer) => {
+      if (useServerStore.getState().serverUrl === requestedServer) {
+        setError(nativeMessage('auth.passwordManagerFailed'));
+      }
+    },
+  });
 
   useEffect(() => {
     autoStarted.current = false;
@@ -334,6 +342,7 @@ export default function LoginScreen() {
 
   const oidcProviders = oidcProvidersQuery.data ?? [];
   const oidcBusy = oidcStartMutation.isPending || oidcExchangeMutation.isPending;
+  const authBusy = oidcBusy || passwordManagerMutation.isPending;
   const selectVerificationMethod = (method: string) => {
     setSelectedMethod(method);
     setCode('');
@@ -381,7 +390,7 @@ export default function LoginScreen() {
                   : translateNative('native.c657b68c31e11c85')}
           </Text> : null}
 
-          {step === 'credentials' ? <ServerSetupScreen embedded disabled={submitMutation.isPending || oidcBusy} onReadyChange={setServerReady} /> : (
+          {step === 'credentials' ? <ServerSetupScreen embedded disabled={submitMutation.isPending || authBusy} onReadyChange={setServerReady} /> : (
             <TextField label={translateNative('native.301fd81a82ae3258')} value={serverUrl ?? ''} editable={false} />
           )}
           {loading ? <Text style={[styles.methodHint, { color: colors.textSecondary }]}>{translateNative('native.d041a71daf02b592')}</Text> : null}
@@ -404,8 +413,17 @@ export default function LoginScreen() {
                 autoCapitalize="none"
                 autoComplete="current-password"
                 textContentType="password"
-                userName={serverHostname}
               />
+              {canRequestPasswordManagerLogin() ? <>
+                <PrimaryButton
+                  label={t('auth.passwordManagerFill')}
+                  variant="secondary"
+                  disabled={!serverReady || loading || submitMutation.isPending || authBusy}
+                  loading={passwordManagerMutation.isPending}
+                  onPress={() => { if (serverUrl) passwordManagerMutation.mutate(serverUrl); }}
+                />
+                <Text style={[styles.methodHint, { color: colors.textSecondary }]}>{t('auth.passwordManagerHint')}</Text>
+              </> : null}
               {localLoginEnabled ? <Pressable
                 accessibilityRole="button"
                 style={styles.linkTarget}
@@ -503,7 +521,7 @@ export default function LoginScreen() {
 
           {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
 
-          {step === 'credentials' && (credentialsEnabled || oidcProviders.length > 0) ? <SwitchRow label={t('auth.rememberMe', { defaultValue: 'Remember me' })} value={remember} onValueChange={setRemember} disabled={submitMutation.isPending || oidcBusy} /> : null}
+          {step === 'credentials' && (credentialsEnabled || oidcProviders.length > 0) ? <SwitchRow label={t('auth.rememberMe', { defaultValue: 'Remember me' })} value={remember} onValueChange={setRemember} disabled={submitMutation.isPending || authBusy} /> : null}
           {step === 'credentials' && credentialsPolicyPending ? <Text style={{ color: colors.textSecondary }}>{t('auth.loadingPolicy', { defaultValue: 'Loading login policy…' })}</Text> : null}
           {step === 'credentials' && policyQuery.data?.local_login_enabled === false && ldapStatusQuery.data?.ldap_enabled === false ? <Text style={{ color: colors.textSecondary }}>{t('auth.localLoginDisabled', { defaultValue: 'Local sign-in is disabled. Choose a single sign-on provider below.' })}</Text> : null}
           {step === 'credentials' && !localLoginEnabled && ldapLoginEnabled ? <Text style={{ color: colors.textSecondary }}>{t('auth.directoryLoginHint', { defaultValue: 'Sign in with your directory account.' })}</Text> : null}
@@ -518,7 +536,7 @@ export default function LoginScreen() {
               label={submitMutation.isPending ? translateNative('native.1aeddc7b0b18d572') : translateNative('native.62a155bdfe8d655f')}
               onPress={() => submitMutation.mutate()}
               loading={submitMutation.isPending}
-              disabled={!serverReady || loading || username.trim().length === 0 || password.length === 0 || oidcBusy}
+              disabled={!serverReady || loading || username.trim().length === 0 || password.length === 0 || authBusy}
             />
           )}
 
@@ -585,7 +603,7 @@ export default function LoginScreen() {
                   onPress={() => {
                     oidcStartMutation.mutate(provider.id);
                   }}
-                  disabled={!serverReady || loading || oidcBusy}
+                  disabled={!serverReady || loading || authBusy}
                 />
               ))}
               <Text style={[styles.oidcHint, { color: colors.textTertiary }]}>{t('auth.oidcBrowserHint', { defaultValue: 'Sign in inside the secure authorization window. Cancel to choose another sign-in method.' })}</Text>

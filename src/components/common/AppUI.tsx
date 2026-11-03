@@ -393,9 +393,8 @@ export function TextField({
   error,
   multiline,
   style,
-  userName,
   ...props
-}: TextInputProps & { label: string; error?: string; userName?: string }) {
+}: TextInputProps & { label: string; error?: string }) {
   useNativeLocale();
   const { colors } = useTheme();
   useTranslation();
@@ -422,7 +421,6 @@ export function TextField({
         ]}
         accessibilityLabel={label}
         allowFontScaling={false}
-        {...(userName ? { userName } : {})}
       />
       {error ? <Text style={[styles.fieldError, { color: colors.error }]} accessibilityRole="alert">{error}</Text> : null}
     </View>
