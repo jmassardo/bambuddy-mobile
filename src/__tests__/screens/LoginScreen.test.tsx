@@ -28,8 +28,14 @@ const mockAuthorize = jest.fn();
 const mockExchange = jest.fn();
 const mockGetAuthStatus = jest.fn();
 const mockSetServerUrl = jest.fn();
+const mockFindPasswordManagerLogin = jest.fn();
 let mockServerUrl: string | null = 'https://bambuddy.test';
 const renderers: ReactTestRenderer.ReactTestRenderer[] = [];
+
+jest.mock('@/utils/passwordManager', () => ({
+  canRequestPasswordManagerLogin: () => true,
+  findPasswordManagerLogin: (url: string) => mockFindPasswordManagerLogin(url),
+}));
 
 jest.mock('@/api/auth', () => ({ authApi: {
   getAdvancedAuthStatus: () => mockPolicy(),
@@ -184,6 +190,7 @@ describe('LoginScreen', () => {
     mockSendEmail.mockResolvedValue({ message: 'sent', pre_auth_token: 'rotated-token' });
     mockAuthorize.mockResolvedValue({ auth_url: 'https://identity/authorize?state=server-state&redirect_uri=https%3A%2F%2Fbambuddy.test%2Fapi%2Fv1%2Fauth%2Foidc%2Fcallback' });
     mockExchange.mockResolvedValue({ access_token: 'oidc-session', user: { id: 1, username: 'test', is_admin: true } });
+    mockFindPasswordManagerLogin.mockResolvedValue(null);
   });
 
   afterEach(async () => {
@@ -213,6 +220,47 @@ describe('LoginScreen', () => {
     expect(findInput(renderer, 'Username')).toBeTruthy();
     expect(findInput(renderer, 'Password')).toBeTruthy();
     expect(findPressableForText(renderer, 'Login').props.disabled).toBe(true);
+  });
+
+  it('passes the configured server URL to the password manager and fills without submitting', async () => {
+    mockFindPasswordManagerLogin.mockResolvedValue({ username: 'vault-user', password: 'vault-password' });
+    const renderer = await renderScreen();
+    await act(async () => { findPressableForText(renderer, 'Fill from password manager').props.onPress(); });
+    expect(mockFindPasswordManagerLogin).toHaveBeenCalledWith('https://bambuddy.test');
+    expect(findInput(renderer, 'Username')!.props.value).toBe('vault-user');
+    expect(findInput(renderer, 'Password')!.props.value).toBe('vault-password');
+    expect(mockLogin).not.toHaveBeenCalled();
+    await act(async () => { findPressableForText(renderer, 'Login').props.onPress(); });
+    expect(mockLogin).toHaveBeenCalledWith('vault-user', 'vault-password', true);
+  });
+
+  it('preserves entered credentials when the password manager is cancelled and reports provider failure', async () => {
+    const renderer = await renderScreen();
+    await act(async () => {
+      findInput(renderer, 'Username')!.props.onChangeText('existing-user');
+      findInput(renderer, 'Password')!.props.onChangeText('existing-password');
+    });
+    await act(async () => { findPressableForText(renderer, 'Fill from password manager').props.onPress(); });
+    expect(findInput(renderer, 'Username')!.props.value).toBe('existing-user');
+    expect(findInput(renderer, 'Password')!.props.value).toBe('existing-password');
+    mockFindPasswordManagerLogin.mockRejectedValue(new Error('Provider failed'));
+    await act(async () => { findPressableForText(renderer, 'Fill from password manager').props.onPress(); });
+    expect(findText(renderer, 'Could not retrieve a login from the password manager. Try again or enter your credentials manually.')).toBeTruthy();
+    expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it('does not fill a login after the configured server changes while the manager is open', async () => {
+    let finish!: (login: { username: string; password: string }) => void;
+    mockFindPasswordManagerLogin.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const renderer = await renderScreen();
+    await act(async () => { findPressableForText(renderer, 'Fill from password manager').props.onPress(); });
+    expect(findPressableForText(renderer, 'Login').props.disabled).toBe(true);
+    expect(findText(renderer, 'Sign in to manage your printers, queue, and library.')).toBeTruthy();
+    mockServerUrl = 'https://another.test';
+    await act(async () => { finish({ username: 'old-server-user', password: 'old-server-password' }); });
+    expect(findInput(renderer, 'Username')!.props.value).toBe('');
+    expect(findInput(renderer, 'Password')!.props.value).toBe('');
+    expect(mockLogin).not.toHaveBeenCalled();
   });
 
   it('offers provider discovery retry without reopening disabled credential login', async () => {

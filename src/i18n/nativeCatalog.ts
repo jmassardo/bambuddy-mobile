@@ -238,3 +238,26 @@ for (const language of Object.keys(consistencyRows) as Language[]) {
   const values = consistencyRows[language].split('|');
   Object.assign(nativeCatalogs[language], Object.fromEntries(consistencyKeys.map((key, index) => [key, values[index]])));
 }
+
+const passwordManagerKeys = ['auth.passwordManagerFill', 'auth.passwordManagerHint', 'auth.passwordManagerFailed'] as const;
+const passwordManagerRows: Record<Language, string> = {
+  en: 'Fill from password manager|Choose Bitwarden in the action sheet. If it is missing, enable App extension in Bitwarden Autofill settings.|Could not retrieve a login from the password manager. Try again or enter your credentials manually.',
+  de: 'Aus Passwortmanager ausfüllen|Wähle Bitwarden im Aktionsmenü. Falls es fehlt, aktiviere die App-Erweiterung in den Bitwarden-Einstellungen zum automatischen Ausfüllen.|Die Zugangsdaten konnten nicht aus dem Passwortmanager geladen werden. Versuche es erneut oder gib sie manuell ein.',
+  es: 'Rellenar desde el gestor de contraseñas|Selecciona Bitwarden en el menú de acciones. Si no aparece, activa la extensión de app en los ajustes de autorrelleno de Bitwarden.|No se pudieron obtener las credenciales del gestor de contraseñas. Inténtalo de nuevo o introdúcelas manualmente.',
+  fr: 'Remplir depuis le gestionnaire de mots de passe|Choisissez Bitwarden dans le menu d’actions. S’il est absent, activez l’extension d’app dans les paramètres de remplissage automatique de Bitwarden.|Impossible de récupérer les identifiants du gestionnaire de mots de passe. Réessayez ou saisissez-les manuellement.',
+  ja: 'パスワードマネージャーから入力|アクションシートでBitwardenを選択してください。表示されない場合は、Bitwardenの自動入力設定でアプリ拡張機能を有効にしてください。|パスワードマネージャーからログイン情報を取得できませんでした。再試行するか、手動で入力してください。',
+  it: 'Compila dal gestore di password|Scegli Bitwarden nel menu delle azioni. Se non compare, abilita l’estensione dell’app nelle impostazioni di compilazione automatica di Bitwarden.|Impossibile recuperare le credenziali dal gestore di password. Riprova o inseriscile manualmente.',
+  ko: '비밀번호 관리자에서 입력|동작 메뉴에서 Bitwarden을 선택하세요. 표시되지 않으면 Bitwarden 자동 완성 설정에서 앱 확장 프로그램을 활성화하세요.|비밀번호 관리자에서 로그인 정보를 가져오지 못했습니다. 다시 시도하거나 직접 입력하세요.',
+  nl: 'Invullen vanuit wachtwoordmanager|Kies Bitwarden in het actiemenu. Ontbreekt het, schakel dan de app-extensie in bij de instellingen voor automatisch invullen van Bitwarden.|Inloggegevens ophalen uit de wachtwoordmanager is mislukt. Probeer opnieuw of voer ze handmatig in.',
+  'pt-BR': 'Preencher pelo gerenciador de senhas|Escolha Bitwarden no menu de ações. Se não aparecer, ative a extensão do app nas configurações de preenchimento automático do Bitwarden.|Não foi possível obter as credenciais do gerenciador de senhas. Tente novamente ou digite-as manualmente.',
+  'zh-CN': '从密码管理器填写|在操作菜单中选择 Bitwarden。若未显示，请在 Bitwarden 的自动填充设置中启用应用扩展。|无法从密码管理器获取登录信息。请重试或手动输入。',
+  'zh-TW': '從密碼管理員填寫|在動作選單中選擇 Bitwarden。若未顯示，請在 Bitwarden 的自動填寫設定中啟用 App 延伸功能。|無法從密碼管理員取得登入資訊。請重試或手動輸入。',
+  sv: 'Fyll i från lösenordshanteraren|Välj Bitwarden i åtgärdsmenyn. Om det saknas, aktivera apptillägget i Bitwardens inställningar för autofyll.|Kunde inte hämta inloggningsuppgifter från lösenordshanteraren. Försök igen eller ange dem manuellt.',
+  tr: 'Parola yöneticisinden doldur|İşlem menüsünde Bitwarden’ı seçin. Görünmüyorsa Bitwarden otomatik doldurma ayarlarında uygulama uzantısını etkinleştirin.|Parola yöneticisinden giriş bilgileri alınamadı. Yeniden deneyin veya bilgilerinizi elle girin.',
+  ru: 'Заполнить из менеджера паролей|Выберите Bitwarden в меню действий. Если его нет, включите расширение приложения в настройках автозаполнения Bitwarden.|Не удалось получить данные для входа из менеджера паролей. Повторите попытку или введите их вручную.',
+  uk: 'Заповнити з менеджера паролів|Виберіть Bitwarden у меню дій. Якщо його немає, увімкніть розширення застосунку в налаштуваннях автозаповнення Bitwarden.|Не вдалося отримати дані для входу з менеджера паролів. Спробуйте ще раз або введіть їх вручну.',
+};
+for (const language of Object.keys(passwordManagerRows) as Language[]) {
+  const values = passwordManagerRows[language].split('|');
+  Object.assign(nativeCatalogs[language], Object.fromEntries(passwordManagerKeys.map((key, index) => [key, values[index]])));
+}
