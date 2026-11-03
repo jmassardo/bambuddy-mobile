@@ -1,7 +1,7 @@
 import { NativeTranslation, nativeEnglishSuffix, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
 
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MainTabNavigationProp } from '@/navigation/types';
@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Text,
   Switch,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {
@@ -337,6 +338,16 @@ export default function PrintersDashboardScreen() {
   const [sortBy, setSortBy] = useState<PrinterSortMode>('status');
   const [sortSecondary, setSortSecondary] = useState<PrinterSortSecondaryMode>('name');
   const [viewMode, setViewMode] = useState<'normal' | 'compact'>('normal');
+  const { width: windowWidth, fontScale } = useWindowDimensions();
+  const [layoutWidth, setLayoutWidth] = useState<number | null>(null);
+  const availableWidth = Math.max(0, (layoutWidth ?? windowWidth) - spacing.md * 2);
+  const columns = viewMode === 'compact' && availableWidth >= 160 * fontScale * 2 + spacing.sm ? 2 : 1;
+  const tileStyles = useMemo(() => StyleSheet.create({
+    item: {
+      width: (availableWidth - spacing.sm * (columns - 1)) / columns,
+      minWidth: 0,
+    },
+  }), [availableWidth, columns]);
   const [snapshotSeed, setSnapshotSeed] = useState(0);
   const [printPrinterId, setPrintPrinterId] = useState<number | null>(null);
   const [showAddPrinter, setShowAddPrinter] = useState(false);
@@ -644,15 +655,19 @@ export default function PrintersDashboardScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}> 
+    <View
+      testID="printers-viewport"
+      style={[styles.container, { backgroundColor: colors.background }]}
+      onLayout={event => setLayoutWidth(event.nativeEvent.layout.width)}
+    >
       <FlatList
         data={filteredPrinters}
-        key={viewMode}
-        numColumns={viewMode === 'compact' ? 2 : 1}
+        key={`${viewMode}-${columns}`}
+        numColumns={columns}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
-        columnWrapperStyle={viewMode === 'compact' ? styles.gridRow : undefined}
+        columnWrapperStyle={columns > 1 ? styles.gridRow : undefined}
         ItemSeparatorComponent={viewMode === 'compact' ? undefined : ListSeparator}
         refreshControl={
           <RefreshControl
@@ -673,6 +688,8 @@ export default function PrintersDashboardScreen() {
 
           return (
             <Pressable
+              testID={`printer-item-${item.id}`}
+              style={viewMode === 'compact' ? tileStyles.item : undefined}
               onLongPress={() => {
                 setSelectedPrinterIds(current =>
                   current.includes(item.id) ? current : [...current, item.id],

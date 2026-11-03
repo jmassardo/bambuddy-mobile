@@ -37,6 +37,7 @@ export const styles = StyleSheet.create({
   },
   compactInfo: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   compactNameRow: {
@@ -45,6 +46,7 @@ export const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   compactName: {
+    flexShrink: 1,
     fontSize: fontSize.base,
     fontWeight: fontWeight.bold,
   },
