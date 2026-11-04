@@ -2,12 +2,13 @@ import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import DashboardScreen from '@/screens/DashboardScreen';
-import type { Printer, PrinterStatus, PrintQueueItem } from '@/types/api';
+import type { MaintenanceStatus, Printer, PrinterStatus, PrintQueueItem } from '@/types/api';
 
 const mockRefetch = jest.fn();
 let mockStatusQueries: { data: Partial<PrinterStatus>; isLoading: boolean }[] = [];
 let mockQueue: PrintQueueItem[] = [];
 let mockPrinters: Partial<Printer>[] = [];
+let mockMaintenance: Partial<MaintenanceStatus>[] = [];
 let mockFontScale = 1;
 
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
@@ -22,7 +23,8 @@ jest.mock('@tanstack/react-query', () => ({
   useQuery: ({ queryKey }: { queryKey: unknown[] }) => ({
     data: queryKey[0] === 'printers'
       ? mockPrinters
-      : queryKey[0] === 'queue' ? mockQueue : [],
+      : queryKey[0] === 'queue' ? mockQueue
+      : queryKey[0] === 'maintenanceTasks' ? mockMaintenance : [],
     isLoading: false,
     isError: false,
     isRefetching: true,
@@ -43,13 +45,15 @@ jest.mock('react-native/Libraries/Components/RefreshControl/RefreshControl', () 
 jest.mock('@/api/client', () => ({ api: {} }));
 jest.mock('@/components/printers/AddPrinterModal', () => ({ AddPrinterModal: () => null }));
 jest.mock('@/components/printers/PrintModal', () => ({ PrintModal: () => null }));
-jest.mock('@/components/printers/FleetModal', () => ({ FleetModal: () => null }));
+jest.mock('@/components/printers/FleetModal', () => ({
+  FleetModal: ({ children }: { children: React.ReactNode }) => children,
+}));
 jest.mock('@/components/printers/PrinterCard', () => {
   const ReactModule = require('react');
   const { Text } = require('react-native');
   return {
-    PrinterCard: ({ printer }: { printer: { name: string } }) =>
-      ReactModule.createElement(Text, null, printer.name),
+    PrinterCard: ({ printer, selected }: { printer: { name: string }; selected: boolean }) =>
+      ReactModule.createElement(Text, { accessibilityState: { selected } }, printer.name),
   };
 });
 jest.mock('@/contexts/AuthContext', () => ({
@@ -69,6 +73,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockStatusQueries = [];
   mockQueue = [];
+  mockMaintenance = [];
   mockPrinters = [{ id: 1, name: 'Printer Alpha', model: 'X1 Carbon', location: 'Lab' }];
   mockFontScale = 1;
   jest.mocked(AsyncStorage.getItem).mockResolvedValue(null);
@@ -100,6 +105,49 @@ it('keeps every state filter interactive in full-card and tile views', async () 
     }
     await fireEvent.press(view.getByRole('tab', { name: 'All' }));
     for (const state of states) expect(view.getByText(`${state.name} printer`)).toBeTruthy();
+  }
+});
+
+it('overlaps maintenance Issues with operating filters, counts, and state-based selection', async () => {
+  const states = [
+    { name: 'Printing', state: 'RUNNING', connected: true },
+    { name: 'Paused', state: 'PAUSE', connected: true },
+    { name: 'Finished', state: 'FINISH', connected: true, awaiting_plate_clear: true },
+    { name: 'Queued', state: 'IDLE', connected: true },
+    { name: 'Idle', state: 'IDLE', connected: true },
+    { name: 'Offline', state: 'IDLE', connected: false },
+  ];
+  mockPrinters = states.map((state, index) => ({
+    id: index + 1,
+    name: `${state.name} printer`,
+    is_active: state.connected,
+  }));
+  mockStatusQueries = states.map(state => ({ data: { ...state, hms_errors: [] }, isLoading: false }));
+  mockMaintenance = states.map((_, index) => ({ printer_id: index + 1, is_due: true }));
+  mockQueue = [{ id: 1, printer_id: 4, status: 'pending' } as PrintQueueItem];
+  const view = await render(<DashboardScreen />);
+
+  for (const compact of [false, true]) {
+    if (compact) await fireEvent.press(view.getByRole('button', { name: 'Grid view' }));
+    for (const state of states) {
+      await fireEvent.press(view.getByRole('tab', { name: state.name }));
+      expect(view.getByText(`${state.name} printer`)).toBeTruthy();
+      for (const other of states.filter(item => item !== state)) {
+        expect(view.queryByText(`${other.name} printer`)).toBeNull();
+      }
+    }
+    await fireEvent.press(view.getByRole('tab', { name: 'Issues' }));
+    for (const state of states) expect(view.getByText(`${state.name} printer`)).toBeTruthy();
+  }
+
+  await fireEvent.press(view.getByRole('button', { name: 'Filters' }));
+  expect(view.getByText(/Printing: 1 · Paused: 1 · Finished: 1 · Queued: 1 · Idle: 1 · Issues: 6 · Offline: 1/)).toBeTruthy();
+  await fireEvent.press(view.getByRole('button', { name: 'Select all visible' }));
+  await fireEvent.press(view.getByRole('button', { name: 'Select by state' }));
+  await fireEvent.press(view.getByRole('button', { name: 'Printing' }));
+  expect(view.getByText('Printing printer')).toBeSelected();
+  for (const state of states.slice(1)) {
+    expect(view.getByText(`${state.name} printer`)).not.toBeSelected();
   }
 });
 

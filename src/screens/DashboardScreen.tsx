@@ -44,7 +44,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useTheme } from '@/theme';
 
 import { FleetModal } from '@/components/printers/FleetModal';
-import { countFleetStates, getPrinterFleetState, isBulkApplicable, type FleetBulkAction } from '@/utils/printerFleet';
+import { countFleetStates, getPrinterFleetState, matchesPrinterFleetState, isBulkApplicable, type FleetBulkAction } from '@/utils/printerFleet';
 import { borderRadius, fontSize, spacing } from '@/theme/tokens';
 import type {
   MaintenanceStatus,
@@ -505,7 +505,6 @@ export default function PrintersDashboardScreen() {
       .filter(printer => {
         const status = statusByPrinter.get(printer.id);
         const maintenance = maintenanceByPrinter.get(printer.id);
-        const mode = classifyPrinter(printer, status, maintenance, queueCounts.get(printer.id));
         const matchesSearch =
           !term ||
           [printer.name, printer.model, printer.location]
@@ -516,7 +515,12 @@ export default function PrintersDashboardScreen() {
 
         if (!matchesSearch || (hideOffline && !status?.connected) || (locationFilter !== null && (printer.location ?? '') !== locationFilter)) return false;
         if (filter === 'all') return true;
-        return mode === filter;
+        return matchesPrinterFleetState({
+          printer,
+          status,
+          maintenance,
+          queueCount: queueCounts.get(printer.id),
+        }, filter);
       })
       .sort((first, second) =>
         (descending ? -1 : 1) * comparePrinters(
@@ -743,7 +747,7 @@ export default function PrintersDashboardScreen() {
             {nextFinisher ? <Text style={{ color: colors.textSecondary }}>{t('fleet.nextFinisher', { defaultValue: 'Next finisher: {{name}} · {{minutes}} min · {{eta}}', name: nextFinisher.name, minutes: statusByPrinter.get(nextFinisher.id)?.remaining_time ?? '—', eta: new Date(Date.now() + (statusByPrinter.get(nextFinisher.id)?.remaining_time ?? 0) * 60000).toLocaleTimeString() })}</Text> : null}
             {selectionMode ? <ScrollView horizontal contentContainerStyle={styles.bulkActions}>
               <PrimaryButton label={t('fleet.selectAll', { defaultValue: 'Select all visible' })} variant="secondary" onPress={() => setSelectedPrinterIds(filteredPrinters.map(printer => printer.id))} />
-              <PrimaryButton label={t('fleet.selectState', { defaultValue: 'Select by state' })} variant="secondary" onPress={() => setChoices({ get title() { return translateNative('fleet.selectState', { defaultValue: 'Select by state' }); }, options: FILTERS.filter(item => item.key !== 'all').map(item => ({ get label() { return translateNative(`fleet.state.${item.key}`, { defaultValue: item.label }); }, select: () => setSelectedPrinterIds(printers.filter(printer => classifyPrinter(printer, statusByPrinter.get(printer.id), maintenanceByPrinter.get(printer.id), queueCounts.get(printer.id)) === item.key).map(printer => printer.id)) })) })} />
+              <PrimaryButton label={t('fleet.selectState', { defaultValue: 'Select by state' })} variant="secondary" onPress={() => setChoices({ get title() { return translateNative('fleet.selectState', { defaultValue: 'Select by state' }); }, options: FILTERS.filter(item => item.key !== 'all').map(item => ({ get label() { return translateNative(`fleet.state.${item.key}`, { defaultValue: item.label }); }, select: () => setSelectedPrinterIds(printers.filter(printer => matchesPrinterFleetState({ printer, status: statusByPrinter.get(printer.id), maintenance: maintenanceByPrinter.get(printer.id), queueCount: queueCounts.get(printer.id) }, item.key)).map(printer => printer.id)) })) })} />
               <PrimaryButton label={t('fleet.selectLocation', { defaultValue: 'Select by location' })} variant="secondary" onPress={() => setChoices({ get title() { return translateNative('fleet.selectLocation', { defaultValue: 'Select by location' }); }, options: locations.map(location => ({ label: location || t('fleet.noLocation', { defaultValue: 'No location' }), select: () => setSelectedPrinterIds(printers.filter(printer => (printer.location ?? '') === location).map(printer => printer.id)) })) })} />
             </ScrollView> : null}
             {selectionMode ? (
