@@ -114,7 +114,7 @@ export class ApiError extends Error {
  * - A null timeout lets server-supervised operations run until the caller aborts.
  * - Timer is always cleared in `finally`.
  */
-async function fetchWithTimeout(
+export async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
   timeoutMs: number | null = DEFAULT_TIMEOUT_MS,

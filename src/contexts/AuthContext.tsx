@@ -24,6 +24,7 @@ interface AuthContextType {
     user?: UserResponse;
   }>;
   loginWithToken: (token: string, user: UserResponse, remember?: boolean) => Promise<void>;
+  loginWithApiKey: (serverUrl: string, apiKey: string) => Promise<void>;
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -44,44 +45,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [serverConnected, setServerConnected] = useState(false);
   const mountedRef = useRef(true);
+  const authVersionRef = useRef(0);
+  const enrollingRef = useRef(false);
 
   const checkAuthStatus = useCallback(async () => {
+    if (enrollingRef.current) return;
+    const version = ++authVersionRef.current;
+    const isCurrent = () => mountedRef.current &&
+      version === authVersionRef.current && !enrollingRef.current;
     try {
       await loadAuthToken();
+      if (!isCurrent()) return;
       const status = await api.getAuthStatus();
-      if (!mountedRef.current) return;
+      if (!isCurrent()) return;
+      const token = getAuthToken();
+      const apiKeySession = token?.startsWith('bb_') ?? false;
 
-      setAuthEnabled(status.auth_enabled);
+      setAuthEnabled(status.auth_enabled || apiKeySession);
       setRequiresSetup(status.requires_setup);
       setServerConnected(true);
-      if (!status.auth_enabled) {
+      if (!status.auth_enabled && !apiKeySession) {
         setUser(null);
         await setAuthToken(null);
       }
 
-      if (status.auth_enabled) {
-        const token = getAuthToken();
+      if (status.auth_enabled || apiKeySession) {
         if (token) {
           try {
             const currentUser = await api.getCurrentUser();
-            if (mountedRef.current) setUser(currentUser);
+            if (isCurrent()) setUser(apiKeySession
+              ? { ...currentUser, role: 'user', is_admin: false, groups: [] }
+              : currentUser);
           } catch (err) {
-            if (err instanceof ApiError && err.status === 401) {
+            if (isCurrent() && err instanceof ApiError && err.status === 401) {
               await setAuthToken(null);
+              if (isCurrent()) setUser(null);
             }
           }
         }
       }
     } catch {
-      if (mountedRef.current) {
+      if (isCurrent()) {
         setServerConnected(false);
       }
     } finally {
-      if (mountedRef.current) setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    authVersionRef.current++;
     mountedRef.current = true;
     if (serverUrl) {
       setLoading(true);
@@ -121,6 +134,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (mountedRef.current) setUser(newUser);
   }, []);
 
+  const loginWithApiKey = useCallback(async (nextServerUrl: string, apiKey: string) => {
+    if (enrollingRef.current) throw new Error(translateNative('scanner.enrollFailed'));
+    const previousUrl = useServerStore.getState().serverUrl;
+    enrollingRef.current = true;
+    authVersionRef.current++;
+    let committed = false;
+    try {
+      const nextUser = await api.validateApiKey(nextServerUrl, apiKey);
+      if (!mountedRef.current || useServerStore.getState().serverUrl !== previousUrl) {
+        throw new Error(translateNative('scanner.enrollFailed'));
+      }
+      await useServerStore.getState().setServerUrl(nextServerUrl);
+      if (!mountedRef.current || useServerStore.getState().serverUrl !== nextServerUrl) {
+        throw new Error(translateNative('scanner.enrollFailed'));
+      }
+      await setAuthToken(apiKey);
+      if (!mountedRef.current || useServerStore.getState().serverUrl !== nextServerUrl) {
+        throw new Error(translateNative('scanner.enrollFailed'));
+      }
+      setUser(nextUser);
+      setAuthEnabled(true);
+      setRequiresSetup(false);
+      setServerConnected(true);
+      committed = true;
+    } finally {
+      enrollingRef.current = false;
+      if (mountedRef.current) {
+        if (committed) setLoading(false);
+        else void checkAuthStatus();
+      }
+    }
+  }, [checkAuthStatus]);
+
   const logout = useCallback(async () => {
     try {
       await api.logout();
@@ -132,9 +178,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
+    if (enrollingRef.current) return;
+    const version = authVersionRef.current;
     try {
       const currentUser = await api.getCurrentUser();
-      if (mountedRef.current) setUser(currentUser);
+      if (mountedRef.current && version === authVersionRef.current &&
+        !enrollingRef.current) setUser(getAuthToken()?.startsWith('bb_')
+        ? { ...currentUser, role: 'user', is_admin: false, groups: [] }
+        : currentUser);
     } catch {
       // Ignore
     }
@@ -169,6 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAdmin,
       login,
       loginWithToken,
+      loginWithApiKey,
       logout,
       refreshUser,
       hasPermission,
@@ -177,7 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       serverConnected,
       refreshAuth: checkAuthStatus,
     }),
-    [user, authEnabled, requiresSetup, loading, isAdmin, login, loginWithToken, logout, refreshUser, hasPermission, hasAnyPermission, serverConnected, checkAuthStatus],
+    [user, authEnabled, requiresSetup, loading, isAdmin, login, loginWithToken, loginWithApiKey, logout, refreshUser, hasPermission, hasAnyPermission, serverConnected, checkAuthStatus],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
