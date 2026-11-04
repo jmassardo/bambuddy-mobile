@@ -1,4 +1,4 @@
-import { countFleetStates, getPrinterFleetState, isBulkApplicable } from '@/utils/printerFleet';
+import { countFleetStates, getPrinterFleetState, matchesPrinterFleetState, isBulkApplicable } from '@/utils/printerFleet';
 import type { PrinterStatus } from '@/types/api';
 
 const status = (state: string, extra: Partial<PrinterStatus> = {}) =>
@@ -67,7 +67,7 @@ it('counts plate readiness rather than retained firmware finish states and disti
   });
 });
 
-it('gives active HMS precedence over printing in the counts, matching the filters', () => {
+it('counts active HMS independently of printing, matching the overlapping filters', () => {
   const counts = countFleetStates([
     status('RUNNING', {
       hms_errors: [
@@ -81,9 +81,44 @@ it('gives active HMS precedence over printing in the counts, matching the filter
       ],
     }),
   ].map(value => ({ status: value })));
-  expect(counts.printing).toBe(0);
+  expect(counts.printing).toBe(1);
   expect(counts.issues).toBe(1);
   expect(counts.idle).toBe(0);
+});
+
+it.each([
+  ['RUNNING', true, true, 0, 'printing'],
+  ['PAUSE', true, true, 0, 'paused'],
+  ['FINISH', true, true, 0, 'finished'],
+  ['FINISH', true, false, 1, 'queued'],
+  ['FINISH', true, false, 0, 'idle'],
+  ['RUNNING', false, false, 1, 'offline'],
+] as const)('overlaps overdue %s (connected=%s, awaiting=%s, jobs=%s) with %s and Issues', (state, connected, awaiting_plate_clear, queueCount, operatingState) => {
+  const printer = {
+    status: status(state, { connected, awaiting_plate_clear }),
+    maintenance: { dueCount: 1 },
+    queueCount,
+  };
+  expect(matchesPrinterFleetState(printer, operatingState)).toBe(true);
+  expect(matchesPrinterFleetState(printer, 'issues')).toBe(true);
+  const counts = countFleetStates([printer]);
+  expect(counts[operatingState]).toBe(1);
+  expect(counts.issues).toBe(1);
+});
+
+it('keeps disconnected maintenance-mode printers in both Offline and Issues without treating failures as idle', () => {
+  const inactive = {
+    printer: { is_active: false },
+    status: status('IDLE', { connected: false }),
+  };
+  expect(matchesPrinterFleetState(inactive, 'offline')).toBe(true);
+  expect(matchesPrinterFleetState(inactive, 'issues')).toBe(true);
+  expect(countFleetStates([inactive])).toMatchObject({ offline: 1, issues: 1, idle: 0 });
+  const failed = { status: status('FAILED'), queueCount: 1 };
+  expect(matchesPrinterFleetState(failed, 'issues')).toBe(true);
+  expect(matchesPrinterFleetState(failed, 'idle')).toBe(false);
+  expect(matchesPrinterFleetState(failed, 'queued')).toBe(false);
+  expect(countFleetStates([failed])).toMatchObject({ issues: 1, idle: 0, queued: 0 });
 });
 
 it.each([

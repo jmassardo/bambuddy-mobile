@@ -600,7 +600,7 @@
       "source": "t(`device.dryingReason.${code}`, { defaultValue: dryingReasonText(code) })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Known dryingReasonText messages render directly, without a second alias lookup over backend content.",
-      "currentFileDigest": "6da5967bebed1450f13f4649c745f8a1796877a39342bfbc4d6a2dcc7ee4d161",
+      "currentFileDigest": "9ac8d05118624a9441863964b59223c5115f8d14d7210a039c7ff099b8dd5a08",
       "status": "resolved"
     },
     {
@@ -1155,7 +1155,7 @@
       "source": "t(`fleet.state.${item.key}`, { defaultValue: item.label })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "currentFileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b",
+      "currentFileDigest": "754809c63bb6a4d70919eece0ffe36e633fc0a88c890c98c2affebd5378ce6fd",
       "status": "resolved"
     },
     {
@@ -1170,7 +1170,7 @@
       "source": "t(`fleet.state.${item.key}`, { defaultValue: item.label })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "currentFileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b",
+      "currentFileDigest": "754809c63bb6a4d70919eece0ffe36e633fc0a88c890c98c2affebd5378ce6fd",
       "status": "resolved"
     },
     {
@@ -1185,7 +1185,7 @@
       "source": "t(`fleet.state.${item.key}`, { defaultValue: item.label })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "currentFileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b",
+      "currentFileDigest": "754809c63bb6a4d70919eece0ffe36e633fc0a88c890c98c2affebd5378ce6fd",
       "status": "resolved"
     },
     {
@@ -1200,7 +1200,7 @@
       "source": "t(`fleet.sortDescription.${option.key}`, { defaultValue: option.description })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "currentFileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b",
+      "currentFileDigest": "754809c63bb6a4d70919eece0ffe36e633fc0a88c890c98c2affebd5378ce6fd",
       "status": "resolved"
     },
     {
@@ -1215,7 +1215,7 @@
       "source": "t(`fleet.sort.${option.key}`, { defaultValue: option.label })",
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "currentFileDigest": "7152ad5be6a413fadcbbca92c7c0a57214fd180fd3951a2e2161f3d9ba712e3b",
+      "currentFileDigest": "754809c63bb6a4d70919eece0ffe36e633fc0a88c890c98c2affebd5378ce6fd",
       "status": "resolved"
     },
     {
@@ -2679,7 +2679,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "c68af151039de6491c21667c26ffc953a87d58182c7b45c325be1caf19acb068",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "fileDigest": "b24d8ecc6eb21c4a4a818f9682eef689d61b7dee757d72db702ad9ab714e82c0"
+      "fileDigest": "754809c63bb6a4d70919eece0ffe36e633fc0a88c890c98c2affebd5378ce6fd"
     },
     {
       "file": "src/screens/DashboardScreen.tsx",
@@ -2694,7 +2694,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "f66e8d5a8deb3ea07ec02b0f732f2472e4f23a7c86baf98f05831cb6f78f1e09",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "fileDigest": "b24d8ecc6eb21c4a4a818f9682eef689d61b7dee757d72db702ad9ab714e82c0"
+      "fileDigest": "754809c63bb6a4d70919eece0ffe36e633fc0a88c890c98c2affebd5378ce6fd"
     },
     {
       "file": "src/screens/DashboardScreen.tsx",
@@ -2709,7 +2709,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "f66e8d5a8deb3ea07ec02b0f732f2472e4f23a7c86baf98f05831cb6f78f1e09",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "fileDigest": "b24d8ecc6eb21c4a4a818f9682eef689d61b7dee757d72db702ad9ab714e82c0"
+      "fileDigest": "754809c63bb6a4d70919eece0ffe36e633fc0a88c890c98c2affebd5378ce6fd"
     },
     {
       "file": "src/screens/DashboardScreen.tsx",
@@ -2724,7 +2724,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "7d0180167e43611401ae7cd70ba3fec25a59905d29e849872d22a10746230df2",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "fileDigest": "b24d8ecc6eb21c4a4a818f9682eef689d61b7dee757d72db702ad9ab714e82c0"
+      "fileDigest": "754809c63bb6a4d70919eece0ffe36e633fc0a88c890c98c2affebd5378ce6fd"
     },
     {
       "file": "src/screens/DashboardScreen.tsx",
@@ -2739,7 +2739,7 @@
       "reason": "Resolve app-authored validator/conditional defaults or distinguish server/user data. Never translate arbitrary error content.",
       "id": "db954fd47ee75b294d1132e8e2e57e135fdcdf38fc79bfc62b6b096997deac11",
       "disposition": "Fleet state/sort labels/descriptions are closed source-owned getter metadata. Printer names/user sorting values/wire keys remain unchanged.",
-      "fileDigest": "b24d8ecc6eb21c4a4a818f9682eef689d61b7dee757d72db702ad9ab714e82c0"
+      "fileDigest": "754809c63bb6a4d70919eece0ffe36e633fc0a88c890c98c2affebd5378ce6fd"
     },
     {
       "file": "src/screens/FilesScreen.tsx",

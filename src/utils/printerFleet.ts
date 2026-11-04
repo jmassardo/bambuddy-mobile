@@ -17,23 +17,47 @@ interface FleetPrinter {
   queueCount?: number;
 }
 
-export function getPrinterFleetState({
+function hasPrinterIssues({
   printer,
   status,
   maintenance,
+}: FleetPrinter): boolean {
+  return (
+    printer?.is_active === false ||
+    (maintenance?.dueCount ?? 0) > 0 ||
+    !!status?.connected && (
+      filterKnownHMSErrors(status.hms_errors ?? []).length > 0 ||
+      status.state === 'FAILED'
+    )
+  );
+}
+
+function getPrinterOperatingState({
+  status,
   queueCount = 0,
 }: FleetPrinter): PrinterFleetState {
-  if (printer?.is_active === false) return 'issues';
   if (!status?.connected) return 'offline';
-  if (
-    filterKnownHMSErrors(status.hms_errors ?? []).length > 0 ||
-    (maintenance?.dueCount ?? 0) > 0 ||
-    status.state === 'FAILED'
-  ) return 'issues';
+  if (status.state === 'FAILED') return 'issues';
   if (status.state === 'RUNNING') return 'printing';
   if (status.state === 'PAUSE') return 'paused';
   if (status.awaiting_plate_clear ?? (status.state === 'FINISH')) return 'finished';
   return queueCount > 0 ? 'queued' : 'idle';
+}
+
+export function getPrinterFleetState(printer: FleetPrinter): PrinterFleetState {
+  if (printer.printer?.is_active === false) return 'issues';
+  if (!printer.status?.connected) return 'offline';
+  if (hasPrinterIssues(printer)) return 'issues';
+  return getPrinterOperatingState(printer);
+}
+
+export function matchesPrinterFleetState(
+  printer: FleetPrinter,
+  state: PrinterFleetState,
+): boolean {
+  return state === 'issues'
+    ? hasPrinterIssues(printer)
+    : getPrinterOperatingState(printer) === state;
 }
 
 export type FleetBulkAction =
@@ -81,7 +105,9 @@ export function countFleetStates(printers: FleetPrinter[]) {
       counts.loading++;
       continue;
     }
-    counts[getPrinterFleetState(printer)]++;
+    const state = getPrinterOperatingState(printer);
+    counts[state]++;
+    if (state !== 'issues' && hasPrinterIssues(printer)) counts.issues++;
   }
   return counts;
 }

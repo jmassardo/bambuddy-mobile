@@ -202,7 +202,7 @@ export function InlineTabBar<T extends string>({
   useTranslation();
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inlineTabsContainer}>
+    <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inlineTabsContainer}>
       {tabs.map((tab) => {
         const active = tab.key === value;
         return (

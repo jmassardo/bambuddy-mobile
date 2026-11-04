@@ -1,7 +1,7 @@
 import { NativeTranslation, nativeEnglishSuffix, nativeMessage, translateNative, useLocalizedMemo, useNativeLocale, useTranslation } from '@/i18n';
 
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MainTabNavigationProp } from '@/navigation/types';
@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Text,
   Switch,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {
@@ -43,7 +44,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useTheme } from '@/theme';
 
 import { FleetModal } from '@/components/printers/FleetModal';
-import { countFleetStates, getPrinterFleetState, isBulkApplicable, type FleetBulkAction } from '@/utils/printerFleet';
+import { countFleetStates, getPrinterFleetState, matchesPrinterFleetState, isBulkApplicable, type FleetBulkAction } from '@/utils/printerFleet';
 import { borderRadius, fontSize, spacing } from '@/theme/tokens';
 import type {
   MaintenanceStatus,
@@ -337,6 +338,16 @@ export default function PrintersDashboardScreen() {
   const [sortBy, setSortBy] = useState<PrinterSortMode>('status');
   const [sortSecondary, setSortSecondary] = useState<PrinterSortSecondaryMode>('name');
   const [viewMode, setViewMode] = useState<'normal' | 'compact'>('normal');
+  const { width: windowWidth, fontScale } = useWindowDimensions();
+  const [layoutWidth, setLayoutWidth] = useState<number | null>(null);
+  const availableWidth = Math.max(0, (layoutWidth ?? windowWidth) - spacing.md * 2);
+  const columns = viewMode === 'compact' && availableWidth >= 160 * fontScale * 2 + spacing.sm ? 2 : 1;
+  const tileStyles = useMemo(() => StyleSheet.create({
+    item: {
+      width: (availableWidth - spacing.sm * (columns - 1)) / columns,
+      minWidth: 0,
+    },
+  }), [availableWidth, columns]);
   const [snapshotSeed, setSnapshotSeed] = useState(0);
   const [printPrinterId, setPrintPrinterId] = useState<number | null>(null);
   const [showAddPrinter, setShowAddPrinter] = useState(false);
@@ -494,7 +505,6 @@ export default function PrintersDashboardScreen() {
       .filter(printer => {
         const status = statusByPrinter.get(printer.id);
         const maintenance = maintenanceByPrinter.get(printer.id);
-        const mode = classifyPrinter(printer, status, maintenance, queueCounts.get(printer.id));
         const matchesSearch =
           !term ||
           [printer.name, printer.model, printer.location]
@@ -505,7 +515,12 @@ export default function PrintersDashboardScreen() {
 
         if (!matchesSearch || (hideOffline && !status?.connected) || (locationFilter !== null && (printer.location ?? '') !== locationFilter)) return false;
         if (filter === 'all') return true;
-        return mode === filter;
+        return matchesPrinterFleetState({
+          printer,
+          status,
+          maintenance,
+          queueCount: queueCounts.get(printer.id),
+        }, filter);
       })
       .sort((first, second) =>
         (descending ? -1 : 1) * comparePrinters(
@@ -644,15 +659,19 @@ export default function PrintersDashboardScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}> 
+    <View
+      testID="printers-viewport"
+      style={[styles.container, { backgroundColor: colors.background }]}
+      onLayout={event => setLayoutWidth(event.nativeEvent.layout.width)}
+    >
       <FlatList
         data={filteredPrinters}
-        key={viewMode}
-        numColumns={viewMode === 'compact' ? 2 : 1}
+        key={`${viewMode}-${columns}`}
+        numColumns={columns}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
-        columnWrapperStyle={viewMode === 'compact' ? styles.gridRow : undefined}
+        columnWrapperStyle={columns > 1 ? styles.gridRow : undefined}
         ItemSeparatorComponent={viewMode === 'compact' ? undefined : ListSeparator}
         refreshControl={
           <RefreshControl
@@ -673,6 +692,8 @@ export default function PrintersDashboardScreen() {
 
           return (
             <Pressable
+              testID={`printer-item-${item.id}`}
+              style={viewMode === 'compact' ? tileStyles.item : undefined}
               onLongPress={() => {
                 setSelectedPrinterIds(current =>
                   current.includes(item.id) ? current : [...current, item.id],
@@ -726,7 +747,7 @@ export default function PrintersDashboardScreen() {
             {nextFinisher ? <Text style={{ color: colors.textSecondary }}>{t('fleet.nextFinisher', { defaultValue: 'Next finisher: {{name}} · {{minutes}} min · {{eta}}', name: nextFinisher.name, minutes: statusByPrinter.get(nextFinisher.id)?.remaining_time ?? '—', eta: new Date(Date.now() + (statusByPrinter.get(nextFinisher.id)?.remaining_time ?? 0) * 60000).toLocaleTimeString() })}</Text> : null}
             {selectionMode ? <ScrollView horizontal contentContainerStyle={styles.bulkActions}>
               <PrimaryButton label={t('fleet.selectAll', { defaultValue: 'Select all visible' })} variant="secondary" onPress={() => setSelectedPrinterIds(filteredPrinters.map(printer => printer.id))} />
-              <PrimaryButton label={t('fleet.selectState', { defaultValue: 'Select by state' })} variant="secondary" onPress={() => setChoices({ get title() { return translateNative('fleet.selectState', { defaultValue: 'Select by state' }); }, options: FILTERS.filter(item => item.key !== 'all').map(item => ({ get label() { return translateNative(`fleet.state.${item.key}`, { defaultValue: item.label }); }, select: () => setSelectedPrinterIds(printers.filter(printer => classifyPrinter(printer, statusByPrinter.get(printer.id), maintenanceByPrinter.get(printer.id), queueCounts.get(printer.id)) === item.key).map(printer => printer.id)) })) })} />
+              <PrimaryButton label={t('fleet.selectState', { defaultValue: 'Select by state' })} variant="secondary" onPress={() => setChoices({ get title() { return translateNative('fleet.selectState', { defaultValue: 'Select by state' }); }, options: FILTERS.filter(item => item.key !== 'all').map(item => ({ get label() { return translateNative(`fleet.state.${item.key}`, { defaultValue: item.label }); }, select: () => setSelectedPrinterIds(printers.filter(printer => matchesPrinterFleetState({ printer, status: statusByPrinter.get(printer.id), maintenance: maintenanceByPrinter.get(printer.id), queueCount: queueCounts.get(printer.id) }, item.key)).map(printer => printer.id)) })) })} />
               <PrimaryButton label={t('fleet.selectLocation', { defaultValue: 'Select by location' })} variant="secondary" onPress={() => setChoices({ get title() { return translateNative('fleet.selectLocation', { defaultValue: 'Select by location' }); }, options: locations.map(location => ({ label: location || t('fleet.noLocation', { defaultValue: 'No location' }), select: () => setSelectedPrinterIds(printers.filter(printer => (printer.location ?? '') === location).map(printer => printer.id)) })) })} />
             </ScrollView> : null}
             {selectionMode ? (

@@ -411,6 +411,17 @@ export function TrayDetailModal({
       showToast(getErrorMessage(error, nativeMessage('native.995b9681e38b91a0')), 'error'),
   });
 
+  const resetSlotMutation = useMutation({
+    mutationFn: () => {
+      if (!context) throw new Error(translateNative('native.9e7eeab5008cf3b9'));
+      return device.resetSlot(printerId, context.amsId, deviceSlotTrayId(context.amsId, context.trayId));
+    },
+    onSuccess: async () => {
+      await invalidatePrinter();
+      setConfiguring(false);
+    },
+  });
+
   if (!tray || !context) return null;
 
   const canControl = hasPermission('printers:control') && statusQuery.data?.connected === true;
@@ -441,6 +452,7 @@ export function TrayDetailModal({
   return (
     <>
       <Modal
+        testID="printer-slot-modal"
         visible={visible}
         transparent
         animationType="slide"
@@ -504,6 +516,25 @@ export function TrayDetailModal({
                   autoCorrect={false}
                 />
                 <Text style={[styles.configureHint, { color: colors.textSecondary }]}><NativeTranslation id="native.dc612a3227ee838d" values={{ value0: (currentProfileLabel) }} /></Text>
+                {!selectedPreset ? (
+                  <>
+                    <PrimaryButton
+                      label={t('device.resetSlot', { defaultValue: 'Reset slot to generic defaults' })}
+                      variant="danger"
+                      disabled={!canControl || !hasPermission('printers:update') || resetSlotMutation.isPending}
+                      loading={resetSlotMutation.isPending}
+                      onPress={() => Alert.alert(
+                        t('device.resetSlot', { defaultValue: 'Reset slot to generic defaults' }),
+                        t('device.resetSlotConfirm', { defaultValue: 'Clear the slot configuration and saved preset association?' }),
+                        [
+                          { text: t('common.cancel'), style: 'cancel' },
+                          { text: t('common.confirm', { defaultValue: 'Confirm' }), onPress: () => resetSlotMutation.mutate() },
+                        ],
+                      )}
+                    />
+                    {resetSlotMutation.error ? <Text style={{ color: colors.error }}>{resetSlotMutation.error.message}</Text> : null}
+                  </>
+                ) : null}
                 <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   {selectedPreset ? <ConfigureDeviceSlot key={`${selectedPreset.source}-${selectedPreset.id}`} printerId={printerId}
                     amsId={context.amsId} trayId={deviceSlotTrayId(context.amsId, context.trayId)} tray={tray} preset={selectedPreset}
@@ -880,9 +911,6 @@ export function TrayDetailModal({
           </View>
         </SafeAreaView>
         </KeyboardAvoidingView>
-        </SafeAreaProvider>
-      </Modal>
-
       <AssignSpoolModal
         visible={showAssignSpoolModal}
         printerId={printerId}
@@ -906,6 +934,8 @@ export function TrayDetailModal({
         colorHint={tray.tray_color}
         onClose={() => setShowLinkSpoolModal(false)}
       />
+        </SafeAreaProvider>
+      </Modal>
     </>
   );
 }

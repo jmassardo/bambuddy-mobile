@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TrayDetailModal } from '@/components/printers/TrayDetailModal';
 import { AssignSpoolModal } from '@/components/printers/AssignSpoolModal';
@@ -21,11 +21,11 @@ jest.mock('@/api/client', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     getPrinterStatus: jest.fn(), getAssignments: jest.fn(), getSpoolmanStatus: jest.fn(),
-    getSlotPresets: jest.fn(), refreshAmsSlot: jest.fn(), getSpools: jest.fn(), assignSpool: jest.fn(), unassignSpool: jest.fn(),
+    getSlotPresets: jest.fn(), refreshAmsSlot: jest.fn(), getSpools: jest.fn(), assignSpool: jest.fn(), unassignSpool: jest.fn(), getSlicerPresets: jest.fn(),
   },
 }));
 jest.mock('@/api/printerControls', () => ({
-  printerControlsApi: { load: jest.fn(), unload: jest.fn(), spoolmanSpools: jest.fn(), spoolmanBindings: jest.fn(), assignSpoolman: jest.fn() },
+  printerControlsApi: { load: jest.fn(), unload: jest.fn(), spoolmanSpools: jest.fn(), spoolmanBindings: jest.fn(), assignSpoolman: jest.fn(), builtinFilaments: jest.fn(), resetSlot: jest.fn() },
 }));
 
 const tray = { id: 2, tray_color: '112233FF', tray_type: 'PLA', tray_sub_brands: 'PLA Basic',
@@ -55,7 +55,39 @@ beforeEach(() => {
   jest.mocked(device.spoolmanSpools).mockResolvedValue([spool]);
   jest.mocked(device.spoolmanBindings).mockResolvedValue([]);
   jest.mocked(device.assignSpoolman).mockResolvedValue(undefined);
+  jest.mocked(device.builtinFilaments).mockResolvedValue([]);
+  jest.mocked(device.resetSlot).mockResolvedValue({ success: true });
+  jest.mocked(api.getSlicerPresets).mockResolvedValue({
+    local: { filament: [] }, orca_cloud: { filament: [] }, cloud: { filament: [] },
+  } as unknown as Awaited<ReturnType<typeof api.getSlicerPresets>>);
 });
+
+it('presents the inventory picker from the slot modal and completes assignment back to the slot', async () => {
+  const screen = await mount(<TrayDetailModal visible printerId={7} tray={tray} context={context} isPrinting={false} onClose={jest.fn()} />);
+  await fireEvent.press(screen.getByText('Assign inventory spool'));
+  const slotModal = screen.getByTestId('printer-slot-modal');
+  const picker = await within(slotModal).findByText('Brand • PETG');
+  await fireEvent.press(picker);
+  await act(async () => alert.mock.calls.at(-1)?.[2]?.at(-1)?.onPress?.());
+  await waitFor(() => expect(api.assignSpool).toHaveBeenCalledWith(3, 7, 1, 2));
+  await waitFor(() => expect(screen.queryByText('Brand • PETG')).toBeNull());
+  expect(screen.getByText('Load filament')).toBeTruthy();
+});
+
+it.each([[1, 2, 2], [255, 254, 0], [255, 255, 1]])(
+  'resets AMS %i tray %i from Configure Slot without selecting a preset',
+  async (amsId, trayId, addressedTray) => {
+    const screen = await mount(<TrayDetailModal visible printerId={7} tray={tray}
+      context={{ ...context, amsId, trayId, isExternal: amsId === 255 }} isPrinting={false} onClose={jest.fn()} />);
+    await waitFor(() => expect(screen.getByText('Configure slot')).toBeEnabled());
+    await fireEvent.press(screen.getByText('Configure slot'));
+    await fireEvent.press(screen.getByText('Reset slot to generic defaults'));
+    expect(device.resetSlot).not.toHaveBeenCalled();
+    await act(async () => alert.mock.calls.at(-1)?.[2]?.at(-1)?.onPress?.());
+    await waitFor(() => expect(device.resetSlot).toHaveBeenCalledWith(7, amsId, addressedTray));
+    await waitFor(() => expect(screen.getByText('Load filament')).toBeTruthy());
+  },
+);
 
 it('asks for a feed direction only with FTS hardware and sends the selected hotend and addressed slot', async () => {
   const screen = await mount(<TrayDetailModal visible printerId={7} tray={tray} context={context} isPrinting={false} onClose={jest.fn()} />);
