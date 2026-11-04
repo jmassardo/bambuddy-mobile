@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { AuthProvider, useAuth, type UserResponse } from '@/contexts/AuthContext';
-import { api, setAuthToken } from '@/api/client';
+import { api, getAuthToken, setAuthToken } from '@/api/client';
 import { useServerStore } from '@/api/server';
 
 // Mock api
@@ -15,6 +15,7 @@ jest.mock('@/api/client', () => {
       login: jest.fn(),
       logout: jest.fn(),
       verify2FA: jest.fn(),
+      validateApiKey: jest.fn(),
     },
     getAuthToken: jest.fn(() => 'test-token'),
     loadAuthToken: jest.fn(() => Promise.resolve()),
@@ -54,8 +55,10 @@ const regularUser: UserResponse = {
     { id: 2, name: 'viewers', permissions: ['printers:read'] },
   ],
 };
+const keyUser: UserResponse = { ...regularUser, groups: [] };
 
 let latestAuth: ReturnType<typeof useAuth> | null = null;
+let renderedAuth: ReactTestRenderer.ReactTestRenderer | null = null;
 
 function AuthConsumer() {
   latestAuth = useAuth();
@@ -63,12 +66,18 @@ function AuthConsumer() {
 }
 
 function renderAuth() {
-  return ReactTestRenderer.create(
+  renderedAuth = ReactTestRenderer.create(
     React.createElement(AuthProvider, null, React.createElement(AuthConsumer)),
   );
+  return renderedAuth;
 }
 
 describe('AuthContext', () => {
+  afterEach(async () => {
+    await act(async () => { renderedAuth?.unmount(); });
+    renderedAuth = null;
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     latestAuth = null;
@@ -78,6 +87,11 @@ describe('AuthContext', () => {
       requires_setup: false,
     });
     mockedApi.getCurrentUser.mockResolvedValue(testUser);
+    mockedApi.validateApiKey.mockResolvedValue(keyUser);
+    jest.mocked(getAuthToken).mockReturnValue('test-token');
+    mockedSetAuthToken.mockImplementation(async token => {
+      jest.mocked(getAuthToken).mockReturnValue(token);
+    });
   });
 
   describe('hasPermission', () => {
@@ -161,7 +175,7 @@ describe('AuthContext', () => {
     });
   });
 
-  describe('logout', () => {
+  describe('session transitions', () => {
     it('clears token and user', async () => {
       await act(async () => { renderAuth(); });
       await act(async () => { await new Promise<void>((r) => setTimeout(r, 50)); });
@@ -172,6 +186,94 @@ describe('AuthContext', () => {
 
       expect(mockedSetAuthToken).toHaveBeenCalledWith(null);
       expect(latestAuth!.user).toBeNull();
+    });
+
+    describe('API-key enrollment', () => {
+      it('validates before switching servers and applies only the key identity permissions', async () => {
+        await act(async () => { renderAuth(); });
+        mockedApi.getCurrentUser.mockResolvedValue(keyUser);
+        await act(async () => {
+          await latestAuth!.loginWithApiKey('https://new-farm.test', 'bb_fixture');
+        });
+        expect(mockedApi.validateApiKey).toHaveBeenCalledWith('https://new-farm.test', 'bb_fixture');
+        expect(useServerStore.getState().serverUrl).toBe('https://new-farm.test');
+        expect(mockedSetAuthToken).toHaveBeenCalledWith('bb_fixture');
+        expect(latestAuth!.user).toEqual(keyUser);
+        expect(latestAuth!.hasPermission('printers:read')).toBe(true);
+        expect(latestAuth!.hasPermission('settings:update')).toBe(false);
+        expect(latestAuth!.authEnabled).toBe(true);
+        expect(latestAuth!.serverConnected).toBe(true);
+      });
+
+      it('leaves the previous server and credential intact when validation fails', async () => {
+        await act(async () => { renderAuth(); });
+        mockedApi.validateApiKey.mockRejectedValue(new Error('Invalid API key'));
+        await act(async () => {
+          await expect(latestAuth!.loginWithApiKey('https://other-farm.test', 'bb_invalid')).rejects.toThrow();
+        });
+        expect(useServerStore.getState().serverUrl).toBe('https://bb.test');
+        expect(mockedSetAuthToken).not.toHaveBeenCalled();
+        expect(latestAuth!.user).toEqual(testUser);
+      });
+
+      it('discards validation when the configured server changes while it is pending', async () => {
+        await act(async () => { renderAuth(); });
+        let resolve!: (value: UserResponse) => void;
+        mockedApi.validateApiKey.mockReturnValue(new Promise(done => { resolve = done; }));
+        const pending = latestAuth!.loginWithApiKey('https://qr-farm.test', 'bb_fixture');
+        await act(async () => { useServerStore.setState({ serverUrl: 'https://chosen-farm.test' }); });
+        await act(async () => {
+          resolve(regularUser);
+          await expect(pending).rejects.toThrow('Could not connect with this API key.');
+        });
+        expect(useServerStore.getState().serverUrl).toBe('https://chosen-farm.test');
+        expect(mockedSetAuthToken).not.toHaveBeenCalled();
+      });
+
+      it('does not let an older auth-disabled response overwrite successful enrollment', async () => {
+        let resolve!: (value: { auth_enabled: boolean; requires_setup: boolean }) => void;
+        mockedApi.getAuthStatus.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+        await act(async () => { renderAuth(); });
+        mockedApi.getCurrentUser.mockResolvedValue(keyUser);
+        await act(async () => {
+          await latestAuth!.loginWithApiKey('https://new-farm.test', 'bb_fixture');
+        });
+        await act(async () => { resolve({ auth_enabled: false, requires_setup: false }); });
+        expect(latestAuth!.user).toEqual(keyUser);
+        expect(latestAuth!.authEnabled).toBe(true);
+        expect(mockedSetAuthToken).not.toHaveBeenCalledWith(null);
+      });
+
+      it('ignores a user refresh started before QR enrollment', async () => {
+        await act(async () => { renderAuth(); });
+        let resolve!: (value: UserResponse) => void;
+        mockedApi.getCurrentUser.mockReturnValueOnce(new Promise(value => { resolve = value; }));
+        const refreshing = latestAuth!.refreshUser();
+        await act(async () => {
+          await latestAuth!.loginWithApiKey('https://bb.test', 'bb_fixture');
+        });
+        await act(async () => { resolve(testUser); await refreshing; });
+        expect(latestAuth!.user).toEqual(keyUser);
+        expect(latestAuth!.isAdmin).toBe(false);
+      });
+
+      it('restores and refreshes scoped keys even when password authentication is disabled', async () => {
+        jest.mocked(getAuthToken).mockReturnValue('bb_fixture');
+        mockedApi.getAuthStatus.mockResolvedValue({ auth_enabled: false, requires_setup: false });
+        mockedApi.getCurrentUser.mockResolvedValue({
+          ...regularUser, role: 'admin', is_admin: true, groups: testUser.groups,
+        });
+        await act(async () => { renderAuth(); });
+        expect(latestAuth!.authEnabled).toBe(true);
+        expect(latestAuth!.isAdmin).toBe(false);
+        expect(latestAuth!.user?.role).toBe('user');
+        expect(latestAuth!.hasPermission('settings:update')).toBe(false);
+        expect(mockedSetAuthToken).not.toHaveBeenCalledWith(null);
+        await act(async () => { await latestAuth!.refreshUser(); });
+        expect(latestAuth!.user?.role).toBe('user');
+        expect(latestAuth!.isAdmin).toBe(false);
+        expect(latestAuth!.hasPermission('printers:update')).toBe(false);
+      });
     });
 
     it('clears user even if api.logout fails', async () => {

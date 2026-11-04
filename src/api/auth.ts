@@ -18,7 +18,9 @@ import type {
   TOTPSetupResponse,
   TwoFAStatus,
 } from '@/types/api';
-import { buildMediaUrl, checkAuthStatus, MEDIA_TOKEN_SCOPE, request } from './http';
+import { translateNative } from '@/i18n';
+import { apiUrl } from './server';
+import { buildMediaUrl, checkAuthStatus, fetchWithTimeout, MEDIA_TOKEN_SCOPE, request } from './http';
 
 export const authApi = {
   getAuthStatus: async () => checkAuthStatus(),
@@ -45,6 +47,28 @@ export const authApi = {
 
   getCurrentUser: async () =>
     request<AuthenticatedUserResponse>('/auth/me'),
+
+  validateApiKey: async (serverUrl: string, apiKey: string): Promise<AuthenticatedUserResponse> => {
+    try {
+      const endpoint = apiUrl(serverUrl, '/auth/me');
+      const response = await fetchWithTimeout(endpoint, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        credentials: 'omit',
+      });
+      if (!response.ok || (response.url && response.url !== endpoint)) throw new Error();
+      const user: unknown = await response.json();
+      if (!user || typeof user !== 'object') throw new Error();
+      const data = user as Record<string, unknown>;
+      if (typeof data.id !== 'number' || typeof data.username !== 'string' ||
+        !data.username || data.is_active !== true ||
+        typeof data.auth_source !== 'string' || typeof data.created_at !== 'string' ||
+        !Array.isArray(data.permissions) ||
+        !data.permissions.every(permission => typeof permission === 'string')) throw new Error();
+      return { ...data, role: 'user', is_admin: false, groups: [] } as unknown as AuthenticatedUserResponse;
+    } catch {
+      throw new Error(translateNative('scanner.enrollFailed'));
+    }
+  },
 
   setupAuth: async (data: { auth_enabled: boolean; admin_username?: string; admin_password?: string }) =>
     request<{ auth_enabled: boolean; admin_created?: boolean }>('/auth/setup', {

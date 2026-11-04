@@ -1,10 +1,12 @@
 import { nativeMessage, translateNative, useLocalizedMemo, useNativeLocale } from '@/i18n';
 
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import type { RootNavigationProp, RootRouteProp } from '@/navigation/types';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { URL } from 'react-native-url-polyfill';
 import {
   Camera,
   useCameraDevice,
@@ -19,53 +21,7 @@ import { useTheme } from '@/theme';
 import { borderRadius, fontSize, fontWeight, spacing } from '@/theme/tokens';
 import { PrimaryButton } from '@/components/common/AppUI';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
-
-function isAllowedHttpHost(hostname: string) {
-  const normalizedHostname = hostname.trim().toLowerCase();
-  if (
-    normalizedHostname === 'localhost' ||
-    normalizedHostname.endsWith('.local')
-  ) {
-    return true;
-  }
-
-  const ipv4Match = normalizedHostname.match(
-    /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/,
-  );
-  if (!ipv4Match) return false;
-
-  const octets = ipv4Match.slice(1).map(value => Number(value));
-  if (octets.some(value => Number.isNaN(value) || value < 0 || value > 255)) {
-    return false;
-  }
-
-  const [first, second] = octets;
-  if (first === 10 || first === 127) return true;
-  if (first === 192 && second === 168) return true;
-  if (first === 172 && second >= 16 && second <= 31) return true;
-  return false;
-}
-
-function parseServerUrl(value: string) {
-  const trimmedValue = value.trim();
-  if (!trimmedValue) return null;
-
-  try {
-    const parsedUrl = new URL(trimmedValue);
-    if (parsedUrl.protocol === 'https:') {
-      return parsedUrl;
-    }
-    if (
-      parsedUrl.protocol === 'http:' &&
-      isAllowedHttpHost(parsedUrl.hostname)
-    ) {
-      return parsedUrl;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+import { parseServerEnrollment, type ServerEnrollment } from '@/utils/serverEnrollment';
 
 function extractSpoolId(value: string) {
   // eslint-disable-next-line no-useless-escape -- \/ required to terminate regex literal inside character class
@@ -82,12 +38,38 @@ export default function ScannerScreen() {
   const route = useRoute<RootRouteProp<'Scanner'>>();
   const { mode } = (route.params ?? {}) as { mode?: string };
   const { colors } = useTheme();
+  const queryClient = useQueryClient();
+  const errorStyles = React.useMemo(() => StyleSheet.create({
+    message: { color: colors.error },
+  }), [colors.error]);
   const { showToast } = useToast();
-  const { setServerConnected } = useAuth();
+  const { setServerConnected, loginWithApiKey, user, loading } = useAuth();
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const [handled, setHandled] = useState(false);
-  const [pendingServerUrl, setPendingServerUrl] = useState<URL | null>(null);
+  const handledRef = useRef(false);
+  const [pendingServer, setPendingServer] = useState<ServerEnrollment | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const connectingRef = useRef(false);
+  const [enrolled, setEnrolled] = useState(false);
+  const [scanError, setScanError] = useState<'invalid' | 'enrollment' | 'camera' | null>(null);
+  const errorMessage = scanError === 'invalid' ? translateNative('scanner.invalidCode')
+    : scanError === 'enrollment' ? translateNative('scanner.enrollFailed')
+    : scanError === 'camera' ? translateNative('scanner.cameraError') : '';
+
+  React.useEffect(() => {
+    if (enrolled && user && !loading) {
+      navigation.reset({ index: 0, routes: [{ name: 'Main', params: { screen: 'Dashboard' } }] });
+    }
+  }, [enrolled, loading, navigation, user]);
+
+  const resetScan = () => {
+    if (connectingRef.current) return;
+    handledRef.current = false;
+    setHandled(false);
+    setPendingServer(null);
+    setScanError(null);
+  };
 
   const subtitle = useLocalizedMemo(
     () =>
@@ -98,18 +80,19 @@ export default function ScannerScreen() {
   );
 
   const handleScan = async (data: string) => {
-    if (handled) return;
+    if (handledRef.current) return;
+    handledRef.current = true;
     setHandled(true);
+    setScanError(null);
 
     try {
-      const scannedServerUrl = parseServerUrl(data);
-      if (mode === 'server' || scannedServerUrl) {
-        if (!scannedServerUrl) {
-          showToast(nativeMessage('native.df6b1b526ca88536'), 'warning');
-          setHandled(false);
+      const enrollment = parseServerEnrollment(data);
+      if (mode === 'server' || enrollment || /^bambuddy:/i.test(data.trim())) {
+        if (!enrollment) {
+          setScanError('invalid');
           return;
         }
-        setPendingServerUrl(scannedServerUrl);
+        setPendingServer(enrollment);
         return;
       }
 
@@ -123,27 +106,32 @@ export default function ScannerScreen() {
         return;
       }
 
-      showToast(nativeMessage('native.29e1912cf1b5f745'), 'warning');
-      setHandled(false);
-    } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : nativeMessage('native.115b8e6f5c633cac'),
-        'error',
-      );
-      setHandled(false);
+      setScanError('invalid');
+    } catch {
+      setScanError('invalid');
     }
   };
 
   const confirmServerUrl = async () => {
-    if (!pendingServerUrl) return;
+    if (!pendingServer || connectingRef.current) return;
+    connectingRef.current = true;
+    setConnecting(true);
 
     try {
+      if (pendingServer.apiKey) {
+        await loginWithApiKey(pendingServer.serverUrl, pendingServer.apiKey);
+        queryClient.clear();
+        setPendingServer(null);
+        setEnrolled(true);
+        showToast(nativeMessage('scanner.enrollSuccess'), 'success');
+        return;
+      }
       await useServerStore
         .getState()
-        .setServerUrl(pendingServerUrl.toString().trim().replace(/\/$/, ''));
+        .setServerUrl(pendingServer.serverUrl);
       const status = await api.getAuthStatus();
       setServerConnected(true);
-      setPendingServerUrl(null);
+      setPendingServer(null);
       showToast(nativeMessage('native.00221374e03d28d4'), 'success');
       if (status.requires_setup) {
         navigation.reset({ index: 0, routes: [{ name: 'Setup' }] });
@@ -157,13 +145,12 @@ export default function ScannerScreen() {
         index: 0,
         routes: [{ name: 'Main', params: { screen: 'Dashboard' } }],
       });
-    } catch (error) {
-      setPendingServerUrl(null);
-      setHandled(false);
-      showToast(
-        error instanceof Error ? error.message : nativeMessage('native.115b8e6f5c633cac'),
-        'error',
-      );
+    } catch {
+      setPendingServer(null);
+      setScanError('enrollment');
+    } finally {
+      connectingRef.current = false;
+      setConnecting(false);
     }
   };
 
@@ -171,7 +158,7 @@ export default function ScannerScreen() {
     codeTypes: ['qr'],
     onCodeScanned: codes => {
       const value = codes[0]?.value;
-      if (!value || handled) return;
+      if (!value || handledRef.current) return;
       void handleScan(value);
     },
   });
@@ -188,8 +175,12 @@ export default function ScannerScreen() {
         </Text>
         <PrimaryButton
           label={translateNative('native.21fa199932c61d99')}
-          onPress={() => void requestPermission()}
+          onPress={() => {
+            resetScan();
+            void requestPermission().catch(() => setScanError('camera'));
+          }}
         />
+        {errorMessage ? <Text style={errorStyles.message}>{errorMessage}</Text> : null}
         <PrimaryButton label={translateNative('common.close')} variant="secondary" onPress={() => navigation.goBack()} />
       </SafeAreaView>
     );
@@ -218,6 +209,12 @@ export default function ScannerScreen() {
         device={device}
         isActive={!handled}
         codeScanner={handled ? undefined : codeScanner}
+        onError={() => {
+          if (handledRef.current) return;
+          handledRef.current = true;
+          setHandled(true);
+          setScanError('camera');
+        }}
       />
       <View style={[styles.overlayCard, { backgroundColor: colors.surface }]}>
         <Text style={[styles.title, { color: colors.text }]}>
@@ -225,14 +222,13 @@ export default function ScannerScreen() {
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           {subtitle}
         </Text>
+        {errorMessage ? <Text style={errorStyles.message}>{errorMessage}</Text> : null}
         {handled ? (
           <PrimaryButton
             label={translateNative('native.10d0efeaef75c794')}
-            onPress={() => {
-              setPendingServerUrl(null);
-              setHandled(false);
-            }}
+            onPress={resetScan}
             variant="secondary"
+            disabled={connecting}
           />
         ) : null}
       </View>
@@ -240,27 +236,34 @@ export default function ScannerScreen() {
         accessibilityRole="button"
         accessibilityLabel={translateNative('common.close')}
         onPress={() => navigation.goBack()}
+        disabled={connecting}
         style={[styles.closeButton, { backgroundColor: colors.surface }]}
       >
         <Text style={[styles.closeText, { color: colors.text }]}>{translateNative('common.close')}</Text>
       </Pressable>
       <ConfirmModal
-        visible={pendingServerUrl !== null}
+        visible={pendingServer !== null}
         onClose={() => {
-          setPendingServerUrl(null);
-          setHandled(false);
+          if (!connectingRef.current) setPendingServer(null);
         }}
         onConfirm={() => {
           void confirmServerUrl();
         }}
-        title={translateNative('native.8dce0a5836189aeb')}
+        title={pendingServer?.apiKey
+          ? translateNative('scanner.enrollTitle')
+          : translateNative('native.8dce0a5836189aeb')}
         message={
-          pendingServerUrl
-            ? translateNative('native.b5ab96962e7fbfba', { value0: String(pendingServerUrl.origin), value1: String(pendingServerUrl.host) })
+          pendingServer?.apiKey
+            ? pendingServer.serverUrl.startsWith('http:')
+              ? translateNative('scanner.insecureEnrollment', { server: pendingServer.serverUrl })
+              : translateNative('scanner.enrollMessage', { server: pendingServer.serverUrl })
+            : pendingServer
+            ? translateNative('native.b5ab96962e7fbfba', { value0: String(new URL(pendingServer.serverUrl).origin), value1: String(new URL(pendingServer.serverUrl).host) })
             : ''
         }
         confirmLabel={translateNative('common.save')}
-        variant="info"
+        variant={pendingServer?.serverUrl.startsWith('http:') ? 'warning' : 'info'}
+        loading={connecting}
       />
     </SafeAreaView>
   );
