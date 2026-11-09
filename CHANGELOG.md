@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep LDAP sign-in available when local accounts are disabled, and respect administrator-only user/group writes without removing delegated read access.
 
 - Restore authenticated iOS camera streams in the mobile app (#139, #142, #144)
+- Stop the iOS app from closing at launch on iOS 27 and build it with Xcode 27
 
 ### Security
 
