@@ -367,6 +367,7 @@ describe('NavigationSettingsSection', () => {
         'settings',
         'more',
         'spoolbuddy',
+        'catalog',
       ]);
 
     rendererAct(() => {
@@ -389,6 +390,7 @@ describe('NavigationSettingsSection', () => {
       'settings',
       'more',
       'spoolbuddy',
+      'catalog',
     ]);
     expect(mockShowToast).toHaveBeenCalledWith('Save failed', 'error');
 
@@ -410,7 +412,7 @@ describe('NavigationSettingsSection', () => {
 
     expect(mockUpdateSettings).toHaveBeenCalledWith(
       expect.objectContaining({
-        default_sidebar_order: 'energy,settings,more,spoolbuddy',
+        default_sidebar_order: 'energy,settings,more,spoolbuddy,catalog',
       }),
     );
     expect(mockInvalidateQueries).toHaveBeenCalledWith({

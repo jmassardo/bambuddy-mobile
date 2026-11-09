@@ -7,6 +7,7 @@ export type BuiltInNavId =
   | 'queue'
   | 'archives'
   | 'files'
+  | 'catalog'
   | 'more'
   | 'settings'
   | 'users'
@@ -48,6 +49,7 @@ export const BUILT_IN_NAV_ITEMS: readonly BuiltInNavigationItem[] = [
   { id: 'queue', label: 'Queue', subtitle: 'Queued jobs and reorder controls', icon: 'list-ordered', location: 'tab', tabRoute: 'Queue' },
   { id: 'archives', label: 'Archives', subtitle: 'Completed print history', icon: 'archive', location: 'tab', tabRoute: 'Archives' },
   { id: 'files', label: 'Files', subtitle: 'Uploaded files and folders', icon: 'folder', location: 'tab', tabRoute: 'Files' },
+  { id: 'catalog', label: 'Catalog', subtitle: 'Browse MakerWorld models and print with one tap', icon: 'globe', location: 'tab', tabRoute: 'Catalog', lockVisibility: true },
   { id: 'more', label: 'More', subtitle: 'Additional pages and tools', icon: 'menu', location: 'tab', tabRoute: 'More', lockVisibility: true },
   { id: 'settings', label: 'Settings', subtitle: 'Server, integrations, backup, API keys', icon: 'settings', location: 'more', stackRoute: 'Settings', lockVisibility: true },
   { id: 'users', label: 'Users', subtitle: 'Accounts, roles, LDAP, password reset', icon: 'users', location: 'more', stackRoute: 'Users' },
@@ -86,6 +88,7 @@ const NAV_PERMISSIONS: Partial<Record<BuiltInNavId, readonly Permission[]>> = {
   projects: ['projects:read'],
   profiles: ['kprofiles:read', 'cloud:auth', 'orca_cloud:auth'],
   makerworld: ['makerworld:view'],
+  catalog: ['makerworld:view'],
   stats: ['stats:read'],
   energy: ['smart_plugs:read'],
   system: ['system:read'],
@@ -188,7 +191,7 @@ export function getNavigationLayout(input: {
   customNavItems?: CustomNavItem[];
   maxTabs?: number;
 }): NavigationLayout {
-  const maxTabs = Math.max(1, input.maxTabs ?? 5);
+  const maxTabs = Math.max(1, input.maxTabs ?? 6);
   const normalizedOrder = normalizeOrder(input.defaultSidebarOrder);
   const hasExplicitOrder = normalizedOrder.length > 0;
 
@@ -212,7 +215,11 @@ export function getNavigationLayout(input: {
 
   const hiddenBuiltIns = BUILT_IN_NAV_ITEMS.filter(item => !visibleIds.has(item.id));
 
-  const tabCandidates = orderedBuiltIns.filter(item => item.location === 'tab' && item.tabRoute);
+  // "More" is always the last tab.
+  const tabCandidates = [
+    ...orderedBuiltIns.filter(item => item.location === 'tab' && item.tabRoute && item.id !== 'more'),
+    ...orderedBuiltIns.filter(item => item.id === 'more'),
+  ];
   const tabItems = tabCandidates.slice(0, maxTabs);
 
   // Safety: avoid rendering a tab navigator with zero screens.

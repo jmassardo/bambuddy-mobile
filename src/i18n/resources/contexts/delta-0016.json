@@ -1,0 +1,186 @@
+{
+  "native.0d613eb067c1e30b": {
+    "english": "Trending",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 16,
+        "kind": "translation-default",
+        "owner": "buildStrings",
+        "existingKey": "makerworldCatalog.feedTrending",
+        "source": "'Trending'"
+      }
+    ]
+  },
+  "native.1e70d9061da282ce": {
+    "english": "Change",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 50,
+        "kind": "translation-default",
+        "owner": "buildStrings",
+        "existingKey": "makerworldCatalog.change",
+        "source": "'Change'"
+      }
+    ]
+  },
+  "native.25bdd61e005af1af": {
+    "english": "Popular",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 17,
+        "kind": "translation-default",
+        "owner": "buildStrings",
+        "existingKey": "makerworldCatalog.feedPopular",
+        "source": "'Popular'"
+      }
+    ]
+  },
+  "native.2e926ab098137cde": {
+    "english": "by {{name}}",
+    "context": "shared",
+    "placeholders": [
+      "name"
+    ],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 31,
+        "kind": "translation-default",
+        "owner": "buildStrings",
+        "existingKey": "makerworldCatalog.by",
+        "source": "'by {{name}}'"
+      }
+    ]
+  },
+  "native.37e9b2b16a9119e5": {
+    "english": "License",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 38,
+        "kind": "translation-default",
+        "owner": "buildStrings",
+        "existingKey": "makerworldCatalog.license",
+        "source": "'License'"
+      }
+    ]
+  },
+  "native.54c62f5223ddf893": {
+    "english": "any",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 57,
+        "kind": "translation-default",
+        "owner": "buildStrings",
+        "existingKey": "makerworldCatalog.anyOf",
+        "source": "'any'"
+      }
+    ]
+  },
+  "native.692ed9a50f88dece": {
+    "english": "{{count}} colors",
+    "context": "shared",
+    "placeholders": [
+      "count"
+    ],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 40,
+        "kind": "translation-default",
+        "owner": "buildStrings",
+        "existingKey": "makerworldCatalog.colors",
+        "source": "'{{count}} colors'"
+      }
+    ]
+  },
+  "native.6b6e433fdc77cbe5": {
+    "english": "New",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 19,
+        "kind": "translation-default",
+        "owner": "buildStrings",
+        "existingKey": "makerworldCatalog.feedNewest",
+        "source": "'New'"
+      }
+    ]
+  },
+  "native.83a99a19346ec94d": {
+    "english": "Slicing…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 62,
+        "kind": "translation-default",
+        "owner": "buildStrings",
+        "existingKey": "makerworldCatalog.stepSlicing",
+        "source": "'Slicing…'"
+      }
+    ]
+  },
+  "native.a6fa0076d1c62bd5": {
+    "english": "min",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 42,
+        "kind": "translation-default",
+        "owner": "buildStrings",
+        "existingKey": "makerworldCatalog.minutesShort",
+        "source": "'min'"
+      }
+    ]
+  },
+  "native.ea45ff0c35b41e4f": {
+    "english": "Choose",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 49,
+        "kind": "translation-default",
+        "owner": "buildStrings",
+        "existingKey": "makerworldCatalog.choose",
+        "source": "'Choose'"
+      }
+    ]
+  },
+  "native.f819f71ff122dcac": {
+    "english": "Working…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 47,
+        "kind": "translation-default",
+        "owner": "buildStrings",
+        "existingKey": "makerworldCatalog.printing",
+        "source": "'Working…'"
+      }
+    ]
+  }
+}

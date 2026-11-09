@@ -13,6 +13,7 @@ export type MainTabParamList = {
   Queue: undefined;
   Archives: undefined;
   Files: { folderId?: number; fileId?: number; projectId?: number } | undefined;
+  Catalog: undefined;
   More: undefined;
 };
 
@@ -34,6 +35,7 @@ export type RootStackParamList = {
   Inventory: { spool?: string } | undefined;
   Maintenance: undefined;
   MakerWorld: undefined;
+  MakerWorldModel: { id: number; title?: string };
   Profiles: undefined;
   Projects: undefined;
   Stats: undefined;

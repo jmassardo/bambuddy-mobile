@@ -28,7 +28,7 @@ describe('navigationConfig', () => {
     it('shows all built-ins by default', () => {
       const layout = getNavigationLayout({});
       expect(layout.hiddenBuiltIns).toHaveLength(0);
-      expect(layout.tabItems.map(item => item.id)).toEqual(['dashboard', 'queue', 'archives', 'files', 'more']);
+      expect(layout.tabItems.map(item => item.id)).toEqual(['dashboard', 'queue', 'archives', 'files', 'catalog', 'more']);
       expect(layout.moreItems.map(item => item.id)).toEqual([
         'settings',
         'users',
@@ -56,7 +56,7 @@ describe('navigationConfig', () => {
 
     it('applies explicit visibility/order and keeps locked items visible', () => {
       const layout = getNavigationLayout({ defaultSidebarOrder: 'queue,files' });
-      expect(layout.orderedBuiltIns.map(item => item.id)).toEqual(['queue', 'files', 'more', 'settings', 'spoolbuddy']);
+      expect(layout.orderedBuiltIns.map(item => item.id)).toEqual(['queue', 'files', 'catalog', 'more', 'settings', 'spoolbuddy']);
       expect(layout.hiddenBuiltIns.map(item => item.id)).toContain('dashboard');
       expect(layout.orderedBuiltIns.map(item => item.id)).toContain('more');
       expect(layout.orderedBuiltIns.map(item => item.id)).toContain('settings');

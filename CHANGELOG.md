@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Browse MakerWorld in a native Catalog tab and print a model with one tap through a slicer pipeline, with on-device favorites
 - Complete account security controls, optional authentication, email/backup-code login, native SSO, scoped API keys, and connected-app consent.
 
 ### Fixed

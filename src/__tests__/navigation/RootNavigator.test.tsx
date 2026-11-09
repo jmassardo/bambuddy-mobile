@@ -38,6 +38,7 @@ jest.mock('@/screens/InventoryScreen', () => () => null);
 jest.mock('@/screens/MaintenanceScreen', () => () => null);
 jest.mock('@/screens/Model3DPreviewScreen', () => () => null);
 jest.mock('@/screens/MakerWorldScreen', () => () => null);
+jest.mock('@/screens/MakerWorldModelScreen', () => () => null);
 jest.mock('@/screens/ProfilesScreen', () => () => null);
 jest.mock('@/screens/ProjectsScreen', () => () => null);
 jest.mock('@/screens/StatsScreen', () => () => null);
