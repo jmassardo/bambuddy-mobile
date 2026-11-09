@@ -24,6 +24,7 @@ import { MakerworldDestinationPicker } from '@/components/projects/MakerworldDes
 import { useAuth } from '@/contexts/AuthContext';
 
 import { makerworldImportRequest } from '@/utils/makerworld';
+import { useCatalogStrings } from './makerworldCatalogStrings';
 import { openLibrary } from '@/utils/libraryNavigation';
 import type { MakerworldImportRequest, MakerworldImportResponse } from '@/types/api';
 import { PrimaryButton, SectionCard, StatusBadge, TextField } from '@/components/common/AppUI';
@@ -38,6 +39,7 @@ type ImportResult = MakerworldImportResponse & { model_id: number; source_url: s
 export default function MakerWorldScreen() {
   const titleLocale = useNativeLocale();
   const { t } = useTranslation();
+  const catalogText = useCatalogStrings();
   const navigation = useNavigation<RootNavigationProp<'MakerWorld'>>();
   React.useLayoutEffect(() => {
     navigation.setOptions({ title: translateNative('nav.makerworld') });
@@ -203,6 +205,10 @@ export default function MakerWorldScreen() {
         />
       }
     >
+      <SectionCard title={catalogText.title} subtitle={catalogText.openCatalogHint}>
+        <PrimaryButton label={`🌐  ${catalogText.openCatalog}`} onPress={() => navigation.navigate('Main', { screen: 'Catalog' })} />
+      </SectionCard>
+
       {!pickBoolean(statusQuery.data, ['can_download']) ? (
         <SectionCard title={pickBoolean(statusQuery.data, ['sign_in_expired']) ? t('makerworld.expired', { defaultValue: 'Cloud sign-in expired' }) : t('makerworld.signIn', { defaultValue: 'Cloud sign-in required' })} subtitle={translateNative('native.33bb0bfb7b6894f8')}>
           <Text style={[styles.body, { color: colors.textSecondary }]}>{translateNative('native.7861d58da46425b1')}</Text>

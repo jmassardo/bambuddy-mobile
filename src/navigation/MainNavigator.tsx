@@ -7,7 +7,7 @@ import { getHeaderTitle, Header } from '@react-navigation/elements';
 import type { MainTabParamList } from './types';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme';
-import { Printer, ListOrdered, Archive, FolderOpen, Menu } from 'lucide-react-native';
+import { Printer, ListOrdered, Archive, FolderOpen, Menu, Globe } from 'lucide-react-native';
 import { useServerStore } from '@/api/server';
 import { DemoBadge } from '@/components/common/DemoBadge';
 import { QuickSmartPlugPanel } from '@/components/settings/SmartPlugPowerControls';
@@ -20,6 +20,7 @@ import QueueScreen from '@/screens/QueueScreen';
 import ArchivesScreen from '@/screens/ArchivesScreen';
 import FilesScreen from '@/screens/FilesScreen';
 import MoreScreen from '@/screens/MoreScreen';
+import CatalogScreen from '@/screens/CatalogScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -41,6 +42,7 @@ const TAB_ICONS: Record<string, React.ComponentType<{ size: number; color: strin
   Queue: ListOrdered,
   Archives: Archive,
   Files: FolderOpen,
+  Catalog: Globe,
   More: Menu,
 };
 
@@ -55,10 +57,15 @@ export default function MainNavigator() {
     Queue: text('Queue'),
     Archives: text('Archives'),
     Files: text('Files'),
+    Catalog: text('Catalog'),
     More: text('More'),
   };
-  const screens = { Dashboard: DashboardScreen, Queue: QueueScreen, Archives: ArchivesScreen, Files: FilesScreen, More: MoreScreen };
-  const tabItems = items.filter(item => item.tabRoute);
+  const screens = { Dashboard: DashboardScreen, Queue: QueueScreen, Archives: ArchivesScreen, Files: FilesScreen, Catalog: CatalogScreen, More: MoreScreen };
+  // "More" always stays the last tab, even when the server order predates newer tabs.
+  const tabItems = [
+    ...items.filter(item => item.tabRoute && item.id !== 'more'),
+    ...items.filter(item => item.tabRoute && item.id === 'more'),
+  ];
 
   return (
     <Tab.Navigator

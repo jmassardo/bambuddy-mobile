@@ -27,6 +27,7 @@ import InventoryScreen from '@/screens/InventoryScreen';
 import MaintenanceScreen from '@/screens/MaintenanceScreen';
 import Model3DPreviewScreen from '@/screens/Model3DPreviewScreen';
 import MakerWorldScreen from '@/screens/MakerWorldScreen';
+import MakerWorldModelScreen from '@/screens/MakerWorldModelScreen';
 import ProfilesScreen from '@/screens/ProfilesScreen';
 import ProjectsScreen from '@/screens/ProjectsScreen';
 import StatsScreen from '@/screens/StatsScreen';
@@ -166,6 +167,11 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
         name="MakerWorld"
         component={MakerWorldScreen}
         options={{ title: text('MakerWorld') }}
+      />}
+      {canOpen('MakerWorld') && <Stack.Screen
+        name="MakerWorldModel"
+        component={MakerWorldModelScreen}
+        options={{ title: 'MakerWorld' }}
       />}
       {canOpen('Profiles') && <Stack.Screen
         name="Profiles"

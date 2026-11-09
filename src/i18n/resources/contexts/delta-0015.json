@@ -1,0 +1,510 @@
+{
+  "native.0b96e6541f9ac9bf": {
+    "english": "Search models",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 14,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Search models'"
+      }
+    ]
+  },
+  "native.0d6fd36e4bac3ca3": {
+    "english": "Sending to the printer…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 62,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Sending to the printer…'"
+      }
+    ]
+  },
+  "native.17162f99d1b6e24a": {
+    "english": "Nothing found",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 26,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Nothing found'"
+      }
+    ]
+  },
+  "native.1fdd579fdd941947": {
+    "english": "Checking printer and filament…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 59,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Checking printer and filament…'"
+      }
+    ]
+  },
+  "native.26003a036ae99e60": {
+    "english": "No favorites yet",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 24,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'No favorites yet'"
+      }
+    ]
+  },
+  "native.26425ef52b1b1bbb": {
+    "english": "Sent to the printer!",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 64,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Sent to the printer!'"
+      }
+    ]
+  },
+  "native.34a0144403a53962": {
+    "english": "Waiting in the pipeline queue…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 63,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Waiting in the pipeline queue…'"
+      }
+    ]
+  },
+  "native.3c6c5261c1adea1a": {
+    "english": "Downloading the model to the library…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 58,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Downloading the model to the library…'"
+      }
+    ]
+  },
+  "native.42d37c78a4773de6": {
+    "english": "Pipeline for one-tap print",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 51,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Pipeline for one-tap print'"
+      }
+    ]
+  },
+  "native.4eba778dd2d74655": {
+    "english": "Starting slicing…",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 60,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Starting slicing…'"
+      }
+    ]
+  },
+  "native.59c9b358575e75a3": {
+    "english": "Open MakerWorld catalog",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 12,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Open MakerWorld catalog'"
+      }
+    ]
+  },
+  "native.6b892f51d2a6f325": {
+    "english": "Add to favorites",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 20,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Add to favorites'"
+      }
+    ]
+  },
+  "native.728be6638bb319d6": {
+    "english": "Could not load MakerWorld",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 28,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Could not load MakerWorld'"
+      }
+    ]
+  },
+  "native.806169b0d0f2ee97": {
+    "english": "Browse MakerWorld models and print them with one tap.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 13,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Browse MakerWorld models and print them with one tap.'"
+      }
+    ]
+  },
+  "native.810fb69f2597c6fa": {
+    "english": "Show more",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 34,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Show more'"
+      }
+    ]
+  },
+  "native.8732cdb4c16d3efa": {
+    "english": "{{value0}}k",
+    "context": "shared",
+    "placeholders": [
+      "value0"
+    ],
+    "occurrences": [
+      {
+        "file": "src/api/makerworldCatalog.ts",
+        "line": 117,
+        "kind": "ui-helper-return",
+        "owner": "formatCount",
+        "source": "`${(n / 1000).toFixed(1).replace(/\\.0$/, '')}k`"
+      }
+    ]
+  },
+  "native.895b47392b55e46b": {
+    "english": "Browse MakerWorld models and print with one tap",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/navigation/navigationConfig.ts",
+        "line": 52,
+        "kind": "ui-object-label",
+        "owner": "BUILT_IN_NAV_ITEMS",
+        "source": "'Browse MakerWorld models and print with one tap'"
+      }
+    ]
+  },
+  "native.8c6be4f2b243cfee": {
+    "english": "Print profiles",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 31,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Print profiles'"
+      }
+    ]
+  },
+  "native.9525fe49777a43c3": {
+    "english": "No pipelines yet. Create one in More → Slicer Pipelines (printer + profiles), then come back.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 53,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'No pipelines yet. Create one in More → Slicer Pipelines (printer + profiles), then come back.'"
+      }
+    ]
+  },
+  "native.987710fb551bad9c": {
+    "english": "Most liked",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 17,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Most liked'"
+      }
+    ]
+  },
+  "native.a9538bf1c7a7d972": {
+    "english": "Removed from favorites",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 23,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Removed from favorites'"
+      }
+    ]
+  },
+  "native.a9deac99dfb82fb2": {
+    "english": "Open on MakerWorld",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 44,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Open on MakerWorld'"
+      }
+    ]
+  },
+  "native.b3898932af8d0c1e": {
+    "english": "Your account is not allowed to import MakerWorld models or run pipelines.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 70,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Your account is not allowed to import MakerWorld models or run pipelines.'"
+      }
+    ]
+  },
+  "native.b7a69bf14f967c97": {
+    "english": "This model has no printable profiles.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 67,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'This model has no printable profiles.'"
+      }
+    ]
+  },
+  "native.ba5ca5d50198b069": {
+    "english": "no printer set",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 55,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'no printer set'"
+      }
+    ]
+  },
+  "native.c1ec019662a24497": {
+    "english": "Open Slicer Pipelines",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 54,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Open Slicer Pipelines'"
+      }
+    ]
+  },
+  "native.cc94f22791de8fd0": {
+    "english": "Show less",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 35,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Show less'"
+      }
+    ]
+  },
+  "native.d44c1ba414af803d": {
+    "english": "Open a model and tap “Add to favorites”.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 25,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Open a model and tap “Add to favorites”.'"
+      }
+    ]
+  },
+  "native.d87d3be55edcc5fa": {
+    "english": "To download models the Bambuddy server must be signed in to Bambu Cloud.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 68,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'To download models the Bambuddy server must be signed in to Bambu Cloud.'"
+      }
+    ]
+  },
+  "native.d908168c7a584a97": {
+    "english": "{{value0}}M",
+    "context": "shared",
+    "placeholders": [
+      "value0"
+    ],
+    "occurrences": [
+      {
+        "file": "src/api/makerworldCatalog.ts",
+        "line": 116,
+        "kind": "ui-helper-return",
+        "owner": "formatCount",
+        "source": "`${(n / 1_000_000).toFixed(1).replace(/\\.0$/, '')}M`"
+      }
+    ]
+  },
+  "native.d9c91a773e7a89c8": {
+    "english": "Added to favorites",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 22,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Added to favorites'"
+      }
+    ]
+  },
+  "native.dd8c40dd60b5d897": {
+    "english": "The pipeline decides which printer, slicer profiles and filament are used. It is remembered for next prints.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 52,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'The pipeline decides which printer, slicer profiles and filament are used. It is remembered for next prints.'"
+      }
+    ]
+  },
+  "native.f0f9c8f2eda79d17": {
+    "english": "Catalog",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/navigation/navigationConfig.ts",
+        "line": 52,
+        "kind": "ui-object-label",
+        "owner": "BUILT_IN_NAV_ITEMS",
+        "source": "'Catalog'"
+      }
+    ]
+  },
+  "native.f3b10454be2c12ba": {
+    "english": "Printer check found issues",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 71,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Printer check found issues'"
+      }
+    ]
+  },
+  "native.f8a3f6351c88fc7f": {
+    "english": "Try another search.",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 27,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'Try another search.'"
+      }
+    ]
+  },
+  "native.fd9f4d5dd95b0107": {
+    "english": "In favorites",
+    "context": "shared",
+    "placeholders": [],
+    "occurrences": [
+      {
+        "file": "src/screens/makerworldCatalogStrings.ts",
+        "line": 21,
+        "kind": "indirect-app-prose",
+        "owner": "catalogEnglish",
+        "source": "'In favorites'"
+      }
+    ]
+  }
+}
