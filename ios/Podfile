@@ -32,5 +32,12 @@ target 'Bambuddy' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+    installer.pods_project.targets.each do |t|
+      t.build_configurations.each do |c|
+        if c.build_settings["IPHONEOS_DEPLOYMENT_TARGET"].to_f < 15.1
+          c.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "15.1"
+        end
+      end
+    end
   end
 end
