@@ -30,6 +30,7 @@ Mobile companion app for the self-hosted [Bambuddy](https://bambuddy.cool) print
 
 ## Features
 
+- Native MakerWorld catalog tab with search, feeds, favorites, profile details and one-tap print through slicer pipelines ([guide](docs/MAKERWORLD_CATALOG.md))
 - Multi-printer dashboard with real-time status updates over WebSocket
 - Print queue management with batch grouping and scheduling
 - File browsing, upload, and organization for 3MF/STL assets
