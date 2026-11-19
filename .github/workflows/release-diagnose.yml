@@ -18,9 +18,30 @@ on:
         description: AAB versionCode of the stuck candidate
         required: true
         default: "6"
+      promote_to:
+        description: Destination track for the validated promotion
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - beta
+          - alpha
+          - internal
+      with_production_notes:
+        description: Attach synthesized production release notes to the validated promotion
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
+
+# Google Play keeps one open edit per app: serialize diagnosis runs so two
+# validate_only replays never fight over the edit.
+concurrency:
+  group: release-diagnose-play-edit
+  cancel-in-progress: false
 
 env:
   FASTLANE_SKIP_DOCS: "1"
@@ -64,15 +85,9 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
           RELEASE_STORE_METADATA_PATH: ${{ runner.temp }}/store-release-metadata.json
-      - name: Replay the production promotion with validate_only
+      - name: Replay the promotion with validate_only
         continue-on-error: true
-        run: bundle exec fastlane android diagnose_promote version:${{ inputs.version }} build_number:${{ inputs.build_number }}
-        env:
-          RELEASE_VERSION: ${{ inputs.version }}
-          BUILD_NUMBER: ${{ inputs.build_number }}
-      - name: Validate the promotion with synthesized production release notes
-        continue-on-error: true
-        run: bundle exec fastlane android diagnose_promote version:${{ inputs.version }} build_number:${{ inputs.build_number }} changelogs:${{ inputs.with_production_notes }}
+        run: bundle exec fastlane android diagnose_promote version:${{ inputs.version }} build_number:${{ inputs.build_number }} to_track:${{ inputs.promote_to }} changelogs:${{ inputs.with_production_notes }}
         env:
           RELEASE_VERSION: ${{ inputs.version }}
           BUILD_NUMBER: ${{ inputs.build_number }}

@@ -477,16 +477,20 @@ platform :android do
   lane :diagnose_promote do |opts|
     version = opts[:version].to_s.strip
     number = opts[:build_number].to_s.strip
+    to_track = opts[:to_track].to_s.strip
+    to_track = "production" if to_track.empty?
     with_changelogs = %w[1 true yes].include?(opts[:changelogs].to_s.downcase)
     UI.user_error!("diagnose_promote requires version and build_number") unless
       version.match?(/\A\d+\.\d+\.\d+\z/) && number.match?(/\A\d+\z/)
+    UI.user_error!("diagnose_promote supports internal, alpha, beta or production as the destination") unless
+      %w[internal alpha beta production].include?(to_track)
     identity = { version: version, number: number }
     credentials = google_credentials
     internal = exact_internal_android_release(identity, credentials)
     UI.success("Internal release verified: version_code #{internal.version_codes.join(',')} status #{internal.status}")
     options = {
       track: "internal",
-      track_promote_to: "production",
+      track_promote_to: to_track,
       version_code: number.to_i,
       release_status: "completed",
       track_promote_release_status: "completed",
@@ -507,12 +511,12 @@ platform :android do
       File.write(File.join(dir, "en-US", "changelogs", "#{number}.txt"), notes)
       options[:metadata_path] = dir
     end
-    UI.important("Validating the production promotion without committing it (changelogs: #{with_changelogs})")
+    UI.important("Validating the promotion to #{to_track} without committing it (changelogs: #{with_changelogs})")
     begin
       upload_to_play_store(**credentials, **options)
-      UI.success("Google Play accepted the production promotion in validate_only mode (changelogs: #{with_changelogs})")
+      UI.success("Google Play accepted the promotion to #{to_track} in validate_only mode (changelogs: #{with_changelogs})")
     rescue StandardError => e
-      UI.error("validate_only production promotion rejected (changelogs: #{with_changelogs}): #{e.message}")
+      UI.error("validate_only promotion to #{to_track} rejected (changelogs: #{with_changelogs}): #{e.message}")
       raise e
     end
   end
