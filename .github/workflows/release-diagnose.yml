@@ -66,13 +66,13 @@ jobs:
           RELEASE_STORE_METADATA_PATH: ${{ runner.temp }}/store-release-metadata.json
       - name: Replay the production promotion with validate_only
         continue-on-error: true
-        run: bundle exec fastlane android diagnose_promote
+        run: bundle exec fastlane android diagnose_promote version:${{ inputs.version }} build_number:${{ inputs.build_number }}
         env:
           RELEASE_VERSION: ${{ inputs.version }}
           BUILD_NUMBER: ${{ inputs.build_number }}
       - name: Validate the promotion with synthesized production release notes
         continue-on-error: true
-        run: bundle exec fastlane android diagnose_promote changelogs:true
+        run: bundle exec fastlane android diagnose_promote version:${{ inputs.version }} build_number:${{ inputs.build_number }} changelogs:${{ inputs.with_production_notes }}
         env:
           RELEASE_VERSION: ${{ inputs.version }}
           BUILD_NUMBER: ${{ inputs.build_number }}
