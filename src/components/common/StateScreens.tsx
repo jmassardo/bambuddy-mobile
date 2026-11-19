@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { translateNative, useNativeLocale, useTranslation } from '@/i18n';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import {
@@ -41,6 +42,60 @@ export function LoadingScreen({ message = translateNative('common.loading'), inl
     <View style={[inline ? styles.inlineContainer : styles.container, !inline && { backgroundColor: colors.background }]}>
       <ActivityIndicator size="large" color={colors.accent} />
       <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
+    </View>
+  );
+}
+
+interface StartupRecoveryScreenProps {
+  /** What the app is currently waiting on, shown under the title. */
+  stage: string;
+  /** Offer the escape immediately: the startup watchdog already fired. */
+  showEscape?: boolean;
+  /**
+   * Backstop for the case where the caller's watchdog cannot advance (a stuck
+   * promise, not a slow one): show the escape on our own clock.
+   */
+  escapeTimeoutMs?: number;
+  escapeLabel?: string;
+  onEscape: () => void;
+}
+
+/**
+ * Escape hatch shown when startup cannot hand control to the navigator
+ * (link hydration, preference sync, or navigation queries stuck). Historically
+ * those states returned null and trapped the user on a white screen after
+ * starting the iOS demo, so this view always offers a way back to setup.
+ */
+export function StartupRecoveryScreen({
+  stage,
+  showEscape,
+  escapeTimeoutMs = 6000,
+  escapeLabel = translateNative('startup.backToServerSetup'),
+  onEscape,
+}: StartupRecoveryScreenProps) {
+  useNativeLocale();
+  const { colors } = useTheme();
+  useTranslation();
+  const [timedOut, setTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (showEscape || timedOut) return undefined;
+    const timer = setTimeout(() => setTimedOut(true), escapeTimeoutMs);
+    return () => clearTimeout(timer);
+  }, [escapeTimeoutMs, showEscape, timedOut]);
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]} testID="startup-recovery">
+      <ActivityIndicator size="large" color={colors.accent} />
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>{translateNative('startup.title')}</Text>
+      <Text style={[styles.message, { color: colors.textSecondary }]}>{stage}</Text>
+      {(showEscape || timedOut) && (
+        <PrimaryButton
+          label={escapeLabel}
+          variant="secondary"
+          onPress={onEscape}
+        />
+      )}
     </View>
   );
 }
