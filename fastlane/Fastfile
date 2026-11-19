@@ -465,7 +465,12 @@ platform :android do
   desc "List every Play track and release without changing anything"
   lane :diagnose_play do
     release_identity
-    supply(**google_credentials, list_tracks: true)
+    read_google_tracks(google_credentials).each do |track|
+      releases = (track.releases || []).map do |release|
+        release.to_h.reject { |_, value| value.nil? }.inspect
+      end
+      UI.success("Play track #{track.track}: #{releases.empty? ? 'no releases' : releases.join(' | ')}")
+    end
   end
 
   desc "Read-only diagnosis of the production promotion: validate the exact promote edit without committing it"
@@ -478,7 +483,7 @@ platform :android do
     identity = { version: version, number: number }
     credentials = google_credentials
     internal = exact_internal_android_release(identity, credentials)
-    UI.success("Internal release verified: version_code #{internal[:number]} status #{internal[:status]}")
+    UI.success("Internal release verified: version_code #{internal.version_codes.join(',')} status #{internal.status}")
     options = {
       track: "internal",
       track_promote_to: "production",
@@ -508,7 +513,8 @@ platform :android do
       upload_to_play_store(**credentials, **options)
       UI.success("Google Play accepted the production promotion in validate_only mode (changelogs: #{with_changelogs})")
     rescue StandardError => e
-      UI.error!("validate_only production promotion rejected (changelogs: #{with_changelogs}): #{e.message}")
+      UI.error("validate_only production promotion rejected (changelogs: #{with_changelogs}): #{e.message}")
+      raise e
     end
   end
 

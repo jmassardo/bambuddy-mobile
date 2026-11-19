@@ -43,11 +43,12 @@ jobs:
         with:
           ruby-version: "3.3"
           bundler-cache: true
-      - name: Prepare query credentials
-        run: node scripts/release/pipeline.js prepare-query-credentials
+      # Only the Google Play service account is needed: the App Store lanes read
+      # their own credentials straight from the environment.
+      - name: Prepare Google Play credentials
+        run: node scripts/release/pipeline.js credentials google
         env:
           GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT }}
-          RELEASE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
       - name: Read every Play track
         run: bundle exec fastlane ios diagnose_play
         env:
