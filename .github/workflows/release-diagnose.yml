@@ -50,7 +50,7 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT }}
       - name: Read every Play track
-        run: bundle exec fastlane ios diagnose_play
+        run: bundle exec fastlane android diagnose_play
         env:
           RELEASE_VERSION: ${{ inputs.version }}
           BUILD_NUMBER: ${{ inputs.build_number }}
