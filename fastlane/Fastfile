@@ -462,6 +462,12 @@ platform :android do
     exact_internal_android_release(identity, credentials)
   end
 
+  desc "List every Play track and release without changing anything"
+  lane :diagnose_play do
+    release_identity
+    supply(**google_credentials, list_tracks: true)
+  end
+
   desc "Read-only diagnosis of the production promotion: validate the exact promote edit without committing it"
   lane :diagnose_promote do |opts|
     version = opts[:version].to_s.strip

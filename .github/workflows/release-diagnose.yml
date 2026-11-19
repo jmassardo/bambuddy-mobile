@@ -1,8 +1,9 @@
 name: Diagnose Android Promotion
 
 # Read-only investigation of a failed production promotion. It lists every Play
-# track and replays the exact promotion edit with validate_only, so Google Play
-# returns its precise rejection reason without the edit ever being committed.
+# track, replays the exact promotion edit with validate_only, and replays it again
+# with synthesized release notes, so Google Play returns its precise rejection
+# reason without an edit ever being committed.
 # Google Play permits one open edit per app: do not run this while a release
 # promotion is in flight.
 
@@ -35,16 +36,27 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Keep Bundler configuration outside the checkout
-        run: echo "BUNDLE_APP_CONFIG=$RUNNER_TEMP/bambuddy-bundler" >> "$GITHUB_ENV"
+        run: |
+          mkdir -p "$RUNNER_TEMP/bambuddy-bundler"
+          echo "BUNDLE_APP_CONFIG=$RUNNER_TEMP/bambuddy-bundler" >> "$GITHUB_ENV"
       - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1
         with:
           ruby-version: "3.3"
           bundler-cache: true
       - name: Prepare query credentials
-        run: node scripts/release/pipeline.js credentials google
+        run: node scripts/release/pipeline.js prepare-query-credentials
         env:
           GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT }}
-      - name: Read every Play track and App Store version
+          RELEASE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+      - name: Read every Play track
+        run: bundle exec fastlane ios diagnose_play
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+      # The stores are independent: a broken App Store agreement must not hide
+      # what Google Play says about the promotion.
+      - name: Read every App Store version
+        continue-on-error: true
         run: bundle exec fastlane ios release_metadata
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -52,12 +64,17 @@ jobs:
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
           RELEASE_STORE_METADATA_PATH: ${{ runner.temp }}/store-release-metadata.json
       - name: Replay the production promotion with validate_only
-        run: bundle exec fastlane android diagnose_promote version:"$VERSION" build_number:"$BUILD_NUMBER"
+        continue-on-error: true
+        run: bundle exec fastlane android diagnose_promote
         env:
-          VERSION: ${{ inputs.version }}
+          RELEASE_VERSION: ${{ inputs.version }}
           BUILD_NUMBER: ${{ inputs.build_number }}
       - name: Validate the promotion with synthesized production release notes
-        run: bundle exec fastlane android diagnose_promote version:"$VERSION" build_number:"$BUILD_NUMBER" changelogs:true
+        continue-on-error: true
+        run: bundle exec fastlane android diagnose_promote changelogs:true
         env:
-          VERSION: ${{ inputs.version }}
+          RELEASE_VERSION: ${{ inputs.version }}
           BUILD_NUMBER: ${{ inputs.build_number }}
+      - name: Remove temporary store credentials
+        if: always()
+        run: node scripts/release/pipeline.js cleanup-credentials
