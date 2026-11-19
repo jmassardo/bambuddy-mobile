@@ -170,12 +170,17 @@ def google_credentials
   { package_name: "com.dxrf.bambuddy", json_key: path }
 end
 
-def read_google_tracks(credentials)
+def google_play_client(credentials)
   require "supply"
   require "supply/options"
-  client = Supply::Client.make_from_config(
+  require "google/apis/androidpublisher_v3"
+  Supply::Client.make_from_config(
     params: FastlaneCore::Configuration.create(Supply::Options.available_options, credentials)
   )
+end
+
+def read_google_tracks(credentials)
+  client = google_play_client(credentials)
   client.begin_edit(package_name: credentials[:package_name])
   begin
     # The Play read API uses a disposable edit. Never commit it.
@@ -183,6 +188,20 @@ def read_google_tracks(credentials)
   ensure
     client.abort_current_edit
   end
+end
+
+# Builds the release object the promotion writes to the destination track. Supply's own
+# promote copies the source release verbatim, which cannot carry release notes the source
+# track never had, so the promotion edit is built explicitly here.
+def promotion_release_copy(release, notes)
+  copy = AndroidPublisher::TrackRelease.new(
+    name: release.name,
+    version_codes: release.version_codes,
+    status: "completed",
+    in_app_update_priority: release.in_app_update_priority
+  )
+  copy.release_notes = [AndroidPublisher::LocalizedText.new(language: "en-US", text: notes)] if notes
+  copy
 end
 
 def exact_internal_android_release(identity, credentials)
@@ -473,51 +492,32 @@ platform :android do
     end
   end
 
-  desc "Read-only diagnosis of the production promotion: validate the exact promote edit without committing it"
-  lane :diagnose_promote do |opts|
+  desc "Validate a promotion edit through the Play edit API, optionally with release notes, without committing it"
+  lane :diagnose_promote_api do |opts|
     version = opts[:version].to_s.strip
     number = opts[:build_number].to_s.strip
     to_track = opts[:to_track].to_s.strip
     to_track = "production" if to_track.empty?
-    with_changelogs = %w[1 true yes].include?(opts[:changelogs].to_s.downcase)
-    UI.user_error!("diagnose_promote requires version and build_number") unless
+    with_notes = %w[1 true yes].include?(opts[:notes].to_s.downcase)
+    UI.user_error!("diagnose_promote_api requires version and build_number") unless
       version.match?(/\A\d+\.\d+\.\d+\z/) && number.match?(/\A\d+\z/)
-    UI.user_error!("diagnose_promote supports internal, alpha, beta or production as the destination") unless
+    UI.user_error!("diagnose_promote_api supports internal, alpha, beta or production as the destination") unless
       %w[internal alpha beta production].include?(to_track)
     identity = { version: version, number: number }
     credentials = google_credentials
     internal = exact_internal_android_release(identity, credentials)
-    UI.success("Internal release verified: version_code #{internal.version_codes.join(',')} status #{internal.status}")
-    options = {
-      track: "internal",
-      track_promote_to: to_track,
-      version_code: number.to_i,
-      release_status: "completed",
-      track_promote_release_status: "completed",
-      skip_upload_apk: true,
-      skip_upload_metadata: true,
-      skip_upload_changelogs: !with_changelogs,
-      skip_upload_images: true,
-      skip_upload_screenshots: true,
-      validate_only: true
-    }
-    if with_changelogs
-      require "fileutils"
-      require "tmpdir"
-      notes = candidate_release_notes(identity)
-      dir = File.join(Dir.tmpdir, "bambuddy-promotion-diagnose-#{number}")
-      FileUtils.rm_rf(dir)
-      FileUtils.mkdir_p(File.join(dir, "en-US", "changelogs"))
-      File.write(File.join(dir, "en-US", "changelogs", "#{number}.txt"), notes)
-      options[:metadata_path] = dir
-    end
-    UI.important("Validating the promotion to #{to_track} without committing it (changelogs: #{with_changelogs})")
+    notes = with_notes ? candidate_release_notes(identity) : nil
+    client = google_play_client(credentials)
+    client.begin_edit(package_name: credentials[:package_name])
     begin
-      upload_to_play_store(**credentials, **options)
-      UI.success("Google Play accepted the promotion to #{to_track} in validate_only mode (changelogs: #{with_changelogs})")
+      track = AndroidPublisher::Track.new(track: to_track, releases: [promotion_release_copy(internal, notes)])
+      client.update_track(to_track, track)
+      client.validate_current_edit!
+      UI.success("PROBE track=#{to_track} notes=#{with_notes} accepted by validate")
     rescue StandardError => e
-      UI.error("validate_only promotion to #{to_track} rejected (changelogs: #{with_changelogs}): #{e.message}")
-      raise e
+      UI.error("PROBE track=#{to_track} notes=#{with_notes} rejected: #{e.message}")
+    ensure
+      client.abort_current_edit
     end
   end
 

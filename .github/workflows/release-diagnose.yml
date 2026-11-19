@@ -1,9 +1,10 @@
 name: Diagnose Android Promotion
 
 # Read-only investigation of a failed production promotion. It lists every Play
-# track, replays the exact promotion edit with validate_only, and replays it again
-# with synthesized release notes, so Google Play returns its precise rejection
-# reason without an edit ever being committed.
+# track, then validates candidate promotion edits through the Play edit API without
+# committing any of them, so Google Play returns its precise rejection reason for each
+# destination track and each release-notes variant. The whole run commits nothing, so the
+# release pipeline stays untouched while it runs.
 # Google Play permits one open edit per app: do not run this while a release
 # promotion is in flight.
 
@@ -18,65 +19,64 @@ on:
         description: AAB versionCode of the stuck candidate
         required: true
         default: "6"
-      promote_to:
-        description: Destination track for the validated promotion
-        required: true
-        default: "production"
-        type: choice
-        options:
-          - production
-          - beta
-          - alpha
-          - internal
-      with_production_notes:
-        description: Attach synthesized production release notes to the validated promotion
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
 
-# Google Play keeps one open edit per app: serialize diagnosis runs so two
-# validate_only replays never fight over the edit.
 concurrency:
   group: release-diagnose-play-edit
   cancel-in-progress: false
 
-env:
-  FASTLANE_SKIP_DOCS: "1"
-  BUNDLE_FORCE_RUBY_PLATFORM: "1"
-
 jobs:
   diagnose:
+    name: Read Play state without touching it
     runs-on: ubuntu-latest
     environment: release-query
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+      - name: Check out the queried commit
+        uses: actions/checkout@de0fac2e454053618664117671699f5c1779d597 # v6.0.4
         with:
-          node-version-file: .nvmrc
-      - name: Keep Bundler configuration outside the checkout
-        run: |
-          mkdir -p "$RUNNER_TEMP/bambuddy-bundler"
-          echo "BUNDLE_APP_CONFIG=$RUNNER_TEMP/bambuddy-bundler" >> "$GITHUB_ENV"
-      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1
+          fetch-depth: 0
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@080f6bbd373e92bb07c1e9a4d0b32c725f343907 # v1.210.0
         with:
-          ruby-version: "3.3"
+          ruby-version: "3.2"
           bundler-cache: true
-      # Only the Google Play service account is needed: the App Store lanes read
-      # their own credentials straight from the environment.
-      - name: Prepare Google Play credentials
-        run: node scripts/release/pipeline.js credentials google
+      - name: Set up Node.js
+        uses: actions/setup-node@60dc492f8f5a5a21c4625ac85372b514f67b8c82 # v5.0.0
+        with:
+          node-version: "22"
+      - name: Prepare store credentials
+        run: node scripts/release/pipeline.js credentials
         env:
-          GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT }}
+          PIPELINE_CREDENTIALS: match,google,app-store
+          PIPELINE_MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      # Supply's promotion copies the internal release verbatim, which cannot carry
+      # release notes the internal release never had. These probes build the destination
+      # release explicitly so release notes can be tested against each track.
+      - name: Validate candidate promotion edits without committing them
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          for track in production beta alpha; do
+            for notes in true false; do
+              bundle exec fastlane android diagnose_promote_api \
+                version:"${{ inputs.version }}" \
+                build_number:"${{ inputs.build_number }}" \
+                to_track:"$track" notes:"$notes" || true
+            done
+          done
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+          RELEASE_STORE_METADATA_PATH: ${{ runner.temp }}/store-release-metadata.json
       - name: Read every Play track
+        continue-on-error: true
         run: bundle exec fastlane android diagnose_play
         env:
           RELEASE_VERSION: ${{ inputs.version }}
           BUILD_NUMBER: ${{ inputs.build_number }}
-      # The stores are independent: a broken App Store agreement must not hide
-      # what Google Play says about the promotion.
       - name: Read every App Store version
         continue-on-error: true
         run: bundle exec fastlane ios release_metadata
@@ -85,12 +85,6 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
           RELEASE_STORE_METADATA_PATH: ${{ runner.temp }}/store-release-metadata.json
-      - name: Replay the promotion with validate_only
-        continue-on-error: true
-        run: bundle exec fastlane android diagnose_promote version:${{ inputs.version }} build_number:${{ inputs.build_number }} to_track:${{ inputs.promote_to }} changelogs:${{ inputs.with_production_notes }}
-        env:
-          RELEASE_VERSION: ${{ inputs.version }}
-          BUILD_NUMBER: ${{ inputs.build_number }}
       - name: Remove temporary store credentials
         if: always()
         run: node scripts/release/pipeline.js cleanup-credentials
