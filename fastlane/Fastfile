@@ -462,6 +462,50 @@ platform :android do
     exact_internal_android_release(identity, credentials)
   end
 
+  desc "Read-only diagnosis of the production promotion: validate the exact promote edit without committing it"
+  lane :diagnose_promote do |opts|
+    version = opts[:version].to_s.strip
+    number = opts[:build_number].to_s.strip
+    with_changelogs = %w[1 true yes].include?(opts[:changelogs].to_s.downcase)
+    UI.user_error!("diagnose_promote requires version and build_number") unless
+      version.match?(/\A\d+\.\d+\.\d+\z/) && number.match?(/\A\d+\z/)
+    identity = { version: version, number: number }
+    credentials = google_credentials
+    internal = exact_internal_android_release(identity, credentials)
+    UI.success("Internal release verified: version_code #{internal[:number]} status #{internal[:status]}")
+    options = {
+      track: "internal",
+      track_promote_to: "production",
+      version_code: number.to_i,
+      release_status: "completed",
+      track_promote_release_status: "completed",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: !with_changelogs,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_videos: true,
+      validate_only: true
+    }
+    if with_changelogs
+      require "fileutils"
+      require "tmpdir"
+      notes = candidate_release_notes(identity)
+      dir = File.join(Dir.tmpdir, "bambuddy-promotion-diagnose-#{number}")
+      FileUtils.rm_rf(dir)
+      FileUtils.mkdir_p(File.join(dir, "en-US", "changelogs"))
+      File.write(File.join(dir, "en-US", "changelogs", "#{number}.txt"), notes)
+      options[:metadata_path] = dir
+    end
+    UI.important("Validating the production promotion without committing it (changelogs: #{with_changelogs})")
+    begin
+      upload_to_play_store(**credentials, **options)
+      UI.success("Google Play accepted the production promotion in validate_only mode (changelogs: #{with_changelogs})")
+    rescue StandardError => e
+      UI.error!("validate_only production promotion rejected (changelogs: #{with_changelogs}): #{e.message}")
+    end
+  end
+
   desc "Promote only the exact accepted internal candidate; never build or upload a binary"
   lane :promote do
     identity = release_identity

@@ -1,0 +1,62 @@
+name: Diagnose Android Promotion
+
+# Read-only investigation of a failed production promotion. It lists every Play
+# track and replays the exact promotion edit with validate_only, so Google Play
+# returns its precise rejection reason without the edit ever being committed.
+# Google Play permits one open edit per app: do not run this while a release
+# promotion is in flight.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Store version of the stuck candidate
+        required: true
+        default: "1.1.2"
+      build_number:
+        description: AAB versionCode of the stuck candidate
+        required: true
+        default: "6"
+
+permissions:
+  contents: read
+
+env:
+  FASTLANE_SKIP_DOCS: "1"
+  BUNDLE_FORCE_RUBY_PLATFORM: "1"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    environment: release-query
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - name: Keep Bundler configuration outside the checkout
+        run: echo "BUNDLE_APP_CONFIG=$RUNNER_TEMP/bambuddy-bundler" >> "$GITHUB_ENV"
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Prepare query credentials
+        run: node scripts/release/pipeline.js credentials google
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT }}
+      - name: Read every Play track and App Store version
+        run: bundle exec fastlane ios release_metadata
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+      - name: Replay the production promotion with validate_only
+        run: bundle exec fastlane android diagnose_promote version:"$VERSION" build_number:"$BUILD_NUMBER"
+        env:
+          VERSION: ${{ inputs.version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+      - name: Validate the promotion with synthesized production release notes
+        run: bundle exec fastlane android diagnose_promote version:"$VERSION" build_number:"$BUILD_NUMBER" changelogs:true
+        env:
+          VERSION: ${{ inputs.version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
