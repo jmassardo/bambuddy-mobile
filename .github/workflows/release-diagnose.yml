@@ -1,0 +1,89 @@
+name: Diagnose Android Promotion
+
+# Read-only investigation of a failed production promotion. It lists every Play
+# track, then validates candidate promotion edits through the Play edit API without
+# committing any of them, so Google Play returns its precise rejection reason for each
+# destination track and each release-notes variant. The whole run commits nothing, so the
+# release pipeline stays untouched while it runs.
+# Google Play permits one open edit per app: do not run this while a release
+# promotion is in flight.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Store version of the stuck candidate
+        required: true
+        default: "1.1.2"
+      build_number:
+        description: AAB versionCode of the stuck candidate
+        required: true
+        default: "6"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-diagnose-play-edit
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Read Play state without touching it
+    runs-on: ubuntu-latest
+    environment: release-query
+    timeout-minutes: 15
+    env:
+      GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+    steps:
+      - name: Check out the queried commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - name: Prepare Play Store credentials
+        run: node scripts/release/pipeline.js credentials google
+      # Supply's promotion copies the internal release verbatim, which cannot carry
+      # release notes the internal release never had. These probes build the destination
+      # release explicitly so release notes can be tested against each track.
+      - name: Validate candidate promotion edits without committing them
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          for track in production beta alpha; do
+            for notes in true false; do
+              bundle exec fastlane android diagnose_promote_api \
+                version:"${{ inputs.version }}" \
+                build_number:"${{ inputs.build_number }}" \
+                to_track:"$track" notes:"$notes" || true
+            done
+          done
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+          RELEASE_STORE_METADATA_PATH: ${{ runner.temp }}/store-release-metadata.json
+      - name: Read every Play track
+        continue-on-error: true
+        run: bundle exec fastlane android diagnose_play
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+      - name: Read every App Store version
+        continue-on-error: true
+        run: bundle exec fastlane ios release_metadata
+        env:
+          RELEASE_STORE_METADATA_PATH: ${{ runner.temp }}/store-release-metadata.json
+      - name: Remove temporary store credentials
+        if: always()
+        run: node scripts/release/pipeline.js cleanup-credentials
