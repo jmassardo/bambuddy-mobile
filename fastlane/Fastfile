@@ -548,14 +548,16 @@ platform :android do
       edit_id = client.current_edit.id
       track = AndroidPublisher::Track.new(track: to_track, releases: [promotion_release_copy(internal, notes)])
       client.client.update_edit_track(package, edit_id, to_track, track)
+      UI.important("PROBE track=#{to_track} notes=#{with_notes} step=write accepted")
       # Google can accept the write and still reject it at validation, so read the staged
       # release back from the edit to see what the promotion actually put there.
       staged = client.client.get_edit_track(package, edit_id, to_track)
-      UI.important("PROBE track=#{to_track} notes=#{with_notes} staged=#{(staged.releases || []).map { |release| release.to_h.reject { |_, value| value.nil? } }.inspect}")
+      UI.important("PROBE track=#{to_track} notes=#{with_notes} step=readback accepted releases=#{(staged.releases || []).map { |release| release.to_h.reject { |_, value| value.nil? } }.inspect}")
       client.client.validate_edit(package, edit_id)
-      UI.success("PROBE track=#{to_track} notes=#{with_notes} accepted by validate")
+      UI.success("PROBE track=#{to_track} notes=#{with_notes} step=validate accepted")
     rescue Google::Apis::Error => e
-      UI.error("PROBE track=#{to_track} notes=#{with_notes} rejected: #{e.message} | body=#{e.body}")
+      status = e.respond_to?(:status_code) ? e.status_code : "?"
+      UI.error("PROBE track=#{to_track} notes=#{with_notes} rejected: #{e.class} http=#{status} #{e.message} | body=#{e.body}")
     rescue StandardError => e
       UI.error("PROBE track=#{to_track} notes=#{with_notes} failed: #{e.message}")
     ensure
