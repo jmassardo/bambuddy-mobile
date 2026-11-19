@@ -50,6 +50,7 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          RELEASE_STORE_METADATA_PATH: ${{ runner.temp }}/store-release-metadata.json
       - name: Replay the production promotion with validate_only
         run: bundle exec fastlane android diagnose_promote version:"$VERSION" build_number:"$BUILD_NUMBER"
         env:
