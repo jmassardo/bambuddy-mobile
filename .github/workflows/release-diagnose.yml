@@ -33,25 +33,27 @@ jobs:
     runs-on: ubuntu-latest
     environment: release-query
     timeout-minutes: 15
+    env:
+      GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_CONTENT }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
     steps:
       - name: Check out the queried commit
-        uses: actions/checkout@de0fac2e454053618664117671699f5c1779d597 # v6.0.4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - name: Set up Ruby
-        uses: ruby/setup-ruby@080f6bbd373e92bb07c1e9a4d0b32c725f343907 # v1.210.0
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1
         with:
-          ruby-version: "3.2"
+          ruby-version: "3.3"
           bundler-cache: true
       - name: Set up Node.js
-        uses: actions/setup-node@60dc492f8f5a5a21c4625ac85372b514f67b8c82 # v5.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: "22"
-      - name: Prepare store credentials
-        run: node scripts/release/pipeline.js credentials
-        env:
-          PIPELINE_CREDENTIALS: match,google,app-store
-          PIPELINE_MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          node-version-file: .nvmrc
+      - name: Prepare Play Store credentials
+        run: node scripts/release/pipeline.js credentials google
       # Supply's promotion copies the internal release verbatim, which cannot carry
       # release notes the internal release never had. These probes build the destination
       # release explicitly so release notes can be tested against each track.
@@ -81,9 +83,6 @@ jobs:
         continue-on-error: true
         run: bundle exec fastlane ios release_metadata
         env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
           RELEASE_STORE_METADATA_PATH: ${{ runner.temp }}/store-release-metadata.json
       - name: Remove temporary store credentials
         if: always()
