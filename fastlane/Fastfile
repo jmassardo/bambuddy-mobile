@@ -495,7 +495,6 @@ platform :android do
       skip_upload_changelogs: !with_changelogs,
       skip_upload_images: true,
       skip_upload_screenshots: true,
-      skip_upload_videos: true,
       validate_only: true
     }
     if with_changelogs
