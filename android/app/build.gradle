@@ -93,8 +93,8 @@ android {
         applicationId "com.dxrf.bambuddy"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.1.0"
+        versionCode 6
+        versionName "1.1.2"
     }
     signingConfigs {
         debug {

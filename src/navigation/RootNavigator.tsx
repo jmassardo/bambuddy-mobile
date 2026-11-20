@@ -12,6 +12,7 @@ import { useStreamToken } from '@/hooks/useStreamToken';
 import { useTranslation } from '@/i18n';
 import { useNavigationItems } from './useNavigationItems';
 import { BUILT_IN_NAV_ITEMS, canAccessNavigationItem } from './navigationConfig';
+import { StartupRecoveryScreen } from '@/components/common/StateScreens';
 
 import MainNavigator from './MainNavigator';
 import LoginScreen from '@/screens/LoginScreen';
@@ -55,6 +56,8 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
   const { user, authEnabled, loading, requiresSetup, serverConnected, hasPermission } = useAuth();
   const serverUrl = useServerStore((s) => s.serverUrl);
   const serverLoading = useServerStore((s) => s.loading);
+  const clearServerUrl = useServerStore((s) => s.clearServerUrl);
+  const revealedRef = React.useRef(false);
   const theme = useTheme();
   const { text, t } = useTranslation();
   const { access } = useNavigationItems();
@@ -76,8 +79,16 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
     ...(locksIPhoneToPortrait ? { orientation: 'portrait_up' as const } : {}),
   };
 
-  // Still hydrating server URL from storage
-  if (serverLoading) return null;
+  // Still hydrating server URL from storage. If this never finishes (stuck
+  // storage read), the recovery screen offers an escape back to setup.
+  if (serverLoading) {
+    return (
+      <StartupRecoveryScreen
+        stage={t('startup.restoringSession')}
+        onEscape={() => clearServerUrl?.()}
+      />
+    );
+  }
 
   // Server requires first-time setup
   if (serverUrl && !loading && requiresSetup) {
@@ -99,8 +110,29 @@ export default function RootNavigator({ entryReady = true }: { entryReady?: bool
     );
   }
 
-  if (loading) return null;
-  if (!entryReady) return null;
+  // Once the authenticated stack has actually been shown, keep showing it even
+  // if a startup condition briefly flickers (e.g. revalidation state churn).
+  if (user && serverUrl && !loading && entryReady) {
+    revealedRef.current = true;
+  }
+
+  if (loading && !revealedRef.current) {
+    return (
+      <StartupRecoveryScreen
+        stage={t('startup.signingIn')}
+        onEscape={() => clearServerUrl?.()}
+      />
+    );
+  }
+
+  if (!entryReady && !revealedRef.current) {
+    return (
+      <StartupRecoveryScreen
+        stage={t('startup.preparingScreens')}
+        onEscape={() => clearServerUrl?.()}
+      />
+    );
+  }
 
   // Authenticated (or auth disabled) — show main app
   return (

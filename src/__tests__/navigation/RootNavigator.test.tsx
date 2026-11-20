@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import RootNavigator from '@/navigation/RootNavigator';
 
 jest.mock('react-native-image-picker', () => ({
@@ -22,6 +22,9 @@ const mockAuth = {
 };
 let mockBillingEnabled = true;
 let mockServerUrl = 'https://bambuddy.test';
+let mockServerLoading = false;
+const mockLoadServerUrl = jest.fn();
+const mockClearServerUrl = jest.fn();
 
 jest.mock('@/navigation/MainNavigator', () => () => null);
 jest.mock('@/screens/ServerSetupScreen', () => () => null);
@@ -80,8 +83,8 @@ jest.mock('@/contexts/AuthContext', () => ({
 }));
 
 jest.mock('@/api/server', () => ({
-  useServerStore: (selector: (state: { serverUrl: string; loading: boolean }) => unknown) =>
-    selector({ serverUrl: mockServerUrl, loading: false }),
+  useServerStore: (selector: (state: { serverUrl: string; loading: boolean; loadServerUrl: () => void; clearServerUrl: () => void }) => unknown) =>
+    selector({ serverUrl: mockServerUrl, loading: mockServerLoading, loadServerUrl: mockLoadServerUrl, clearServerUrl: mockClearServerUrl }),
   registerServerUrlChangeHandler: jest.fn(),
 }));
 
@@ -110,6 +113,8 @@ describe('RootNavigator', () => {
     mockAuth.hasPermission.mockReturnValue(true);
     mockBillingEnabled = true;
     mockServerUrl = 'https://bambuddy.test';
+    mockServerLoading = false;
+    mockClearServerUrl.mockClear();
   });
 
   it('registers implemented parity routes after authentication', async () => {
@@ -179,5 +184,42 @@ describe('RootNavigator', () => {
     mockAuth.user = null;
     await view.rerender(<RootNavigator entryReady={false} />);
     expect(registeredRoutes).toEqual(['Login', 'ServerSetup', 'Scanner']);
+  });
+
+  it('offers a way back to setup when signed-in startup never becomes ready', async () => {
+    jest.useFakeTimers();
+    try {
+      const view = await render(<RootNavigator entryReady={false} />);
+      expect(registeredRoutes).toEqual([]);
+      expect(view.queryByText('Back to server setup')).toBeNull();
+      await act(async () => { jest.advanceTimersByTime(6000); });
+      fireEvent.press(view.getByText('Back to server setup'));
+      expect(mockClearServerUrl).toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('escapes to setup when server hydration never completes', async () => {
+    jest.useFakeTimers();
+    try {
+      mockServerLoading = true;
+      const view = await render(<RootNavigator />);
+      expect(registeredRoutes).toEqual([]);
+      await act(async () => { jest.advanceTimersByTime(6000); });
+      fireEvent.press(view.getByText('Back to server setup'));
+      expect(mockClearServerUrl).toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps the authenticated stack mounted when a startup flag flickers back', async () => {
+    const view = await render(<RootNavigator />);
+    expect(registeredRoutes).toContain('Main');
+    registeredRoutes.length = 0;
+    mockAuth.loading = true;
+    await view.rerender(<RootNavigator entryReady={false} />);
+    expect(registeredRoutes).toContain('Main');
   });
 });

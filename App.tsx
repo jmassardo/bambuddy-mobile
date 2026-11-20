@@ -1,6 +1,6 @@
 import 'react-native-get-random-values';
 import React, { useEffect, useRef, useState } from 'react';
-import { Linking, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { ErrorBoundary } from 'react-error-boundary';
 import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -15,7 +15,7 @@ import RootNavigator from '@/navigation/RootNavigator';
 import { ThemeProvider, useTheme } from '@/theme';
 import { useServerStore } from '@/api/server';
 import { OfflineBanner } from '@/components/common/OfflineBanner';
-import { LocalizationProvider, useTranslation } from '@/i18n';
+import { LocalizationProvider, translateNative, useTranslation } from '@/i18n';
 import { ServerPreferencesSync } from '@/components/common/ServerPreferencesSync';
 import { BugReportCollectionGuard } from '@/components/system/BugReportTools';
 import { AnnouncementBanner } from '@/components/common/AnnouncementBanner';
@@ -26,6 +26,10 @@ import { applicationLandingState, parseConnectAuthorizeLink } from '@/navigation
 import type { RootStackParamList } from '@/navigation/types';
 
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+// On iOS, Linking.getInitialURL() can stall indefinitely when no URL scheme is
+// registered, so we cap how long app entry waits on it.
+const LINK_RESOLVE_TIMEOUT_MS = 2500;
 
 onlineManager.setEventListener((setOnline) => {
   return NetInfo.addEventListener((state) => {
@@ -84,9 +88,15 @@ function AppContent() {
         setPendingConsent(consent);
       }
     });
-    void Linking.getInitialURL().then(url => {
+    // getInitialURL() can stall forever on iOS (no URL scheme registered yet,
+    // as in the demo build), so entry must not wait on it unconditionally.
+    const initialUrl = Linking.getInitialURL().then(url => {
       if (active && !receivedLink && url) setPendingConsent(parseConnectAuthorizeLink(url));
-    }).catch(() => {}).finally(() => { if (active) setLinkLoaded(true); });
+    }).catch(() => {});
+    void Promise.race([
+      initialUrl,
+      new Promise<null>(resolve => setTimeout(() => resolve(null), LINK_RESOLVE_TIMEOUT_MS)),
+    ]).finally(() => { if (active) setLinkLoaded(true); });
     return () => { active = false; subscription.remove(); };
   }, []);
 
@@ -157,6 +167,35 @@ function AppContent() {
   );
 }
 
+// Before ThemeProvider/i18n hydrate, StartupRecoveryScreen is unavailable
+// (useTheme throws without its provider), so the hydration gate renders its
+// own theme-free escape hatch on a fixed clock.
+const STARTUP_ESCAPE_TIMEOUT_MS = 6000;
+
+function ServerHydrationGate({ onEscape }: { onEscape: () => void }) {
+  const [showEscape, setShowEscape] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShowEscape(true), STARTUP_ESCAPE_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <View style={styles.startupGate} testID="server-hydration-gate">
+      <ActivityIndicator size="large" color="#00AE42" />
+      <Text style={styles.startupGateTitle}>{translateNative('startup.title')}</Text>
+      <Text style={styles.startupGateMessage}>{translateNative('startup.restoringSession')}</Text>
+      {showEscape && (
+        <Text
+          accessibilityRole="button"
+          onPress={onEscape}
+          style={styles.startupGateAction}
+        >
+          {translateNative('startup.backToServerSetup')}
+        </Text>
+      )}
+    </View>
+  );
+}
+
 function AppErrorFallback({ resetErrorBoundary }: { resetErrorBoundary: () => void }) {
   const { text, t } = useTranslation();
   const theme = useTheme();
@@ -172,13 +211,15 @@ function AppErrorFallback({ resetErrorBoundary }: { resetErrorBoundary: () => vo
 export default function App() {
   const serverLoading = useServerStore((s) => s.loading);
   const loadServerUrl = useServerStore((s) => s.loadServerUrl);
+  const clearServerUrl = useServerStore((s) => s.clearServerUrl);
 
   useEffect(() => {
     loadServerUrl();
   }, [loadServerUrl]);
 
-  // Don't render until server URL is hydrated from AsyncStorage
-  if (serverLoading) return null;
+  // Don't render until server URL is hydrated from AsyncStorage — but never
+  // leave the user on a blank screen if that read stalls.
+  if (serverLoading) return <ServerHydrationGate onEscape={() => clearServerUrl?.()} />;
 
   return (
     <LocalizationProvider>
@@ -218,4 +259,8 @@ const styles = StyleSheet.create({
   errorTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
   errorMessage: { marginBottom: 16, textAlign: 'center' },
   retry: { fontSize: 16, fontWeight: '600' },
+  startupGate: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#1a1a1a' },
+  startupGateTitle: { marginTop: 16, fontSize: 18, fontWeight: '600', color: '#ffffff' },
+  startupGateMessage: { marginTop: 8, fontSize: 14, color: '#a0a0a0' },
+  startupGateAction: { marginTop: 24, fontSize: 16, fontWeight: '600', color: '#00AE42', padding: 8 },
 });

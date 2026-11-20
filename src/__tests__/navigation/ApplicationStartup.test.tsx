@@ -1,6 +1,6 @@
 import React from 'react';
 import { Linking } from 'react-native';
-import { act, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import App from '../../../App';
 import { useUiPreferencesStore } from '@/store/uiPreferencesStore';
 import { BUILT_IN_NAV_ITEMS } from '@/navigation/navigationConfig';
@@ -14,10 +14,13 @@ const mockAuth = {
   requiresSetup: false,
 };
 let mockServerUrl = 'https://configured.test';
+let mockServerLoading = false;
+let mockInitialURLHangs = false;
 let mockLinkListener: ((event: { url: string }) => void) | undefined;
 let mockInitialURL: string | null = null;
 const mockRemoveLinkListener = jest.fn();
 const mockLoadServerUrl = jest.fn();
+const mockClearServerUrl = jest.fn();
 const mockPushRender = jest.fn();
 const mockItems = { items: [...BUILT_IN_NAV_ITEMS], loading: false };
 const mockToastContext = React.createContext(false);
@@ -26,7 +29,7 @@ const mockAuthContext = React.createContext(false);
 jest.mock('react-native/Libraries/Linking/Linking', () => ({
   __esModule: true,
   default: {
-    getInitialURL: jest.fn(() => Promise.resolve(mockInitialURL)),
+    getInitialURL: jest.fn(() => (mockInitialURLHangs ? new Promise<string | null>(() => {}) : Promise.resolve(mockInitialURL))),
     addEventListener: jest.fn((_event, listener) => {
       mockLinkListener = listener;
       return { remove: mockRemoveLinkListener };
@@ -88,8 +91,20 @@ jest.mock('@/navigation/RootNavigator', () => () => null);
 jest.mock('@/navigation/useNavigationItems', () => ({ useNavigationItems: () => mockItems }));
 jest.mock('@/hooks/useOffline', () => ({ useOffline: () => ({ isOffline: false }) }));
 jest.mock('@/api/server', () => ({
-  useServerStore: (selector: (state: { serverUrl: string; loading: boolean; loadServerUrl: () => void }) => unknown) =>
-    selector({ serverUrl: mockServerUrl, loading: false, loadServerUrl: mockLoadServerUrl }),
+  useServerStore: (
+    selector: (state: {
+      serverUrl: string | null;
+      loading: boolean;
+      loadServerUrl: () => void;
+      clearServerUrl: () => void;
+    }) => unknown,
+  ) =>
+    selector({
+      serverUrl: mockServerUrl,
+      loading: mockServerLoading,
+      loadServerUrl: mockLoadServerUrl,
+      clearServerUrl: mockClearServerUrl,
+    }),
 }));
 jest.mock('@/theme', () => ({
   ThemeProvider: ({ children }: { children: React.ReactNode }) => children,
@@ -107,8 +122,50 @@ describe('application startup navigation', () => {
     mockItems.items = [...BUILT_IN_NAV_ITEMS];
     mockItems.loading = false;
     mockInitialURL = null;
+    mockInitialURLHangs = false;
+    mockServerLoading = false;
     mockLinkListener = undefined;
     useUiPreferencesStore.setState({ loaded: true, landingPage: 'queue' });
+  });
+
+  it('still routes a signed-in session when the initial URL lookup never settles', async () => {
+    // iOS can leave Linking.getInitialURL() pending forever; the watchdog must still open the app.
+    mockInitialURLHangs = true;
+    jest.useFakeTimers();
+    try {
+      mockAuth.user = { id: 1 };
+      await render(<App />);
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+      expect(mockResetRoot).not.toHaveBeenCalled();
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+      expect(mockResetRoot).toHaveBeenCalledWith({
+        index: 0, routes: [{ name: 'Main', params: { screen: 'Queue' } }],
+      });
+    } finally {
+      mockInitialURLHangs = false;
+      jest.useRealTimers();
+    }
+  });
+
+  it('offers a way back to server setup when stored server loading never finishes', async () => {
+    jest.useFakeTimers();
+    try {
+      mockServerLoading = true;
+      const { getByText } = await render(<App />);
+      await act(async () => {
+        jest.advanceTimersByTime(6500);
+      });
+      expect(getByText('Restoring your session...')).toBeTruthy();
+      fireEvent.press(getByText('Back to server setup'));
+      expect(mockClearServerUrl).toHaveBeenCalled();
+    } finally {
+      mockServerLoading = false;
+      jest.useRealTimers();
+    }
   });
 
   it('applies the saved landing once on sign-in without resetting browsing or preference edits', async () => {
